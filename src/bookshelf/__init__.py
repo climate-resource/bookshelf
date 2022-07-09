@@ -15,3 +15,6 @@ try:
 except Exception:  # pylint: disable=broad-except pragma: no cover
     # Local copy, not installed with setuptools
     __version__ = "unknown"
+
+
+from bookshelf.book import Book

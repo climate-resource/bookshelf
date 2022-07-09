@@ -1,0 +1,14 @@
+{
+  "name": "example",
+  "license": "MIT",
+  "versions": [
+    {
+      "version": "v1.0.0",
+      "hash": ""
+    },
+    {
+      "version": "v1.1.0",
+      "hash": ""
+    }
+  ]
+}

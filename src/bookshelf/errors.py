@@ -1,0 +1,2 @@
+class FetchError(ConnectionError):
+    pass
