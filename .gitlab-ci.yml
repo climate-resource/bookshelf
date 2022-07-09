@@ -1,0 +1,41 @@
+image: python:3.9
+
+stages:
+  - build
+  - test
+
+variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache: &global_cache
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .cache/pip
+    - venv/
+  policy: pull-push
+
+
+build:
+  stage: build
+  script:
+    - make -B virtual-environment
+
+
+# Test the rcmip package and CLI
+test: &test_config
+  stage: test
+  cache:
+    <<: *global_cache
+    policy: pull  # only pull from cache
+  before_script:
+    - source venv/bin/activate
+  script:
+    - pip freeze
+    - pytest --cov -rfsxEX --cov-report term-missing
+
+
+test:format:
+  <<: *test_config
+  script:
+    - flake8 setup.py src tests
+    - black --check src tests
