@@ -4,11 +4,13 @@
   "versions": [
     {
       "version": "v1.0.0",
-      "hash": ""
+      "hash": "",
+      "url": "https://test.local/package/v1.0/example/v1.0.0"
     },
     {
       "version": "v1.1.0",
-      "hash": ""
+      "hash": "",
+      "url": "https://test.local/package/v1.0/example/v1.1.0"
     }
   ]
 }

@@ -70,7 +70,7 @@ def _fetch_volume_meta(
 
     fname = "volume.json"
 
-    local_fname = pathlib.Path(local_bookshelf) / name
+    local_fname = pathlib.Path(local_bookshelf) / name / fname
 
     existing_hash = None
     if os.path.exists(local_fname):
@@ -171,7 +171,9 @@ class Book:
         self.name = name
         self.version = version
         self.bookshelf = bookshelf
-        self.local_bookshelf = create_local_cache(local_bookshelf)
+        self.local_bookshelf = local_bookshelf
+        if local_bookshelf is None:
+            self.local_bookshelf = create_local_cache(local_bookshelf)
 
     def _resolve_version(self, version):
         # Update the package metadata
