@@ -30,6 +30,10 @@ they can be consumed queried smartly
 * [ ] Simple web page to allow querying the data
 * [ ] A standardised way of dealing with metadata (datapackage or the like?)
 
+
+Each Book consists of a datapackage description of the metadata. This datapackage contains the
+associated pages and their hashes. Each Page is fetched when it is first used and then cached for later use
+
 .. sec-end-index
 
 License

@@ -2,6 +2,8 @@ import json
 import os
 import shutil
 import pytest
+import scmdata
+
 from bookshelf.utils import create_local_cache
 from bookshelf.constants import TEST_DATA_DIR
 
@@ -49,3 +51,12 @@ def remote_bookshelf(requests_mock):
     bs = MockRemoteBookshop()
 
     yield bs
+
+
+@pytest.fixture()
+def example_data():
+    return scmdata.ScmRun(
+        os.path.join(
+            TEST_DATA_DIR, "v0.1.0", "example", "v1.0.0", "leakage_rates_low.csv"
+        )
+    )
