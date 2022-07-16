@@ -39,5 +39,5 @@ test:format:
   script:
     - flake8 setup.py src tests
     - black --check src tests
-    - mypy --install-types  src
+    - mypy --install-types --non-interactive src
     - bandit -r src
