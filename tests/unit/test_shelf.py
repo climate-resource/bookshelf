@@ -4,9 +4,9 @@ import re
 import appdirs
 import pytest
 
+from bookshelf.constants import DATA_FORMAT_VERSION
 from bookshelf.errors import UnknownBook, UnknownVersion
 from bookshelf.shelf import BookShelf, LocalBook
-from bookshelf.constants import DATA_FORMAT_VERSION
 
 
 def test_local_cache():

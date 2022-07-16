@@ -5,7 +5,7 @@ import pooch.hashes
 import pytest
 
 from bookshelf.book import LocalBook
-from bookshelf.constants import TEST_DATA_DIR, DATA_FORMAT_VERSION
+from bookshelf.constants import DATA_FORMAT_VERSION, TEST_DATA_DIR
 
 
 def test_book_info():
