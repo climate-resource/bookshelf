@@ -7,9 +7,9 @@ A BookShelf is a collection of Books
 import json
 import os
 import pathlib
+from typing import Optional, Union
 
 import requests.exceptions
-from typing import Union, Optional
 
 from bookshelf.book import LocalBook
 from bookshelf.constants import DEFAULT_BOOKSHELF

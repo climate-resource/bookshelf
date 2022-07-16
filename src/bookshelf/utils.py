@@ -4,7 +4,7 @@ Bookshelf utilities
 import logging
 import os
 import pathlib
-from typing import Union, Optional
+from typing import Optional, Union
 
 import pooch
 

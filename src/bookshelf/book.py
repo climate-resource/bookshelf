@@ -8,6 +8,7 @@ import json
 import os.path
 import pathlib
 from typing import Union
+
 import datapackage
 import pooch
 import scmdata
