@@ -4,6 +4,7 @@ Bookshelf utilities
 import logging
 import os
 import pathlib
+from typing import Union, Optional
 
 import pooch
 
@@ -12,7 +13,7 @@ from bookshelf.constants import DATA_FORMAT_VERSION
 logger = logging.getLogger(__file__)
 
 
-def create_local_cache(path: [str, pathlib.Path] = None) -> pathlib.Path:
+def create_local_cache(path: Union[str, pathlib.Path, None] = None) -> pathlib.Path:
     """
     Prepare a cache directory
 
@@ -32,20 +33,20 @@ def create_local_cache(path: [str, pathlib.Path] = None) -> pathlib.Path:
     if path is None:
         path = pooch.utils.os_cache("bookshelf")
 
-    path = pooch.utils.cache_location(path / DATA_FORMAT_VERSION)
+    path = pooch.utils.cache_location(pathlib.Path(path) / DATA_FORMAT_VERSION)
 
     pooch.utils.make_local_storage(path)
 
-    return path
+    return pathlib.Path(path)  # type: ignore
 
 
 def download(
     url: str,
     local_fname: pathlib.Path,
-    known_hash: str = None,
+    known_hash: Optional[str] = None,
     progressbar: bool = False,
     retry_count: int = 0,
-):
+) -> None:
     """
     Download a remote file using pooch's downloader
 
@@ -71,7 +72,7 @@ def download(
     )
 
 
-def build_url(bookshelf: str, *paths) -> str:
+def build_url(bookshelf: str, *paths: Union[str, pathlib.Path]) -> str:
     """
     Build a URL
 
@@ -91,8 +92,11 @@ def build_url(bookshelf: str, *paths) -> str:
 
 
 def fetch_file(
-    url: str, local_fname: pathlib.Path, known_hash: str = None, force=False
-):
+    url: str,
+    local_fname: pathlib.Path,
+    known_hash: Optional[str] = None,
+    force: Optional[bool] = False,
+) -> None:
     """
     Fetch a remote file and store it locally
 

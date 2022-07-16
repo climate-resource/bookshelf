@@ -9,6 +9,7 @@ import os
 import pathlib
 
 import requests.exceptions
+from typing import Union, Optional
 
 from bookshelf.book import LocalBook
 from bookshelf.constants import DEFAULT_BOOKSHELF
@@ -21,7 +22,7 @@ def _fetch_volume_meta(
     name: str,
     remote_bookshelf: str,
     local_bookshelf: pathlib.Path,
-    force=True,
+    force: bool = True,
 ) -> VolumeMeta:
     """
     Fetch information about the books available for a given volume
@@ -68,7 +69,7 @@ class BookShelf:
 
     def __init__(
         self,
-        path: [str, pathlib.Path] = None,
+        path: Union[str, pathlib.Path, None] = None,
         remote_bookshelf: str = DEFAULT_BOOKSHELF,
     ):
         if path is None:
@@ -76,7 +77,9 @@ class BookShelf:
         self.path = pathlib.Path(path)
         self.remote_bookshelf = remote_bookshelf
 
-    def load(self, name: str, version: str = None, force=False) -> LocalBook:
+    def load(
+        self, name: str, version: Optional[str] = None, force: bool = False
+    ) -> LocalBook:
         """
         Load a book
 
@@ -105,7 +108,7 @@ class BookShelf:
 
         return LocalBook(name, version, local_bookshelf=self.path)
 
-    def save(self, book: LocalBook):
+    def save(self, book: LocalBook) -> None:
         """
         Save a book to the remote bookshelf
 
@@ -118,7 +121,7 @@ class BookShelf:
         """
         raise NotImplementedError
 
-    def _resolve_version(self, name, version) -> str:
+    def _resolve_version(self, name: str, version: Optional[str] = None) -> str:
         # Update the package metadata
         try:
             meta = _fetch_volume_meta(name, self.remote_bookshelf, self.path)
