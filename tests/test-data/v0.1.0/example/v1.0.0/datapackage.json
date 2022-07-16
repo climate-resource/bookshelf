@@ -1,5 +1,14 @@
 {
-  "resources": [
-
-  ]
+  "name": "example",
+  "version": "v1.0.0",
+    "resources": [
+        {
+            "name": "leakage_rates_low",
+            "format": "CSV",
+            "filename": "leakage_rates_low.csv",
+            "hash": "5e6c9076152f4249598562dd9d250f6b69386608b93ccd344d3e79014fa0f15a",
+            "profile": "data-resource"
+        }
+    ],
+    "profile": "data-package"
 }

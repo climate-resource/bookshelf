@@ -76,7 +76,7 @@ class BookShelf:
         self.path = pathlib.Path(path)
         self.remote_bookshelf = remote_bookshelf
 
-    def load(self, name: str, version: str = None) -> LocalBook:
+    def load(self, name: str, version: str = None, force=False) -> LocalBook:
         """
         Load a book
 
@@ -84,7 +84,7 @@ class BookShelf:
         the remote bookshelf is queried, otherwise the local metadata is used.
 
         """
-        if version is None:
+        if version is None or force:
             version = self._resolve_version(name, version)
 
         metadata_fragment = os.path.join(name, version, "datapackage.json")
@@ -93,9 +93,14 @@ class BookShelf:
         if not metadata_fname.exists():
             try:
                 url = build_url(self.remote_bookshelf, metadata_fragment)
-                fetch_file(url, local_fname=metadata_fname, known_hash=None)
+                fetch_file(
+                    url,
+                    local_fname=metadata_fname,
+                    known_hash=None,
+                    force=force,
+                )
             except requests.exceptions.HTTPError:
-                raise UnknownVersion(f"Could not find {name}@{version}")
+                raise UnknownVersion(name, version)
         assert metadata_fname.exists()
 
         return LocalBook(name, version, local_bookshelf=self.path)
@@ -127,4 +132,4 @@ class BookShelf:
         for item in meta.versions:
             if item.version == version:
                 return version
-        raise ValueError(f"Version {version} does not exist")
+        raise UnknownVersion(name, version)
