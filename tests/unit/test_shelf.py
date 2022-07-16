@@ -28,13 +28,15 @@ def test_load(remote_bookshelf, local_bookshelf):
 
 
 def test_load_with_cached(remote_bookshelf, local_bookshelf):
-    remote_bookshelf.register("test", "v1.2.1")
-
     shelf = BookShelf(path=local_bookshelf)
     shelf.load("test")
 
     remote_bookshelf.mocker.reset()
+    remote_bookshelf.register("test", "v1.2.1")
 
     shelf = BookShelf(path=local_bookshelf)
-    shelf.load("test", "v1.2.1")
+    shelf.load("test", "v1.1.0")
     assert remote_bookshelf.mocker.call_count == 0
+
+    shelf.load("test", "v1.2.1")
+    assert remote_bookshelf.mocker.call_count == 1

@@ -87,13 +87,15 @@ class LocalBook(Book):
         return os.path.join(self.local_bookshelf, self.name, self.version, fname)
 
     def metadata(self) -> datapackage.Package:
-        fname = "datapackage.json"
+        if self._metadata is None:
+            fname = "datapackage.json"
 
-        local_fname = self.local_fname(fname)
-        with open(local_fname) as fh:
-            d = json.load(fh)
+            local_fname = self.local_fname(fname)
+            with open(local_fname) as fh:
+                d = json.load(fh)
 
-        return datapackage.Package(d)
+            self._metadata = datapackage.Package(d)
+        return self._metadata
 
     def add_timeseries(self, name, data):
         fname = f"{name}.csv"
