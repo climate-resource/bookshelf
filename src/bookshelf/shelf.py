@@ -86,6 +86,28 @@ class BookShelf:
         If the book's metadata does not exist locally or an unknown version is requested
         the remote bookshelf is queried, otherwise the local metadata is used.
 
+        Parameters
+        ----------
+        name: str
+            Name of the volume to load
+        version: str
+            Version to load
+
+            If no version is provided, the latest version is returned
+        force: bool
+            If True, redownload the book metadata
+
+        Raises
+        ------
+        UnknownVersion
+            The requested version is not available for the selected volume
+        UnknownBook
+            An invalid volume is requested
+
+        Returns
+        -------
+        :class:`LocalBook`
+            A book from which the resources can be accessed
         """
         if version is None or force:
             version = self._resolve_version(name, version)
@@ -104,7 +126,9 @@ class BookShelf:
                 )
             except requests.exceptions.HTTPError:
                 raise UnknownVersion(name, version)
-        assert metadata_fname.exists()
+
+        if not metadata_fname.exists():
+            raise AssertionError()  # noqa
 
         return LocalBook(name, version, local_bookshelf=self.path)
 
