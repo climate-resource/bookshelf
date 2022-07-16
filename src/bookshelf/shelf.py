@@ -4,17 +4,17 @@ BookShelf
 A BookShelf is a collection of Books
 """
 
+import json
 import os
 import pathlib
-import json
 
 import requests.exceptions
 
 from bookshelf.book import LocalBook
-from bookshelf.utils import build_url, create_local_cache, fetch_file
-from bookshelf.schema import VolumeMeta
-from bookshelf.errors import UnknownBook, UnknownVersion
 from bookshelf.constants import DEFAULT_BOOKSHELF
+from bookshelf.errors import UnknownBook, UnknownVersion
+from bookshelf.schema import VolumeMeta
+from bookshelf.utils import build_url, create_local_cache, fetch_file
 
 
 def _fetch_volume_meta(

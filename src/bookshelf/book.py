@@ -7,13 +7,13 @@ each of which are loaded independently.
 import json
 import os.path
 import pathlib
-import datapackage
 
+import datapackage
 import pooch
 import scmdata
 
 from bookshelf.constants import DEFAULT_BOOKSHELF
-from bookshelf.utils import create_local_cache, build_url, fetch_file
+from bookshelf.utils import build_url, create_local_cache, fetch_file
 
 
 class _Book:

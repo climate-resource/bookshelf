@@ -1,6 +1,5 @@
 import os
 
-
 DATA_FORMAT_VERSION = "v0.1.0"
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 

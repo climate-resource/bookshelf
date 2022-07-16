@@ -2,7 +2,7 @@ import pytest
 import scmdata
 import scmdata.testing
 
-from bookshelf import LocalBook, BookShelf
+from bookshelf import BookShelf, LocalBook
 
 
 def test_simple_book(local_bookshelf, remote_bookshelf):

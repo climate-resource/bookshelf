@@ -1,6 +1,7 @@
 import re
 
 import pytest
+
 from bookshelf.errors import UnknownBook, UnknownVersion
 from bookshelf.shelf import BookShelf
 

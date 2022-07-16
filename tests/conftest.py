@@ -1,11 +1,12 @@
 import json
 import os
 import shutil
+
 import pytest
 import scmdata
 
-from bookshelf.utils import create_local_cache
 from bookshelf.constants import TEST_DATA_DIR
+from bookshelf.utils import create_local_cache
 
 
 def read_json(fname):

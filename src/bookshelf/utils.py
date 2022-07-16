@@ -1,8 +1,9 @@
-import pathlib
-import os
 import logging
+import os
+import pathlib
 
 import pooch
+
 from bookshelf.constants import DATA_FORMAT_VERSION
 
 logger = logging.getLogger(__file__)
