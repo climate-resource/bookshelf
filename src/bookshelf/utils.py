@@ -1,9 +1,11 @@
 import pathlib
 import os
-import urllib.parse
+import logging
 
 import pooch
 from bookshelf.constants import DATA_FORMAT_VERSION
+
+logger = logging.getLogger(__file__)
 
 
 def create_local_cache(path: [str, pathlib.Path] = None) -> pathlib.Path:
@@ -67,3 +69,51 @@ def download(
 
 def build_url(bookshelf, *paths) -> str:
     return os.path.join(bookshelf, *paths)
+
+
+def fetch_file(
+    url: str, local_fname: pathlib.Path, known_hash: str = None, force=False
+):
+    """
+    Fetch a remote file and store it locally
+
+    Parameters
+    ----------
+    url : str
+        URL of data file
+    local_fname : pathlib.Path
+        The location of where to store the downloaded file
+    known_hash : str
+        Expected sha256 has of the output file.
+
+        If the hash of the downloaded file doesn't match the expected hash a ValueError
+        is raised.
+
+        If no hash is provided, no checks are performed
+    force : bool
+        If True, always download the file
+
+    Raises
+    ------
+
+    ValueError
+        Failing hash check for the output file
+    FileNotFoundError
+        Downloaded file was not in the expected location
+
+    """
+    existing_hash = None
+    if not force and local_fname.exists():
+        if pooch.hashes.hash_matches(local_fname, known_hash):
+            return
+        else:
+            raise ValueError(
+                f"Hash for existing file {local_fname} does not match the expected value {known_hash}"
+            )
+
+    if force or existing_hash is None:
+        download(url, local_fname=local_fname, known_hash=known_hash)
+        logger.info(f"{local_fname} downloaded from {url}")
+
+    if not local_fname.exists():
+        raise FileNotFoundError(f"Could not find file {local_fname}")  # noqa

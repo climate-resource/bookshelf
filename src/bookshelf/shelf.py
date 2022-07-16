@@ -1,39 +1,20 @@
+"""
+BookShelf
+
+A BookShelf is a collection of Books
+"""
+
 import os
 import pathlib
 import json
 
-import pooch
 import requests.exceptions
 
 from bookshelf.book import LocalBook
-from bookshelf.utils import download, build_url, create_local_cache
+from bookshelf.utils import build_url, create_local_cache, fetch_file
 from bookshelf.schema import VolumeMeta
 from bookshelf.errors import UnknownBook, UnknownVersion
 from bookshelf.constants import DEFAULT_BOOKSHELF
-
-
-def _fetch_file(
-    url: str, local_fname: pathlib.Path, known_hash: str = None, force=False
-):
-    existing_hash = None
-    if local_fname.exists():
-        if pooch.hashes.hash_matches(local_fname, known_hash):
-            return
-        else:
-            raise ValueError(
-                f"Hash for existing file {local_fname} does not match the expected value {known_hash}"
-            )
-
-    if force or existing_hash is None:
-        download(url, local_fname=local_fname, known_hash=known_hash)
-
-    current_hash = None
-    if existing_hash and existing_hash != current_hash:
-        # The package metadata has been updated
-        pass
-
-    if not local_fname.exists():
-        raise FileNotFoundError(f"Could not find file {local_fname}")
 
 
 def _fetch_volume_meta(
@@ -68,7 +49,7 @@ def _fetch_volume_meta(
     local_fname = local_bookshelf / name / fname
     url = build_url(remote_bookshelf, name, fname)
 
-    _fetch_file(url, local_fname)
+    fetch_file(url, local_fname)
 
     with open(str(local_fname)) as fh:
         d = json.load(fh)
@@ -104,7 +85,7 @@ class BookShelf:
         if not metadata_fname.exists():
             try:
                 url = build_url(self.remote_bookshelf, metadata_fragment)
-                _fetch_file(url, local_fname=metadata_fname, known_hash=None)
+                fetch_file(url, local_fname=metadata_fname, known_hash=None)
             except requests.exceptions.HTTPError:
                 raise UnknownVersion(f"Could not find {name}@{version}")
         assert metadata_fname.exists()

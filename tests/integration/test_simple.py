@@ -2,13 +2,13 @@ import pytest
 import scmdata
 import scmdata.testing
 
-from bookshelf import Book
+from bookshelf import _Book
 
 
 def test_simple_book(local_bookshelf, remote_bookshelf):
     remote_bookshelf.register("test", "v1.1.0")
 
-    book = Book("test", local_bookshelf=local_bookshelf)
+    book = _Book("test", local_bookshelf=local_bookshelf)
     book.fetch()
 
     expected_dir = local_bookshelf / "test"
@@ -19,11 +19,11 @@ def test_simple_book(local_bookshelf, remote_bookshelf):
 def test_existing(local_bookshelf, remote_bookshelf):
     remote_bookshelf.register("test", "v1.1.0")
 
-    book = Book("test", local_bookshelf=local_bookshelf)
+    book = _Book("test", local_bookshelf=local_bookshelf)
     book.fetch()
     remote_bookshelf.mocker.reset()
 
-    new_book = Book("test", "v1.1.0", local_bookshelf=local_bookshelf)
+    new_book = _Book("test", "v1.1.0", local_bookshelf=local_bookshelf)
     new_book.fetch()
     assert remote_bookshelf.mocker._adapter.call_count == 1
 
@@ -31,7 +31,7 @@ def test_existing(local_bookshelf, remote_bookshelf):
 
 
 def test_adding(local_bookshelf, example_data):
-    book = Book.create_new("my_new_book", version="v0.1.0")
+    book = _Book.create_new("my_new_book", version="v0.1.0")
     assert len(book.metadata().resources) == 0
 
     book.add_timeseries("test", example_data)

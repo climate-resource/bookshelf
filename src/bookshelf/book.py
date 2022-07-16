@@ -1,7 +1,8 @@
 """
 Book
 
-
+A Book represents a single versioned dataset. A dataset can contain multiple resources
+each of which are loaded independently.
 """
 import json
 import os.path
@@ -12,37 +13,10 @@ import pooch
 import scmdata
 
 from bookshelf.constants import DEFAULT_BOOKSHELF
-from bookshelf.utils import create_local_cache, build_url
+from bookshelf.utils import create_local_cache, build_url, fetch_file
 
 
-def fetch(name: str, version: str = None):
-    """
-    Fetch a package
-
-    Fetches a package from the remote bookshelf if it isn't already available
-    in a local bookshelf.
-
-    Parameters
-    ----------
-    name : str
-        Name of the book
-
-    version : str
-        Version of the book to fetch
-
-        If not provided the latest version will be fetched
-
-    Returns
-    -------
-    Book
-
-    """
-    book = Book(name, version=version)
-
-    return book.fetch()
-
-
-class Book:
+class _Book:
     def __init__(
         self,
         name: str,
@@ -63,12 +37,12 @@ class Book:
         pass
 
 
-class RemoteBook(Book):
+class RemoteBook(_Book):
     def fetch(self):
         pass
 
 
-class LocalBook(Book):
+class LocalBook(_Book):
     """
     A local instance of a Book
 
@@ -129,7 +103,7 @@ class LocalBook(Book):
             raise ValueError(f"Unknown timeseries '{resource}'")
 
         local_fname = self.local_fname(resource.descriptor["filename"])
-        _fetch_file(
+        fetch_file(
             resource.descriptor.get("path"),
             local_fname,
             known_hash=resource.descriptor.get("hash"),
