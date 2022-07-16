@@ -37,11 +37,6 @@ class _Book:
         pass
 
 
-class RemoteBook(_Book):
-    def fetch(self):
-        pass
-
-
 class LocalBook(_Book):
     """
     A local instance of a Book
@@ -57,21 +52,56 @@ class LocalBook(_Book):
             self.local_bookshelf = create_local_cache(local_bookshelf)
         self._metadata = None
 
-    def local_fname(self, fname):
+    def local_fname(self, fname: str) -> str:
+        """
+        Get the name of a file in the package
+
+        Parameters
+        ----------
+        fname : str
+            Name of the file
+
+        Returns
+        -------
+        str
+            The filename for the file in the local bookshelf
+        """
         return os.path.join(self.local_bookshelf, self.name, self.version, fname)
 
     def metadata(self) -> datapackage.Package:
+        """
+        Metadata about the current book
+
+        :module:`datapackage` is used for handling the metadata.
+
+        Returns
+        -------
+        :class:`datapackage.Package`
+            Metadata about the Book
+        """
         if self._metadata is None:
             fname = "datapackage.json"
 
             local_fname = self.local_fname(fname)
-            with open(local_fname) as fh:
-                d = json.load(fh)
+            with open(local_fname) as file_handle:
+                d = json.load(file_handle)
 
             self._metadata = datapackage.Package(d)
         return self._metadata
 
     def add_timeseries(self, name, data):
+        """
+        Add a timeseries resource to the Book
+
+        Updates the Books metadata
+
+        Parameters
+        ----------
+        name : str
+            Unique name of the resource
+        data : scmdata.ScmRun
+            Timeseries data to add to the Book
+        """
         fname = f"{name}.csv"
         data.to_csv(self.local_fname(fname))
         hash = pooch.hashes.file_hash(self.local_fname(fname))
@@ -88,6 +118,9 @@ class LocalBook(_Book):
 
     @classmethod
     def create_new(cls, name, version, **kwargs):
+        """
+        Create a new Book
+        """
         book = LocalBook(name, version, **kwargs)
         book._metadata = datapackage.Package(
             {"name": name, "version": version, "resources": []}
@@ -96,7 +129,23 @@ class LocalBook(_Book):
 
         return book
 
-    def timeseries(self, name) -> scmdata.ScmRun:
+    def timeseries(self, name: str) -> scmdata.ScmRun:
+        """
+        Get a timeseries resource
+
+        If the data is not available in the local cache, it is downloaded from the
+        remote BookShelf.
+
+        Parameters
+        ----------
+        name : str
+            Name of the volume
+
+        Returns
+        -------
+            Timeseries data
+
+        """
         resource: datapackage.Resource = self.metadata().get_resource(name)
 
         if resource is None:
@@ -105,7 +154,7 @@ class LocalBook(_Book):
         local_fname = self.local_fname(resource.descriptor["filename"])
         fetch_file(
             resource.descriptor.get("path"),
-            local_fname,
+            pathlib.Path(local_fname),
             known_hash=resource.descriptor.get("hash"),
         )
 

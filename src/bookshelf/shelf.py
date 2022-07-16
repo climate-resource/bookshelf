@@ -21,7 +21,7 @@ def _fetch_volume_meta(
     name: str,
     remote_bookshelf: str,
     local_bookshelf: pathlib.Path,
-    fetch=True,
+    force=True,
 ) -> VolumeMeta:
     """
     Fetch information about the books available for a given volume
@@ -36,14 +36,13 @@ def _fetch_volume_meta(
         Local path where downloaded books will be stored.
 
         Must be a writable directory
-    fetch: bool
+    force: bool
         If True metadata is always fetched from the remote bookshelf
 
     Returns
     -------
     VolumeMeta
     """
-
     fname = "volume.json"
 
     local_fname = local_bookshelf / name / fname
@@ -51,13 +50,22 @@ def _fetch_volume_meta(
 
     fetch_file(url, local_fname)
 
-    with open(str(local_fname)) as fh:
-        d = json.load(fh)
+    with open(str(local_fname)) as file_handle:
+        data = json.load(file_handle)
 
-    return VolumeMeta(**d)
+    return VolumeMeta(**data)
 
 
 class BookShelf:
+    """
+    A BookShelf stores a number of Books
+
+    If a Book isn't available locally, it will be queried from the remote bookshelf.
+
+    Books can be fetched using :func:`load` by name. Specific versions of a book can be
+    pinned if needed otherwise the latest version of the book is loaded.
+    """
+
     def __init__(
         self,
         path: [str, pathlib.Path] = None,
@@ -93,6 +101,16 @@ class BookShelf:
         return LocalBook(name, version, local_bookshelf=self.path)
 
     def save(self, book: LocalBook):
+        """
+        Save a book to the remote bookshelf
+
+        TODO: This will require authentication??
+
+        Parameters
+        ----------
+        book : LocalBook
+            Book to upload
+        """
         raise NotImplementedError
 
     def _resolve_version(self, name, version) -> str:
@@ -104,9 +122,9 @@ class BookShelf:
 
         if version is None:
             return meta.versions[-1].version
-        else:
-            # Verify that the version exists
-            for v in meta.versions:
-                if v.version == version:
-                    return version
-            raise ValueError(f"Version {version} does not exist")
+
+        # Verify that the version exists
+        for item in meta.versions:
+            if item.version == version:
+                return version
+        raise ValueError(f"Version {version} does not exist")

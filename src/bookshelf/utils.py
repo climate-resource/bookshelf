@@ -1,3 +1,6 @@
+"""
+Bookshelf utilities
+"""
 import logging
 import os
 import pathlib
@@ -68,7 +71,22 @@ def download(
     )
 
 
-def build_url(bookshelf, *paths) -> str:
+def build_url(bookshelf: str, *paths) -> str:
+    """
+    Build a URL
+
+    Parameters
+    ----------
+    bookshelf: str
+        The remote bookshelf
+    paths : list of str or pathlib.Path
+        A collection of paths that form the path of the URL
+    Returns
+    -------
+    str
+        The merged URL
+
+    """
     return os.path.join(bookshelf, *paths)
 
 
@@ -96,7 +114,6 @@ def fetch_file(
 
     Raises
     ------
-
     ValueError
         Failing hash check for the output file
     FileNotFoundError
@@ -107,10 +124,10 @@ def fetch_file(
     if not force and local_fname.exists():
         if pooch.hashes.hash_matches(local_fname, known_hash):
             return
-        else:
-            raise ValueError(
-                f"Hash for existing file {local_fname} does not match the expected value {known_hash}"
-            )
+        raise ValueError(
+            f"Hash for existing file {local_fname} does not match the expected "
+            f"value {known_hash}"
+        )
 
     if force or existing_hash is None:
         download(url, local_fname=local_fname, known_hash=known_hash)

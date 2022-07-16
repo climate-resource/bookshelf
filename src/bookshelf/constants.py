@@ -1,3 +1,6 @@
+"""
+Constants
+"""
 import os
 
 DATA_FORMAT_VERSION = "v0.1.0"
