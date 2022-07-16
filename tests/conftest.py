@@ -33,6 +33,8 @@ def remote_bookshelf(requests_mock):
     class MockRemoteBookshop:
         def __init__(self):
             self.mocker = requests_mock
+            self.register("test", "v1.0.0")
+            self.register("test", "v1.1.0")
 
         def register(self, name, version):
             requests_mock.get(
