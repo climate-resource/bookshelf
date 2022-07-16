@@ -17,5 +17,5 @@ except Exception:  # pylint: disable=broad-except pragma: no cover
     __version__ = "unknown"
 
 
-from bookshelf.book import LocalBook
-from bookshelf.shelf import BookShelf
+from bookshelf.book import LocalBook  # noqa
+from bookshelf.shelf import BookShelf  # noqa

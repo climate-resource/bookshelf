@@ -9,7 +9,7 @@ def test_simple_book(local_bookshelf, remote_bookshelf):
     remote_bookshelf.register("test", "v1.1.0")
 
     shelf = BookShelf(path=local_bookshelf)
-    book = shelf.load("test")
+    shelf.load("test")
 
     expected_dir = local_bookshelf / "test"
     assert (expected_dir / "volume.json").exists()

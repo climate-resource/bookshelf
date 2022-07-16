@@ -20,7 +20,7 @@ def test_create_local(local_bookshelf):
     expected_fname = local_bookshelf / "test" / "v1.0.0" / "datapackage.json"
 
     assert not expected_fname.exists()
-    book = LocalBook.create_new("test", "v1.0.0", local_bookshelf=local_bookshelf)
+    LocalBook.create_new("test", "v1.0.0", local_bookshelf=local_bookshelf)
     assert expected_fname.exists()
 
 
