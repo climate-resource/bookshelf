@@ -46,7 +46,7 @@ test: &test_config
 test:format:
   <<: *test_config
   script:
-    - flake8 setup.py src tests
-    - black --check src tests
+    - flake8 setup.py src tests notebooks
+    - black --check src tests notebooks
     - mypy --install-types --non-interactive src
     - bandit -r src

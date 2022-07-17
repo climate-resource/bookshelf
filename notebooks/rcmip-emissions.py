@@ -14,14 +14,11 @@
 # ---
 
 # %%
-import os
-
 import pooch
 import scmdata
 
-from bookshelf import LocalBook, BookShelf
+from bookshelf import BookShelf, LocalBook
 from bookshelf.constants import PROCESSED_DATA_DIR
-
 
 # %% tags=["parameters"]
 BOOK_VERSION = "v0.1.0"
@@ -29,15 +26,17 @@ DATASET_VERSION = ""
 PROCESSING_DIR = PROCESSED_DATA_DIR
 
 # %%
-book = LocalBook.create_new("rcmip-emissions", version=BOOK_VERSION, local_bookshelf=PROCESSING_DIR)
+book = LocalBook.create_new(
+    "rcmip-emissions", version=BOOK_VERSION, local_bookshelf=PROCESSING_DIR
+)
 
 # %% [markdown]
 # #  Fetch
 
 # %%
 rcmip_fname = pooch.retrieve(
-    "https://rcmip-protocols-au.s3-ap-southeast-2.amazonaws.com/v5.1.0/rcmip-emissions-annual-means-v5-1-0.csv", 
-    known_hash="2af9f90c42f9baa813199a902cdd83513fff157a0f96e1d1e6c48b58ffb8b0c1"
+    "https://rcmip-protocols-au.s3-ap-southeast-2.amazonaws.com/v5.1.0/rcmip-emissions-annual-means-v5-1-0.csv",
+    known_hash="2af9f90c42f9baa813199a902cdd83513fff157a0f96e1d1e6c48b58ffb8b0c1",
 )
 
 # %%
