@@ -8,7 +8,7 @@ from typing import Optional, Union
 
 import pooch
 
-from bookshelf.constants import DATA_FORMAT_VERSION
+from bookshelf.constants import DATA_FORMAT_VERSION, ENV_PREFIX
 
 logger = logging.getLogger(__file__)
 
@@ -143,3 +143,33 @@ def fetch_file(
 
     if not local_fname.exists():
         raise FileNotFoundError(f"Could not find file {local_fname}")  # noqa
+
+
+def get_env_var(name: str, add_prefix: bool = True) -> str:
+    """
+    Get an environment variable value
+
+    If the variable isn't set raise an exception
+
+    Parameters
+    ----------
+    name : str
+        Enviromnment variable name to check
+    add_prefix : bool
+        If True, prefix the environment variable name with  ``bookshelf.constants.ENV_PREFIX``
+    Returns
+    -------
+    str
+        Value of environment variable
+
+    Raises
+    ------
+    ValueError
+        Environment variable not set
+    """
+    if add_prefix:
+        name = ENV_PREFIX + name
+    name = name.upper()
+    if name not in os.environ:
+        raise ValueError(f"Environment variable {name} not set. Check configuration")
+    return os.environ[name]

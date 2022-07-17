@@ -9,6 +9,8 @@ import os
 import pathlib
 from typing import Iterable, Optional, Union, cast
 
+import boto3
+import boto3.exceptions
 import datapackage
 import requests.exceptions
 
@@ -16,7 +18,7 @@ from bookshelf.book import LocalBook
 from bookshelf.constants import DEFAULT_BOOKSHELF
 from bookshelf.errors import UnknownBook, UnknownVersion, UploadError
 from bookshelf.schema import Version, VolumeMeta
-from bookshelf.utils import build_url, create_local_cache, fetch_file
+from bookshelf.utils import build_url, create_local_cache, fetch_file, get_env_var
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +187,7 @@ class BookShelf:
         except FileNotFoundError:
             return False
 
-    def save(self, book: LocalBook, force: bool = True) -> None:
+    def save(self, book: LocalBook, force: bool = False) -> None:
         """
         Save a book to the remote bookshelf
 
@@ -223,7 +225,23 @@ class BookShelf:
             if fname not in resource_fnames:
                 raise UploadError(f"Non-resource file {fname} found in book")
 
-        raise NotImplementedError
+        # Upload using boto3 by default for testing
+        # Maybe support other upload methods in future
+
+        s3 = boto3.client("s3")
+        bucket = get_env_var("BUCKET", add_prefix=True)
+        prefix = get_env_var("BUCKET_PREFIX", add_prefix=True)
+
+        logger.info(f"Beginning to upload {book.name}@{book.version}")
+        for f in files:
+            try:
+                logger.info(f"Uploading {f}")
+                key = os.path.join(prefix, book.name, book.version, os.path.basename(f))
+                s3.upload_file(f, bucket, key)
+            except boto3.exceptions.S3UploadFailedError as e:
+                logger.exception(e, exc_info=False)
+                raise UploadError(f"Failed to upload {f} to s3")
+        logger.info(f"Book {book.name}@{book.version} uploaded successfully")
 
     def _resolve_version(self, name: str, version: Version = None) -> str:
         # Update the package metadata
