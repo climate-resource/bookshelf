@@ -22,3 +22,9 @@ class UnknownVersion(ValueError):
 
     def __str__(self):
         return f"Could not find {self.name}@{self.version}"
+
+
+class UploadError(ValueError):
+    """
+    Could not upload a book to the remote bookshelf
+    """
