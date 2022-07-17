@@ -4,10 +4,11 @@ Book
 A Book represents a single versioned dataset. A dataset can contain multiple resources
 each of which are loaded independently.
 """
+import glob
 import json
 import os.path
 import pathlib
-from typing import Union
+from typing import List, Union
 
 import datapackage
 import pooch
@@ -42,7 +43,16 @@ class LocalBook(_Book):
     """
     A local instance of a Book
 
-    This book may or may not have been deployed to a remote bookshelf
+    A Book consists of a metadata file (``datapackage.json``) and one or more ``Resource`` files.
+    For now, these ``Resource's`` are only csv files of timeseries in the IAMC format, but
+    this could be extended in future to handle additional data-types. Resources are fetched from
+    the remote bookshelf when first requested and are cached locally for subsequent use.
+
+    The ``Book`` metadata follow the ``datapackage`` specification with some additional metadata
+    specific to this project. That means that each ``Book`` also doubles as a ``datapackage``.
+    Once released by the ``Book`` author, a ``Book`` becomes immutable. If ``Book`` authors
+    wish to update the metadata or data contained within a ``Book`` they must upload a new
+    version of the ``Book``.
     """
 
     def __init__(
@@ -94,6 +104,22 @@ class LocalBook(_Book):
 
             self._metadata = datapackage.Package(d)
         return self._metadata
+
+    def files(self) -> List[str]:
+        """
+        List of files that are locally available
+
+        Since each Resource is fetched when first read the number of files present may
+        be less than available on the remote bookshelf.
+
+        Returns
+        -------
+        list of str
+            List of paths of all Book's files, including `datapackage.json` which contains
+            the metadata about the Book.
+        """
+        file_list = glob.glob(self.local_fname("*"))
+        return file_list
 
     def add_timeseries(self, name, data):
         """
