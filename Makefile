@@ -21,13 +21,14 @@ help:
 	@python -c "$$PRINT_HELP_PYSCRIPT" < $(MAKEFILE_LIST)
 
 checks: $(VENV_DIR)  ## run all the checks
-	@echo "=== bandit ==="; $(VENV_DIR)/bin/bandit -c .bandit.yml -r src || echo "--- bandit failed ---" >&2; \
+	@echo "=== bandit ==="; $(VENV_DIR)/bin/bandit -r src || echo "--- bandit failed ---" >&2; \
 ``		echo "\n\n=== black ==="; $(VENV_DIR)/bin/black --check src tests setup.py || echo "--- black failed ---" >&2; \
 		echo "\n\n=== flake8 ==="; $(VENV_DIR)/bin/flake8 src tests setup.py || echo "--- flake8 failed ---" >&2; \
 		echo "\n\n=== isort ==="; $(VENV_DIR)/bin/isort --check-only --quiet src tests setup.py || echo "--- isort failed ---" >&2; \
+		echo "\n\n=== mypy ==="; $(VENV_DIR)/bin/mypy src || echo "--- mypy failed ---" >&2; \
 		echo "\n\n=== pydocstyle ==="; $(VENV_DIR)/bin/pydocstyle src || echo "--- pydocstyle failed ---" >&2; \
 		echo "\n\n=== pylint ==="; $(VENV_DIR)/bin/pylint src || echo "--- pylint failed ---" >&2; \
-		echo "\n\n=== tests ==="; $(VENV_DIR)/bin/pytest tests -r a --cov=bookshelf --cov-report='' \
+		echo "\n\n=== tests ==="; $(VENV_DIR)/bin/pytest tests -r a --cov=bookshelf --cov-report=term-missing \
 			&& $(VENV_DIR)/bin/coverage report --fail-under=95 || echo "--- tests failed ---" >&2; \
 		echo
 

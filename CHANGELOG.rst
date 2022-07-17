@@ -15,4 +15,8 @@ The changes listed in this file are categorised as follows:
 Unreleased
 ----------
 
+Added
+=====
+
+- (`!1 <https://gitlab.com/climate-resource/bookshelf/merge_requests/1>`_) Add bandit and mypy to the CI
 - Initial project setup

@@ -7,6 +7,7 @@ each of which are loaded independently.
 import json
 import os.path
 import pathlib
+from typing import Union
 
 import datapackage
 import pooch
@@ -20,7 +21,7 @@ class _Book:
     def __init__(
         self,
         name: str,
-        version: str = None,
+        version: str,
         bookshelf: str = DEFAULT_BOOKSHELF,
     ):
         self.name = name
@@ -44,12 +45,17 @@ class LocalBook(_Book):
     This book may or may not have been deployed to a remote bookshelf
     """
 
-    def __init__(self, name, version, local_bookshelf: [str, pathlib.Path] = None):
+    def __init__(
+        self,
+        name: str,
+        version: str,
+        local_bookshelf: Union[str, pathlib.Path, None] = None,
+    ):
         super(LocalBook, self).__init__(name, version)
 
-        self.local_bookshelf = local_bookshelf
         if local_bookshelf is None:
-            self.local_bookshelf = create_local_cache(local_bookshelf)
+            local_bookshelf = create_local_cache(local_bookshelf)
+        self.local_bookshelf = pathlib.Path(local_bookshelf)
         self._metadata = None
 
     def local_fname(self, fname: str) -> str:

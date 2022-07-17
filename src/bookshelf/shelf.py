@@ -7,6 +7,7 @@ A BookShelf is a collection of Books
 import json
 import os
 import pathlib
+from typing import Optional, Union
 
 import requests.exceptions
 
@@ -21,7 +22,7 @@ def _fetch_volume_meta(
     name: str,
     remote_bookshelf: str,
     local_bookshelf: pathlib.Path,
-    force=True,
+    force: bool = True,
 ) -> VolumeMeta:
     """
     Fetch information about the books available for a given volume
@@ -68,7 +69,7 @@ class BookShelf:
 
     def __init__(
         self,
-        path: [str, pathlib.Path] = None,
+        path: Union[str, pathlib.Path, None] = None,
         remote_bookshelf: str = DEFAULT_BOOKSHELF,
     ):
         if path is None:
@@ -76,13 +77,37 @@ class BookShelf:
         self.path = pathlib.Path(path)
         self.remote_bookshelf = remote_bookshelf
 
-    def load(self, name: str, version: str = None, force=False) -> LocalBook:
+    def load(
+        self, name: str, version: Optional[str] = None, force: bool = False
+    ) -> LocalBook:
         """
         Load a book
 
         If the book's metadata does not exist locally or an unknown version is requested
         the remote bookshelf is queried, otherwise the local metadata is used.
 
+        Parameters
+        ----------
+        name: str
+            Name of the volume to load
+        version: str
+            Version to load
+
+            If no version is provided, the latest version is returned
+        force: bool
+            If True, redownload the book metadata
+
+        Raises
+        ------
+        UnknownVersion
+            The requested version is not available for the selected volume
+        UnknownBook
+            An invalid volume is requested
+
+        Returns
+        -------
+        :class:`LocalBook`
+            A book from which the resources can be accessed
         """
         if version is None or force:
             version = self._resolve_version(name, version)
@@ -101,11 +126,13 @@ class BookShelf:
                 )
             except requests.exceptions.HTTPError:
                 raise UnknownVersion(name, version)
-        assert metadata_fname.exists()
+
+        if not metadata_fname.exists():
+            raise AssertionError()  # noqa
 
         return LocalBook(name, version, local_bookshelf=self.path)
 
-    def save(self, book: LocalBook):
+    def save(self, book: LocalBook) -> None:
         """
         Save a book to the remote bookshelf
 
@@ -118,7 +145,7 @@ class BookShelf:
         """
         raise NotImplementedError
 
-    def _resolve_version(self, name, version) -> str:
+    def _resolve_version(self, name: str, version: Optional[str] = None) -> str:
         # Update the package metadata
         try:
             meta = _fetch_volume_meta(name, self.remote_bookshelf, self.path)
