@@ -15,10 +15,15 @@ import datapackage
 import requests.exceptions
 
 from bookshelf.book import LocalBook
-from bookshelf.constants import DEFAULT_BOOKSHELF
 from bookshelf.errors import UnknownBook, UnknownVersion, UploadError
-from bookshelf.schema import Version, VolumeMeta
-from bookshelf.utils import build_url, create_local_cache, fetch_file, get_env_var
+from bookshelf.schema import BookVersion, Version, VolumeMeta
+from bookshelf.utils import (
+    build_url,
+    create_local_cache,
+    fetch_file,
+    get_env_var,
+    get_remote_bookshelf,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -54,12 +59,21 @@ def _fetch_volume_meta(
     local_fname = local_bookshelf / name / fname
     url = build_url(remote_bookshelf, name, fname)
 
-    fetch_file(url, local_fname)
+    fetch_file(url, local_fname, force=force)
 
     with open(str(local_fname)) as file_handle:
         data = json.load(file_handle)
 
     return VolumeMeta(**data)
+
+
+def _upload_file(s3, bucket, key, fname):
+    try:
+        logger.info(f"Uploading {fname}")
+        s3.upload_file(fname, bucket, key)
+    except boto3.exceptions.S3UploadFailedError as e:
+        logger.exception(e, exc_info=False)
+        raise UploadError(f"Failed to upload {fname} to s3")
 
 
 class BookShelf:
@@ -75,12 +89,12 @@ class BookShelf:
     def __init__(
         self,
         path: Union[str, pathlib.Path, None] = None,
-        remote_bookshelf: str = DEFAULT_BOOKSHELF,
+        remote_bookshelf: Optional[str] = None,
     ):
         if path is None:
             path = create_local_cache(path)
         self.path = pathlib.Path(path)
-        self.remote_bookshelf = remote_bookshelf
+        self.remote_bookshelf = get_remote_bookshelf(remote_bookshelf)
 
     def load(
         self, name: str, version: Optional[str] = None, force: bool = False
@@ -234,13 +248,26 @@ class BookShelf:
 
         logger.info(f"Beginning to upload {book.name}@{book.version}")
         for f in files:
-            try:
-                logger.info(f"Uploading {f}")
-                key = os.path.join(prefix, book.name, book.version, os.path.basename(f))
-                s3.upload_file(f, bucket, key)
-            except boto3.exceptions.S3UploadFailedError as e:
-                logger.exception(e, exc_info=False)
-                raise UploadError(f"Failed to upload {f} to s3")
+            key = os.path.join(prefix, book.name, book.version, os.path.basename(f))
+            _upload_file(s3, bucket, key, f)
+
+        # Update the metadata with the latest version information
+        # Note that this doesn't have any guardrails and is susceptible to race conditions
+        # Shouldn't be a problem for testing, but shouldn't be used in production
+        meta_fname = str(self.path / book.name / "volume.json")
+        meta = _fetch_volume_meta(
+            book.name, self.remote_bookshelf, self.path, force=True
+        )
+        meta.versions.append(
+            BookVersion(
+                **{"version": book.version, "url": book.url(), "hash": book.hash()}
+            )
+        )
+        with open(meta_fname, "w") as file_handle:
+            json.dump(meta.json(), file_handle)
+        key = os.path.join(prefix, book.name, os.path.basename(meta_fname))
+        _upload_file(s3, bucket, key, meta_fname)
+
         logger.info(f"Book {book.name}@{book.version} uploaded successfully")
 
     def _resolve_version(self, name: str, version: Version = None) -> str:

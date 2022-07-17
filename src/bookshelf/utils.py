@@ -8,7 +8,7 @@ from typing import Optional, Union
 
 import pooch
 
-from bookshelf.constants import DATA_FORMAT_VERSION, ENV_PREFIX
+from bookshelf.constants import DATA_FORMAT_VERSION, DEFAULT_BOOKSHELF, ENV_PREFIX
 
 logger = logging.getLogger(__file__)
 
@@ -173,3 +173,28 @@ def get_env_var(name: str, add_prefix: bool = True) -> str:
     if name not in os.environ:
         raise ValueError(f"Environment variable {name} not set. Check configuration")
     return os.environ[name]
+
+
+def get_remote_bookshelf(bookshelf: Optional[str]):
+    """
+    Get the remote bookshelf URL
+
+    If no bookshelf is provided, use the ``BOOKSHELF_REMOTE`` environment variable, or,
+    the ``bookshop.constants.DEFAULT_BOOKSHOP`` parameter if the environment variable
+    is not present.
+
+    Parameters
+    ----------
+    bookshelf : str
+        URL for the bookshop
+
+        If not provided the URL is determined as above
+
+    Returns
+    -------
+    str
+        URL for the remote bookshop
+    """
+    if bookshelf is None:
+        return os.environ.get(ENV_PREFIX + "REMOTE", DEFAULT_BOOKSHELF)
+    return bookshelf

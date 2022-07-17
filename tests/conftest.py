@@ -30,8 +30,10 @@ def local_bookshelf(tmpdir, monkeypatch):
     shutil.rmtree(fname)
 
 
-@pytest.fixture(scope="function")
-def remote_bookshelf(requests_mock):
+@pytest.fixture(scope="function", autouse=True)
+def remote_bookshelf(requests_mock, monkeypatch):
+    monkeypatch.setenv("BOOKSHELF_REMOTE", "https://bookshelf.local/v0.1.0")
+
     class MockRemoteBookshop:
         def __init__(self):
             self.mocker = requests_mock

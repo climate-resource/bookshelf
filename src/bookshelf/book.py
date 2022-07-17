@@ -14,8 +14,14 @@ import datapackage
 import pooch
 import scmdata
 
-from bookshelf.constants import DEFAULT_BOOKSHELF
-from bookshelf.utils import build_url, create_local_cache, fetch_file
+from bookshelf.utils import (
+    build_url,
+    create_local_cache,
+    fetch_file,
+    get_remote_bookshelf,
+)
+
+DATAPACKAGE_FILENAME = "datapackage.json"
 
 
 class _Book:
@@ -23,17 +29,17 @@ class _Book:
         self,
         name: str,
         version: str,
-        bookshelf: str = DEFAULT_BOOKSHELF,
+        bookshelf: str = None,
     ):
         self.name = name
         self.version = version
-        self.bookshelf = bookshelf
+        self.bookshelf = get_remote_bookshelf(bookshelf)
 
     def url(self, fname=None):
         parts = [self.name, self.version]
         if fname:
             parts.append(fname)
-        build_url(self.bookshelf, *parts)
+        return build_url(self.bookshelf, *parts)
 
     def fetch(self):
         pass
@@ -68,6 +74,20 @@ class LocalBook(_Book):
         self.local_bookshelf = pathlib.Path(local_bookshelf)
         self._metadata = None
 
+    def hash(self) -> str:
+        """
+        Get the hash for the metadata
+
+        This effectively also hashes the data as the metadata contains the hashes of
+        the local Resource files.
+
+        Returns
+        -------
+        str
+            sha256 sum that is unique for the Book
+        """
+        return pooch.file_hash(self.local_fname(DATAPACKAGE_FILENAME))
+
     def local_fname(self, fname: str) -> str:
         """
         Get the name of a file in the package
@@ -96,7 +116,7 @@ class LocalBook(_Book):
             Metadata about the Book
         """
         if self._metadata is None:
-            fname = "datapackage.json"
+            fname = DATAPACKAGE_FILENAME
 
             local_fname = self.local_fname(fname)
             with open(local_fname) as file_handle:
@@ -146,7 +166,7 @@ class LocalBook(_Book):
                 "hash": hash,
             }
         )
-        self.metadata().save(self.local_fname("datapackage.json"))
+        self.metadata().save(self.local_fname(DATAPACKAGE_FILENAME))
 
     @classmethod
     def create_new(cls, name, version, **kwargs):
@@ -157,7 +177,7 @@ class LocalBook(_Book):
         book._metadata = datapackage.Package(
             {"name": name, "version": version, "resources": []}
         )
-        book._metadata.save(book.local_fname("datapackage.json"))
+        book._metadata.save(book.local_fname(DATAPACKAGE_FILENAME))
 
         return book
 

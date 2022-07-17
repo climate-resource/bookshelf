@@ -1,4 +1,5 @@
 import logging
+import os
 import pathlib
 import re
 
@@ -17,6 +18,20 @@ from bookshelf.shelf import BookShelf, LocalBook
 def shelf(local_bookshelf):
     shelf = BookShelf(path=local_bookshelf)
     return shelf
+
+
+def setup_upload_bucket(remote_bookshelf, monkeypatch):
+    remote_bookshelf.mocker.get("/v0.1.0/new-package/volume.json", status_code=404)
+
+    bucket = "test-bucket"
+    prefix = "/this/prefix"
+    monkeypatch.setenv("BOOKSHELF_BUCKET", bucket)
+    monkeypatch.setenv("BOOKSHELF_BUCKET_PREFIX", prefix)
+
+    conn = boto3.resource("s3", region_name="us-east-1")
+    conn.create_bucket(Bucket=bucket)
+
+    return conn
 
 
 def test_local_cache(monkeypatch):
@@ -73,37 +88,39 @@ def test_load_with_cached(remote_bookshelf, local_bookshelf):
 
 @moto.mock_s3
 def test_save(shelf, remote_bookshelf, monkeypatch, caplog, example_data):
-    bucket = "test-bucket"
-    prefix = "/this/prefix"
-    monkeypatch.setenv("BOOKSHELF_BUCKET", bucket)
-    monkeypatch.setenv("BOOKSHELF_BUCKET_PREFIX", prefix)
+    conn = setup_upload_bucket(remote_bookshelf, monkeypatch)
 
-    conn = boto3.resource("s3", region_name="us-east-1")
-    conn.create_bucket(Bucket=bucket)
+    book = LocalBook.create_new("new-package", "v1.1.1")
+    book.add_timeseries("example", example_data)
 
     with caplog.at_level(logging.INFO):
-        book = LocalBook.create_new("test", "v1.1.1")
         shelf.save(book)
 
     # Check that files uploaded
-    assert conn.Object(bucket, "/this/prefix/test/v1.1,1/datapackage.json").metadata
+    bucket = os.environ["BOOKSHELF_BUCKET"]
+    assert conn.Object(bucket, "/this/prefix/test/v1.1.1/datapackage.json").metadata
+    assert conn.Object(bucket, "/this/prefix/test/v1.1.1/test.csv").metadata
+    assert conn.Object(bucket, "/this/prefix/test/volume.json").metadata
 
     assert "Book test@v1.1.1 uploaded successfully" in caplog.text
 
 
 @moto.mock_s3
 def test_save_wrong_permissions(shelf, remote_bookshelf, monkeypatch, caplog):
-    bucket = "test-bucket"
-    prefix = "/this/prefix"
+    setup_upload_bucket(remote_bookshelf, monkeypatch)
+
+    # Modify bucket used (this bucket hasn't been created)
+    bucket = "test-bucket-wrong"
     monkeypatch.setenv("BOOKSHELF_BUCKET", bucket)
-    monkeypatch.setenv("BOOKSHELF_BUCKET_PREFIX", prefix)
 
     caplog.set_level(logging.ERROR)
 
-    book = LocalBook.create_new("test", "v1.0.0")
+    book = LocalBook.create_new("new-package", "v1.0.0")
     with pytest.raises(UploadError, match=f"Failed to upload {book.files()[0]} to s3"):
         shelf.save(book)
-    assert "NoSuchBucket" not in caplog.text
+
+    assert "NoSuchBucket" in caplog.text
+    assert bucket in caplog.text
 
 
 def test_save_existing(shelf, remote_bookshelf):
@@ -113,16 +130,21 @@ def test_save_existing(shelf, remote_bookshelf):
         shelf.save(book, force=False)
 
 
-@pytest.mark.skip(reason="Need to implement save")
 @moto.mock_s3
-def test_save_existing_forced(shelf, remote_bookshelf):
-    book = LocalBook.create_new("test", "v1.0.0")
+def test_save_existing_forced(shelf, remote_bookshelf, monkeypatch, caplog):
+    setup_upload_bucket(remote_bookshelf, monkeypatch)
+
+    book = LocalBook.create_new("new-package", "v1.0.0")
 
     shelf.save(book, force=True)
 
+    assert "Book test@v1.1.1 uploaded successfully" in caplog.text
+
 
 def test_save_extra_file(shelf, remote_bookshelf):
-    book = LocalBook.create_new("test", "v1.0.0")
+    remote_bookshelf.mocker.get("/v0.1.0/new-package/volume.json", status_code=404)
+
+    book = LocalBook.create_new("new-package", "v1.0.0")
     open(book.local_fname("extra_file.txt"), "w").close()
 
     with pytest.raises(
