@@ -13,16 +13,21 @@
 #     name: python3
 # ---
 
-# %%
+import tempfile
+
+import dotenv
 import pooch
 import scmdata
 
 from bookshelf import BookShelf, LocalBook
 from bookshelf.constants import PROCESSED_DATA_DIR
 
+# %%
+dotenv.load_dotenv()
+
 # %% tags=["parameters"]
-BOOK_VERSION = "v0.1.0"
-DATASET_VERSION = ""
+BOOK_VERSION = "v0.0.1"
+DATASET_VERSION = "v5.1.0"
 PROCESSING_DIR = PROCESSED_DATA_DIR
 
 # %%
@@ -61,11 +66,10 @@ shelf = BookShelf()
 shelf.save(book)
 
 # %%
-book_2 = LocalBook("rcmip-emissions", BOOK_VERSION, local_bookshelf=PROCESSING_DIR)
+temp_bookshelf_dir = tempfile.mkdtemp()
+temp_shelf = BookShelf(path=temp_bookshelf_dir)
 
 # %%
-book_2.timeseries("complete")
-
-# %%
+temp_shelf.load("rcmip-emissions")
 
 # %%

@@ -215,7 +215,7 @@ class BookShelf:
         # Check if additional files are going to be uploaded
         resources = book.metadata().resources
         resource_fnames = [
-            resource.descriptor["fname"]
+            resource.descriptor["filename"]
             for resource in cast(Iterable[datapackage.Resource], resources)
         ]
         for f in files:
