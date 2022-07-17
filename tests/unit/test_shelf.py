@@ -83,3 +83,11 @@ def test_is_available_any_version(shelf, remote_bookshelf):
 
     assert shelf.is_available("test")
     assert not shelf.is_available("other")
+
+
+def test_is_cached(shelf):
+    book = LocalBook.create_new("test", "v1.0.0", local_bookshelf=shelf.path)
+
+    assert shelf.is_cached(book.name, book.version)
+    assert not shelf.is_cached(book.name, "v1.0.1")
+    assert not shelf.is_cached("other", "v1.0.1")

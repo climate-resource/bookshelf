@@ -57,3 +57,9 @@ def test_metadata():
     meta_dict = metadata.to_dict()
     assert meta_dict["name"] == book.name
     assert meta_dict["version"] == book.version
+
+
+def test_metadata_missing():
+    book = LocalBook("example", "v1.0.0")
+    with pytest.raises(FileNotFoundError):
+        book.metadata()

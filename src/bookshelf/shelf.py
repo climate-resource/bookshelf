@@ -181,7 +181,7 @@ class BookShelf:
             book = LocalBook(name, version, local_bookshelf=self.path)
             book.metadata()
             return True
-        except ValueError:
+        except FileNotFoundError:
             return False
 
     def save(self, book: LocalBook, force: bool = True) -> None:
