@@ -13,6 +13,10 @@ from bookshelf.constants import DATA_FORMAT_VERSION
 logger = logging.getLogger(__file__)
 
 
+def default_cache_location():
+    return os.environ.get("BOOKSHELF_CACHE_LOCATION", pooch.utils.os_cache("bookshelf"))
+
+
 def create_local_cache(path: Union[str, pathlib.Path, None] = None) -> pathlib.Path:
     """
     Prepare a cache directory
@@ -31,7 +35,7 @@ def create_local_cache(path: Union[str, pathlib.Path, None] = None) -> pathlib.P
     Location of a writable local cache
     """
     if path is None:
-        path = pooch.utils.os_cache("bookshelf")
+        path = default_cache_location()
 
     path = pooch.utils.cache_location(pathlib.Path(path) / DATA_FORMAT_VERSION)
 

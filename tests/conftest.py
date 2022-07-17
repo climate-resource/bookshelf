@@ -21,8 +21,9 @@ def read_data(fname):
         return fh.read()
 
 
-@pytest.fixture(scope="function")
-def local_bookshelf(tmpdir):
+@pytest.fixture(scope="function", autouse=True)
+def local_bookshelf(tmpdir, monkeypatch):
+    monkeypatch.setenv("BOOKSHELF_CACHE_LOCATION", tmpdir)
     fname = create_local_cache(tmpdir)
     yield fname
 

@@ -7,8 +7,9 @@ import json
 import logging
 import os
 import pathlib
-from typing import Optional, Union
+from typing import Iterable, Optional, Union, cast
 
+import datapackage
 import requests.exceptions
 
 from bookshelf.book import LocalBook
@@ -207,6 +208,20 @@ class BookShelf:
             logger.warning(
                 "Book with the same version already exists on remote bookshelf"
             )
+        files = book.files()
+
+        # Check if additional files are going to be uploaded
+        resources = book.metadata().resources
+        resource_fnames = [
+            resource.descriptor["fname"]
+            for resource in cast(Iterable[datapackage.Resource], resources)
+        ]
+        for f in files:
+            fname = os.path.basename(f)
+            if fname == "datapackage.json":
+                continue
+            if fname not in resource_fnames:
+                raise UploadError(f"Non-resource file {fname} found in book")
 
         raise NotImplementedError
 

@@ -5,7 +5,7 @@ import appdirs
 import pytest
 
 from bookshelf.constants import DATA_FORMAT_VERSION
-from bookshelf.errors import UnknownBook, UnknownVersion
+from bookshelf.errors import UnknownBook, UnknownVersion, UploadError
 from bookshelf.shelf import BookShelf, LocalBook
 
 
@@ -15,14 +15,19 @@ def shelf(local_bookshelf):
     return shelf
 
 
-def test_local_cache():
+def test_local_cache(monkeypatch):
+    # Override the local_bookshelf fixture
+    monkeypatch.delenv("BOOKSHELF_CACHE_LOCATION")
+
     shelf = BookShelf()
 
     exp = pathlib.Path(appdirs.user_cache_dir()) / "bookshelf" / DATA_FORMAT_VERSION
     assert shelf.path == exp
 
 
-def test_load_missing(shelf):
+def test_load_missing(shelf, remote_bookshelf):
+    remote_bookshelf.mocker.get("/v0.1.0/missing/volume.json", status_code=404)
+
     with pytest.raises(UnknownBook, match=re.escape("No metadata for 'missing'")):
         shelf.load("missing")
 
@@ -62,9 +67,33 @@ def test_load_with_cached(remote_bookshelf, local_bookshelf):
     assert remote_bookshelf.mocker.call_count == 1
 
 
-def test_save(shelf):
+def test_save(shelf, remote_bookshelf):
     book = LocalBook.create_new("test", "v1.0.0")
     with pytest.raises(NotImplementedError):
+        shelf.save(book)
+
+
+def test_save_existing(shelf, remote_bookshelf):
+    book = LocalBook.create_new("test", "v1.0.0")
+
+    with pytest.raises(UploadError, match="Book with the same version already exists"):
+        shelf.save(book, force=False)
+
+
+@pytest.mark.skip(reason="Need to implement save")
+def test_save_existing_forced(shelf, remote_bookshelf):
+    book = LocalBook.create_new("test", "v1.0.0")
+
+    shelf.save(book, force=True)
+
+
+def test_save_extra_file(shelf, remote_bookshelf):
+    book = LocalBook.create_new("test", "v1.0.0")
+    open(book.local_fname("extra_file.txt"), "w").close()
+
+    with pytest.raises(
+        UploadError, match="Non-resource file extra_file.txt found in book"
+    ):
         shelf.save(book)
 
 
