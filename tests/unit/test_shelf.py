@@ -1,3 +1,5 @@
+import io
+import json
 import logging
 import os
 import pathlib
@@ -98,9 +100,44 @@ def test_save(shelf, remote_bookshelf, monkeypatch, caplog, example_data):
 
     # Check that files uploaded
     bucket = os.environ["BOOKSHELF_BUCKET"]
-    assert conn.Object(bucket, "/this/prefix/test/v1.1.1/datapackage.json").metadata
-    assert conn.Object(bucket, "/this/prefix/test/v1.1.1/test.csv").metadata
-    assert conn.Object(bucket, "/this/prefix/test/volume.json").metadata
+    conn.Object(bucket, "/this/prefix/new-package/v1.1.1/datapackage.json").load()
+    conn.Object(bucket, "/this/prefix/new-package/v1.1.1/example.csv").load()
+
+    volume_meta_contents = io.BytesIO()
+    conn.Object(bucket, "/this/prefix/new-package/volume.json").download_fileobj(
+        volume_meta_contents
+    )
+    volume_meta_contents.seek(0)
+    volume_meta = json.load(volume_meta_contents)
+
+    assert len(volume_meta["versions"]) == 1
+    assert volume_meta["versions"][-1]["version"] == "v1.1.1"
+
+    assert "Book new-package@v1.1.1 uploaded successfully" in caplog.text
+
+
+@moto.mock_s3
+def test_save_new_version(shelf, remote_bookshelf, monkeypatch, caplog, example_data):
+    conn = setup_upload_bucket(remote_bookshelf, monkeypatch)
+
+    book = LocalBook.create_new("test", "v1.1.1")
+
+    with caplog.at_level(logging.INFO):
+        shelf.save(book)
+
+    # Check that files uploaded
+    bucket = os.environ["BOOKSHELF_BUCKET"]
+    conn.Object(bucket, "/this/prefix/test/v1.1.1/datapackage.json").load()
+
+    volume_meta_contents = io.BytesIO()
+    conn.Object(bucket, "/this/prefix/test/volume.json").download_fileobj(
+        volume_meta_contents
+    )
+    volume_meta_contents.seek(0)
+    volume_meta = json.load(volume_meta_contents)
+
+    assert len(volume_meta["versions"]) == 3  # 2 existing in volume.json + one extra
+    assert volume_meta["versions"][-1]["version"] == "v1.1.1"
 
     assert "Book test@v1.1.1 uploaded successfully" in caplog.text
 
@@ -136,9 +173,10 @@ def test_save_existing_forced(shelf, remote_bookshelf, monkeypatch, caplog):
 
     book = LocalBook.create_new("new-package", "v1.0.0")
 
-    shelf.save(book, force=True)
+    with caplog.at_level(logging.INFO):
+        shelf.save(book, force=True)
 
-    assert "Book test@v1.1.1 uploaded successfully" in caplog.text
+    assert "Book new-package@v1.0.0 uploaded successfully" in caplog.text
 
 
 def test_save_extra_file(shelf, remote_bookshelf):

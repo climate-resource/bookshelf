@@ -76,6 +76,24 @@ def _upload_file(s3, bucket, key, fname):
         raise UploadError(f"Failed to upload {fname} to s3")
 
 
+def _update_volume_meta(book: LocalBook, remote_bookshelf: str) -> str:
+    try:
+        volume_meta = _fetch_volume_meta(
+            book.name, remote_bookshelf, book.local_bookshelf, force=True
+        )
+    except requests.exceptions.HTTPError:
+        volume_meta = VolumeMeta(name=book.name, license="", versions=[])
+
+    meta_fname = str(book.local_bookshelf / book.name / "volume.json")
+    volume_meta.versions.append(
+        BookVersion(**{"version": book.version, "url": book.url(), "hash": book.hash()})
+    )
+    with open(meta_fname, "w") as file_handle:
+        file_handle.write(volume_meta.json())
+
+    return meta_fname
+
+
 class BookShelf:
     """
     A BookShelf stores a number of Books
@@ -254,17 +272,7 @@ class BookShelf:
         # Update the metadata with the latest version information
         # Note that this doesn't have any guardrails and is susceptible to race conditions
         # Shouldn't be a problem for testing, but shouldn't be used in production
-        meta_fname = str(self.path / book.name / "volume.json")
-        meta = _fetch_volume_meta(
-            book.name, self.remote_bookshelf, self.path, force=True
-        )
-        meta.versions.append(
-            BookVersion(
-                **{"version": book.version, "url": book.url(), "hash": book.hash()}
-            )
-        )
-        with open(meta_fname, "w") as file_handle:
-            json.dump(meta.json(), file_handle)
+        meta_fname = _update_volume_meta(book, self.remote_bookshelf)
         key = os.path.join(prefix, book.name, os.path.basename(meta_fname))
         _upload_file(s3, bucket, key, meta_fname)
 
