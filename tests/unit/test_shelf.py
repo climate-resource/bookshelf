@@ -101,6 +101,12 @@ def test_save(shelf, remote_bookshelf, monkeypatch, caplog, example_data):
     # Check that files uploaded
     bucket = os.environ["BOOKSHELF_BUCKET"]
     conn.Object(bucket, "/this/prefix/new-package/v1.1.1/datapackage.json").load()
+    assert (
+        conn.Object(bucket, "/this/prefix/new-package/v1.1.1/datapackage.json")
+        .Acl()
+        .grants[1]["Permission"]
+        == "READ"
+    )
     conn.Object(bucket, "/this/prefix/new-package/v1.1.1/example.csv").load()
 
     volume_meta_contents = io.BytesIO()

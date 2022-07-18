@@ -70,7 +70,7 @@ def _fetch_volume_meta(
 def _upload_file(s3, bucket, key, fname):
     try:
         logger.info(f"Uploading {fname}")
-        s3.upload_file(fname, bucket, key)
+        s3.upload_file(fname, bucket, key, ExtraArgs={"ACL": "public-read"})
     except boto3.exceptions.S3UploadFailedError as e:
         logger.exception(e, exc_info=False)
         raise UploadError(f"Failed to upload {fname} to s3")
