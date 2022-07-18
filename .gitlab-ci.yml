@@ -31,7 +31,8 @@ test: &test_config
     - source venv/bin/activate
   script:
     - pip freeze
-    - pytest --cov -rfsxEX --cov-report term-missing --junitxml=report.xml
+    # Ignore tests/notebooks as that is covered by test:notebooks
+    - pytest --cov -rfsxEX --cov-report term-missing --junitxml=report.xml --ignore=tests/notebooks
     - coverage xml
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   artifacts:
@@ -42,6 +43,15 @@ test: &test_config
         path: coverage.xml
       junit: report.xml
 
+test:notebooks:
+  <<: *test_config
+  script:
+    - pytest tests/notebooks --log-cli-level INFO
+  artifacts:
+    when: always
+    paths:
+      - out
+    expire_in: 1 week
 
 test:format:
   <<: *test_config

@@ -7,7 +7,7 @@ import jupytext
 import papermill
 import yaml
 
-from bookshelf import BookShelf
+from bookshelf import BookShelf, LocalBook
 from bookshelf.constants import PROCESSED_DATA_DIR, ROOT_DIR
 from bookshelf.schema import NotebookMetadata
 
@@ -49,7 +49,7 @@ def run_notebook(
     nb_directory: str = NOTEBOOK_DIRECTORY,
     output_directory: Optional[str] = None,
     force: bool = False,
-):
+) -> LocalBook:
     """
     Run a notebook to generate a new Book
 
@@ -120,8 +120,9 @@ def run_notebook(
         output_nb_fname,
         parameters={"local_bookshelf": output_directory},
     )
-    logger.info("Notebook run successfully")
-
     # Attempt to load the book from the output directory
     shelf = BookShelf(path=output_directory)
-    return shelf.load(name, metadata.version)
+    book = shelf.load(name, metadata.version)
+
+    logger.info(f"Notebook run successfully with hash: {book.hash()}")
+    return book
