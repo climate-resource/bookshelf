@@ -1,30 +1,12 @@
-import pytest
-import scmdata
-import scmdata.testing
-
-from bookshelf import BookShelf, LocalBook
+from bookshelf import BookShelf
 
 
-def test_simple_book(local_bookshelf, remote_bookshelf):
-    remote_bookshelf.register("test", "v1.1.0")
+# Fetches from the remote bookshelf
+def test_simple_book(local_bookshelf, caplog):
+    with caplog.at_level(level="INFO"):
+        shelf = BookShelf()
+        shelf.load("rcmip-emissions", "v0.0.2")
 
-    shelf = BookShelf(path=local_bookshelf)
-    shelf.load("test")
-
-    expected_dir = local_bookshelf / "test"
-    assert (expected_dir / "volume.json").exists()
-    assert (expected_dir / "v1.1.0" / "datapackage.json").exists()
-
-
-def test_adding(local_bookshelf, example_data):
-    book = LocalBook.create_new(
-        "my_new_book", version="v0.1.0", local_bookshelf=local_bookshelf
-    )
-    assert len(book.metadata().resources) == 0
-
-    book.add_timeseries("test", example_data)
-
-    scmdata.testing.assert_scmdf_almost_equal(example_data, book.timeseries("test"))
-
-    with pytest.raises(ValueError):
-        book.timeseries("unknown")
+    expected_dir = local_bookshelf / "rcmip-emissions"
+    # assert (expected_dir / "volume.json").exists()
+    assert (expected_dir / "v0.0.2" / "datapackage.json").exists()

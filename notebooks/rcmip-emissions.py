@@ -21,7 +21,7 @@ import pooch
 import scmdata
 
 from bookshelf import LocalBook
-from bookshelf.utils import load_nb_metadata
+from bookshelf.notebook import load_nb_metadata
 
 # %% [markdown]
 # #  Initialise

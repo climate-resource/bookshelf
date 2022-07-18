@@ -8,10 +8,8 @@ from typing import Optional, Union
 
 import appdirs
 import pooch
-import yaml
 
 from bookshelf.constants import DATA_FORMAT_VERSION, DEFAULT_BOOKSHELF, ENV_PREFIX
-from bookshelf.schema import NotebookMetadata
 
 logger = logging.getLogger(__file__)
 
@@ -154,7 +152,6 @@ def fetch_file(
         Downloaded file was not in the expected location
 
     """
-    existing_hash = None
     if not force and local_fname.exists():
         if pooch.hashes.hash_matches(local_fname, known_hash):
             return
@@ -163,12 +160,14 @@ def fetch_file(
             f"value {known_hash}"
         )
 
-    if force or existing_hash is None:
+    if force or not local_fname.exists():
         download(url, local_fname=local_fname, known_hash=known_hash)
         logger.info(f"{local_fname} downloaded from {url}")
 
     if not local_fname.exists():
-        raise FileNotFoundError(f"Could not find file {local_fname}")  # noqa
+        raise FileNotFoundError(
+            f"Could not find file {local_fname}"
+        )  # pragma: no cover
 
 
 def get_env_var(name: str, add_prefix: bool = True) -> str:
@@ -224,23 +223,3 @@ def get_remote_bookshelf(bookshelf: Optional[str]) -> str:
     if bookshelf is None:
         return os.environ.get(ENV_PREFIX + "REMOTE", DEFAULT_BOOKSHELF)
     return bookshelf
-
-
-def load_nb_metadata(name: str) -> NotebookMetadata:
-    """
-    Load notebook metadata
-
-    Parameters
-    ----------
-    name : str
-        Filename to load. Should match t
-
-    Returns
-    -------
-    NotebookMetadata
-        Metadata about the notebook including the target package and version
-    """
-    if not (name.endswith(".yaml") or name.endswith(".yml")):
-        name = name + ".yaml"
-    with open(name) as file_handle:
-        return NotebookMetadata(**yaml.safe_load(file_handle))

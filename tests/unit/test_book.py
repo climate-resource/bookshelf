@@ -3,9 +3,11 @@ import os
 import datapackage
 import pooch.hashes
 import pytest
+import scmdata.testing
 
 from bookshelf.book import LocalBook
 from bookshelf.constants import DATA_FORMAT_VERSION, TEST_DATA_DIR
+from bookshelf.shelf import BookShelf
 
 
 def test_book_info():
@@ -43,6 +45,27 @@ def test_add_timeseries(local_bookshelf, example_data):
     assert res.descriptor["hash"] == pooch.hashes.file_hash(expected_fname)
 
 
+def test_timeseries(example_data):
+    book = LocalBook.create_new("test", "v1.1.0")
+    book.add_timeseries("test", example_data)
+
+    scmdata.testing.assert_scmdf_almost_equal(example_data, book.timeseries("test"))
+
+    with pytest.raises(ValueError, match="Unknown timeseries 'other'"):
+        book.timeseries("other")
+
+
+def test_timeseries_remote(example_data):
+    book = BookShelf().load("test", "v1.0.0")
+
+    scmdata.testing.assert_scmdf_almost_equal(
+        example_data, book.timeseries("leakage_rates_low")
+    )
+
+    with pytest.raises(ValueError, match="Unknown timeseries 'other'"):
+        book.timeseries("other")
+
+
 def test_metadata():
     book = LocalBook(
         "example",
@@ -54,7 +77,7 @@ def test_metadata():
 
     assert isinstance(metadata, datapackage.Package)
 
-    meta_dict = metadata.to_dict()
+    meta_dict = metadata.descriptor
     assert meta_dict["name"] == book.name
     assert meta_dict["version"] == book.version
 

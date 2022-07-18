@@ -11,3 +11,17 @@ build-backend = "setuptools.build_meta"
 [tool.black]
 line-length = 88
 target-version = ['py39']
+
+
+[tool.pytest.ini_options]
+testpaths = "tests"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.pylint.messages_control]
+disable = [
+    "logging-fstring-interpolation",
+    "too-few-public-methods",
+    "unspecified-encoding"
+]

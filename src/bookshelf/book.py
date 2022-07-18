@@ -79,7 +79,7 @@ class LocalBook(_Book):
         version: str,
         local_bookshelf: Union[str, pathlib.Path, None] = None,
     ):
-        super(LocalBook, self).__init__(name, version)
+        super().__init__(name, version)
 
         if local_bookshelf is None:
             local_bookshelf = create_local_cache(local_bookshelf)
@@ -132,9 +132,9 @@ class LocalBook(_Book):
 
             local_fname = self.local_fname(fname)
             with open(local_fname) as file_handle:
-                d = json.load(file_handle)
+                file_data = json.load(file_handle)
 
-            self._metadata = datapackage.Package(d)
+            self._metadata = datapackage.Package(file_data)
         return self._metadata
 
     def files(self) -> List[str]:
@@ -213,11 +213,11 @@ class LocalBook(_Book):
         resource: datapackage.Resource = self.metadata().get_resource(name)
 
         if resource is None:
-            raise ValueError(f"Unknown timeseries '{resource}'")
+            raise ValueError(f"Unknown timeseries '{name}'")
 
         local_fname = self.local_fname(resource.descriptor["filename"])
         fetch_file(
-            resource.descriptor.get("path"),
+            self.url(resource.descriptor.get("filename")),
             pathlib.Path(local_fname),
             known_hash=resource.descriptor.get("hash"),
         )
