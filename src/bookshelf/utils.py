@@ -8,10 +8,8 @@ from typing import Optional, Union
 
 import appdirs
 import pooch
-import yaml
 
 from bookshelf.constants import DATA_FORMAT_VERSION, DEFAULT_BOOKSHELF, ENV_PREFIX
-from bookshelf.schema import NotebookMetadata
 
 logger = logging.getLogger(__file__)
 
@@ -224,23 +222,3 @@ def get_remote_bookshelf(bookshelf: Optional[str]) -> str:
     if bookshelf is None:
         return os.environ.get(ENV_PREFIX + "REMOTE", DEFAULT_BOOKSHELF)
     return bookshelf
-
-
-def load_nb_metadata(name: str) -> NotebookMetadata:
-    """
-    Load notebook metadata
-
-    Parameters
-    ----------
-    name : str
-        Filename to load. Should match t
-
-    Returns
-    -------
-    NotebookMetadata
-        Metadata about the notebook including the target package and version
-    """
-    if not (name.endswith(".yaml") or name.endswith(".yml")):
-        name = name + ".yaml"
-    with open(name) as file_handle:
-        return NotebookMetadata(**yaml.safe_load(file_handle))
