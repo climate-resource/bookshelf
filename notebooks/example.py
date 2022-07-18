@@ -21,10 +21,10 @@
 # In this example, we fetch the RCMIP Radiative Forcing timeseries from `rcmip.org` and
 # produce a resource that contains a filtered subset of variables.
 
+# %%
 import logging
 import tempfile
 
-# %%
 import pooch
 import scmdata
 
