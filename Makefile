@@ -58,7 +58,15 @@ isort: $(VENV_DIR)  ## format the code
 
 .PHONY: test
 test:  $(VENV_DIR) ## run the full testsuite
-	$(VENV_DIR)/bin/pytest tests --cov -rfsxEX --cov-report term-missing
+	$(VENV_DIR)/bin/pytest tests --cov bookshelf -rfsxEX --cov-report term-missing --ignore tests/notebooks
+
+.PHONY: test-notebooks
+test-notebooks:  $(VENV_DIR) ## run the full testsuite
+	$(VENV_DIR)/bin/pytest tests/notebooks --log-cli-level INFO
+
+.PHONY: test-full
+test-full:  test test-notebooks
+
 
 .PHONY: virtual-environment
 virtual-environment: $(VENV_DIR) ## update venv, create a new venv if it doesn't exist
