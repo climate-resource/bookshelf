@@ -1,7 +1,7 @@
 """
 Schema
 """
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -26,3 +26,14 @@ class VolumeMeta(BaseModel):
     name: str
     license: str  # A change in license will require a new volume
     versions: List[BookVersion]
+
+
+class NotebookMetadata(BaseModel):
+    """
+    Schema for a given Volume (A collection of Books with the same name)
+    """
+
+    name: str
+    version: str
+    license: str
+    metadata: Dict[str, Any]  # TODO: type this
