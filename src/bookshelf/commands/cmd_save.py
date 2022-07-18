@@ -16,7 +16,8 @@ def cli(name):
     Build and upload a Book to the Bookshelf
 
     Uploading a Book requires the correct AWS credentials (until an authentication
-    scheme is introduced). Documentation about the different sources of authentication
+    scheme is introduced). At Climate Resource we use aws-vault for managing multiple
+    sets of AWS credentials. Documentation about the different sources of authentication
     can be found here: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html
 
     To ensure a reproducible build, the Book is built from a notebook in an isolated
