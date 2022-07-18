@@ -1,5 +1,6 @@
 import logging
 import os
+import tempfile
 from glob import glob
 
 import pytest
@@ -8,7 +9,6 @@ from bookshelf import BookShelf
 from bookshelf.notebook import NOTEBOOK_DIRECTORY, run_notebook
 
 logger = logging.getLogger("test-notebooks")
-output_directory = "out"
 
 logger.info(f"Looking for notebooks in {NOTEBOOK_DIRECTORY}")
 notebooks = glob(os.path.join(NOTEBOOK_DIRECTORY, "*.py"))
@@ -17,8 +17,15 @@ notebook_names = [os.path.basename(nb)[:-3] for nb in notebooks]
 logger.info(f"Found {len(notebooks)} notebooks: {notebook_names}")
 
 
+@pytest.fixture()
+def output_directory():
+    out_dir = os.environ.get("BOOKSHELF_CACHE_LOCATION", tempfile.mkdtemp())
+
+    yield out_dir
+
+
 @pytest.mark.parametrize("notebook_path", notebooks)
-def test_notebook(notebook_path):
+def test_notebook(notebook_path, output_directory):
     # Check that:
     # * notebooks run as expected
     # * that hash matches an existing notebook
