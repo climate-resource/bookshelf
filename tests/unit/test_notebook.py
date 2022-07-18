@@ -31,9 +31,11 @@ def test_run_notebook():
         run_notebook("example", output_directory=str(td), force=True)
 
         assert len(book.files()) == 2
-        assert os.listdir(str(td)) == [
-            "example",  # output
-            "example.ipynb",
-            "example.yaml",
-            "example.py",
-        ]
+        assert sorted(os.listdir(str(td))) == sorted(
+            [
+                "example",  # output
+                "example.ipynb",
+                "example.yaml",
+                "example.py",
+            ]
+        )

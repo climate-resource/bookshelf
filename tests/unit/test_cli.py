@@ -27,9 +27,11 @@ def test_run():
         result = runner.invoke(main, ["run", "example", "--output", str(td)])
         assert result.exit_code == 0, result.output
 
-        assert os.listdir(str(td)) == [
-            "example",  # output
-            "example.ipynb",
-            "example.yaml",
-            "example.py",
-        ]
+        assert sorted(os.listdir(str(td))) == sorted(
+            [
+                "example",  # output
+                "example.ipynb",
+                "example.yaml",
+                "example.py",
+            ]
+        )
