@@ -213,11 +213,11 @@ class LocalBook(_Book):
         resource: datapackage.Resource = self.metadata().get_resource(name)
 
         if resource is None:
-            raise ValueError(f"Unknown timeseries '{resource}'")
+            raise ValueError(f"Unknown timeseries '{name}'")
 
         local_fname = self.local_fname(resource.descriptor["filename"])
         fetch_file(
-            resource.descriptor.get("path"),
+            self.url(resource.descriptor.get("filename")),
             pathlib.Path(local_fname),
             known_hash=resource.descriptor.get("hash"),
         )

@@ -152,7 +152,6 @@ def fetch_file(
         Downloaded file was not in the expected location
 
     """
-    existing_hash = None
     if not force and local_fname.exists():
         if pooch.hashes.hash_matches(local_fname, known_hash):
             return
@@ -161,12 +160,14 @@ def fetch_file(
             f"value {known_hash}"
         )
 
-    if force or existing_hash is None:
+    if force or not local_fname.exists():
         download(url, local_fname=local_fname, known_hash=known_hash)
         logger.info(f"{local_fname} downloaded from {url}")
 
     if not local_fname.exists():
-        raise FileNotFoundError(f"Could not find file {local_fname}")  # noqa
+        raise FileNotFoundError(
+            f"Could not find file {local_fname}"
+        )  # pragma: no cover
 
 
 def get_env_var(name: str, add_prefix: bool = True) -> str:

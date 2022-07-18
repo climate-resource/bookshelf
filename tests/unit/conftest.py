@@ -39,7 +39,7 @@ def remote_bookshelf(requests_mock, monkeypatch):
             )
             requests_mock.get(
                 f"https://bookshelf.local/v0.1.0/{name}/{version}/leakage_rates_low.csv",
-                raw=read_data("v0.1.0/example/v1.0.0/leakage_rates_low.csv"),
+                text=read_data("v0.1.0/example/v1.0.0/leakage_rates_low.csv"),
             )
 
     bs = MockRemoteBookshelf()

@@ -86,7 +86,7 @@ def run_notebook(
 
     # Verify metadata
     metadata = load_nb_metadata(metadata_fname)
-    if metadata.name != name:
+    if metadata.name != name:  # pragma: no cover
         raise ValueError(
             f"name in metadata does not match the name of the notebook "
             f"({metadata.name} != {name}"

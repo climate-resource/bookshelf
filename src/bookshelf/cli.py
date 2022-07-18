@@ -18,13 +18,12 @@ class CLICommands(click.MultiCommand):
         try:
             mod = __import__(f"bookshelf.commands.cmd_{name}", None, None, ["cli"])
         except ImportError:
-            return
+            return  # pragma: no cover
         return mod.cli
 
 
-@click.command(cls=CLICommands)
+@click.command(cls=CLICommands, name="bookshelf")
 def main():
     """
-    Bookshelf
+    Bookshelf for managing reusable datasets
     """
-    pass
