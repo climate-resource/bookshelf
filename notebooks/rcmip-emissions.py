@@ -14,15 +14,23 @@
 # ---
 
 # %%
+import logging
+import tempfile
+
+import dotenv
 import pooch
 import scmdata
 
 from bookshelf import BookShelf, LocalBook
 from bookshelf.constants import PROCESSED_DATA_DIR
 
+# %%
+dotenv.load_dotenv()
+logging.basicConfig(level="INFO")
+
 # %% tags=["parameters"]
-BOOK_VERSION = "v0.1.0"
-DATASET_VERSION = ""
+BOOK_VERSION = "v0.0.2"
+DATASET_VERSION = "v5.1.0"
 PROCESSING_DIR = PROCESSED_DATA_DIR
 
 # %%
@@ -47,10 +55,39 @@ rcmip_emissions
 # # Process
 
 # %%
+rcmip_emissions.get_unique_meta("variable")
+
+# %%
 book.add_timeseries("complete", rcmip_emissions)
 
 
 # %%
+magicc_emissions = rcmip_emissions.filter(
+    variable=[
+        "Emissions|BC",
+        "Emissions|CH4",
+        "Emissions|CO",
+        "Emissions|CO2",
+        "Emissions|CO2|MAGICC AFOLU",
+        "Emissions|CO2|MAGICC Fossil and Industrial",
+        "Emissions|F-Gases|*",
+        "Emissions|Montreal Gases|*",
+        "Emissions|N2O",
+        "Emissions|NH3",
+        "Emissions|NOx",
+        "Emissions|OC",
+        "Emissions|Sulfur",
+        "Emissions|VOC",
+    ]
+)
+
+# %%
+# for v in magicc_emissions.get_unique_meta("variable"):
+#     plt.figure()
+#     magicc_emissions.filter(variable=v, region="World").lineplot()
+
+# %%
+book.add_timeseries("magicc", magicc_emissions)
 
 # %%
 book.metadata().to_json()
@@ -61,11 +98,14 @@ shelf = BookShelf()
 shelf.save(book)
 
 # %%
-book_2 = LocalBook("rcmip-emissions", BOOK_VERSION, local_bookshelf=PROCESSING_DIR)
+temp_bookshelf_dir = tempfile.mkdtemp()
+temp_shelf = BookShelf(path=temp_bookshelf_dir)
 
 # %%
-book_2.timeseries("complete")
+new_book = temp_shelf.load("rcmip-emissions")
+new_book
 
 # %%
+new_book.metadata().to_dict()
 
 # %%

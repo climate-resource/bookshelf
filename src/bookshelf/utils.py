@@ -6,11 +6,39 @@ import os
 import pathlib
 from typing import Optional, Union
 
+import appdirs
 import pooch
 
-from bookshelf.constants import DATA_FORMAT_VERSION
+from bookshelf.constants import DATA_FORMAT_VERSION, DEFAULT_BOOKSHELF, ENV_PREFIX
 
 logger = logging.getLogger(__file__)
+
+
+def default_cache_location() -> str:
+    r"""
+    Determine the default cache location
+
+
+    By default, local Books are stored in the default cache location unless overridden for
+    a given :class:`bookshelf.BookShelf`. The default cache location is determined using
+    the ``BOOKSHELF_CACHE_LOCATION`` or if that environment variable is not present, it
+    falls back to an operating specific location. This location is determined using
+    `appdirs <https://github.com/ActiveState/appdirs>`__ and may look like the following:
+
+    * Mac: ``~/Library/Caches/bookshelf``
+    * Unix: ``~/.cache/bookshelf`` or the value of the ``XDG_CACHE_HOME``
+      environment variable, if defined.
+    * Windows: ``C:\Users\<user>\AppData\Local\bookshelf\Cache``
+
+    Returns
+    -------
+    str
+        The default cache location
+    """
+    return os.environ.get(
+        "BOOKSHELF_CACHE_LOCATION",
+        appdirs.user_cache_dir("bookshelf", appauthor=False),
+    )
 
 
 def create_local_cache(path: Union[str, pathlib.Path, None] = None) -> pathlib.Path:
@@ -31,7 +59,7 @@ def create_local_cache(path: Union[str, pathlib.Path, None] = None) -> pathlib.P
     Location of a writable local cache
     """
     if path is None:
-        path = pooch.utils.os_cache("bookshelf")
+        path = default_cache_location()
 
     path = pooch.utils.cache_location(pathlib.Path(path) / DATA_FORMAT_VERSION)
 
@@ -139,3 +167,58 @@ def fetch_file(
 
     if not local_fname.exists():
         raise FileNotFoundError(f"Could not find file {local_fname}")  # noqa
+
+
+def get_env_var(name: str, add_prefix: bool = True) -> str:
+    """
+    Get an environment variable value
+
+    If the variable isn't set raise an exception
+
+    Parameters
+    ----------
+    name : str
+        Enviromnment variable name to check
+    add_prefix : bool
+        If True, prefix the environment variable name with  ``bookshelf.constants.ENV_PREFIX``
+    Returns
+    -------
+    str
+        Value of environment variable
+
+    Raises
+    ------
+    ValueError
+        Environment variable not set
+    """
+    if add_prefix:
+        name = ENV_PREFIX + name
+    name = name.upper()
+    if name not in os.environ:
+        raise ValueError(f"Environment variable {name} not set. Check configuration")
+    return os.environ[name]
+
+
+def get_remote_bookshelf(bookshelf: Optional[str]) -> str:
+    """
+    Get the remote bookshelf URL
+
+    If no bookshelf is provided, use the ``BOOKSHELF_REMOTE`` environment variable, or,
+    the ``bookshop.constants.DEFAULT_BOOKSHELF`` parameter if the environment variable
+    is not present.
+
+    Parameters
+    ----------
+    bookshelf : str
+        URL for the bookshelf
+
+        If not provided the URL is determined as above
+
+    Returns
+    -------
+    str
+        URL for the remote bookshelf
+    """
+    if bookshelf is None:
+        return os.environ.get(ENV_PREFIX + "REMOTE", DEFAULT_BOOKSHELF)
+    return bookshelf

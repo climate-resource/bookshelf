@@ -4,17 +4,24 @@ Book
 A Book represents a single versioned dataset. A dataset can contain multiple resources
 each of which are loaded independently.
 """
+import glob
 import json
 import os.path
 import pathlib
-from typing import Union
+from typing import List, Optional, Union
 
 import datapackage
 import pooch
 import scmdata
 
-from bookshelf.constants import DEFAULT_BOOKSHELF
-from bookshelf.utils import build_url, create_local_cache, fetch_file
+from bookshelf.utils import (
+    build_url,
+    create_local_cache,
+    fetch_file,
+    get_remote_bookshelf,
+)
+
+DATAPACKAGE_FILENAME = "datapackage.json"
 
 
 class _Book:
@@ -22,27 +29,48 @@ class _Book:
         self,
         name: str,
         version: str,
-        bookshelf: str = DEFAULT_BOOKSHELF,
+        bookshelf: Optional[str] = None,
     ):
         self.name = name
         self.version = version
-        self.bookshelf = bookshelf
+        self.bookshelf = get_remote_bookshelf(bookshelf)
 
-    def url(self, fname=None):
+    def url(self, fname: Optional[str] = None) -> str:
+        """
+        Get the expected URL for the book
+
+        This URL is generated locally using the provided remote bookshelf
+
+        Parameters
+        ----------
+        fname : str
+            If provided get the URL of a file within the Book
+
+        Returns
+        -------
+        str
+            URL
+        """
         parts = [self.name, self.version]
         if fname:
             parts.append(fname)
-        build_url(self.bookshelf, *parts)
-
-    def fetch(self):
-        pass
+        return build_url(self.bookshelf, *parts)
 
 
 class LocalBook(_Book):
     """
     A local instance of a Book
 
-    This book may or may not have been deployed to a remote bookshelf
+    A Book consists of a metadata file (``datapackage.json``) and one or more ``Resource`` files.
+    For now, these ``Resource's`` are only csv files of timeseries in the IAMC format, but
+    this could be extended in future to handle additional data-types. Resources are fetched from
+    the remote bookshelf when first requested and are cached locally for subsequent use.
+
+    The ``Book`` metadata follow the ``datapackage`` specification with some additional metadata
+    specific to this project. That means that each ``Book`` also doubles as a ``datapackage``.
+    Once released by the ``Book`` author, a ``Book`` becomes immutable. If ``Book`` authors
+    wish to update the metadata or data contained within a ``Book`` they must upload a new
+    version of the ``Book``.
     """
 
     def __init__(
@@ -57,6 +85,20 @@ class LocalBook(_Book):
             local_bookshelf = create_local_cache(local_bookshelf)
         self.local_bookshelf = pathlib.Path(local_bookshelf)
         self._metadata = None
+
+    def hash(self) -> str:
+        """
+        Get the hash for the metadata
+
+        This effectively also hashes the data as the metadata contains the hashes of
+        the local Resource files.
+
+        Returns
+        -------
+        str
+            sha256 sum that is unique for the Book
+        """
+        return str(pooch.file_hash(self.local_fname(DATAPACKAGE_FILENAME)))
 
     def local_fname(self, fname: str) -> str:
         """
@@ -86,7 +128,7 @@ class LocalBook(_Book):
             Metadata about the Book
         """
         if self._metadata is None:
-            fname = "datapackage.json"
+            fname = DATAPACKAGE_FILENAME
 
             local_fname = self.local_fname(fname)
             with open(local_fname) as file_handle:
@@ -94,6 +136,22 @@ class LocalBook(_Book):
 
             self._metadata = datapackage.Package(d)
         return self._metadata
+
+    def files(self) -> List[str]:
+        """
+        List of files that are locally available
+
+        Since each Resource is fetched when first read the number of files present may
+        be less than available on the remote bookshelf.
+
+        Returns
+        -------
+        list of str
+            List of paths of all Book's files, including `datapackage.json` which contains
+            the metadata about the Book.
+        """
+        file_list = glob.glob(self.local_fname("*"))
+        return file_list
 
     def add_timeseries(self, name, data):
         """
@@ -110,17 +168,17 @@ class LocalBook(_Book):
         """
         fname = f"{name}.csv"
         data.to_csv(self.local_fname(fname))
-        hash = pooch.hashes.file_hash(self.local_fname(fname))
+        resource_hash = pooch.hashes.file_hash(self.local_fname(fname))
 
         self.metadata().add_resource(
             {
                 "name": name,
                 "format": "CSV",
                 "filename": fname,
-                "hash": hash,
+                "hash": resource_hash,
             }
         )
-        self.metadata().save(self.local_fname("datapackage.json"))
+        self.metadata().save(self.local_fname(DATAPACKAGE_FILENAME))
 
     @classmethod
     def create_new(cls, name, version, **kwargs):
@@ -131,7 +189,7 @@ class LocalBook(_Book):
         book._metadata = datapackage.Package(
             {"name": name, "version": version, "resources": []}
         )
-        book._metadata.save(book.local_fname("datapackage.json"))
+        book._metadata.save(book.local_fname(DATAPACKAGE_FILENAME))
 
         return book
 

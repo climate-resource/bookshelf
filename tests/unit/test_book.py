@@ -57,3 +57,27 @@ def test_metadata():
     meta_dict = metadata.to_dict()
     assert meta_dict["name"] == book.name
     assert meta_dict["version"] == book.version
+
+
+def test_metadata_missing():
+    book = LocalBook("example", "v1.0.0")
+    with pytest.raises(FileNotFoundError):
+        book.metadata()
+
+
+def test_files(local_bookshelf):
+    book = LocalBook("example", "v1.0.0")
+
+    assert len(book.files()) == 0
+
+    book = LocalBook(
+        "example",
+        "v1.0.0",
+        local_bookshelf=os.path.join(TEST_DATA_DIR, DATA_FORMAT_VERSION),
+    )
+    assert len(book.files()) == 2
+
+    book = LocalBook.create_new("example", "v1.1.0", local_bookshelf=local_bookshelf)
+    book_files = book.files()
+    assert len(book_files) == 1
+    assert book_files[0] == os.path.join(book.local_fname("datapackage.json"))
