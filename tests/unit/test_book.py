@@ -54,7 +54,7 @@ def test_metadata():
 
     assert isinstance(metadata, datapackage.Package)
 
-    meta_dict = metadata.to_dict()
+    meta_dict = metadata.descriptor
     assert meta_dict["name"] == book.name
     assert meta_dict["version"] == book.version
 
