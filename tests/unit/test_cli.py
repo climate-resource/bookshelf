@@ -5,6 +5,7 @@ import tempfile
 from click.testing import CliRunner
 
 from bookshelf.cli import main
+from bookshelf.shelf import BookShelf
 
 
 def test_help():
@@ -35,3 +36,17 @@ def test_run():
                 "example.py",
             ]
         )
+
+
+def test_save(mocker):
+    mock_run = mocker.patch("bookshelf.notebook.run_notebook")
+    mock_save = mocker.patch.object(BookShelf, "save", autospec=True)
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["save", "example"])
+    assert result.exit_code == 0
+
+    assert "Building Book in isolated environment"
+
+    mock_run.assert_called_once()
+    mock_save.assert_called_once()
