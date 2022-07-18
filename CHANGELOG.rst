@@ -18,6 +18,7 @@ Unreleased
 Added
 =====
 
+- (`!4 <https://gitlab.com/climate-resource/bookshelf/merge_requests/4>`_) Add NotebookMetadata schema and an example notebook with documentation
 - (`!3 <https://gitlab.com/climate-resource/bookshelf/merge_requests/3>`_) Add ability to upload Books to a remote bookshelf
 - (`!2 <https://gitlab.com/climate-resource/bookshelf/merge_requests/2>`_) Add precommit hooks and test coverage to the CI
 - (`!1 <https://gitlab.com/climate-resource/bookshelf/merge_requests/1>`_) Add bandit and mypy to the CI

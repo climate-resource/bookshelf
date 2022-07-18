@@ -17,25 +17,31 @@
 import logging
 import tempfile
 
-import dotenv
 import pooch
 import scmdata
 
-from bookshelf import BookShelf, LocalBook
-from bookshelf.constants import PROCESSED_DATA_DIR
+from bookshelf import LocalBook
+from bookshelf.utils import load_nb_metadata
+
+# %% [markdown]
+# #  Initialise
 
 # %%
-dotenv.load_dotenv()
 logging.basicConfig(level="INFO")
 
+# %%
+metadata = load_nb_metadata("rcmip-emissions")
+metadata.dict()
+
 # %% tags=["parameters"]
-BOOK_VERSION = "v0.0.2"
-DATASET_VERSION = "v5.1.0"
-PROCESSING_DIR = PROCESSED_DATA_DIR
+local_bookshelf = tempfile.mkdtemp()
+
+# %%
+local_bookshelf
 
 # %%
 book = LocalBook.create_new(
-    "rcmip-emissions", version=BOOK_VERSION, local_bookshelf=PROCESSING_DIR
+    metadata.name, version=metadata.version, local_bookshelf=local_bookshelf
 )
 
 # %% [markdown]
@@ -90,22 +96,4 @@ magicc_emissions = rcmip_emissions.filter(
 book.add_timeseries("magicc", magicc_emissions)
 
 # %%
-book.metadata().to_json()
-
-# %%
-shelf = BookShelf()
-
-shelf.save(book)
-
-# %%
-temp_bookshelf_dir = tempfile.mkdtemp()
-temp_shelf = BookShelf(path=temp_bookshelf_dir)
-
-# %%
-new_book = temp_shelf.load("rcmip-emissions")
-new_book
-
-# %%
-new_book.metadata().to_dict()
-
-# %%
+book.metadata().descriptor
