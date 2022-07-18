@@ -18,7 +18,11 @@
 #
 # This notebook is an example for the creation of a new book and can be used as a template.
 #
-# In this example, we fetch the RCMIP Radiative Forcing timeseries from `rcmip.org` and produce a resource that contains a filtered subset of variables.
+# In this example, we fetch the RCMIP Radiative Forcing timeseries from `rcmip.org` and
+# produce a resource that contains a filtered subset of variables.
+
+import logging
+import tempfile
 
 # %%
 import pooch
@@ -31,14 +35,26 @@ from bookshelf.utils import load_nb_metadata
 # # Initialise
 
 # %%
+logging.basicConfig(level=logging.INFO)
+
+# %%
 metadata = load_nb_metadata("example")
 metadata.dict()
 
-# %% [markdown]
-# # Download dataset
+# %% tags=["parameters"]
+# This cell contains additional parameters that are controlled using papermill
+local_bookshelf = tempfile.mkdtemp()
+
+# %%
+local_bookshelf
 
 # %% [markdown]
-# We recommend using `pooch` to download input data. `Pooch` will verify that the downloaded file matches the expected hash as a check that the download was performed successfully.
+# # Fetch
+
+# %% [markdown]
+# We recommend using `pooch` to download input data. `Pooch` will verify that the
+# downloaded file matches the expected hash as a check that the download was performed
+# successfully.
 
 # %%
 data_fname = pooch.retrieve(
@@ -49,7 +65,7 @@ data = scmdata.ScmRun(data_fname, lowercase_cols=True)
 data.head()
 
 # %% [markdown]
-# # Process dataset
+# # Process
 
 # %%
 data.get_unique_meta("variable")
@@ -61,7 +77,9 @@ rf = data.filter(
 rf
 
 # %%
-book = LocalBook.create_new(name=metadata.name, version=metadata.version)
+book = LocalBook.create_new(
+    name=metadata.name, version=metadata.version, local_bookshelf=local_bookshelf
+)
 
 # %% [markdown]
 # Create a new `Resource` in the `Book` using the RF `scmdata.ScmRun` object. This function copies the timeseries to a local file and calculate the hash of this file. This hash can be used to check if the files have been modified.
