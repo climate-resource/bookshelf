@@ -23,7 +23,7 @@ def test_build_url(root, paths, exp):
     assert res == exp
 
 
-def test_remote_bookshop(monkeypatch):
+def test_remote_bookshelf(monkeypatch):
     env_var = "BOOKSHELF_REMOTE"
     monkeypatch.delenv(env_var)
     assert get_remote_bookshelf(None) == DEFAULT_BOOKSHELF

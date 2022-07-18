@@ -169,7 +169,7 @@ class BookShelf:
 
         return LocalBook(name, version, local_bookshelf=self.path)
 
-    def is_available(self, name, version: Version = None) -> bool:
+    def is_available(self, name: str, version: Version = None) -> bool:
         """
         Check if a Book is available from the remote bookshelf
 
@@ -210,7 +210,6 @@ class BookShelf:
         bool
             True if a matching book is cached locally
         """
-
         try:
             # Check if the metadata for the book can be successfully read
             book = LocalBook(name, version, local_bookshelf=self.path)

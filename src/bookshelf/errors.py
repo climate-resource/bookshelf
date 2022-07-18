@@ -8,8 +8,6 @@ class UnknownBook(ValueError):
     An unknown book is requested
     """
 
-    pass
-
 
 class UnknownVersion(ValueError):
     """

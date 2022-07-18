@@ -12,7 +12,7 @@ except ImportError:  # pragma: no cover
 
 try:
     __version__ = _version("bookshelf")
-except Exception:  # pylint: disable=broad-except pragma: no cover
+except Exception:  # pragma: no cover pylint: disable=broad-except
     # Local copy, not installed with setuptools
     __version__ = "unknown"
 

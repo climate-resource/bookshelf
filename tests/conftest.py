@@ -34,7 +34,7 @@ def local_bookshelf(tmpdir, monkeypatch):
 def remote_bookshelf(requests_mock, monkeypatch):
     monkeypatch.setenv("BOOKSHELF_REMOTE", "https://bookshelf.local/v0.1.0")
 
-    class MockRemoteBookshop:
+    class MockRemoteBookshelf:
         def __init__(self):
             self.mocker = requests_mock
             self.register("test", "v1.0.0")
@@ -54,7 +54,7 @@ def remote_bookshelf(requests_mock, monkeypatch):
                 raw=read_data("v0.1.0/example/v1.0.0/leakage_rates_low.csv"),
             )
 
-    bs = MockRemoteBookshop()
+    bs = MockRemoteBookshelf()
 
     yield bs
 

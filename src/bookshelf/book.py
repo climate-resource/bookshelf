@@ -8,7 +8,7 @@ import glob
 import json
 import os.path
 import pathlib
-from typing import List, Union
+from typing import List, Optional, Union
 
 import datapackage
 import pooch
@@ -29,20 +29,32 @@ class _Book:
         self,
         name: str,
         version: str,
-        bookshelf: str = None,
+        bookshelf: Optional[str] = None,
     ):
         self.name = name
         self.version = version
         self.bookshelf = get_remote_bookshelf(bookshelf)
 
-    def url(self, fname=None):
+    def url(self, fname: Optional[str] = None) -> str:
+        """
+        Get the expected URL for the book
+
+        This URL is generated locally using the provided remote bookshelf
+
+        Parameters
+        ----------
+        fname : str
+            If provided get the URL of a file within the Book
+
+        Returns
+        -------
+        str
+            URL
+        """
         parts = [self.name, self.version]
         if fname:
             parts.append(fname)
         return build_url(self.bookshelf, *parts)
-
-    def fetch(self):
-        pass
 
 
 class LocalBook(_Book):
@@ -86,7 +98,7 @@ class LocalBook(_Book):
         str
             sha256 sum that is unique for the Book
         """
-        return pooch.file_hash(self.local_fname(DATAPACKAGE_FILENAME))
+        return str(pooch.file_hash(self.local_fname(DATAPACKAGE_FILENAME)))
 
     def local_fname(self, fname: str) -> str:
         """
@@ -156,14 +168,14 @@ class LocalBook(_Book):
         """
         fname = f"{name}.csv"
         data.to_csv(self.local_fname(fname))
-        hash = pooch.hashes.file_hash(self.local_fname(fname))
+        resource_hash = pooch.hashes.file_hash(self.local_fname(fname))
 
         self.metadata().add_resource(
             {
                 "name": name,
                 "format": "CSV",
                 "filename": fname,
-                "hash": hash,
+                "hash": resource_hash,
             }
         )
         self.metadata().save(self.local_fname(DATAPACKAGE_FILENAME))
