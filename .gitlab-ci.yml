@@ -45,6 +45,8 @@ test: &test_config
 
 test:notebooks:
   <<: *test_config
+  variables:
+    BOOKSHELF_CACHE_LOCATION: out
   script:
     - pytest tests/notebooks --log-cli-level INFO
   artifacts:
