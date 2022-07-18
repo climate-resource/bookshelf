@@ -1,3 +1,6 @@
+"""
+Functions to run/manage notebooks
+"""
 import logging
 import os
 import shutil
@@ -80,7 +83,6 @@ def run_notebook(
     LocalBook
         The generated book
     """
-
     nb_fname = os.path.join(nb_directory, f"{name}.py")
     metadata_fname = os.path.join(nb_directory, f"{name}.yaml")
 

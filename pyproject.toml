@@ -18,3 +18,10 @@ testpaths = "tests"
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]
+
+[tool.pylint.messages_control]
+disable = [
+    "logging-fstring-interpolation",
+    "too-few-public-methods",
+    "unspecified-encoding"
+]

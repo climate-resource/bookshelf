@@ -1,3 +1,6 @@
+"""
+run CLI command
+"""
 import click
 
 from bookshelf.notebook import run_notebook

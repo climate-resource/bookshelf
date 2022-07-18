@@ -61,4 +61,5 @@ test:format:
     - flake8 setup.py src tests notebooks
     - black --check src tests notebooks
     - mypy --install-types --non-interactive src
+    - pylint --fail-under=9.5 src
     - bandit -r src

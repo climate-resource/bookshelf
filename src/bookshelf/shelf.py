@@ -67,13 +67,13 @@ def _fetch_volume_meta(
     return VolumeMeta(**data)
 
 
-def _upload_file(s3, bucket, key, fname):
+def _upload_file(s3, bucket, key, fname):  # pylint: disable=invalid-name
     try:
         logger.info(f"Uploading {fname}")
         s3.upload_file(fname, bucket, key, ExtraArgs={"ACL": "public-read"})
-    except boto3.exceptions.S3UploadFailedError as e:
-        logger.exception(e, exc_info=False)
-        raise UploadError(f"Failed to upload {fname} to s3")
+    except boto3.exceptions.S3UploadFailedError as s3_error:
+        logger.exception(s3_error, exc_info=False)
+        raise UploadError(f"Failed to upload {fname} to s3") from s3_error
 
 
 def _update_volume_meta(book: LocalBook, remote_bookshelf: str) -> str:
@@ -161,8 +161,8 @@ class BookShelf:
                     known_hash=None,
                     force=force,
                 )
-            except requests.exceptions.HTTPError:
-                raise UnknownVersion(name, version)
+            except requests.exceptions.HTTPError as http_error:
+                raise UnknownVersion(name, version) from http_error
 
         if not metadata_fname.exists():
             raise AssertionError()  # noqa
@@ -249,8 +249,8 @@ class BookShelf:
             resource.descriptor["filename"]
             for resource in cast(Iterable[datapackage.Resource], resources)
         ]
-        for f in files:
-            fname = os.path.basename(f)
+        for resource_file in files:
+            fname = os.path.basename(resource_file)
             if fname == "datapackage.json":
                 continue
             if fname not in resource_fnames:
@@ -259,14 +259,16 @@ class BookShelf:
         # Upload using boto3 by default for testing
         # Maybe support other upload methods in future
 
-        s3 = boto3.client("s3")
+        s3 = boto3.client("s3")  # pylint: disable=invalid-name
         bucket = get_env_var("BUCKET", add_prefix=True)
         prefix = get_env_var("BUCKET_PREFIX", add_prefix=True)
 
         logger.info(f"Beginning to upload {book.name}@{book.version}")
-        for f in files:
-            key = os.path.join(prefix, book.name, book.version, os.path.basename(f))
-            _upload_file(s3, bucket, key, f)
+        for resource_file in files:
+            key = os.path.join(
+                prefix, book.name, book.version, os.path.basename(resource_file)
+            )
+            _upload_file(s3, bucket, key, resource_file)
 
         # Update the metadata with the latest version information
         # Note that this doesn't have any guardrails and is susceptible to race conditions
@@ -281,8 +283,8 @@ class BookShelf:
         # Update the package metadata
         try:
             meta = _fetch_volume_meta(name, self.remote_bookshelf, self.path)
-        except requests.exceptions.HTTPError:
-            raise UnknownBook(f"No metadata for {repr(name)}")
+        except requests.exceptions.HTTPError as http_error:
+            raise UnknownBook(f"No metadata for {repr(name)}") from http_error
 
         if version is None:
             return meta.versions[-1].version
