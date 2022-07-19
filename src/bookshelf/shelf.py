@@ -218,9 +218,9 @@ class BookShelf:
         except FileNotFoundError:
             return False
 
-    def save(self, book: LocalBook, force: bool = False) -> None:
+    def publish(self, book: LocalBook, force: bool = False) -> None:
         """
-        Save a book to the remote bookshelf
+        Publish a book to the remote bookshelf
 
         Parameters
         ----------

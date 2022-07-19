@@ -1,9 +1,13 @@
 """
 run CLI command
 """
+import logging
+
 import click
 
 from bookshelf.notebook import run_notebook
+
+logger = logging.getLogger(__name__)
 
 
 @click.command("run", short_help="Run a notebook")
@@ -26,4 +30,8 @@ def cli(name, output, force):
 
     This runs one of the notebooks used to generate a Book
     """
-    run_notebook(name, output_directory=output, force=force)
+    try:
+        run_notebook(name, output_directory=output, force=force)
+    except Exception as exc:
+        logger.error(str(exc))
+        raise click.Abort() from exc

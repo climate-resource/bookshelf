@@ -17,6 +17,7 @@ for the expected format of this file.
 * Run the notebook and check the output
 * **TODO** Perform the release procedure to upload the built book to the remote 
   `BookShelf`
+  `bookshelf save {volume}`
 
 ## Updating a `Volume`'s version
 

@@ -15,8 +15,13 @@ The changes listed in this file are categorised as follows:
 Unreleased
 ----------
 
+Changed
+=======
+- (`!6 <https://gitlab.com/climate-resource/bookshelf/merge_requests/6>`_) Renamed ``Bookshelf.save`` to ``Bookshelf.publish``
+
 Added
 =====
+- (`!6 <https://gitlab.com/climate-resource/bookshelf/merge_requests/6>`_) Add save CLI command
 - (`!5 <https://gitlab.com/climate-resource/bookshelf/merge_requests/5>`_) Add CLI tool, ``bookshelf`` and CI test suite for notebooks
 - (`!4 <https://gitlab.com/climate-resource/bookshelf/merge_requests/4>`_) Add NotebookMetadata schema and an example notebook with documentation
 - (`!3 <https://gitlab.com/climate-resource/bookshelf/merge_requests/3>`_) Add ability to upload Books to a remote bookshelf
