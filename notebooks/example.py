@@ -93,7 +93,7 @@ book.add_timeseries("rf", rf)
 # This is the metadata that clients download and can be used to fetch the `Book`'s `Resources`. Once deployed this `Book` becomes immutable. Any changes to the metadata or data requires releasing a new version of a `Book`.
 
 # %%
-book.metadata().descriptor
+book.metadata()
 
 # %% [markdown]
 # That is all.

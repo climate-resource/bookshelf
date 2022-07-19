@@ -96,4 +96,4 @@ magicc_emissions = rcmip_emissions.filter(
 book.add_timeseries("magicc", magicc_emissions)
 
 # %%
-book.metadata().descriptor
+book.metadata()
