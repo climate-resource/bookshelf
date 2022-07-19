@@ -18,11 +18,16 @@
 #
 
 # %%
+# Need to think about how to handle notebook dependencies
+# !pip install pycountry
+
+# %%
 import logging
 import tempfile
 
 import pandas as pd
 import pooch
+import pycountry
 import scmdata
 
 from bookshelf import LocalBook
@@ -77,14 +82,64 @@ data_df_renamed["variable"] = "Emissions|" + data_df_renamed["variable"]
 data = scmdata.ScmRun(data_df_renamed, lowercase_cols=True)
 data.head()
 
+
 # %% [markdown]
 # # Process
+#
+# Minor renames and enrichment
+
+# %%
+def rename_variable(v):
+    return (
+        v.replace("KYOTOGHG", "Kyoto GHG")
+        .replace("HFCS", "HFCs")
+        .replace("PFCS", "PFCs")
+        .replace("FGASES", "F-Gases")
+    )
+
+
+data["variable"] = data["variable"].apply(rename_variable)
 
 # %%
 data.get_unique_meta("variable")
 
 # %%
-len(data.get_unique_meta("region"))
+region_map = {
+    "ANNEXI": "Annex I",
+    "ANT": "Antartica",
+    "AOSIS": "Alliance of Small Island States (AOSIS)",
+    "BASIC": "BASIC",
+    "EARTH": "World",
+    "EU27BX": "EU27 Post-Brexit",
+    "LDC": "Least Developed Countries (LDC)",
+    "NONANNEXI": "Non-Annex I",
+    "UMBRELLA": "Umbrella",
+}
+
+
+# %%
+def rename_regions(d):
+    region = d.get_unique_meta("region", True)
+
+    if region in region_map:
+        region = region_map[region]
+        d["region"] = region
+
+    country_data = pycountry.countries.get(alpha_3=region)
+    if country_data is not None:
+        d["country"] = country_data.name
+
+    return d
+
+
+# Rename regions
+data = data.groupby("region").map(rename_regions)
+
+
+for region in data.get_unique_meta("region"):
+    country_data = pycountry.countries.get(alpha_3=region)
+    if country_data is None:
+        print(region)
 
 # %%
 book = LocalBook.create_new(
