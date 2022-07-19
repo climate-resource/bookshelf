@@ -222,3 +222,16 @@ def test_is_cached(shelf):
     assert shelf.is_cached(book.name, book.version)
     assert not shelf.is_cached(book.name, "v1.0.1")
     assert not shelf.is_cached("other", "v1.0.1")
+
+
+def test_list_versions(shelf, remote_bookshelf):
+    remote_bookshelf.mocker.get("/v0.1.0/other/volume.json", status_code=404)
+
+    assert shelf.list_versions("test") == ["v1.0.0", "v1.1.0"]
+    with pytest.raises(UnknownBook):
+        shelf.list_versions("other")
+
+
+@pytest.mark.xfail(reason="Not implemented")
+def test_list_name(shelf):
+    assert shelf.list_books() == ["test"]
