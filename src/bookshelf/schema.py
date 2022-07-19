@@ -35,5 +35,7 @@ class NotebookMetadata(BaseModel):
 
     name: str
     version: str
+    description: Optional[str]
     license: str
     metadata: Dict[str, Any]  # TODO: type this
+    dataset: Optional[Dict[str, Any]]  # TODO: type this
