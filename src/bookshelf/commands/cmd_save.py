@@ -1,12 +1,15 @@
 """
 save CLI command
 """
+import logging
 import tempfile
 
 import click
 
 from bookshelf.notebook import run_notebook
 from bookshelf.shelf import BookShelf
+
+logger = logging.getLogger(__name__)
 
 
 @click.command("save", short_help="Upload a book to the bookshelf")
@@ -24,7 +27,10 @@ def cli(name):
     output directory. There currently isn't any functionality to upload a pre-built Book.
     """
     with tempfile.TemporaryDirectory() as temp_dir:
-        book = run_notebook(name, output_directory=temp_dir, force=False)
+        try:
+            book = run_notebook(name, output_directory=temp_dir, force=False)
 
-        shelf = BookShelf()
-        shelf.save(book)
+            shelf = BookShelf()
+            shelf.save(book)
+        except Exception as exc:
+            logger.error(str(exc))
