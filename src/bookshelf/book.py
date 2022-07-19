@@ -8,7 +8,7 @@ import glob
 import json
 import os.path
 import pathlib
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
 
 import datapackage
 import pooch
@@ -116,11 +116,12 @@ class LocalBook(_Book):
         """
         return os.path.join(self.local_bookshelf, self.name, self.version, fname)
 
-    def metadata(self) -> datapackage.Package:
+    def as_datapackage(self) -> datapackage.Package:
         """
-        Metadata about the current book
+        Package representation of the book
 
-        :module:`datapackage` is used for handling the metadata.
+        :module:`datapackage` is used for handling the metadata. Modifying
+        the package also modifies the Book.
 
         Returns
         -------
@@ -136,6 +137,17 @@ class LocalBook(_Book):
 
             self._metadata = datapackage.Package(file_data)
         return self._metadata
+
+    def metadata(self) -> Dict[str, Any]:
+        """
+        Metadata about the current book
+
+        Returns
+        -------
+        dict
+            Metadata about the Book
+        """
+        return cast(Dict[str, Any], self.as_datapackage().descriptor)
 
     def files(self) -> List[str]:
         """
@@ -170,7 +182,8 @@ class LocalBook(_Book):
         data.to_csv(self.local_fname(fname))
         resource_hash = pooch.hashes.file_hash(self.local_fname(fname))
 
-        self.metadata().add_resource(
+        metadata = self.as_datapackage()
+        metadata.add_resource(
             {
                 "name": name,
                 "format": "CSV",
@@ -178,7 +191,7 @@ class LocalBook(_Book):
                 "hash": resource_hash,
             }
         )
-        self.metadata().save(self.local_fname(DATAPACKAGE_FILENAME))
+        metadata.save(self.local_fname(DATAPACKAGE_FILENAME))
 
     @classmethod
     def create_new(cls, name, version, **kwargs):
@@ -210,7 +223,7 @@ class LocalBook(_Book):
             Timeseries data
 
         """
-        resource: datapackage.Resource = self.metadata().get_resource(name)
+        resource: datapackage.Resource = self.as_datapackage().get_resource(name)
 
         if resource is None:
             raise ValueError(f"Unknown timeseries '{name}'")

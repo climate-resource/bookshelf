@@ -33,12 +33,12 @@ def test_create_local(local_bookshelf):
 def test_add_timeseries(local_bookshelf, example_data):
     book = LocalBook.create_new("test", "v1.1.0", local_bookshelf=local_bookshelf)
     book.add_timeseries("test", example_data)
-    assert len(book.metadata().resources) == 1
+    assert len(book.as_datapackage().resources) == 1
 
     expected_fname = local_bookshelf / "test" / "v1.1.0" / "test.csv"
     assert expected_fname.exists()
 
-    res = book.metadata().resources[0]
+    res = book.as_datapackage().resources[0]
     assert res.name == "test"
     assert res.descriptor["format"] == "CSV"
     assert res.descriptor["filename"] == "test.csv"
@@ -73,13 +73,15 @@ def test_metadata():
         local_bookshelf=os.path.join(TEST_DATA_DIR, DATA_FORMAT_VERSION),
     )
 
-    metadata = book.metadata()
+    package = book.as_datapackage()
 
-    assert isinstance(metadata, datapackage.Package)
+    assert isinstance(package, datapackage.Package)
 
-    meta_dict = metadata.descriptor
+    meta_dict = package.descriptor
     assert meta_dict["name"] == book.name
     assert meta_dict["version"] == book.version
+
+    assert meta_dict == book.metadata()
 
 
 def test_metadata_missing():

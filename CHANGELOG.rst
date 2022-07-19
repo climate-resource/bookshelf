@@ -17,10 +17,12 @@ Unreleased
 
 Changed
 =======
+- (`!7 <https://gitlab.com/climate-resource/bookshelf/merge_requests/7>`_) Renamed ``LocalBook.metadata`` to ``LocalBook.as_datapackage``
 - (`!6 <https://gitlab.com/climate-resource/bookshelf/merge_requests/6>`_) Renamed ``Bookshelf.save`` to ``Bookshelf.publish``
 
 Added
 =====
+- (`!7 <https://gitlab.com/climate-resource/bookshelf/merge_requests/7>`_) Add ``Bookshelf.list_versions``
 - (`!6 <https://gitlab.com/climate-resource/bookshelf/merge_requests/6>`_) Add save CLI command
 - (`!5 <https://gitlab.com/climate-resource/bookshelf/merge_requests/5>`_) Add CLI tool, ``bookshelf`` and CI test suite for notebooks
 - (`!4 <https://gitlab.com/climate-resource/bookshelf/merge_requests/4>`_) Add NotebookMetadata schema and an example notebook with documentation

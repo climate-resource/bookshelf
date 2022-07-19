@@ -7,7 +7,7 @@ import json
 import logging
 import os
 import pathlib
-from typing import Iterable, Optional, Union, cast
+from typing import Iterable, List, Optional, Union, cast
 
 import boto3
 import boto3.exceptions
@@ -244,7 +244,7 @@ class BookShelf:
         files = book.files()
 
         # Check if additional files are going to be uploaded
-        resources = book.metadata().resources
+        resources = book.as_datapackage().resources
         resource_fnames = [
             resource.descriptor["filename"]
             for resource in cast(Iterable[datapackage.Resource], resources)
@@ -294,3 +294,35 @@ class BookShelf:
             if item.version == version:
                 return version
         raise UnknownVersion(name, version)
+
+    def list_versions(self, name: str) -> List[str]:
+        """
+        Get a list of available versions for a given Book
+
+        Parameters
+        ----------
+        name: str
+            Name of book
+
+        Returns
+        -------
+        list of str
+            List of available versions
+        """
+        try:
+            meta = _fetch_volume_meta(name, self.remote_bookshelf, self.path)
+        except requests.exceptions.HTTPError as http_error:
+            raise UnknownBook(f"No metadata for {repr(name)}") from http_error
+
+        return [version.version for version in meta.versions]
+
+    def list_books(self) -> List[str]:
+        """
+        Get a list of book names
+
+        Returns
+        -------
+        list of str
+            List of available books
+        """
+        raise NotImplementedError
