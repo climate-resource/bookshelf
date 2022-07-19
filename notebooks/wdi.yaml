@@ -1,0 +1,13 @@
+name: wdi
+version: v0.1.0
+license: CC-BY
+description: |
+  Comprehensive set of historical greenhouse gas emissions for every country
+metadata:
+  author: Jared Lewis
+  author_email: jared.lewis@climate-resource.com
+dataset:
+  url: https://doi.org/10.5281/zenodo.5494497
+  version: v13
+  author: World Bank
+  time_domain: [1960-2021]
