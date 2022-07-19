@@ -150,7 +150,7 @@ book = LocalBook.create_new(
 book.add_timeseries("clean", data)
 
 # %%
-book.metadata().descriptor
+book.metadata()
 
 # %% [markdown]
 # That is all.
