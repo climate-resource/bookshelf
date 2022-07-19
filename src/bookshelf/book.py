@@ -8,7 +8,7 @@ import glob
 import json
 import os.path
 import pathlib
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
 
 import datapackage
 import pooch
@@ -138,7 +138,7 @@ class LocalBook(_Book):
             self._metadata = datapackage.Package(file_data)
         return self._metadata
 
-    def metadata(self) -> Dict:
+    def metadata(self) -> Dict[str, Any]:
         """
         Metadata about the current book
 
@@ -147,7 +147,7 @@ class LocalBook(_Book):
         dict
             Metadata about the Book
         """
-        return self.as_datapackage().descriptor
+        return cast(Dict[str, Any], self.as_datapackage().descriptor)
 
     def files(self) -> List[str]:
         """
