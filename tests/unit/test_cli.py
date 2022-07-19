@@ -38,18 +38,18 @@ def test_run():
         )
 
 
-def test_save(mocker):
+def test_publish(mocker):
     mock_run = mocker.patch("bookshelf.notebook.run_notebook", autospec=True)
-    mock_save = mocker.patch.object(BookShelf, "save", autospec=True)
+    mock_publish = mocker.patch.object(BookShelf, "publish", autospec=True)
 
     runner = CliRunner()
-    result = runner.invoke(main, ["save", "example"])
+    result = runner.invoke(main, ["publish", "example"])
     assert result.exit_code == 0
 
     # TODO: fix CLI logging
     # assert "Building Book in isolated environment" in result.output
 
     mock_run.assert_called_once()
-    mock_save.assert_called_once()
+    mock_publish.assert_called_once()
 
-    assert mock_save.call_args.args[1] == mock_run.return_value
+    assert mock_publish.call_args.args[1] == mock_run.return_value
