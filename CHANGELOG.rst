@@ -15,6 +15,10 @@ The changes listed in this file are categorised as follows:
 Unreleased
 ----------
 
+Changed
+=======
+- (`!6 <https://gitlab.com/climate-resource/bookshelf/merge_requests/6>`_) Renamed ``Bookshelf.save`` to ``Bookshelf.publish``
+
 Added
 =====
 - (`!6 <https://gitlab.com/climate-resource/bookshelf/merge_requests/6>`_) Add save CLI command
