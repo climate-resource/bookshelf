@@ -1,4 +1,4 @@
-import os
+import logging
 import re
 import tempfile
 
@@ -6,6 +6,8 @@ from click.testing import CliRunner
 
 from bookshelf.cli import main
 from bookshelf.shelf import BookShelf
+
+logging.basicConfig()
 
 
 def test_help():
@@ -22,34 +24,56 @@ def test_help():
         assert re.search(exp, result.output)
 
 
-def test_run():
+def test_run(mocker):
+    mock_run = mocker.patch("bookshelf.commands.cmd_run.run_notebook", autospec=True)
+
     with tempfile.TemporaryDirectory() as td:
         runner = CliRunner()
         result = runner.invoke(main, ["run", "example", "--output", str(td)])
         assert result.exit_code == 0, result.output
 
-        assert sorted(os.listdir(str(td))) == sorted(
-            [
-                "example",  # output
-                "example.ipynb",
-                "example.yaml",
-                "example.py",
-            ]
-        )
+        mock_run.assert_called_once_with("example", output_directory=td, force=False)
 
 
-def test_publish(mocker):
-    mock_run = mocker.patch("bookshelf.notebook.run_notebook", autospec=True)
+def test_run_failed(mocker, caplog):
+    mock_run = mocker.patch("bookshelf.commands.cmd_run.run_notebook", autospec=True)
+    mock_run.side_effect = ValueError("Something went wrong")
+    with tempfile.TemporaryDirectory() as td:
+        runner = CliRunner()
+        result = runner.invoke(main, ["run", "example", "--output", str(td)])
+        assert result.exit_code == 1
+
+    assert "Something went wrong" in caplog.text
+    assert "Aborted!" in result.output
+
+
+def test_publish(mocker, caplog):
+    mock_run = mocker.patch(
+        "bookshelf.commands.cmd_publish.run_notebook", autospec=True
+    )
     mock_publish = mocker.patch.object(BookShelf, "publish", autospec=True)
+
+    caplog.set_level("INFO")
 
     runner = CliRunner()
     result = runner.invoke(main, ["publish", "example"])
     assert result.exit_code == 0
 
-    # TODO: fix CLI logging
-    # assert "Building Book in isolated environment" in result.output
+    assert "Building Book in isolated environment" in caplog.text
 
     mock_run.assert_called_once()
     mock_publish.assert_called_once()
 
     assert mock_publish.call_args.args[1] == mock_run.return_value
+
+
+def test_publish_failed(mocker, caplog):
+    mock_run = mocker.patch("bookshelf.commands.cmd_publish.run_notebook")
+    mock_run.side_effect = ValueError("Something went wrong")
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["publish", "example"])
+    assert result.exit_code == 1
+
+    assert "Something went wrong" in caplog.text
+    assert "Aborted!" in result.output

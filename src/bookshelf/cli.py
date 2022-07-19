@@ -9,7 +9,6 @@ import click_log
 
 cmd_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), "commands"))
 logger = logging.getLogger("bookshelf")
-click_log.basic_config(logger)
 
 
 class _CLICommands(click.MultiCommand):
@@ -24,8 +23,8 @@ class _CLICommands(click.MultiCommand):
     def get_command(self, ctx, cmd_name):
         try:
             mod = __import__(f"bookshelf.commands.cmd_{cmd_name}", None, None, ["cli"])
-        except ImportError:
-            return None  # pragma: no cover
+        except ImportError:  # pragma: no cover
+            return None
         return mod.cli
 
 
@@ -38,6 +37,9 @@ def main(ctx, quiet):
     Bookshelf for managing reusable datasets
     """
     ctx.ensure_object(dict)
+
+    if not logger.hasHandlers():
+        click_log.basic_config(logger)  # pragma: no cover
 
     logger.setLevel(logging.INFO)
     if quiet:

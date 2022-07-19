@@ -27,6 +27,7 @@ def cli(name):
     output directory. There currently isn't any functionality to upload a pre-built Book.
     """
     with tempfile.TemporaryDirectory() as temp_dir:
+        logger.info(f"Building Book in isolated environment: {temp_dir}")
         try:
             book = run_notebook(name, output_directory=temp_dir, force=False)
 
@@ -34,3 +35,4 @@ def cli(name):
             shelf.publish(book)
         except Exception as exc:
             logger.error(str(exc))
+            raise click.Abort() from exc

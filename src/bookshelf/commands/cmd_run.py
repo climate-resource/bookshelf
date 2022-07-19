@@ -34,3 +34,4 @@ def cli(name, output, force):
         run_notebook(name, output_directory=output, force=force)
     except Exception as exc:
         logger.error(str(exc))
+        raise click.Abort() from exc
