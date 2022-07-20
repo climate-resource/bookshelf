@@ -1,4 +1,4 @@
-<-- Use this template to propose a new Book -->
+<!-- Use this template to propose a new Book -->
 
 ## Describe the book
 
@@ -14,11 +14,11 @@
 <!--
 Add details for required items and delete others.
 -->
- - [ ] Data provided under a suitable licens
+ - [ ] Data provided under a suitable licence
  - [ ] Determine unique book name
  - [ ] Create new notebook in `notebooks/`
  - [ ] Add appropriate metadata
- - [ ] Publish (Currently only @jaredlewisnz can do this)
+ - [ ] Publish (Currently only @lewisjarednz can do this)
  - [ ] Rerun CI after publishing to verify reproducibility
 
 /label ~"New Book"
