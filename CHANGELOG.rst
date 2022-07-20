@@ -17,6 +17,7 @@ Unreleased
 
 Changed
 =======
+- (`!10 <https://gitlab.com/climate-resource/bookshelf/merge_requests/10>`_) Update issue and MR templates
 - (`!7 <https://gitlab.com/climate-resource/bookshelf/merge_requests/7>`_) Renamed ``LocalBook.metadata`` to ``LocalBook.as_datapackage``
 - (`!6 <https://gitlab.com/climate-resource/bookshelf/merge_requests/6>`_) Renamed ``Bookshelf.save`` to ``Bookshelf.publish``
 
