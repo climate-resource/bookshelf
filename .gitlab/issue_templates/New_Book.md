@@ -1,13 +1,24 @@
----
-name: New Book
-about: Propose a new book
+<-- Use this template to propose a new Book -->
 
----
+## Describe the book
 
-**Describe the book**
+<!-- What would this add? -->
 
-What would this add?
+### Data source
 
-**Data Source**
+<!-- Which data version? -->
 
-Where is the data sourced from? What license is the data supplied under?
+<!-- Any relevant links? -->
+
+## Implementation Checklist
+<!--
+Add details for required items and delete others.
+-->
+ - [ ] Data provided under a suitable licens
+ - [ ] Determine unique book name
+ - [ ] Create new notebook in `notebooks/`
+ - [ ] Add appropriate metadata
+ - [ ] Publish (Currently only @jaredlewisnz can do this)
+ - [ ] Rerun CI after publishing to verify reproducibility
+
+/label ~"New Book"
