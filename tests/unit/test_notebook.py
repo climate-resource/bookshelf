@@ -1,8 +1,10 @@
 import os.path
+import re
 import tempfile
 
 import pytest
 
+import bookshelf.notebook
 from bookshelf.notebook import load_nb_metadata, run_notebook
 
 
@@ -39,3 +41,18 @@ def test_run_notebook():
                 "example.py",
             ]
         )
+
+
+@pytest.mark.parametrize("package", ["jupytext", "papermill"])
+def test_missing_deps(package):
+    try:
+        setattr(bookshelf.notebook, f"has_{package}", False)
+
+        match = re.escape(
+            f"{package} is not installed. Run 'pip install bookshelf[notebooks]'"
+        )
+        with pytest.raises(ImportError, match=match):
+            run_notebook("test")
+    finally:
+        bookshelf.notebook.has_papermill = True
+        bookshelf.notebook.has_jupytext = True
