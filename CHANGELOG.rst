@@ -23,6 +23,7 @@ Changed
 
 Added
 =====
+- (`!8 <https://gitlab.com/climate-resource/bookshelf/merge_requests/8>`_) Add ``primap-hist@v0.1.0``
 - (`!7 <https://gitlab.com/climate-resource/bookshelf/merge_requests/7>`_) Add ``Bookshelf.list_versions``
 - (`!6 <https://gitlab.com/climate-resource/bookshelf/merge_requests/6>`_) Add save CLI command
 - (`!5 <https://gitlab.com/climate-resource/bookshelf/merge_requests/5>`_) Add CLI tool, ``bookshelf`` and CI test suite for notebooks
