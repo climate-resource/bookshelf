@@ -103,6 +103,13 @@ data.
 Data Curator
 ============
 
+If you wish to build/modify ``Books`` some additional dependencies are required. These can
+be installed using:
+
+.. code:: bash
+
+  pip install "bookshelf[notebooks]"
+
 Building and deploying datasets is managed via Jupyter notebooks and a small yaml file that
 contains metadata about the dataset. These notebooks are stored as plain text Python files
 using the `jupytext <https://jupytext.readthedocs.io/en/latest/>`_ plugin for Jupyter.

@@ -6,8 +6,23 @@ import os
 import shutil
 from typing import Optional
 
-import jupytext
-import papermill
+# pylint: disable=invalid-name
+try:
+    import jupytext
+
+    has_jupytext = True
+except ImportError:  # pragma: no cover
+    jupytext = None
+    has_jupytext = False
+# pylint: disable=invalid-name
+try:
+    import papermill
+
+    has_papermill = True
+except ImportError:  # pragma: no cover
+    papermill = None
+    has_papermill = False
+
 import yaml
 
 from bookshelf import BookShelf, LocalBook
@@ -83,6 +98,15 @@ def run_notebook(
     LocalBook
         The generated book
     """
+    if not has_papermill:
+        raise ImportError(
+            "papermill is not installed. Run 'pip install bookshelf[notebooks]'"
+        )
+    if not has_jupytext:
+        raise ImportError(
+            "jupytext is not installed. Run 'pip install bookshelf[notebooks]'"
+        )
+
     nb_fname = os.path.join(nb_directory, f"{name}.py")
     metadata_fname = os.path.join(nb_directory, f"{name}.yaml")
 
