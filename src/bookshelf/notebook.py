@@ -6,6 +6,7 @@ import os
 import shutil
 from typing import Optional
 
+# pylint: disable=invalid-name
 try:
     import jupytext
 
@@ -13,6 +14,7 @@ try:
 except ImportError:  # pragma: no cover
     jupytext = None
     has_jupytext = False
+# pylint: disable=invalid-name
 try:
     import papermill
 
