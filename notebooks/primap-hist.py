@@ -101,6 +101,10 @@ def rename_variable(v):
 data["variable"] = data["variable"].apply(rename_variable)
 
 # %%
+data["scenario"] = data["scenario"].str.replace("HISTCR", "Historical|Country Reported")
+data["scenario"] = data["scenario"].str.replace("HISTTP", "Historical|Third Party")
+
+# %%
 data.get_unique_meta("variable")
 
 # %%
@@ -136,10 +140,43 @@ def rename_regions(d):
 data = data.groupby("region").map(rename_regions)
 
 
+regions = []
 for region in data.get_unique_meta("region"):
     country_data = pycountry.countries.get(alpha_3=region)
     if country_data is None:
+        regions.append(region)
         print(region)
+
+# %%
+data.get_unique_meta("unit")
+
+
+# %%
+def convert_units(run):
+    unit = run.get_unique_meta("unit", True)
+    return run.convert_unit(unit.replace("Gg", "kt"))
+
+
+data = data.groupby("unit").map(convert_units)
+
+# %%
+data.get_unique_meta("unit")
+
+# %%
+data.get_unique_meta("category")
+
+# %%
+data.timeseries()
+
+# %%
+data_countries = data.filter(region=regions, keep=False)
+data_regions = data.filter(region=regions).drop_meta("country")
+
+# %%
+data_regions
+
+# %%
+data_countries.get_unique_meta("region")
 
 # %%
 book = LocalBook.create_new(
@@ -147,7 +184,8 @@ book = LocalBook.create_new(
 )
 
 # %%
-book.add_timeseries("clean", data)
+book.add_timeseries("by_country", data_countries)
+book.add_timeseries("by_regions", data_regions)
 
 # %%
 book.metadata()
