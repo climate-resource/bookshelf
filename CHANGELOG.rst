@@ -17,6 +17,7 @@ Unreleased
 
 Changed
 =======
+- (`!12 <https://gitlab.com/climate-resource/bookshelf/merge_requests/12>`_) Add ``ceds@0.0.1``
 - (`!11 <https://gitlab.com/climate-resource/bookshelf/merge_requests/11>`_) Remove non-required dependencies from the  requirements
 - (`!10 <https://gitlab.com/climate-resource/bookshelf/merge_requests/10>`_) Update issue and MR templates
 - (`!7 <https://gitlab.com/climate-resource/bookshelf/merge_requests/7>`_) Renamed ``LocalBook.metadata`` to ``LocalBook.as_datapackage``
