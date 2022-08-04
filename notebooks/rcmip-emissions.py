@@ -88,6 +88,9 @@ magicc_emissions = rcmip_emissions.filter(
 )
 
 # %%
+magicc_emissions.meta[["variable", "unit"]].drop_duplicates()
+
+# %%
 # for v in magicc_emissions.get_unique_meta("variable"):
 #     plt.figure()
 #     magicc_emissions.filter(variable=v, region="World").lineplot()
