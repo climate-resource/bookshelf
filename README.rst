@@ -40,7 +40,7 @@ License
 
 .. sec-begin-license
 
-License to be determined.
+Licensed under MIT. See the LICENSE file for more information
 
 .. sec-end-license
 .. sec-end-long-description
