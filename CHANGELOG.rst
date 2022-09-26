@@ -26,6 +26,7 @@ Changed
 
 Added
 =====
+- (`!15 <https://gitlab.com/climate-resource/bookshelf/merge_requests/15>`_) Add ``un-wpp@v0.1.0``
 - (`!9 <https://gitlab.com/climate-resource/bookshelf/merge_requests/9>`_) Add ``wdi@v0.1.1``
 - (`!8 <https://gitlab.com/climate-resource/bookshelf/merge_requests/8>`_) Add ``primap-hist@v0.1.0``
 - (`!7 <https://gitlab.com/climate-resource/bookshelf/merge_requests/7>`_) Add ``Bookshelf.list_versions``
