@@ -163,7 +163,7 @@ def prep_df(df, **kwargs):
 
     # Strip units from between brackets
     df_wide["unit"] = df_wide["variable"].str.extract(r"\((.*)\)")
-    df_wide["variable"] = df_wide["variable"].str.extract(r"(.*)\(.*")
+    df_wide["variable"] = df_wide["variable"].str.extract(r"(.*) \(.*")
 
     df_wide["region"] = df_wide["region"].str.replace("WORLD", "World")
 
@@ -184,7 +184,7 @@ data_hist = scmdata.ScmRun(
     prep_df(df_hist, model="World Population Prospects 2022", scenario="Historical")
 )
 data_proj = scmdata.ScmRun(
-    prep_df(df_hist, model="World Population Prospects 2022", scenario="Medium variant")
+    prep_df(df_proj, model="World Population Prospects 2022", scenario="Medium variant")
 )
 
 
