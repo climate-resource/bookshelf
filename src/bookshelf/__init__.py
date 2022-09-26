@@ -8,7 +8,7 @@ try:
     from importlib.metadata import version as _version
 except ImportError:  # pragma: no cover
     # no recourse if the fallback isn't there either...
-    from importlib_metadata import version as _version  # type: ignore
+    from importlib_metadata import version as _version
 
 try:
     __version__ = _version("bookshelf")
