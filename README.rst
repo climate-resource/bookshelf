@@ -14,8 +14,8 @@ The ``bookshelf`` represents a shared collection of curated datasets or ``Books`
 ``Book`` is a preprocessed, versioned dataset including the notebooks used to produce it.
 As the underlying datasets or processing are updated, new ``Books`` can be created (with
 an updated version). A single dataset may produce multiple ``Resources`` if different
-representations are useful. These `Books`` can be deployed to a shared ``Bookshelf``so that they
-are accessible by other users.
+representations are useful. These ``Books`` can be deployed to a shared ``Bookshelf``
+so that they are accessible by other users.
 
 Users are able to use specific ``Books`` within other projects. The dataset and associated
 metadata is fetched and cached locally. Specific versions of ``Books`` can also be pinned for
