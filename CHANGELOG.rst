@@ -17,6 +17,14 @@ Unreleased
 
 Changed
 =======
+- (`!16 <https://gitlab.com/climate-resource/bookshelf/merge_requests/16>`_)  Updated ``un-wpp@0.1.2`` with some fixes to variable naming
+
+
+v0.1.0
+------
+
+Changed
+=======
 - (`!13 <https://gitlab.com/climate-resource/bookshelf/merge_requests/13>`_) Add ``ceds@0.0.1``
 - (`!12 <https://gitlab.com/climate-resource/bookshelf/merge_requests/12>`_) Update primap-HIST to v0.2.0 to provide resources by region and by country
 - (`!11 <https://gitlab.com/climate-resource/bookshelf/merge_requests/11>`_) Remove non-required dependencies from the  requirements
