@@ -25,9 +25,10 @@ This repository contains the notebooks that are used to generate the ``Books``
 as well as a CLI tool for managing these datasets.
 
 This is a prototype and will likely change in future. Other potential ideas:
-* [ ] Deployed data are made available via ``api.climateresource.com.au`` so that
-they can be consumed queried smartly
-* [ ] Simple web page to allow querying the data
+
+* Deployed data are made available via ``api.climateresource.com.au`` so that
+  they can be consumed queried smartly
+* Simple web page to allow querying the data
 
 Each Book consists of a `datapackage <https://specs.frictionlessdata.io/data-package/>`_
 description of the metadata. This datapackage contains the associated ``Resources`` and
