@@ -1,5 +1,5 @@
 name: ceds
-version: v0.0.1
+version: v2021_04_21
 license: CC-BY
 metadata:
   author: Jared Lewis
@@ -9,7 +9,6 @@ dataset:
   doi: 10.5281/zenodo.4741285
   files:
     - CEDS_v2021-04-21_emissions.zip
-  version: v_2021_04_21
   author: O'Rourke, Patrick R; Smith, Steven J; Mott, Andrea; Ahsan, Hamza; McDuffie, Erin E; Crippa, Monica; Klimont, Zbigniew; McDonald, Brian; Wang, Shuxiao; Nicholson, Matthew B; Feng, Leyang; Hoesly, Rachel M.
   time_domain:
     - 1750

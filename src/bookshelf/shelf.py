@@ -15,8 +15,8 @@ import datapackage
 import requests.exceptions
 
 from bookshelf.book import LocalBook
-from bookshelf.errors import UnknownBook, UnknownVersion, UploadError
-from bookshelf.schema import BookVersion, Version, VolumeMeta
+from bookshelf.errors import UnknownBook, UnknownEdition, UnknownVersion, UploadError
+from bookshelf.schema import BookVersion, Edition, Version, VolumeMeta
 from bookshelf.utils import (
     build_url,
     create_local_cache,
@@ -86,7 +86,14 @@ def _update_volume_meta(book: LocalBook, remote_bookshelf: str) -> str:
 
     meta_fname = str(book.local_bookshelf / book.name / "volume.json")
     volume_meta.versions.append(
-        BookVersion(**{"version": book.version, "url": book.url(), "hash": book.hash()})
+        BookVersion(
+            **{
+                "version": book.version,
+                "edition": book.edition,
+                "url": book.url(),
+                "hash": book.hash(),
+            }
+        )
     )
     with open(meta_fname, "w") as file_handle:
         file_handle.write(volume_meta.json())
@@ -115,7 +122,11 @@ class BookShelf:
         self.remote_bookshelf = get_remote_bookshelf(remote_bookshelf)
 
     def load(
-        self, name: str, version: Optional[str] = None, force: bool = False
+        self,
+        name: str,
+        version: Optional[Version] = None,
+        edition: Optional[Edition] = None,
+        force: bool = False,
     ) -> LocalBook:
         """
         Load a book
@@ -131,6 +142,10 @@ class BookShelf:
             Version to load
 
             If no version is provided, the latest version is returned
+        edition: int
+            Edition of book to load
+
+            If no edition is provided, the latest edition of the selected version is returned
         force: bool
             If True, redownload the book metadata
 
@@ -146,10 +161,12 @@ class BookShelf:
         :class:`LocalBook`
             A book from which the resources can be accessed
         """
-        if version is None or force:
-            version = self._resolve_version(name, version)
+        if version is None or edition is None or force:
+            version, edition = self._resolve_version(name, version, edition)
 
-        metadata_fragment = os.path.join(name, version, "datapackage.json")
+        metadata_fragment = LocalBook.relative_path(
+            name, version, edition, "datapackage.json"
+        )
         metadata_fname = self.path / metadata_fragment
 
         if not metadata_fname.exists():
@@ -167,9 +184,14 @@ class BookShelf:
         if not metadata_fname.exists():
             raise AssertionError()  # noqa
 
-        return LocalBook(name, version, local_bookshelf=self.path)
+        return LocalBook(name, version, edition, local_bookshelf=self.path)
 
-    def is_available(self, name: str, version: Version = None) -> bool:
+    def is_available(
+        self,
+        name: str,
+        version: Optional[Version] = None,
+        edition: Optional[Edition] = None,
+    ) -> bool:
         """
         Check if a Book is available from the remote bookshelf
 
@@ -189,12 +211,12 @@ class BookShelf:
             True if a Book with a matching name and version exists on the remote bookshelf
         """
         try:
-            self._resolve_version(name, version)
+            self._resolve_version(name, version, edition)
             return True
-        except (UnknownBook, UnknownVersion):
+        except (UnknownBook, UnknownVersion, UnknownEdition):
             return False
 
-    def is_cached(self, name: str, version: str) -> bool:
+    def is_cached(self, name: str, version: Version, edition: Edition) -> bool:
         """
         Check if a book with a matching name/version is cached on the local bookshelf
 
@@ -204,6 +226,8 @@ class BookShelf:
             Name of the volume to check
         version : str
             Version of the volume to check
+        edition : int
+            Edition of the volume to check
 
         Returns
         -------
@@ -212,7 +236,7 @@ class BookShelf:
         """
         try:
             # Check if the metadata for the book can be successfully read
-            book = LocalBook(name, version, local_bookshelf=self.path)
+            book = LocalBook(name, version, edition, local_bookshelf=self.path)
             book.metadata()
             return True
         except FileNotFoundError:
@@ -277,9 +301,16 @@ class BookShelf:
         key = os.path.join(prefix, book.name, os.path.basename(meta_fname))
         _upload_file(s3, bucket, key, meta_fname)
 
-        logger.info(f"Book {book.name}@{book.version} uploaded successfully")
+        logger.info(
+            f"Book {book.name}@{book.version} ed.{book.edition} uploaded successfully"
+        )
 
-    def _resolve_version(self, name: str, version: Version = None) -> str:
+    def _resolve_version(
+        self,
+        name: str,
+        version: Optional[Version] = None,
+        edition: Optional[Edition] = None,
+    ) -> (Version, Edition):
         # Update the package metadata
         try:
             meta = _fetch_volume_meta(name, self.remote_bookshelf, self.path)
@@ -287,13 +318,19 @@ class BookShelf:
             raise UnknownBook(f"No metadata for {repr(name)}") from http_error
 
         if version is None:
-            return meta.versions[-1].version
+            version = meta.get_latest_version()
 
         # Verify that the version exists
-        for item in meta.versions:
-            if item.version == version:
-                return version
-        raise UnknownVersion(name, version)
+        matching_version_books = meta.get_version(version)
+        if not len(matching_version_books):
+            raise UnknownVersion(name, version)
+
+        # Find edition
+        if edition is None:
+            edition = matching_version_books[-1].edition
+        if edition not in [b.edition for b in matching_version_books]:
+            raise UnknownEdition(name, version, edition)
+        return version, edition
 
     def list_versions(self, name: str) -> List[str]:
         """

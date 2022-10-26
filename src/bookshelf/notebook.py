@@ -36,7 +36,7 @@ NOTEBOOK_DIRECTORY = os.path.join(ROOT_DIR, "notebooks")
 
 def load_nb_metadata(
     name: str,
-    nb_directory: str = NOTEBOOK_DIRECTORY,
+    nb_directory: str = None,
 ) -> NotebookMetadata:
     """
     Load notebook metadata
@@ -55,7 +55,7 @@ def load_nb_metadata(
     if not (name.endswith(".yaml") or name.endswith(".yml")):
         name = name + ".yaml"
 
-    if not os.path.isabs(name):
+    if nb_directory and not os.path.isabs(name):
         name = os.path.join(nb_directory, name)
 
     with open(name) as file_handle:

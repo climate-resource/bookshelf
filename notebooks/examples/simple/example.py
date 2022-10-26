@@ -77,9 +77,7 @@ rf = data.filter(
 rf
 
 # %%
-book = LocalBook.create_new(
-    name=metadata.name, version=metadata.version, local_bookshelf=local_bookshelf
-)
+book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 
 # %% [markdown]
 # Create a new `Resource` in the `Book` using the RF `scmdata.ScmRun` object. This function copies the timeseries to a local file and calculate the hash of this file. This hash can be used to check if the files have been modified.

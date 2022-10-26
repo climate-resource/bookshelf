@@ -24,7 +24,7 @@ def test_load_nb_metadata_paths():
     assert load_nb_metadata(os.path.abspath(nb_dir)) == exp
 
 
-def test_run_notebook():
+def test_run_notebook(remote_bookshelf):
     with tempfile.TemporaryDirectory() as td:
         book = run_notebook("example", output_directory=str(td))
 

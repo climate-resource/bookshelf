@@ -1,5 +1,6 @@
 name: example
 version: v0.1.0
+edition: 1
 license: MIT
 metadata:
   author: Jared Lewis
