@@ -14,6 +14,7 @@ import datapackage
 import pooch
 import scmdata
 
+from bookshelf.schema import Edition, Version
 from bookshelf.utils import (
     build_url,
     create_local_cache,
@@ -29,11 +30,26 @@ class _Book:
         self,
         name: str,
         version: str,
+        edition: int,
         bookshelf: Optional[str] = None,
     ):
         self.name = name
         self.version = version
+        self.edition = edition
         self.bookshelf = get_remote_bookshelf(bookshelf)
+
+    @staticmethod
+    def relative_path(
+        name: str,
+        version: Version,
+        edition: Edition,
+        fname: Optional[str] = None,
+    ) -> str:
+        parts = [name, f"{version}_e{edition:03}"]
+        if fname:
+            parts.append(fname)
+
+        return os.path.join(*parts)
 
     def url(self, fname: Optional[str] = None) -> str:
         """
@@ -51,10 +67,10 @@ class _Book:
         str
             URL
         """
-        parts = [self.name, self.version]
-        if fname:
-            parts.append(fname)
-        return build_url(self.bookshelf, *parts)
+        return build_url(
+            self.bookshelf,
+            self.relative_path(self.name, self.version, self.edition, fname),
+        )
 
 
 class LocalBook(_Book):
@@ -77,9 +93,10 @@ class LocalBook(_Book):
         self,
         name: str,
         version: str,
+        edition: int = 1,
         local_bookshelf: Union[str, pathlib.Path, None] = None,
     ):
-        super().__init__(name, version)
+        super().__init__(name, version, edition)
 
         if local_bookshelf is None:
             local_bookshelf = create_local_cache(local_bookshelf)
@@ -114,7 +131,9 @@ class LocalBook(_Book):
         str
             The filename for the file in the local bookshelf
         """
-        return os.path.join(self.local_bookshelf, self.name, self.version, fname)
+        return os.path.join(
+            self.local_bookshelf, self.name, f"{self.version}_e{self.edition:03}", fname
+        )
 
     def as_datapackage(self) -> datapackage.Package:
         """
@@ -194,11 +213,11 @@ class LocalBook(_Book):
         metadata.save(self.local_fname(DATAPACKAGE_FILENAME))
 
     @classmethod
-    def create_new(cls, name, version, **kwargs):
+    def create_new(cls, name, version: Version, edition: Edition = 1, **kwargs):
         """
         Create a new Book
         """
-        book = LocalBook(name, version, **kwargs)
+        book = LocalBook(name, version, edition, **kwargs)
         book._metadata = datapackage.Package(
             {"name": name, "version": version, "resources": []}
         )

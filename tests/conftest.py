@@ -21,6 +21,6 @@ def local_bookshelf(tmpdir, monkeypatch):
 def example_data():
     return scmdata.ScmRun(
         os.path.join(
-            TEST_DATA_DIR, "v0.1.0", "example", "v1.0.0", "leakage_rates_low.csv"
+            TEST_DATA_DIR, "v0.2.0", "example", "v1.0.0_e001", "leakage_rates_low.csv"
         )
     )

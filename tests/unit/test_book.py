@@ -23,7 +23,7 @@ def test_book_without_metadata():
 
 
 def test_create_local(local_bookshelf):
-    expected_fname = local_bookshelf / "test" / "v1.0.0" / "datapackage.json"
+    expected_fname = local_bookshelf / "test" / "v1.0.0_e001" / "datapackage.json"
 
     assert not expected_fname.exists()
     LocalBook.create_new("test", "v1.0.0", local_bookshelf=local_bookshelf)
@@ -35,7 +35,7 @@ def test_add_timeseries(local_bookshelf, example_data):
     book.add_timeseries("test", example_data)
     assert len(book.as_datapackage().resources) == 1
 
-    expected_fname = local_bookshelf / "test" / "v1.1.0" / "test.csv"
+    expected_fname = local_bookshelf / "test" / "v1.1.0_e001" / "test.csv"
     assert expected_fname.exists()
 
     res = book.as_datapackage().resources[0]
@@ -55,7 +55,7 @@ def test_timeseries(example_data):
         book.timeseries("other")
 
 
-def test_timeseries_remote(example_data):
+def test_timeseries_remote(example_data, remote_bookshelf):
     book = BookShelf().load("test", "v1.0.0")
 
     scmdata.testing.assert_scmdf_almost_equal(
