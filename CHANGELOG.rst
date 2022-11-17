@@ -17,6 +17,7 @@ Unreleased
 
 Changed
 =======
+- (`!17 <https://gitlab.com/climate-resource/bookshelf/merge_requests/17>`_) Added the concept of editions. Each time the processing changes the edition counter is incremented. The version identifier is reserved for the data source. This results in a breaking change of the data format which has been updated to ``v0.2.0``.
 - (`!16 <https://gitlab.com/climate-resource/bookshelf/merge_requests/16>`_)  Updated ``un-wpp@0.1.2`` with some fixes to variable naming
 
 
