@@ -3,6 +3,7 @@ Schema
 """
 from typing import Any, Dict, List, Optional
 
+import pooch
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
 Version = str
@@ -61,10 +62,16 @@ class VolumeMeta(BaseModel):
         return matching_versions
 
 
+class FileDownloadInfo(BaseModel):
+    url: str
+    hash: str
+
+
 class DatasetMetadata(BaseModel):
     url: Optional[str]
     doi: Optional[str]
-    hash: Optional[str]
+    # TODO: make required
+    files: Optional[List[FileDownloadInfo]]
     author: str
 
 
@@ -94,6 +101,17 @@ class NotebookMetadata(BaseModel):
 
     def long_version(self):
         return f"{self.version}_e{self.edition:03}"
+
+    def download_file(self, idx: int = 0) -> str:
+        file_info = self.dataset.files[idx]
+
+        hash = file_info.hash
+        if not hash:
+            hash = None
+        return pooch.retrieve(
+            file_info.url,
+            known_hash=hash,
+        )
 
 
 class ConfigSchema(BaseModel):

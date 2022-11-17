@@ -26,7 +26,6 @@ import logging
 import tempfile
 
 import pandas as pd
-import pooch
 import pycountry
 import scmdata
 
@@ -39,16 +38,15 @@ from bookshelf.notebook import load_nb_metadata
 # %%
 logging.basicConfig(level=logging.INFO)
 
-# %%
-metadata = load_nb_metadata("primap-hist")
-metadata.dict()
-
 # %% tags=["parameters"]
 # This cell contains additional parameters that are controlled using papermill
 local_bookshelf = tempfile.mkdtemp()
+version = "v2.4"
 
 # %%
-local_bookshelf
+metadata = load_nb_metadata("primap-hist", version=version)
+metadata.dict()
+
 
 # %% [markdown]
 # # Fetch
@@ -59,12 +57,7 @@ local_bookshelf
 # successfully.
 
 # %%
-data_fname = pooch.retrieve(
-    url="https://zenodo.org/record/5494497/files/Guetschow-et-al-2021-PRIMAP-hist_v2.3.1_20-Sep_2021.csv?download=1",
-    known_hash="ef53000db17dc2bac6f77eeb302763a1e99b2654f17108fe8ea3280fe55f8eb9",
-)
-
-data_df = pd.read_csv(data_fname)
+data_df = pd.read_csv(metadata.download_file())
 data_df
 
 # %%
@@ -171,17 +164,13 @@ data.timeseries()
 # %%
 data_countries = data.filter(region=regions, keep=False)
 data_regions = data.filter(region=regions).drop_meta("country")
-
-# %%
 data_regions
 
 # %%
 data_countries.get_unique_meta("region")
 
 # %%
-book = LocalBook.create_new(
-    name=metadata.name, version=metadata.version, local_bookshelf=local_bookshelf
-)
+book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 
 # %%
 book.add_timeseries("by_country", data_countries)

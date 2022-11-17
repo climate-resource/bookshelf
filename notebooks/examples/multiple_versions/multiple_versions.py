@@ -24,7 +24,6 @@
 import logging
 import tempfile
 
-import pooch
 import scmdata
 
 from bookshelf import LocalBook
@@ -62,10 +61,7 @@ metadata.dict()
 # successfully.
 
 # %%
-data_fname = pooch.retrieve(
-    url=metadata.dataset.url,
-    known_hash=metadata.dataset.hash,
-)
+data_fname = metadata.download_file()
 data = scmdata.ScmRun(data_fname, lowercase_cols=True)
 data.head()
 

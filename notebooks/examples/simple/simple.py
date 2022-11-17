@@ -25,7 +25,6 @@
 import logging
 import tempfile
 
-import pooch
 import scmdata
 
 from bookshelf import LocalBook
@@ -57,10 +56,7 @@ local_bookshelf
 # successfully.
 
 # %%
-data_fname = pooch.retrieve(
-    url="https://rcmip-protocols-au.s3-ap-southeast-2.amazonaws.com/v5.1.0/rcmip-radiative-forcing-annual-means-v5-1-0.csv",
-    known_hash="15ef911f0ea9854847dcd819df300cedac5fd001c6e740f2c5fdb32761ddec8b",
-)
+data_fname = metadata.download_file()
 data = scmdata.ScmRun(data_fname, lowercase_cols=True)
 data.head()
 

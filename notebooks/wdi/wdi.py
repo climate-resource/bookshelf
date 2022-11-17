@@ -24,7 +24,6 @@ import tempfile
 import zipfile
 
 import pandas as pd
-import pooch
 import scmdata
 
 from bookshelf import LocalBook
@@ -56,22 +55,9 @@ local_bookshelf
 # successfully.
 
 # %%
-data_version = "v13"
-expected_hash = "af42db151faf58d3398136b05f8c171db40be921567f536f069f8d1732a3039e"
-
-# %%
-# This can be a little flakey
-# data_fname = pooch.retrieve(
-#     url="http://databank.worldbank.org/data/download/WDI_csv.zip",
-#     known_hash=expected_hash,
-# )
 
 # Data has been cached by CR (hash came from original download)
-data_fname = pooch.retrieve(
-    url=f"http://data.climateresource.com.au/_cache/wdi/{data_version}/WDI_csv.zip",
-    known_hash=expected_hash,
-)
-data_fname
+data_fname = metadata.download_file()
 
 # %%
 zf = zipfile.ZipFile(data_fname)
@@ -89,7 +75,7 @@ column_rename = {
 df = df.rename(column_rename, axis=1)
 df["scenario"] = "historical"
 df["model"] = "World Bank"
-df["source"] = f"WDI_{data_version}"
+df["source"] = f"WDI_{metadata.version}"
 df["unit"] = ""
 del df["Unnamed: 66"]
 

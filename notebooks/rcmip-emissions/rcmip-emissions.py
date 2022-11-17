@@ -17,7 +17,6 @@
 import logging
 import tempfile
 
-import pooch
 import scmdata
 
 from bookshelf import LocalBook
@@ -40,20 +39,16 @@ local_bookshelf = tempfile.mkdtemp()
 local_bookshelf
 
 # %%
-book = LocalBook.create_new(
-    metadata.name, version=metadata.version, local_bookshelf=local_bookshelf
+book = LocalBook.create_from_metadata(
+    metadata,
+    local_bookshelf=local_bookshelf,
 )
 
 # %% [markdown]
 # #  Fetch
 
 # %%
-rcmip_fname = pooch.retrieve(
-    "https://rcmip-protocols-au.s3-ap-southeast-2.amazonaws.com/v5.1.0/rcmip-emissions-annual-means-v5-1-0.csv",
-    known_hash="2af9f90c42f9baa813199a902cdd83513fff157a0f96e1d1e6c48b58ffb8b0c1",
-)
-
-# %%
+rcmip_fname = metadata.download_file()
 rcmip_emissions = scmdata.ScmRun(rcmip_fname, lowercase_cols=True)
 rcmip_emissions
 

@@ -1,0 +1,39 @@
+name: primap-hist
+edition: 1
+license: CC-BY
+description: |
+  Comprehensive set of historical greenhouse gas emissions for every country
+metadata:
+  author: Jared Lewis
+  author_email: jared.lewis@climate-resource.com
+
+versions:
+  - version: v2.3
+    dataset:
+      url: https://doi.org/10.5281/zenodo.5175154
+      documentation: https://zenodo.org/record/5175154
+      author: Guetshow, Johannes; Guenther, Annika, Pflueger, Mika
+      files:
+        - url: doi:10.5281/zenodo.5175154/Guetschow-et-al-2021-PRIMAP-hist_v2.3_no_rounding_28_Jul_2021.csv
+          hash: md5:99aa3f88ca69be675dacafd5bb32e766
+      time_domain: [1750, 2019]
+  - version: v2.3.1
+    dataset:
+      url: https://doi.org/10.5281/zenodo.5494497
+      doi: 10.5281/zenodo.5494497
+      files:
+        - url: doi:10.5281/zenodo.5494497/Guetschow-et-al-2021-PRIMAP-hist_v2.3.1_no_rounding_20-Sep_2021.csv
+          hash: ef53000db17dc2bac6f77eeb302763a1e99b2654f17108fe8ea3280fe55f8eb9
+      documentation: https://zenodo.org/record/5494497
+      author: Guetshow, Johannes; Guenther, Annika, Pflueger, Mika
+      time_domain: [ 1750, 2019 ]
+  - version: v2.4
+    dataset:
+      url: https://doi.org/10.5281/zenodo.7179775
+      doi: 10.5281/zenodo.7179775
+      files:
+        - url: doi:10.5281/zenodo.7179775/Guetschow-et-al-2022-PRIMAP-hist_v2.4_no_rounding_11-Oct-2022.csv
+          hash: md5:3a40d9abb47fe688295af36301424679
+      documentation: https://zenodo.org/record/5494497
+      author: Guetshow, Johannes; Pflueger, Mika
+      time_domain: [ 1750, 2021 ]
