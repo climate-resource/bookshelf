@@ -6,9 +6,11 @@ from glob import glob
 import pytest
 
 from bookshelf import BookShelf
-from bookshelf.notebook import NOTEBOOK_DIRECTORY, run_notebook
+from bookshelf.notebook import get_notebook_directory, run_notebook
 
 logger = logging.getLogger("test-notebooks")
+
+NOTEBOOK_DIRECTORY = get_notebook_directory()
 
 logger.info(f"Looking for notebooks in {NOTEBOOK_DIRECTORY}")
 notebooks = glob(os.path.join(NOTEBOOK_DIRECTORY, "*.py"))

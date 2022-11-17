@@ -1,5 +1,6 @@
 name: rcmip-emissions
-version: v0.0.3
+version: v5.1.0
+edition: 1
 license: MIT
 metadata:
   author: Jared Lewis

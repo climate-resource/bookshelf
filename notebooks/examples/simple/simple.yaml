@@ -1,7 +1,8 @@
-name: example
-version: v0.1.0
+name: simple
 edition: 1
 license: MIT
 metadata:
   author: Jared Lewis
   author_email: jared.lewis@climate-resource.com
+versions:
+  - version: v0.1.0

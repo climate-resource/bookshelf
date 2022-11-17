@@ -38,7 +38,7 @@ from bookshelf.notebook import load_nb_metadata
 logging.basicConfig(level=logging.INFO)
 
 # %%
-metadata = load_nb_metadata("example")
+metadata = load_nb_metadata("examples/simple")
 metadata.dict()
 
 # %% tags=["parameters"]

@@ -19,11 +19,9 @@
 # This notebook is an example for the creation of a new book and can be used as a template.
 # In this example, we have multiple versions of a dataset that we want to track. Each
 # time we make a change to the output data we should increment the edition.
-#
-
-import logging
 
 # %%
+import logging
 import tempfile
 
 import pooch
@@ -44,10 +42,14 @@ logging.basicConfig(level=logging.INFO)
 # If running this notebook manually we use a single version, but multiple versions can be run via the CLI
 local_bookshelf = tempfile.mkdtemp()
 version = "v4.0.0"
-
+nb_directory = None
 
 # %%
-metadata = load_nb_metadata(f"example_multiple_{version}")
+metadata = load_nb_metadata(
+    "multiple_versions",
+    version=version,
+    nb_directory=nb_directory,
+)
 metadata.dict()
 
 

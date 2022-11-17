@@ -68,9 +68,16 @@ class DatasetMetadata(BaseModel):
     author: str
 
 
+class VersionMetadata(BaseModel):
+    version: Version
+    dataset: Optional[DatasetMetadata]
+
+
 class NotebookMetadata(BaseModel):
     """
-    Schema for a given Volume (A collection of Books with the same name)
+    Schema for a running a notebook
+
+    This represents the metadata for a selected version of a volume
     """
 
     name: str
@@ -78,5 +85,28 @@ class NotebookMetadata(BaseModel):
     edition: Edition
     description: Optional[str]
     license: str
+    source_file: str
     metadata: Dict[str, Any]  # TODO: type this
     dataset: Optional[DatasetMetadata]
+
+    def long_name(self):
+        return f"{self.name}@{self.long_version()}"
+
+    def long_version(self):
+        return f"{self.version}_e{self.edition:03}"
+
+
+class ConfigSchema(BaseModel):
+    """
+    Schema for a given Volume (A collection of Books with the same name)
+
+    A volume can hold multiple versions of the same data (
+    """
+
+    name: str
+    edition: Edition
+    description: Optional[str]
+    license: str
+    source_file: str
+    metadata: Dict[str, Any]  # TODO: type this
+    versions: List[VersionMetadata]
