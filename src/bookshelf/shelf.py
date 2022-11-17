@@ -290,7 +290,7 @@ class BookShelf:
         logger.info(f"Beginning to upload {book.name}@{book.version}")
         for resource_file in files:
             key = os.path.join(
-                prefix, book.name, book.version, os.path.basename(resource_file)
+                prefix, book.name, book.long_version(), os.path.basename(resource_file)
             )
             _upload_file(s3, bucket, key, resource_file)
 

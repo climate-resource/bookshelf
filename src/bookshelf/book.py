@@ -38,6 +38,9 @@ class _Book:
         self.edition = edition
         self.bookshelf = get_remote_bookshelf(bookshelf)
 
+    def long_version(self) -> str:
+        return f"{self.version}_e{self.edition:03}"
+
     @staticmethod
     def relative_path(
         name: str,
@@ -131,9 +134,7 @@ class LocalBook(_Book):
         str
             The filename for the file in the local bookshelf
         """
-        return os.path.join(
-            self.local_bookshelf, self.name, f"{self.version}_e{self.edition:03}", fname
-        )
+        return os.path.join(self.local_bookshelf, self.name, self.long_version(), fname)
 
     def as_datapackage(self) -> datapackage.Package:
         """
