@@ -45,7 +45,7 @@ nb_directory = None
 
 # %%
 metadata = load_nb_metadata(
-    "multiple_versions",
+    "examples/multiple_versions",
     version=version,
     nb_directory=nb_directory,
 )

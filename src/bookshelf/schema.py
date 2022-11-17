@@ -70,14 +70,13 @@ class FileDownloadInfo(BaseModel):
 class DatasetMetadata(BaseModel):
     url: Optional[str]
     doi: Optional[str]
-    # TODO: make required
-    files: Optional[List[FileDownloadInfo]]
+    files: List[FileDownloadInfo]
     author: str
 
 
 class VersionMetadata(BaseModel):
     version: Version
-    dataset: Optional[DatasetMetadata]
+    dataset: DatasetMetadata
 
 
 class NotebookMetadata(BaseModel):
