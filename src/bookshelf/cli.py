@@ -6,6 +6,9 @@ import os
 
 import click
 import click_log
+import dotenv
+
+dotenv.load_dotenv()
 
 cmd_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), "commands"))
 logger = logging.getLogger("bookshelf")
