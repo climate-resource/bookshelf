@@ -2,6 +2,7 @@
 run CLI command
 """
 import logging
+from typing import Tuple
 
 import click
 
@@ -30,7 +31,7 @@ logger = logging.getLogger(__name__)
     help="Override the existing output if the output directory isn't empty",
     is_flag=True,
 )
-def cli(name: str, output, force, version):
+def cli(name: str, output: str, force: bool, version: Tuple[str]) -> None:
     """
     Run a notebook
 

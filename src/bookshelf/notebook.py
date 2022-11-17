@@ -34,7 +34,7 @@ from bookshelf.utils import get_env_var
 logger = logging.getLogger(__name__)
 
 
-def get_notebook_directory(nb_dir: Optional[str] = None):
+def get_notebook_directory(nb_dir: Optional[str] = None) -> str:
     if nb_dir:
         return nb_dir
 
@@ -49,7 +49,7 @@ def get_notebook_directory(nb_dir: Optional[str] = None):
 def load_nb_metadata(
     name: str,
     version: Optional[Version] = None,
-    nb_directory: str = None,
+    nb_directory: Optional[str] = None,
 ) -> NotebookMetadata:
     """
     Load notebook metadata
@@ -83,7 +83,7 @@ def load_nb_metadata(
     nb_directory = get_notebook_directory(nb_directory)
 
     metadata_fname = name
-    if not os.path.isabs(name):
+    if nb_directory and not os.path.isabs(name):
         metadata_fname = os.path.join(nb_directory, name)
 
     # If a directory is provided assume that the config is similarly named
@@ -103,7 +103,7 @@ def load_nb_metadata(
         data["source_file"] = metadata_fname
         config = ConfigSchema(**data)
 
-    if "version" in config and version != data["version"]:
+    if "version" in data and version != data["version"]:
         # Check if a version has already been selected
         raise ValueError("Requested version does not match the metadata")
 
@@ -125,7 +125,7 @@ def run_notebook(
     nb_directory: Optional[str] = None,
     output_directory: Optional[str] = None,
     force: bool = False,
-    version: Version = None,
+    version: Optional[Version] = None,
 ) -> LocalBook:
     """
     Run a notebook to generate a new Book

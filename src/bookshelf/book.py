@@ -101,7 +101,7 @@ class LocalBook(_Book):
         if local_bookshelf is None:
             local_bookshelf = create_local_cache(local_bookshelf)
         self.local_bookshelf = pathlib.Path(local_bookshelf)
-        self._metadata = None
+        self._metadata: Optional[datapackage.Package] = None
 
     def hash(self) -> str:
         """
@@ -213,7 +213,9 @@ class LocalBook(_Book):
         metadata.save(self.local_fname(DATAPACKAGE_FILENAME))
 
     @classmethod
-    def create_new(cls, name, version: Version, edition: Edition = 1, **kwargs):
+    def create_new(
+        cls, name: str, version: Version, edition: Edition = 1, **kwargs: Any
+    ) -> "LocalBook":
         """
         Create a new Book
         """
@@ -226,7 +228,7 @@ class LocalBook(_Book):
         return book
 
     @classmethod
-    def create_from_metadata(cls, meta: NotebookMetadata, **kwargs):
+    def create_from_metadata(cls, meta: NotebookMetadata, **kwargs: str) -> "LocalBook":
         book = LocalBook(
             meta.name, version=meta.version, edition=meta.edition, **kwargs
         )

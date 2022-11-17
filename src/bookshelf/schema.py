@@ -93,7 +93,7 @@ class NotebookMetadata(BaseModel):
     license: str
     source_file: str
     metadata: Dict[str, Any]  # TODO: type this
-    dataset: Optional[DatasetMetadata]
+    dataset: DatasetMetadata
 
     def long_name(self):
         return f"{self.name}@{self.long_version()}"
@@ -104,13 +104,15 @@ class NotebookMetadata(BaseModel):
     def download_file(self, idx: int = 0) -> str:
         file_info = self.dataset.files[idx]
 
-        hash = file_info.hash
-        if not hash:
-            hash = None
-        return pooch.retrieve(
+        h: Optional[str] = file_info.hash
+        if not h:
+            # replace an empty string with None
+            h = None
+        res: str = pooch.retrieve(
             file_info.url,
-            known_hash=hash,
+            known_hash=h,
         )
+        return res
 
 
 class ConfigSchema(BaseModel):

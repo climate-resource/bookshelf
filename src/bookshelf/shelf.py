@@ -7,7 +7,7 @@ import json
 import logging
 import os
 import pathlib
-from typing import Iterable, List, Optional, Union, cast
+from typing import Iterable, List, Optional, Tuple, Union, cast
 
 import boto3
 import boto3.exceptions
@@ -310,7 +310,7 @@ class BookShelf:
         name: str,
         version: Optional[Version] = None,
         edition: Optional[Edition] = None,
-    ) -> (Version, Edition):
+    ) -> Tuple[Version, Edition]:
         # Update the package metadata
         try:
             meta = _fetch_volume_meta(name, self.remote_bookshelf, self.path)
