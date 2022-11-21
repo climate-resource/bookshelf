@@ -14,6 +14,7 @@ import datapackage
 import pooch
 import scmdata
 
+from bookshelf.schema import Edition, NotebookMetadata, Version
 from bookshelf.utils import (
     build_url,
     create_local_cache,
@@ -29,11 +30,39 @@ class _Book:
         self,
         name: str,
         version: str,
+        edition: int,
         bookshelf: Optional[str] = None,
     ):
         self.name = name
         self.version = version
+        self.edition = edition
         self.bookshelf = get_remote_bookshelf(bookshelf)
+
+    def long_version(self) -> str:
+        """
+        Long version identifier
+
+        Of the form "{version}_e{edition}" e.g. v1.0.1_e002.
+
+        Returns
+        -------
+        str
+            Version identification string
+        """
+        return f"{self.version}_e{self.edition:03}"
+
+    @staticmethod
+    def relative_path(
+        name: str,
+        version: Version,
+        edition: Edition,
+        fname: Optional[str] = None,
+    ) -> str:
+        parts = [name, f"{version}_e{edition:03}"]
+        if fname:
+            parts.append(fname)
+
+        return os.path.join(*parts)
 
     def url(self, fname: Optional[str] = None) -> str:
         """
@@ -51,10 +80,10 @@ class _Book:
         str
             URL
         """
-        parts = [self.name, self.version]
-        if fname:
-            parts.append(fname)
-        return build_url(self.bookshelf, *parts)
+        return build_url(
+            self.bookshelf,
+            self.relative_path(self.name, self.version, self.edition, fname),
+        )
 
 
 class LocalBook(_Book):
@@ -77,14 +106,15 @@ class LocalBook(_Book):
         self,
         name: str,
         version: str,
+        edition: int = 1,
         local_bookshelf: Union[str, pathlib.Path, None] = None,
     ):
-        super().__init__(name, version)
+        super().__init__(name, version, edition)
 
         if local_bookshelf is None:
             local_bookshelf = create_local_cache(local_bookshelf)
         self.local_bookshelf = pathlib.Path(local_bookshelf)
-        self._metadata = None
+        self._metadata: Optional[datapackage.Package] = None
 
     def hash(self) -> str:
         """
@@ -114,7 +144,7 @@ class LocalBook(_Book):
         str
             The filename for the file in the local bookshelf
         """
-        return os.path.join(self.local_bookshelf, self.name, self.version, fname)
+        return os.path.join(self.local_bookshelf, self.name, self.long_version(), fname)
 
     def as_datapackage(self) -> datapackage.Package:
         """
@@ -194,13 +224,48 @@ class LocalBook(_Book):
         metadata.save(self.local_fname(DATAPACKAGE_FILENAME))
 
     @classmethod
-    def create_new(cls, name, version, **kwargs):
+    def create_new(
+        cls, name: str, version: Version, edition: Edition = 1, **kwargs: Any
+    ) -> "LocalBook":
         """
         Create a new Book
         """
-        book = LocalBook(name, version, **kwargs)
+        book = LocalBook(name, version, edition, **kwargs)
         book._metadata = datapackage.Package(
-            {"name": name, "version": version, "resources": []}
+            {"name": name, "version": version, "edition": edition, "resources": []}
+        )
+        book._metadata.save(book.local_fname(DATAPACKAGE_FILENAME))
+
+        return book
+
+    @classmethod
+    def create_from_metadata(cls, meta: NotebookMetadata, **kwargs: str) -> "LocalBook":
+        """
+        Create a new book from a notebook
+
+        Parameters
+        ----------
+        meta : NotebookMetadata
+            Metadata about the book
+
+        kwargs
+            Additional arguments passed to :class:`LocalBook`
+
+        Returns
+        -------
+        LocalBook
+            An instance of a local book with the datapackage setup
+        """
+        book = LocalBook(
+            meta.name, version=meta.version, edition=meta.edition, **kwargs
+        )
+        book._metadata = datapackage.Package(
+            {
+                "name": meta.name,
+                "version": meta.version,
+                "edition": meta.edition,
+                "resources": [],
+            }
         )
         book._metadata.save(book.local_fname(DATAPACKAGE_FILENAME))
 

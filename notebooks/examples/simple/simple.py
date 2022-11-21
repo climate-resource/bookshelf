@@ -25,7 +25,6 @@
 import logging
 import tempfile
 
-import pooch
 import scmdata
 
 from bookshelf import LocalBook
@@ -38,7 +37,7 @@ from bookshelf.notebook import load_nb_metadata
 logging.basicConfig(level=logging.INFO)
 
 # %%
-metadata = load_nb_metadata("example")
+metadata = load_nb_metadata("examples/simple")
 metadata.dict()
 
 # %% tags=["parameters"]
@@ -57,10 +56,7 @@ local_bookshelf
 # successfully.
 
 # %%
-data_fname = pooch.retrieve(
-    url="https://rcmip-protocols-au.s3-ap-southeast-2.amazonaws.com/v5.1.0/rcmip-radiative-forcing-annual-means-v5-1-0.csv",
-    known_hash="15ef911f0ea9854847dcd819df300cedac5fd001c6e740f2c5fdb32761ddec8b",
-)
+data_fname = metadata.download_file()
 data = scmdata.ScmRun(data_fname, lowercase_cols=True)
 data.head()
 
@@ -77,9 +73,7 @@ rf = data.filter(
 rf
 
 # %%
-book = LocalBook.create_new(
-    name=metadata.name, version=metadata.version, local_bookshelf=local_bookshelf
-)
+book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 
 # %% [markdown]
 # Create a new `Resource` in the `Book` using the RF `scmdata.ScmRun` object. This function copies the timeseries to a local file and calculate the hash of this file. This hash can be used to check if the files have been modified.

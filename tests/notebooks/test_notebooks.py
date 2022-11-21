@@ -6,12 +6,15 @@ from glob import glob
 import pytest
 
 from bookshelf import BookShelf
-from bookshelf.notebook import NOTEBOOK_DIRECTORY, run_notebook
+from bookshelf.errors import UnknownBook
+from bookshelf.notebook import get_notebook_directory, run_notebook
 
 logger = logging.getLogger("test-notebooks")
 
+NOTEBOOK_DIRECTORY = get_notebook_directory()
+
 logger.info(f"Looking for notebooks in {NOTEBOOK_DIRECTORY}")
-notebooks = glob(os.path.join(NOTEBOOK_DIRECTORY, "*.py"))
+notebooks = glob(os.path.join(NOTEBOOK_DIRECTORY, "**", "*.py"), recursive=True)
 
 notebook_names = [os.path.basename(nb)[:-3] for nb in notebooks]
 logger.info(f"Found {len(notebooks)} notebooks: {notebook_names}")
@@ -35,11 +38,15 @@ def test_notebook(notebook_path, output_directory):
 
     shelf = BookShelf()
 
-    target_book = run_notebook(
-        notebook,
-        nb_directory=notebook_dir,
-        output_directory=os.path.join(output_directory, notebook),
-    )
+    try:
+        target_book = run_notebook(
+            notebook,
+            nb_directory=notebook_dir,
+            output_directory=os.path.join(output_directory, notebook),
+        )
+    except UnknownBook:
+        logger.info("Book has not been pushed yet")
+        return
 
     if shelf.is_available(name=target_book.name, version=target_book.version):
         existing_book = shelf.load(
@@ -53,4 +60,4 @@ def test_notebook(notebook_path, output_directory):
                 f"({target_book.hash()} != {existing_book.hash()})"
             )
     else:
-        logger.info("Book does not exist on remote bookshelf")
+        logger.info("Matching book version does not exist on remote bookshelf")

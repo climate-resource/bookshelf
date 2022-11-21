@@ -29,10 +29,54 @@ def test_run(mocker):
 
     with tempfile.TemporaryDirectory() as td:
         runner = CliRunner()
-        result = runner.invoke(main, ["run", "example", "--output", str(td)])
+        result = runner.invoke(main, ["run", "examples/simple", "--output", str(td)])
         assert result.exit_code == 0, result.output
 
-        mock_run.assert_called_once_with("example", output_directory=td, force=False)
+        mock_run.assert_called_once_with(
+            "examples/simple", output_directory=td, force=False, version=None
+        )
+
+
+def test_run_multiple(mocker):
+    mock_run = mocker.patch("bookshelf.commands.cmd_run.run_notebook", autospec=True)
+
+    with tempfile.TemporaryDirectory() as td:
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "run",
+                "examples/simple/example",
+                "--version",
+                "v4.0.0",
+                "--version",
+                "v5.1.0",
+                "--output",
+                str(td),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+
+        mock_run.assert_has_calls(
+            [
+                (
+                    ("examples/simple/example",),
+                    dict(
+                        output_directory=td,
+                        force=False,
+                        version="v4.0.0",
+                    ),
+                ),
+                (
+                    ("examples/simple/example",),
+                    dict(
+                        output_directory=td,
+                        force=False,
+                        version="v5.1.0",
+                    ),
+                ),
+            ]
+        )
 
 
 def test_run_failed(mocker, caplog):

@@ -1,0 +1,13 @@
+name: simple
+edition: 1
+license: MIT
+metadata:
+  author: Jared Lewis
+  author_email: jared.lewis@climate-resource.com
+versions:
+  - version: v0.1.0
+    dataset:
+      files:
+        - url: https://rcmip-protocols-au.s3-ap-southeast-2.amazonaws.com/v5.1.0/rcmip-radiative-forcing-annual-means-v5-1-0.csv
+          hash: 15ef911f0ea9854847dcd819df300cedac5fd001c6e740f2c5fdb32761ddec8b
+      author: Zebedee Nicholls

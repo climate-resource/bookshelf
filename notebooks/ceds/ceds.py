@@ -25,7 +25,6 @@ import tempfile
 import zipfile
 
 import pandas as pd
-import pooch
 import pycountry
 import scmdata
 
@@ -38,36 +37,23 @@ from bookshelf.notebook import load_nb_metadata
 # %%
 logging.basicConfig(level="INFO")
 
-# %%
-metadata = load_nb_metadata("ceds")
-metadata.dict()
 
 # %% tags=["parameters"]
 local_bookshelf = tempfile.mkdtemp()
+version = "v2021_04_21"
 
 # %%
-local_bookshelf
+metadata = load_nb_metadata("ceds", version=version)
+metadata.dict()
 
 # %%
-book = LocalBook.create_new(
-    metadata.name, version=metadata.version, local_bookshelf=local_bookshelf
-)
+book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 
 # %% [markdown]
-# #  Fetch
+# #  Fetch data using pooch
 
 # %%
-file_to_fetch = f"doi:{metadata.dataset['doi']}/{metadata.dataset['files'][0]}"
-file_to_fetch
-
-# %%
-ceds_fname = pooch.retrieve(
-    file_to_fetch,
-    known_hash="95c236e7a8f7b3728453fdae8dc0e84ea8a0ec4a485dd0e96d6eff8fb40759a0",
-)
-ceds_fname
-
-# %%
+ceds_fname = metadata.download_file()
 ceds_data = zipfile.ZipFile(ceds_fname)
 [info.filename for info in ceds_data.filelist]
 
@@ -85,7 +71,7 @@ def read_CEDS_format(fname: str) -> scmdata.ScmRun:
         {"em": "variable", "country": "region", "units": "unit"}, axis=1
     )
     df["scenario"] = "Historical"
-    df["model"] = f"CEDS ({metadata.dataset['version']})"
+    df["model"] = f"CEDS ({metadata.version})"
     df["unit"] = df["unit"] + "/yr"
     df["unit"] = df["unit"].str.replace("kt", "kt ", regex=False)
     df["variable"] = "Emissions|" + df["variable"]

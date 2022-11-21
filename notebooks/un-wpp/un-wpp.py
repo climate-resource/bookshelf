@@ -23,7 +23,6 @@ import tempfile
 
 import numpy as np
 import pandas as pd
-import pooch
 import scmdata
 
 from bookshelf import LocalBook
@@ -58,12 +57,7 @@ book = LocalBook.create_new(
 # successfully.
 
 # %%
-expected_hash = "e8cef388f9f4d16acb5c82bb007d25b2280cc6c78214faa7c8c6962d6d54d43d"
-
-data_fname = pooch.retrieve(
-    url="https://population.un.org/wpp/Download/Files/1_Indicators%20(Standard)/EXCEL_FILES/1_General/WPP2022_GEN_F01_DEMOGRAPHIC_INDICATORS_COMPACT_REV1.xlsx",
-    known_hash=expected_hash,
-)
+data_fname = metadata.download_file()
 
 # %%
 df_hist = pd.read_excel(data_fname, sheet_name="Estimates", skiprows=16)

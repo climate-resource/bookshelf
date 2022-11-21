@@ -1,0 +1,19 @@
+name: ceds
+edition: 1
+license: CC-BY
+metadata:
+  author: Jared Lewis
+  author_email: jared.lewis@climate-resource.com
+
+versions:
+  - version: v2021_04_21
+    dataset:
+      url: https://zenodo.org/record/4741285
+      doi: 10.5281/zenodo.4741285
+      files:
+        - url: doi:10.5281/zenodo.4741285/CEDS_v2021-04-21_emissions.zip
+          hash: 95c236e7a8f7b3728453fdae8dc0e84ea8a0ec4a485dd0e96d6eff8fb40759a0
+      author: O'Rourke, Patrick R; Smith, Steven J; Mott, Andrea; Ahsan, Hamza; McDuffie, Erin E; Crippa, Monica; Klimont, Zbigniew; McDonald, Brian; Wang, Shuxiao; Nicholson, Matthew B; Feng, Leyang; Hoesly, Rachel M.
+      time_domain:
+        - 1750
+        - 2019

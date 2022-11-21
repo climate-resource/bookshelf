@@ -1,5 +1,5 @@
 name: un-wpp
-version: v0.1.2
+edition: 1
 license: CC-BY-IGO
 description: |
   The 2022 Revision of World Population Prospects is the twenty-seventh edition of official United Nations 
@@ -14,10 +14,14 @@ description: |
 metadata:
   author: Jared Lewis
   author_email: jared.lewis@climate-resource.com
-dataset:
-  url: https://population.un.org/wpp/
-  version: 2022
-  author: United Nations
-  time_domain:
-    - 1950
-    - 2100
+versions:
+  - version: v2022
+    dataset:
+      url: https://population.un.org/wpp/
+      files:
+        - url: https://population.un.org/wpp/Download/Files/1_Indicators%20(Standard)/EXCEL_FILES/1_General/WPP2022_GEN_F01_DEMOGRAPHIC_INDICATORS_COMPACT_REV1.xlsx
+          hash: e8cef388f9f4d16acb5c82bb007d25b2280cc6c78214faa7c8c6962d6d54d43d
+      author: United Nations
+      time_domain:
+        - 1950
+        - 2100
