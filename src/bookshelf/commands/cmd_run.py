@@ -31,13 +31,13 @@ logger = logging.getLogger(__name__)
     help="Override the existing output if the output directory isn't empty",
     is_flag=True,
 )
-def cli(name: str, output: str, force: bool, all_versions: Tuple[str]) -> None:
+def cli(name: str, output: str, force: bool, version: Tuple[str]) -> None:
     """
     Run a notebook
 
     This runs one of the notebooks used to generate a Book
     """
-    all_versions = all_versions if all_versions else [None]
+    all_versions = version if version else (None,)
 
     for dataset_version in all_versions:
         try:
