@@ -322,7 +322,7 @@ class BookShelf:
 
         # Verify that the version exists
         matching_version_books = meta.get_version(version)
-        if not len(matching_version_books):
+        if not matching_version_books:
             raise UnknownVersion(name, version)
 
         # Find edition

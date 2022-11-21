@@ -35,6 +35,26 @@ logger = logging.getLogger(__name__)
 
 
 def get_notebook_directory(nb_dir: Optional[str] = None) -> str:
+    """
+    Get the root location of the notebooks used to generate books
+
+    The order of lookup is (in increasing precedence):
+
+    * default ("/notebooks" in a locally checked out version of the repository)
+    * ``BOOKSHELF_NOTEBOOK_DIRECTORY`` environment variable
+    * ``nb_dir`` parameter
+
+    Parameters
+    ----------
+    nb_dir : str
+        If provided override the default value
+
+    Returns
+    -------
+    str
+        Location of notebooks
+
+    """
     if nb_dir:
         return nb_dir
 

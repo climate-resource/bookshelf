@@ -39,6 +39,16 @@ class _Book:
         self.bookshelf = get_remote_bookshelf(bookshelf)
 
     def long_version(self) -> str:
+        """
+        Long version identifier
+
+        Of the form "{version}_e{edition}" e.g. v1.0.1_e002.
+
+        Returns
+        -------
+        str
+            Version identification string
+        """
         return f"{self.version}_e{self.edition:03}"
 
     @staticmethod
@@ -230,6 +240,22 @@ class LocalBook(_Book):
 
     @classmethod
     def create_from_metadata(cls, meta: NotebookMetadata, **kwargs: str) -> "LocalBook":
+        """
+        Create a new book from a notebook
+
+        Parameters
+        ----------
+        meta : NotebookMetadata
+            Metadata about the book
+
+        kwargs
+            Additional arguments passed to :class:`LocalBook`
+
+        Returns
+        -------
+        LocalBook
+            An instance of a local book with the datapackage setup
+        """
         book = LocalBook(
             meta.name, version=meta.version, edition=meta.edition, **kwargs
         )
