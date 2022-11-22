@@ -111,7 +111,7 @@ def test_run_notebook(remote_bookshelf, name, version):
 
 
 def test_run_missing_version():
-    with pytest.raises(UnknownVersion, match="Could not file simple@v200000"):
+    with pytest.raises(UnknownVersion, match="Could not find simple@v200000"):
         run_notebook(
             "examples/simple",
             version="v200000",
