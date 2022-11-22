@@ -57,7 +57,11 @@ book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 # %%
 ceds_fname = metadata.download_file()
 ceds_data = zipfile.ZipFile(ceds_fname)
-ceds_archive_fnames = [info.filename for info in ceds_data.filelist]
+ceds_archive_fnames = [
+    "./" + info.filename
+    for info in ceds_data.filelist
+    if "country_fuel" not in info.filename
+]
 ceds_archive_fnames
 
 # %%
@@ -76,7 +80,7 @@ def read_CEDS_format(fname: str) -> scmdata.ScmRun:
 
     if len(fname_match) != 1:
         raise ValueError(f"Could not figure out match: {fname} -> {fname_match}")
-    fname = fname_match[0]
+    fname = fname_match[0].lstrip("./")
 
     df = pd.read_csv(ceds_data.open(fname)).rename(
         {"em": "variable", "country": "region", "units": "unit"}, axis=1
