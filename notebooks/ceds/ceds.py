@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.14.0
+#       jupytext_version: 1.14.1
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
@@ -25,6 +25,7 @@ import tempfile
 import zipfile
 
 import pandas as pd
+import pooch
 import pycountry
 import scmdata
 
@@ -59,7 +60,7 @@ ceds_data = zipfile.ZipFile(ceds_fname)
 
 # %%
 ceds_species = ["BC", "CH4", "CO2", "CO", "N2O", "NH3", "NMVOC", "NOx", "OC", "SO2"]
-date_code = "2021_04_21"
+date_code = version.lstrip("v")
 
 
 # %% [markdown]
@@ -125,6 +126,9 @@ for c in res.get_unique_meta("region"):
 res["region"] = res["region"].str.replace("GLOBAL", "World")
 
 # %%
+res
+
+# %%
 book.add_timeseries("by_country", res)
 
 
@@ -142,6 +146,9 @@ ceds_by_sector = scmdata.run_append(ceds_by_sector)
 
 # %%
 ceds_by_sector.get_unique_meta("sector")
+
+# %%
+ceds_by_sector
 
 # %% [markdown]
 # # By grid sectors
@@ -192,6 +199,9 @@ ceds_agg_sectors_intermediate.get_unique_meta("sector_short")
 # %%
 ceds_agg_sectors_final = extract_sectors("CEDS_final_gridding_sector")
 ceds_agg_sectors_final.get_unique_meta("sector_short")
+
+# %%
+ceds_agg_sectors_final
 
 # %%
 book.add_timeseries("by_sector_ipcc", ceds_by_sector)
