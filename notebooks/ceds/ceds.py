@@ -20,6 +20,7 @@
 # We want to import by_region and by_region_sector
 
 # %%
+import fnmatch
 import logging
 import tempfile
 import zipfile
@@ -41,7 +42,7 @@ logging.basicConfig(level="INFO")
 
 # %% tags=["parameters"]
 local_bookshelf = tempfile.mkdtemp()
-version = "v2021_04_21"
+version = "v2016_07_26"
 
 # %%
 metadata = load_nb_metadata("ceds", version=version)
@@ -56,11 +57,14 @@ book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 # %%
 ceds_fname = metadata.download_file()
 ceds_data = zipfile.ZipFile(ceds_fname)
-[info.filename for info in ceds_data.filelist]
+ceds_archive_fnames = [info.filename for info in ceds_data.filelist]
+ceds_archive_fnames
 
 # %%
-ceds_species = ["BC", "CH4", "CO2", "CO", "N2O", "NH3", "NMVOC", "NOx", "OC", "SO2"]
-date_code = version.lstrip("v")
+if version == "v2016_07_26":
+    ceds_species = ["BC", "CH4", "CO2", "CO", "NH3", "NMVOC", "NOx", "OC", "SO2"]
+else:
+    ceds_species = ["BC", "CH4", "CO2", "CO", "N2O", "NH3", "NMVOC", "NOx", "OC", "SO2"]
 
 
 # %% [markdown]
@@ -68,6 +72,12 @@ date_code = version.lstrip("v")
 
 # %%
 def read_CEDS_format(fname: str) -> scmdata.ScmRun:
+    fname_match = fnmatch.filter(ceds_archive_fnames, "*/" + fname)
+
+    if len(fname_match) != 1:
+        raise ValueError(f"Could not figure out match: {fname} -> {fname_match}")
+    fname = fname_match[0]
+
     df = pd.read_csv(ceds_data.open(fname)).rename(
         {"em": "variable", "country": "region", "units": "unit"}, axis=1
     )
@@ -93,7 +103,7 @@ def read_CEDS_format(fname: str) -> scmdata.ScmRun:
 res = []
 
 for species in ceds_species:
-    res.append(read_CEDS_format(f"{species}_CEDS_emissions_by_country_{date_code}.csv"))
+    res.append(read_CEDS_format(f"{species}_CEDS_emissions_by_country_*.csv"))
 res = scmdata.run_append(res)
 
 # %%
@@ -140,7 +150,7 @@ ceds_by_sector = []
 
 for species in ceds_species:
     ceds_by_sector.append(
-        read_CEDS_format(f"{species}_CEDS_emissions_by_sector_country_{date_code}.csv")
+        read_CEDS_format(f"{species}_CEDS_emissions_by_sector_country_*.csv")
     )
 ceds_by_sector = scmdata.run_append(ceds_by_sector)
 
@@ -168,7 +178,7 @@ def process_aggregate_sector(sector_column: str, sector: str):
         ceds_sector_mapping[sector_column] == sector
     ]
     ceds_sector_aggregate = ceds_by_sector.filter(
-        sector=target_sector_info.CEDS_working_sector.to_list()
+        sector=target_sector_info.CEDS_working_sector.to_list(), log_if_empty=False
     ).process_over(("sector"), "sum")
     ceds_sector_aggregate["sector"] = sector
     ceds_sector_aggregate["sector_short"] = target_sector_info[
