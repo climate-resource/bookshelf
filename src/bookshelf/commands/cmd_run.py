@@ -6,7 +6,7 @@ from typing import Tuple
 
 import click
 
-from bookshelf.notebook import run_notebook
+from bookshelf.notebook import get_available_versions, run_notebook
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,10 @@ def cli(name: str, output: str, force: bool, version: Tuple[str]) -> None:
 
     This runs one of the notebooks used to generate a Book
     """
-    all_versions = version if version else (None,)
+    if not version:
+        all_versions = get_available_versions(name)
+    else:
+        all_versions = version
 
     for dataset_version in all_versions:
         try:
