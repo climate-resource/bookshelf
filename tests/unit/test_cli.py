@@ -2,6 +2,7 @@ import logging
 import re
 import tempfile
 
+import pytest
 from click.testing import CliRunner
 
 from bookshelf.cli import main
@@ -33,11 +34,23 @@ def test_run(mocker):
         assert result.exit_code == 0, result.output
 
         mock_run.assert_called_once_with(
-            "examples/simple", output_directory=td, force=False, version=None
+            "examples/simple", output_directory=td, force=False, version="v0.1.0"
         )
 
 
-def test_run_multiple(mocker):
+@pytest.mark.parametrize(
+    "args",
+    [
+        [],
+        [
+            "--version",
+            "v4.0.0",
+            "--version",
+            "v5.1.0",
+        ],
+    ],
+)
+def test_run_multiple(mocker, args):
     mock_run = mocker.patch("bookshelf.commands.cmd_run.run_notebook", autospec=True)
 
     with tempfile.TemporaryDirectory() as td:
@@ -46,11 +59,8 @@ def test_run_multiple(mocker):
             main,
             [
                 "run",
-                "examples/simple/example",
-                "--version",
-                "v4.0.0",
-                "--version",
-                "v5.1.0",
+                "examples/multiple_versions",
+                *args,
                 "--output",
                 str(td),
             ],
@@ -60,7 +70,7 @@ def test_run_multiple(mocker):
         mock_run.assert_has_calls(
             [
                 (
-                    ("examples/simple/example",),
+                    ("examples/multiple_versions",),
                     dict(
                         output_directory=td,
                         force=False,
@@ -68,7 +78,7 @@ def test_run_multiple(mocker):
                     ),
                 ),
                 (
-                    ("examples/simple/example",),
+                    ("examples/multiple_versions",),
                     dict(
                         output_directory=td,
                         force=False,
@@ -84,7 +94,7 @@ def test_run_failed(mocker, caplog):
     mock_run.side_effect = ValueError("Something went wrong")
     with tempfile.TemporaryDirectory() as td:
         runner = CliRunner()
-        result = runner.invoke(main, ["run", "example", "--output", str(td)])
+        result = runner.invoke(main, ["run", "examples/simple", "--output", str(td)])
         assert result.exit_code == 1
 
     assert "Something went wrong" in caplog.text
@@ -100,7 +110,7 @@ def test_publish(mocker, caplog):
     caplog.set_level("INFO")
 
     runner = CliRunner()
-    result = runner.invoke(main, ["publish", "example"])
+    result = runner.invoke(main, ["publish", "examples/simple"])
     assert result.exit_code == 0
 
     assert "Building Book in isolated environment" in caplog.text
@@ -111,13 +121,36 @@ def test_publish(mocker, caplog):
     assert mock_publish.call_args.args[1] == mock_run.return_value
 
 
+def test_publish_multiple(mocker, caplog):
+    mock_run = mocker.patch(
+        "bookshelf.commands.cmd_publish.run_notebook", autospec=True
+    )
+    mock_publish = mocker.patch.object(BookShelf, "publish", autospec=True)
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["publish", "examples/multiple_versions"])
+
+    assert result.exit_code == 0
+
+    assert mock_run.call_count == 2
+    assert mock_publish.call_count == 2
+
+
 def test_publish_failed(mocker, caplog):
     mock_run = mocker.patch("bookshelf.commands.cmd_publish.run_notebook")
     mock_run.side_effect = ValueError("Something went wrong")
 
     runner = CliRunner()
-    result = runner.invoke(main, ["publish", "example"])
+    result = runner.invoke(main, ["publish", "examples/simple"])
     assert result.exit_code == 1
 
     assert "Something went wrong" in caplog.text
     assert "Aborted!" in result.output
+
+
+def test_publish_missing():
+    runner = CliRunner()
+    result = runner.invoke(main, ["publish", "examples/unknown"])
+    assert result.exit_code == 1
+
+    assert result.exc_info[0] == FileNotFoundError

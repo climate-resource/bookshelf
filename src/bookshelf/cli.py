@@ -47,3 +47,7 @@ def main(ctx, quiet):
     logger.setLevel(logging.INFO)
     if quiet:
         logger.setLevel(logging.ERROR)
+
+
+if __name__ == "__main__":
+    main()

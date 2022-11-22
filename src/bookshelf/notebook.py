@@ -4,7 +4,7 @@ Functions to run/manage notebooks
 import logging
 import os
 import shutil
-from typing import Optional
+from typing import Any, Dict, Optional, Tuple
 
 # pylint: disable=invalid-name
 try:
@@ -66,6 +66,34 @@ def get_notebook_directory(nb_dir: Optional[str] = None) -> str:
     return nb_directory
 
 
+def _load_nb_config(
+    name: str,
+    nb_directory: Optional[str] = None,
+) -> Tuple[ConfigSchema, Dict[str, Any]]:
+    nb_directory = get_notebook_directory(nb_directory)
+
+    metadata_fname = name
+    if nb_directory and not os.path.isabs(name):
+        metadata_fname = os.path.join(nb_directory, name)
+
+    # If a directory is provided assume that the config is similarly named
+    if os.path.isdir(metadata_fname):
+        metadata_fname = os.path.join(metadata_fname, name.split("/")[-1] + ".yaml")
+
+    if not metadata_fname.endswith(".yaml") and not metadata_fname.endswith(".yml"):
+        metadata_fname = metadata_fname + ".yaml"
+
+    if not os.path.exists(metadata_fname):
+        raise FileNotFoundError(f"Could not find {metadata_fname}")
+
+    with open(metadata_fname) as file_handle:
+        data = yaml.safe_load(file_handle)
+
+        # always override with the file that was used
+        data["source_file"] = metadata_fname
+        return ConfigSchema(**data), data
+
+
 def load_nb_metadata(
     name: str,
     version: Optional[Version] = None,
@@ -100,30 +128,9 @@ def load_nb_metadata(
     NotebookMetadata
         Metadata about the notebook including the target package and version
     """
-    nb_directory = get_notebook_directory(nb_directory)
+    config, raw_data = _load_nb_config(name, nb_directory)
 
-    metadata_fname = name
-    if nb_directory and not os.path.isabs(name):
-        metadata_fname = os.path.join(nb_directory, name)
-
-    # If a directory is provided assume that the config is similarly named
-    if os.path.isdir(metadata_fname):
-        metadata_fname = os.path.join(metadata_fname, name.split("/")[-1] + ".yaml")
-
-    if not metadata_fname.endswith(".yaml") and not metadata_fname.endswith(".yml"):
-        metadata_fname = metadata_fname + ".yaml"
-
-    if not os.path.exists(metadata_fname):
-        raise FileNotFoundError(f"Could not find {metadata_fname}")
-
-    with open(metadata_fname) as file_handle:
-        data = yaml.safe_load(file_handle)
-
-        # always override with the file that was used
-        data["source_file"] = metadata_fname
-        config = ConfigSchema(**data)
-
-    if "version" in data and version != data["version"]:
+    if "version" in raw_data and version != raw_data["version"]:
         # Check if a version has already been selected
         raise ValueError("Requested version does not match the metadata")
 
@@ -137,7 +144,7 @@ def load_nb_metadata(
     if selected_version is None:
         raise UnknownVersion(config.name, version)
 
-    return NotebookMetadata(**data, **selected_version.dict())
+    return NotebookMetadata(**raw_data, **selected_version.dict())
 
 
 def run_notebook(
@@ -205,9 +212,9 @@ def run_notebook(
     logger.info(f"Processing {metadata.long_name()}")
 
     if output_directory is None:
-        output_directory = os.path.join(
-            PROCESSED_DATA_DIR, short_name, metadata.version
-        )
+        output_directory = os.path.join(PROCESSED_DATA_DIR, short_name)
+
+    output_directory = os.path.join(output_directory, metadata.version)
     if os.path.exists(output_directory) and os.listdir(output_directory):
         logger.warning(f"{output_directory} is not empty")
         if not force:
@@ -241,3 +248,9 @@ def run_notebook(
 
     logger.info(f"Notebook run successfully with hash: {book.hash()}")
     return book
+
+
+def get_available_versions(name: str) -> list[str]:
+    config, _ = _load_nb_config(name)
+
+    return [version.version for version in config.versions]

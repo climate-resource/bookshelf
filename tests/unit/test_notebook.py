@@ -64,27 +64,57 @@ def test_load_nb_metadata_paths():
     assert load_nb_metadata(os.path.abspath(nb_dir)) == exp
 
 
-def test_run_notebook(remote_bookshelf):
-    simple_nb_dir = os.path.join(get_notebook_directory(), "examples", "simple")
-    remote_bookshelf.register("simple", "v0.1.0", 1)
+@pytest.mark.parametrize(
+    "name,version",
+    [
+        ("simple", "v0.1.0"),
+        ("multiple_versions", "v4.0.0"),
+        ("multiple_versions", "v5.1.0"),
+    ],
+)
+def test_run_notebook(remote_bookshelf, name, version):
+    nb_name = f"examples/{name}"
+    remote_bookshelf.register(name, version, 1)
 
     with tempfile.TemporaryDirectory() as td:
         book = run_notebook(
-            "simple", nb_directory=simple_nb_dir, output_directory=str(td)
+            nb_name,
+            output_directory=td,
+            version=version,
         )
 
-        with pytest.raises(ValueError, match=f"{td} is not empty"):
-            run_notebook("simple", nb_directory=simple_nb_dir, output_directory=str(td))
-        run_notebook("examples/simple", output_directory=str(td), force=True)
+        with pytest.raises(
+            ValueError, match=f"{os.path.join(td, version)} is not empty"
+        ):
+            run_notebook(
+                nb_name,
+                output_directory=td,
+                version=version,
+            )
+        run_notebook(
+            f"examples/{name}",
+            output_directory=td,
+            force=True,
+            version=version,
+        )
 
         assert len(book.files()) == 2
-        assert sorted(os.listdir(str(td))) == sorted(
+        assert os.listdir(td) == [version]
+        assert sorted(os.listdir(os.path.join(td, version))) == sorted(
             [
-                "simple",  # output
-                "simple.ipynb",
-                "simple.yaml",
-                "simple.py",
+                name,  # output bookshelf
+                f"{name}.ipynb",
+                f"{name}.yaml",
+                f"{name}.py",
             ]
+        )
+
+
+def test_run_missing_version():
+    with pytest.raises(UnknownVersion, match="Could not file simple@v200000"):
+        run_notebook(
+            "examples/simple",
+            version="v200000",
         )
 
 
