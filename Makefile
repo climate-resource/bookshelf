@@ -79,3 +79,9 @@ $(VENV_DIR): setup.py setup.cfg pyproject.toml
 	#$(VENV_DIR)/bin/jupyter nbextension enable --py widgetsnbextension
 
 	touch $(VENV_DIR)
+
+
+.PHONY: upload
+build:
+	rm -r dist
+	python -m build
