@@ -195,7 +195,7 @@ class LocalBook(_Book):
         file_list = glob.glob(self.local_fname("*"))
         return file_list
 
-    def add_timeseries(self, name, data: scmdata.ScmRun):
+    def add_timeseries(self, name: str, data: scmdata.ScmRun) -> None:
         """
         Add a timeseries resource to the Book
 
