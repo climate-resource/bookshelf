@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.14.0
+#       jupytext_version: 1.14.1
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
@@ -20,11 +20,13 @@
 # We want to import by_region and by_region_sector
 
 # %%
+import fnmatch
 import logging
 import tempfile
 import zipfile
 
 import pandas as pd
+import pooch
 import pycountry
 import scmdata
 
@@ -40,7 +42,7 @@ logging.basicConfig(level="INFO")
 
 # %% tags=["parameters"]
 local_bookshelf = tempfile.mkdtemp()
-version = "v2021_04_21"
+version = "v2016_07_26"
 
 # %%
 metadata = load_nb_metadata("ceds", version=version)
@@ -55,11 +57,18 @@ book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 # %%
 ceds_fname = metadata.download_file()
 ceds_data = zipfile.ZipFile(ceds_fname)
-[info.filename for info in ceds_data.filelist]
+ceds_archive_fnames = [
+    "./" + info.filename
+    for info in ceds_data.filelist
+    if "country_fuel" not in info.filename
+]
+ceds_archive_fnames
 
 # %%
-ceds_species = ["BC", "CH4", "CO2", "CO", "N2O", "NH3", "NMVOC", "NOx", "OC", "SO2"]
-date_code = "2021_04_21"
+if version == "v2016_07_26":
+    ceds_species = ["BC", "CH4", "CO2", "CO", "NH3", "NMVOC", "NOx", "OC", "SO2"]
+else:
+    ceds_species = ["BC", "CH4", "CO2", "CO", "N2O", "NH3", "NMVOC", "NOx", "OC", "SO2"]
 
 
 # %% [markdown]
@@ -67,6 +76,12 @@ date_code = "2021_04_21"
 
 # %%
 def read_CEDS_format(fname: str) -> scmdata.ScmRun:
+    fname_match = fnmatch.filter(ceds_archive_fnames, "*/" + fname)
+
+    if len(fname_match) != 1:
+        raise ValueError(f"Could not figure out match: {fname} -> {fname_match}")
+    fname = fname_match[0].lstrip("./")
+
     df = pd.read_csv(ceds_data.open(fname)).rename(
         {"em": "variable", "country": "region", "units": "unit"}, axis=1
     )
@@ -92,7 +107,7 @@ def read_CEDS_format(fname: str) -> scmdata.ScmRun:
 res = []
 
 for species in ceds_species:
-    res.append(read_CEDS_format(f"{species}_CEDS_emissions_by_country_{date_code}.csv"))
+    res.append(read_CEDS_format(f"{species}_CEDS_emissions_by_country_*.csv"))
 res = scmdata.run_append(res)
 
 # %%
@@ -125,8 +140,90 @@ for c in res.get_unique_meta("region"):
 res["region"] = res["region"].str.replace("GLOBAL", "World")
 
 # %%
+res
+
+# %%
 book.add_timeseries("by_country", res)
 
+
+# %% [markdown]
+# # By country by sector
+
+# %%
+ceds_by_sector = []
+
+for species in ceds_species:
+    ceds_by_sector.append(
+        read_CEDS_format(f"{species}_CEDS_emissions_by_sector_country_*.csv")
+    )
+ceds_by_sector = scmdata.run_append(ceds_by_sector)
+
+# %%
+ceds_by_sector.get_unique_meta("sector")
+
+# %%
+ceds_by_sector
+
+# %% [markdown]
+# # By grid sectors
+
+# %%
+ceds_mapping_fname = pooch.retrieve(
+    "https://github.com/JGCRI/CEDS/raw/April-21-2021-release/input/gridding/gridding_mappings/CEDS_sector_to_gridding_sector_mapping.csv",
+    known_hash="95f66a04095b3d9f6464d7a4713093ff2967c8a5f386d7b6addad30c40ff12d3",
+)
+ceds_sector_mapping = pd.read_csv(ceds_mapping_fname)
+ceds_sector_mapping
+
+
+# %%
+def process_aggregate_sector(sector_column: str, sector: str):
+    target_sector_info = ceds_sector_mapping[
+        ceds_sector_mapping[sector_column] == sector
+    ]
+    ceds_sector_aggregate = ceds_by_sector.filter(
+        sector=target_sector_info.CEDS_working_sector.to_list(), log_if_empty=False
+    ).process_over(("sector"), "sum")
+    ceds_sector_aggregate["sector"] = sector
+    ceds_sector_aggregate["sector_short"] = target_sector_info[
+        sector_column + "_short"
+    ].unique()[0]
+    return scmdata.ScmRun(ceds_sector_aggregate)
+
+
+def extract_sectors(sector_column):
+    target_sectors = ceds_sector_mapping[sector_column].unique()
+
+    agg_sectors = []
+    for sector in target_sectors:
+        if isinstance(sector, str):
+            agg_sectors.append(process_aggregate_sector(sector_column, sector))
+    return scmdata.run_append(agg_sectors)
+
+
+# %%
+ceds_agg_sectors_intermediate = extract_sectors("CEDS_int_gridding_sector")
+ceds_agg_sectors_intermediate.get_unique_meta("sector_short")
+
+# %% [markdown]
+# ### Final sectors
+#
+# aka CEDS9
+
+# %%
+ceds_agg_sectors_final = extract_sectors("CEDS_final_gridding_sector")
+ceds_agg_sectors_final.get_unique_meta("sector_short")
+
+# %%
+ceds_agg_sectors_final
+
+# %%
+book.add_timeseries("by_sector_ipcc", ceds_by_sector)
+book.add_timeseries("by_sector_intermediate", ceds_agg_sectors_intermediate)
+book.add_timeseries("by_sector_final", ceds_agg_sectors_final)
+
+# %% [markdown]
+# # Checks
 
 # %%
 book.metadata()

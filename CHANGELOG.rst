@@ -17,6 +17,7 @@ Unreleased
 
 Changed
 =======
+- (`!14 <https://gitlab.com/climate-resource/bookshelf/merge_requests/14>`_) Add sectoral information to CEDS and also support the initial CEDs release as part of Hoesly et al. 2018
 - (`!17 <https://gitlab.com/climate-resource/bookshelf/merge_requests/17>`_) Added the concept of editions. Each time the processing changes the edition counter is incremented. The version identifier is reserved for the data source. This results in a breaking change of the data format which has been updated to ``v0.2.0``.
 - (`!16 <https://gitlab.com/climate-resource/bookshelf/merge_requests/16>`_)  Updated ``un-wpp@0.1.2`` with some fixes to variable naming
 
@@ -26,7 +27,6 @@ v0.1.0
 
 Changed
 =======
-- (`!13 <https://gitlab.com/climate-resource/bookshelf/merge_requests/13>`_) Add ``ceds@0.0.1``
 - (`!12 <https://gitlab.com/climate-resource/bookshelf/merge_requests/12>`_) Update primap-HIST to v0.2.0 to provide resources by region and by country
 - (`!11 <https://gitlab.com/climate-resource/bookshelf/merge_requests/11>`_) Remove non-required dependencies from the  requirements
 - (`!10 <https://gitlab.com/climate-resource/bookshelf/merge_requests/10>`_) Update issue and MR templates
@@ -36,6 +36,7 @@ Changed
 Added
 =====
 - (`!15 <https://gitlab.com/climate-resource/bookshelf/merge_requests/15>`_) Add ``un-wpp@v0.1.0``
+- (`!13 <https://gitlab.com/climate-resource/bookshelf/merge_requests/13>`_) Add ``ceds@0.0.1``
 - (`!9 <https://gitlab.com/climate-resource/bookshelf/merge_requests/9>`_) Add ``wdi@v0.1.1``
 - (`!8 <https://gitlab.com/climate-resource/bookshelf/merge_requests/8>`_) Add ``primap-hist@v0.1.0``
 - (`!7 <https://gitlab.com/climate-resource/bookshelf/merge_requests/7>`_) Add ``Bookshelf.list_versions``

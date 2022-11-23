@@ -20,7 +20,15 @@ def local_bookshelf(tmpdir, monkeypatch):
 @pytest.fixture()
 def example_data():
     return scmdata.ScmRun(
-        os.path.join(
-            TEST_DATA_DIR, "v0.2.0", "example", "v1.0.0_e001", "leakage_rates_low.csv"
+        scmdata.ScmRun(
+            os.path.join(
+                TEST_DATA_DIR,
+                "v0.2.0",
+                "example",
+                "v1.0.0_e001",
+                "leakage_rates_low.csv",
+            )
         )
+        .timeseries()
+        .sort_index()
     )

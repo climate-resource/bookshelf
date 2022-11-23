@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.14.0
+#       jupytext_version: 1.14.1
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
@@ -189,8 +189,13 @@ data_proj = scmdata.ScmRun(
 
 
 # %%
-data = scmdata.run_append([data_hist, data_proj])
-data
+data_hist
+
+# %%
+# Merge the historical data with the projections to create a single timeseries
+data = scmdata.run_append([data_hist.set_meta("scenario", "Medium variant"), data_proj])
+data["historical_end_year"] = data_hist["year"].iloc[-1]
+data.filter(year=range(2019, 2025)).timeseries()
 
 # %%
 available_types = data.get_unique_meta("type")
@@ -198,14 +203,17 @@ available_types
 
 # %%
 for t in available_types:
-    book.add_timeseries(
-        f'by_{t.replace(" ", "_").replace("/", "_").lower()}', data.filter(type=t)
-    )
+    data_subset = data.filter(type=t)
 
-# %% [markdown]
-# Below the `Book`'s metadata is shown. This contains all of the metadata about the `Book` and the associated `Resources`.
-#
-# This is the metadata that clients download and can be used to fetch the `Book`'s `Resources`. Once deployed this `Book` becomes immutable. Any changes to the metadata or data requires releasing a new version of a `Book`.
+    # Use iso code as region identifer for compatibility with other data
+    if t == "Country/Area":
+        data_subset["country"] = data_subset["region"]
+        data_subset["region"] = data_subset["ISO3 Alpha-code"]
+
+    book.add_timeseries(
+        f'by_{t.replace(" ", "_").replace("/", "_").lower()}',
+        data_subset.drop_meta("ISO3 Alpha-code"),
+    )
 
 # %%
 book.metadata()

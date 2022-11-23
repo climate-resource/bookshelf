@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Optional
 import pooch
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
+from bookshelf.utils import get_env_var
+
 Version = str
 Edition = int
 
@@ -154,6 +156,9 @@ class NotebookMetadata(BaseModel):
         str
             Filename of the locally downloaded file
         """
+        cache_location = get_env_var(
+            "DOWNLOAD_CACHE_LOCATION", raise_on_missing=False, default=None
+        )
         file_info = self.dataset.files[idx]
 
         file_hash: Optional[str] = file_info.hash
@@ -163,6 +168,7 @@ class NotebookMetadata(BaseModel):
         res: str = pooch.retrieve(
             file_info.url,
             known_hash=file_hash,
+            path=cache_location,
         )
         return res
 

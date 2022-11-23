@@ -7,17 +7,35 @@ import pytest
 
 from bookshelf import BookShelf
 from bookshelf.errors import UnknownBook
-from bookshelf.notebook import get_notebook_directory, run_notebook
+from bookshelf.notebook import (
+    get_available_versions,
+    get_notebook_directory,
+    run_notebook,
+)
 
 logger = logging.getLogger("test-notebooks")
 
-NOTEBOOK_DIRECTORY = get_notebook_directory()
 
-logger.info(f"Looking for notebooks in {NOTEBOOK_DIRECTORY}")
-notebooks = glob(os.path.join(NOTEBOOK_DIRECTORY, "**", "*.py"), recursive=True)
+def find_notebooks():
+    NOTEBOOK_DIRECTORY = get_notebook_directory()
 
-notebook_names = [os.path.basename(nb)[:-3] for nb in notebooks]
-logger.info(f"Found {len(notebooks)} notebooks: {notebook_names}")
+    logger.info(f"Looking for notebooks in {NOTEBOOK_DIRECTORY}")
+    notebooks = glob(os.path.join(NOTEBOOK_DIRECTORY, "**", "*.py"), recursive=True)
+
+    notebook_info = []
+
+    for nb in notebooks:
+        versions = get_available_versions(nb.replace(".py", ".yaml"))
+        notebook_name = os.path.basename(nb)[:-3]
+        notebook_info.extend((nb, notebook_name, v) for v in versions)
+
+    logger.info(f"Found {len(notebook_info)} notebooks")
+    for _, name, version in notebook_info:
+        logger.info(f"Found {name}@{version}")
+    return notebook_info
+
+
+notebooks = find_notebooks()
 
 
 @pytest.fixture()
@@ -27,22 +45,36 @@ def output_directory():
     yield out_dir
 
 
-@pytest.mark.parametrize("notebook_path", notebooks)
-def test_notebook(notebook_path, output_directory):
+@pytest.mark.parametrize("notebook_path,notebook_name,notebook_version", notebooks)
+def test_notebook(notebook_path, notebook_name, notebook_version, output_directory):
     # Check that:
     # * notebooks run as expected
     # * that hash matches an existing notebook
 
-    notebook = os.path.basename(notebook_path)[:-3]
     notebook_dir = os.path.dirname(notebook_path)
 
+    if notebook_name != "ceds":
+        return
+
+    run_notebook_and_check_results(
+        notebook_name,
+        version=notebook_version,
+        notebook_dir=notebook_dir,
+        output_directory=os.path.join(
+            output_directory, "sample", notebook_name, notebook_version
+        ),
+    )
+
+
+def run_notebook_and_check_results(notebook, version, notebook_dir, output_directory):
     shelf = BookShelf()
 
     try:
         target_book = run_notebook(
             notebook,
             nb_directory=notebook_dir,
-            output_directory=os.path.join(output_directory, notebook),
+            output_directory=output_directory,
+            version=version,
         )
     except UnknownBook:
         logger.info("Book has not been pushed yet")

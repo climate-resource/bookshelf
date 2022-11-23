@@ -195,7 +195,7 @@ class LocalBook(_Book):
         file_list = glob.glob(self.local_fname("*"))
         return file_list
 
-    def add_timeseries(self, name, data):
+    def add_timeseries(self, name: str, data: scmdata.ScmRun) -> None:
         """
         Add a timeseries resource to the Book
 
@@ -209,7 +209,7 @@ class LocalBook(_Book):
             Timeseries data to add to the Book
         """
         fname = f"{name}.csv"
-        data.to_csv(self.local_fname(fname))
+        data.timeseries().sort_index().to_csv(self.local_fname(fname))
         resource_hash = pooch.hashes.file_hash(self.local_fname(fname))
 
         metadata = self.as_datapackage()
