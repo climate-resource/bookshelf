@@ -15,6 +15,9 @@ The changes listed in this file are categorised as follows:
 Unreleased
 ----------
 
+v0.2.0
+------
+
 Changed
 =======
 - (`!14 <https://gitlab.com/climate-resource/bookshelf/merge_requests/14>`_) Add sectoral information to CEDS and also support the initial CEDs release as part of Hoesly et al. 2018
