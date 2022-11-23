@@ -6,11 +6,13 @@ stages:
 
 variables:
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+    BOOKSHELF_DOWNLOAD_CACHE_LOCATION: "$CI_PROJECT_DIR/.cache/pooch"
 
 cache: &global_cache
   key: ${CI_COMMIT_REF_SLUG}
   paths:
     - .cache/pip
+    - .cache/pooch
     - venv/
   policy: pull-push
 
@@ -26,7 +28,6 @@ test: &test_config
   stage: test
   cache:
     <<: *global_cache
-    policy: pull  # only pull from cache
   before_script:
     - source venv/bin/activate
   script:

@@ -4,7 +4,7 @@ Bookshelf utilities
 import logging
 import os
 import pathlib
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 import appdirs
 import pooch
@@ -170,18 +170,27 @@ def fetch_file(
         )  # pragma: no cover
 
 
-def get_env_var(name: str, add_prefix: bool = True) -> str:
+def get_env_var(
+    name: str,
+    add_prefix: bool = True,
+    raise_on_missing: bool = True,
+    default: Any = None,
+) -> str:
     """
     Get an environment variable value
 
-    If the variable isn't set raise an exception
+    If the variable isn't set raise an exception if ``raise_on_missing`` is ``True``
 
     Parameters
     ----------
     name : str
-        Enviromnment variable name to check
+        Environment variable name to check
     add_prefix : bool
-        If True, prefix the environment variable name with  ``bookshelf.constants.ENV_PREFIX``
+        If ``True``, prefix the environment variable name with  ``bookshelf.constants.ENV_PREFIX``
+    raise_on_missing : bool
+        If ``True``, a ValueError is raised
+    default : Any
+        Value to return if the environment variable is missing and ``raise_on_missing`` is ``True``
     Returns
     -------
     str
@@ -195,9 +204,9 @@ def get_env_var(name: str, add_prefix: bool = True) -> str:
     if add_prefix:
         name = ENV_PREFIX + name
     name = name.upper()
-    if name not in os.environ:
+    if raise_on_missing and name not in os.environ:
         raise ValueError(f"Environment variable {name} not set. Check configuration")
-    return os.environ[name]
+    return os.environ.get(name, default)
 
 
 def get_remote_bookshelf(bookshelf: Optional[str]) -> str:

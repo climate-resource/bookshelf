@@ -23,7 +23,7 @@ versions:
       doi: 10.5281/zenodo.5494497
       files:
         - url: doi:10.5281/zenodo.5494497/Guetschow-et-al-2021-PRIMAP-hist_v2.3.1_no_rounding_20-Sep_2021.csv
-          hash: ef53000db17dc2bac6f77eeb302763a1e99b2654f17108fe8ea3280fe55f8eb9
+          hash: 07a3277732abe24fb693f519572b3dba92a308f2efece7ba44d18bc07e5a4c9d
       documentation: https://zenodo.org/record/5494497
       author: Guetshow, Johannes; Guenther, Annika, Pflueger, Mika
       time_domain: [ 1750, 2019 ]
