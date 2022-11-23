@@ -49,7 +49,7 @@ test:notebooks:
   variables:
     BOOKSHELF_CACHE_LOCATION: out
   script:
-    - pytest tests/notebooks --log-cli-level INFO
+    - pytest -n auto tests/notebooks --log-cli-level INFO
   artifacts:
     when: always
     paths:
