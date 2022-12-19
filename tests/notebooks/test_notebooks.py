@@ -53,9 +53,6 @@ def test_notebook(notebook_path, notebook_name, notebook_version, output_directo
 
     notebook_dir = os.path.dirname(notebook_path)
 
-    if notebook_name != "ceds":
-        return
-
     run_notebook_and_check_results(
         notebook_name,
         version=notebook_version,
@@ -85,6 +82,12 @@ def run_notebook_and_check_results(notebook, version, notebook_dir, output_direc
             name=target_book.name, version=target_book.version, force=True
         )
         logger.info(f"Remote book exists. Expecting hash: {existing_book.hash()}")
+
+        if existing_book.edition != target_book.edition:
+            raise ValueError(
+                f"Edition of calculated book doesn't match the remote bookshelf "
+                f"({target_book.edition} != {existing_book.edition})"
+            )
 
         if existing_book.hash() != target_book.hash():
             raise ValueError(
