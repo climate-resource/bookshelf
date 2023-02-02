@@ -23,6 +23,7 @@
 
 # %%
 import logging
+import re
 import tempfile
 
 import pandas as pd
@@ -65,6 +66,7 @@ col_renames = {
     "scenario (PRIMAP-hist)": "scenario",
     "entity": "variable",
     "area (ISO3)": "region",
+    "country": "region",  # v2.2
     "category (IPCC2006_PRIMAP)": "category",
 }
 data_df_renamed = data_df.rename(col_renames, axis=1)
@@ -98,7 +100,39 @@ data["scenario"] = data["scenario"].str.replace("HISTCR", "Historical|Country Re
 data["scenario"] = data["scenario"].str.replace("HISTTP", "Historical|Third Party")
 
 # %%
+# Extract the GWP context from brackets
+pattern = re.compile(r".*\((.*)\)")
+pattern_all_but = re.compile(r"(.*) \(.*")
+
+m = re.match(pattern_all_but, "Emissions|Kyoto GHG (AR4GWP100)")
+
+
+def add_gwp_context(v):
+    m = re.match(pattern, v)
+    if m:
+        return m.group(1)
+    return None
+
+
+def remove_gwp_from_variable(v):
+    m = re.match(pattern_all_but, v)
+    if m:
+        return m.group(1)
+    return v
+
+
+# %%
+data["gwp_context"] = data["variable"].apply(add_gwp_context)
+data["variable"] = data["variable"].apply(remove_gwp_from_variable)
+
+# %%
+data.get_unique_meta("gwp_context")
+
+# %%
 data.get_unique_meta("variable")
+
+# %%
+data.timeseries()
 
 # %%
 region_map = {
@@ -147,7 +181,8 @@ data.get_unique_meta("unit")
 # %%
 def convert_units(run):
     unit = run.get_unique_meta("unit", True)
-    return run.convert_unit(unit.replace("Gg", "kt"))
+
+    return run.convert_unit(unit.replace("Gg", "kt").replace("gigagram", "kt"))
 
 
 data = data.groupby("unit").map(convert_units)

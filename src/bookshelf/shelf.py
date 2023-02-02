@@ -260,11 +260,17 @@ class BookShelf:
             more information about how to resolve this issue.
         """
         if self.is_available(book.name, book.version):
-            if not force:
-                raise UploadError("Book with the same version already exists")
-            logger.warning(
-                "Book with the same version already exists on remote bookshelf"
-            )
+            remote_book = self.load(book.name, book.version)
+
+            if remote_book.edition >= book.edition:
+                msg = (
+                    f"Edition value has not been increased "
+                    f"(remote: {remote_book.long_version()}, local: {book.long_version()})"
+                )
+                if not force:
+                    raise UploadError(msg)
+                logger.error(msg)
+            logger.warning("Uploading a new edition of an existing book")
         files = book.files()
 
         # Check if additional files are going to be uploaded
