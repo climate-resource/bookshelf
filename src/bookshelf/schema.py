@@ -4,7 +4,7 @@ Schema
 from typing import Any, Dict, List, Optional
 
 import pooch
-from pydantic import BaseModel  # pylint: disable=no-name-in-module
+from pydantic import BaseModel, Field  # pylint: disable=no-name-in-module
 
 from bookshelf.utils import get_env_var
 
@@ -21,6 +21,7 @@ class BookVersion(BaseModel):
     edition: Edition
     url: str
     hash: str
+    private: Optional[bool] = False
 
 
 class VolumeMeta(BaseModel):
@@ -40,7 +41,7 @@ class VolumeMeta(BaseModel):
         -------
         Version string
         """
-        ordered_versions = sorted([v.version for v in self.versions])
+        ordered_versions = sorted([v.version for v in self.versions if not v.private])
         if not len(ordered_versions):
             raise ValueError("No published volumes")
 
@@ -93,6 +94,7 @@ class VersionMetadata(BaseModel):
 
     version: Version
     dataset: DatasetMetadata
+    private: Optional[bool] = Field(default=False)
 
 
 class NotebookMetadata(BaseModel):
@@ -108,6 +110,7 @@ class NotebookMetadata(BaseModel):
     description: Optional[str]
     license: str
     source_file: str
+    private: bool
     metadata: Dict[str, Any]  # TODO: type this
     dataset: DatasetMetadata
 
@@ -165,6 +168,10 @@ class NotebookMetadata(BaseModel):
         if not file_hash:
             # replace an empty string with None
             file_hash = None
+
+        if file_info.url.startswith("file://"):
+            return file_info.url[7:]
+
         res: str = pooch.retrieve(
             file_info.url,
             known_hash=file_hash,

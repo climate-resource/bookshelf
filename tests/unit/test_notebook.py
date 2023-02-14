@@ -64,6 +64,15 @@ def test_load_nb_metadata_paths():
     assert load_nb_metadata(os.path.abspath(nb_dir)) == exp
 
 
+@pytest.mark.xfail(reason="missing file")
+def test_load_nb_private():
+    exp = load_nb_metadata("primap-hist", "v2.4_alt")
+
+    assert exp.private
+
+    assert not load_nb_metadata("primap-hist", "v2.4").private
+
+
 @pytest.mark.parametrize(
     "name,version",
     [

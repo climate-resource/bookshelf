@@ -13,7 +13,8 @@ import pytest
 
 from bookshelf.constants import DATA_FORMAT_VERSION
 from bookshelf.errors import UnknownBook, UnknownVersion, UploadError
-from bookshelf.shelf import BookShelf, LocalBook
+from bookshelf.notebook import NotebookMetadata
+from bookshelf.shelf import BookShelf, LocalBook, _update_volume_meta
 
 
 @pytest.fixture()
@@ -288,3 +289,36 @@ def test_list_versions(shelf, remote_bookshelf):
 @pytest.mark.xfail(reason="Not implemented")
 def test_list_name(shelf):
     assert shelf.list_books() == ["test"]
+
+
+def test_private_list(remote_bookshelf, local_bookshelf):
+    remote_bookshelf.register("test", "v2_private", 1, private=True)
+    shelf = BookShelf(path=local_bookshelf)
+
+    assert shelf.list_versions("test") == ["v1.0.0", "v1.1.0"]
+    assert shelf.load("test", "v2_private")
+
+    assert shelf.load("test").version == "v1.1.0"
+
+
+def test_update_volume_meta(local_bookshelf, remote_bookshelf):
+    book = LocalBook.create_from_metadata(
+        NotebookMetadata(
+            name="test",
+            version="v2_private",
+            edition=1,
+            license="",
+            source_file="",
+            private=True,
+            dataset={"author": "", "files": []},
+            metadata={},
+        ),
+        local_bookshelf=local_bookshelf,
+    )
+
+    res = _update_volume_meta(book, os.environ["BOOKSHELF_REMOTE"])
+    with open(res) as fh:
+        contents = json.load(fh)
+
+    assert contents["versions"][-1]["version"] == "v2_private"
+    assert contents["versions"][-1]["private"]

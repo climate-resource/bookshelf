@@ -263,6 +263,7 @@ class LocalBook(_Book):
             {
                 "name": meta.name,
                 "version": meta.version,
+                "private": meta.private,
                 "edition": meta.edition,
                 "resources": [],
             }

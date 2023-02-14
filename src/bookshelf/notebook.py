@@ -180,6 +180,7 @@ def run_notebook(
         If True, override the existing data in the output directory
     version : str
         Version to extract
+
     Returns
     -------
     LocalBook
@@ -250,7 +251,11 @@ def run_notebook(
     return book
 
 
-def get_available_versions(name: str) -> list[str]:
+def get_available_versions(name: str, include_private: bool = False) -> list[str]:
     config, _ = _load_nb_config(name)
 
-    return [version.version for version in config.versions]
+    versions = config.versions
+    if not include_private:
+        versions = [v for v in versions if not v.private]
+
+    return [v.version for v in versions]
