@@ -18,6 +18,7 @@ Unreleased
 Changed
 =======
 
+- (`!21 <https://gitlab.com/climate-resource/bookshelf/bookshelf/merge_requests/21>`_) Replace NO2 with NOx in CEDs units
 - (`!20 <https://gitlab.com/climate-resource/bookshelf/bookshelf/merge_requests/20>`_) Updated ``DATA_FORMAT_VERSION`` to ``v0.2.1`` in order to handle extra field
 - (`!19 <https://gitlab.com/climate-resource/bookshelf/bookshelf/merge_requests/19>`_) Added gwp_context field to primap-hist for easier post processing
 - (`!19 <https://gitlab.com/climate-resource/bookshelf/bookshelf/merge_requests/19>`_) Fixed the uploading of new editions

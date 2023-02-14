@@ -114,6 +114,7 @@ res = scmdata.run_append(res)
 res["variable"] = res["variable"].str.replace("SO2", "Sulfur")
 res["variable"] = res["variable"].str.replace("NMVOC", "VOC")
 res["unit"] = res["unit"].str.replace("NMVOC", "VOC")
+res["unit"] = res["unit"].str.replace("NO2", "NOx")
 
 # %%
 oc_emms = res.filter(variable="Emissions|OC")
