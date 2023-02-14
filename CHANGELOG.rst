@@ -18,8 +18,15 @@ Unreleased
 Changed
 =======
 
+- (`!20 <https://gitlab.com/climate-resource/bookshelf/bookshelf/merge_requests/20>`_) Updated ``DATA_FORMAT_VERSION`` to ``v0.2.1`` in order to handle extra field
 - (`!19 <https://gitlab.com/climate-resource/bookshelf/bookshelf/merge_requests/19>`_) Added gwp_context field to primap-hist for easier post processing
 - (`!19 <https://gitlab.com/climate-resource/bookshelf/bookshelf/merge_requests/19>`_) Fixed the uploading of new editions
+
+
+Added
+=====
+
+- (`!20 <https://gitlab.com/climate-resource/bookshelf/bookshelf/merge_requests/20>`_) Added the option to mark a version as "private". This version will not be listed, but can still be loaded if the version is specified.
 
 v0.2.0
 ------

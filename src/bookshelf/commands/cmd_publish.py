@@ -20,7 +20,12 @@ logger = logging.getLogger(__name__)
     help="List of versions to run",
     required=False,
 )
-def cli(name, version):
+@click.option(
+    "--include-private/--no-include-private",
+    help="Run private versions. These will likely fail if the data is not available locally",
+    default=False,
+)
+def cli(name: str, version: list[str], include_private: bool) -> None:
     """
     Build and upload a Book to the Bookshelf
 
@@ -33,7 +38,7 @@ def cli(name, version):
     output directory. There currently isn't any functionality to upload a pre-built Book.
     """
     if not version:
-        all_versions = get_available_versions(name)
+        all_versions = get_available_versions(name, include_private=include_private)
     else:
         all_versions = version
 

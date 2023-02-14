@@ -69,7 +69,7 @@ def _fetch_volume_meta(
 
 def _upload_file(s3, bucket, key, fname):  # pylint: disable=invalid-name
     try:
-        logger.info(f"Uploading {fname}")
+        logger.info(f"Uploading {fname} to {bucket} - {key}")
         s3.upload_file(fname, bucket, key, ExtraArgs={"ACL": "public-read"})
     except boto3.exceptions.S3UploadFailedError as s3_error:
         logger.exception(s3_error, exc_info=False)
@@ -92,6 +92,7 @@ def _update_volume_meta(book: LocalBook, remote_bookshelf: str) -> str:
                 "edition": book.edition,
                 "url": book.url(),
                 "hash": book.hash(),
+                "private": book.metadata().get("private", False),
             }
         )
     )
@@ -357,7 +358,7 @@ class BookShelf:
         except requests.exceptions.HTTPError as http_error:
             raise UnknownBook(f"No metadata for {repr(name)}") from http_error
 
-        return [version.version for version in meta.versions]
+        return [version.version for version in meta.versions if not version.private]
 
     def list_books(self) -> List[str]:
         """

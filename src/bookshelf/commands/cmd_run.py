@@ -26,19 +26,26 @@ logger = logging.getLogger(__name__)
     required=False,
 )
 @click.option(
+    "--include-private/--no-include-private",
+    help="Run private versions. These will likely fail if the data is not available locally",
+    default=False,
+)
+@click.option(
     "-f",
     "--force",
     help="Override the existing output if the output directory isn't empty",
     is_flag=True,
 )
-def cli(name: str, output: str, force: bool, version: Tuple[str]) -> None:
+def cli(
+    name: str, output: str, force: bool, version: Tuple[str], include_private: bool
+) -> None:
     """
     Run a notebook
 
     This runs one of the notebooks used to generate a Book
     """
     if not version:
-        all_versions = get_available_versions(name)
+        all_versions = get_available_versions(name, include_private=include_private)
     else:
         all_versions = version
 

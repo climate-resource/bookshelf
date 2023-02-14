@@ -25,7 +25,9 @@ def find_notebooks():
     notebook_info = []
 
     for nb in notebooks:
-        versions = get_available_versions(nb.replace(".py", ".yaml"))
+        versions = get_available_versions(
+            nb.replace(".py", ".yaml"), include_private=False
+        )
         notebook_name = os.path.basename(nb)[:-3]
         notebook_info.extend((nb, notebook_name, v) for v in versions)
 
