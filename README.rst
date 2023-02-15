@@ -119,11 +119,11 @@ for an example dataset. As part of the CI, these notebooks are run on each commi
 that the ``Books`` remain reproducible.
 
 Once the dataset has been developed, it can be deployed to the remote ``BookShelf`` so that
-other users can consume it. The dataset can deployed using the ``save`` CLI as shown below:
+other users can consume it. The dataset can deployed using the ``publish`` CLI as shown below:
 
 .. code:: bash
 
-  bookshelf save my-dataset
+  bookshelf publish my-dataset
 
 This command first builds the ``Book`` in an isolated environment to ensure a reproducible
 build. Once the build is successful, the resulting ``Book``, including ``Resources`` is
