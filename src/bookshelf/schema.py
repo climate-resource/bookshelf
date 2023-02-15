@@ -42,7 +42,7 @@ class VolumeMeta(BaseModel):
         Version string
         """
         ordered_versions = sorted([v.version for v in self.versions if not v.private])
-        if not len(ordered_versions):
+        if not ordered_versions:
             raise ValueError("No published volumes")
 
         return ordered_versions[-1]
@@ -184,7 +184,7 @@ class ConfigSchema(BaseModel):
     """
     Schema for a given Volume (A collection of Books with the same name)
 
-    A volume can hold multiple versions of the same data (
+    A volume can hold multiple versions of the same data
     """
 
     name: str

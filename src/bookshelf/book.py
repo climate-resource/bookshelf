@@ -58,6 +58,23 @@ class _Book:
         edition: Edition,
         fname: Optional[str] = None,
     ) -> str:
+        """
+        Build the relative path of the edition
+
+        Parameters
+        ----------
+        name
+            Book name
+        version
+            Book version
+        edition
+            Book edition
+        fname
+            If provided, reference a specific file within the data
+        Returns
+        -------
+            Relative path to the book or resource within the book
+        """
         parts = [name, f"{version}_e{edition:03}"]
         if fname:
             parts.append(fname)

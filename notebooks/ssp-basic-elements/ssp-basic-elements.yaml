@@ -1,0 +1,57 @@
+name: ssp-basic-elements
+edition: 1
+license: Unlicensed
+description: |
+  Population, GDP and Urbanisation projections for the SSPs
+metadata:
+  author: Jared Lewis
+  author_email: jared.lewis@climate-resource.com
+versions:
+  - version: v2
+    private: true
+    dataset:
+      url: https://tntcat.iiasa.ac.at/SspDb/dsd?Action=htmlpage&page=10
+      files:
+        - url: http://data.climateresource.com.au/_cache/ssp-basic-elements/SspDb_country_data_2013-06-12.csv.zip
+          hash: 11cb28f3ba1b09c92328dc226249ac8cc19d7a37ff1417abf9066c605560cca7
+        - url: http://data.climateresource.com.au/_cache/ssp-basic-elements/SspDb_compare_regions_2013-06-12.csv.zip
+          hash: 90fad3bed60ee48f3d06ead6a6d1e67930461f18e8691d53e9c9397925962aef
+      author: Keywan Riahi, Detlef P. van Vuuren, Elmar Kriegler, Jae Edmonds, Brian C. O’Neill, Shinichiro Fujimori, Nico Bauer, Katherine Calvin, Rob Dellink, Oliver Fricko, Wolfgang Lutz, Alexander Popp, Jesus Crespo Cuaresma, Samir KC, Marian Leimbach, Leiwen Jiang, Tom Kram, Shilpa Rao, Johannes Emmerling, Kristie Ebi, Tomoko Hasegawa, Petr Havlík, Florian Humpenöder, Lara Aleluia Da Silva, Steve Smith, Elke Stehfest, Valentina Bosetti, Jiyong Eom, David Gernaat, Toshihiko Masui, Joeri Rogelj, Jessica Strefler, Laurent Drouet, Volker Krey, Gunnar Luderer, Mathijs Harmsen, Kiyoshi Takahashi, Lavinia Baumstark, Jonathan C. Doelman, Mikiko Kainuma, Zbigniew Klimont, Giacomo Marangoni, Hermann Lotze-Campen, Michael Obersteiner, Andrzej Tabeau, Massimo Tavoni
+      citation:
+        - |
+          Keywan Riahi, Detlef P. van Vuuren, Elmar Kriegler, Jae Edmonds, Brian C. O’Neill, Shinichiro Fujimori, Nico Bauer, Katherine Calvin, Rob Dellink, Oliver Fricko, Wolfgang Lutz, Alexander Popp, Jesus Crespo Cuaresma, Samir KC, Marian Leimbach, Leiwen Jiang, Tom Kram, Shilpa Rao, Johannes Emmerling, Kristie Ebi, Tomoko Hasegawa, Petr Havlík, Florian Humpenöder, Lara Aleluia Da Silva, Steve Smith, Elke Stehfest, Valentina Bosetti, Jiyong Eom, David Gernaat, Toshihiko Masui, Joeri Rogelj, Jessica Strefler, Laurent Drouet, Volker Krey, Gunnar Luderer, Mathijs Harmsen, Kiyoshi Takahashi, Lavinia Baumstark, Jonathan C. Doelman, Mikiko Kainuma, Zbigniew Klimont, Giacomo Marangoni, Hermann Lotze-Campen, Michael Obersteiner, Andrzej Tabeau, Massimo Tavoni.
+          The Shared Socioeconomic Pathways and their energy, land use, and greenhouse gas emissions implications: An overview, Global Environmental Change, Volume 42, Pages 153-168, 2017,
+          ISSN 0959-3780, DOI:110.1016/j.gloenvcha.2016.05.009
+        - |
+          Samir KC, Wolfgang Lutz, The human core of the shared socioeconomic pathways: Population scenarios by age, sex and level of education for all countries to 2100, Global Environmental Change, Volume 42, 2017, Pages 181-192,
+          ISSN 0959-3780, DOI:10.1016/j.gloenvcha.2014.06.004
+        - |
+          Rob Dellink, Jean Chateau, Elisa Lanzi, Bertrand Magné, Long-term economic growth projections in the Shared Socioeconomic Pathways, Global Environmental Change, Volume 42, 2017, Pages 200-214,
+          ISSN 0959-3780, DOI:10.1016/j.gloenvcha.2015.06.004
+        - |
+          Jesús Crespo Cuaresma, Income projections for climate change research: A framework based on human capital dynamics, Global Environmental Change, Volume 42, 2017, Pages 226-236,
+          ISSN 0959-3780, DOI:10.1016/j.gloenvcha.2015.02.012
+        - |
+          Marian Leimbach, Elmar Kriegler, Niklas Roming, Jana Schwanitz, Future growth patterns of world regions – A GDP scenario approach, Global Environmental Change, Volume 42, 2017, Pages 215-225,
+          ISSN 0959-3780, DOI:10.1016/j.gloenvcha.2015.02.005
+        - |
+          Leiwen Jiang, Brian C. O’Neill, Global urbanization projections for the Shared Socioeconomic Pathways, Global Environmental Change, Volume 42, 2017, Pages 193-199,
+          ISSN 0959-3780, DOI:10.1016/j.gloenvcha.2015.03.008
+        - |
+          Detlef P. van Vuuren, Elke Stehfest, David E.H.J. Gernaat, Jonathan C. Doelman, Maarten van den Berg, Mathijs Harmsen, Harmen Sytze de Boer, Lex F. Bouwman, Vassilis Daioglou, Oreane Y. Edelenbosch, Bastien Girod, Tom Kram, Luis Lassaletta, Paul L. Lucas, Hans van Meijl, Christoph Müller, Bas J. van Ruijven, Sietske van der Sluis, Andrzej Tabeau, Energy, land-use and greenhouse gas emissions trajectories under a green growth paradigm, Global Environmental Change, Volume 42, 2017, Pages 237-250,
+          ISSN 0959-3780, DOI:10.1016/j.gloenvcha.2016.05.008
+        - |
+          Oliver Fricko, Petr Havlik, Joeri Rogelj, Zbigniew Klimont, Mykola Gusti, Nils Johnson, Peter Kolp, Manfred Strubegger, Hugo Valin, Markus Amann, Tatiana Ermolieva, Nicklas Forsell, Mario Herrero, Chris Heyes, Georg Kindermann, Volker Krey, David L. McCollum, Michael Obersteiner, Shonali Pachauri, Shilpa Rao, Erwin Schmid, Wolfgang Schoepp, Keywan Riahi, The marker quantification of the Shared Socioeconomic Pathway 2: A middle-of-the-road scenario for the 21st century, Global Environmental Change, Volume 42, 2017, Pages 251-267,
+          ISSN 0959-3780, DOI:10.1016/j.gloenvcha.2016.06.004
+        - |
+          Shinichiro Fujimori, Tomoko Hasegawa, Toshihiko Masui, Kiyoshi Takahashi, Diego Silva Herran, Hancheng Dai, Yasuaki Hijioka, Mikiko Kainuma, SSP3: AIM implementation of Shared Socioeconomic Pathways, Global Environmental Change, Volume 42, 2017, Pages 268-283,
+          ISSN 0959-3780, DOI:10.1016/j.gloenvcha.2016.06.009
+        - |
+          Katherine Calvin, Ben Bond-Lamberty, Leon Clarke, James Edmonds, Jiyong Eom, Corinne Hartin, Sonny Kim, Page Kyle, Robert Link, Richard Moss, Haewon McJeon, Pralit Patel, Steve Smith, Stephanie Waldhoff, Marshall Wise, The SSP4: A world of deepening inequality, Global Environmental Change, Volume 42, 2017, Pages 284-296,
+          ISSN 0959-3780, DOI:10.1016/j.gloenvcha.2016.06.010
+        - |
+          Elmar Kriegler, Nico Bauer, Alexander Popp, Florian Humpenöder, Marian Leimbach, Jessica Strefler, Lavinia Baumstark, Benjamin Leon Bodirsky, Jérôme Hilaire, David Klein, Ioanna Mouratiadou, Isabelle Weindl, Christoph Bertram, Jan-Philipp Dietrich, Gunnar Luderer, Michaja Pehl, Robert Pietzcker, Franziska Piontek, Hermann Lotze-Campen, Anne Biewald, Markus Bonsch, Anastasis Giannousakis, Ulrich Kreidenweis, Christoph Müller, Susanne Rolinski, Anselm Schultes, Jana Schwanitz, Miodrag Stevanovic, Katherine Calvin, Johannes Emmerling, Shinichiro Fujimori, Ottmar Edenhofer, Fossil-fueled development (SSP5): An energy and resource intensive scenario for the 21st century, Global Environmental Change, Volume 42, 2017, Pages 297-315,
+          ISSN 0959-3780, DOI:10.1016/j.gloenvcha.2016.05.015
+      time_domain:
+        - 1980
+        - 2100

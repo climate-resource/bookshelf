@@ -252,6 +252,20 @@ def run_notebook(
 
 
 def get_available_versions(name: str, include_private: bool = False) -> list[str]:
+    """
+    Get a list of available versions of a book
+
+    Parameters
+    ----------
+    name
+        Package name
+    include_private
+        If True, also include private versions
+
+    Returns
+    -------
+        List of versions
+    """
     config, _ = _load_nb_config(name)
 
     versions = config.versions
