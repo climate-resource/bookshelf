@@ -81,7 +81,14 @@ $(VENV_DIR): setup.py setup.cfg pyproject.toml
 	touch $(VENV_DIR)
 
 
-.PHONY: upload
+.PHONY: build
 build:
 	rm -r dist
 	python -m build
+
+
+.PHONY: deploy
+deploy: build
+	@echo
+	@echo "Run the following command to complete the upload:"
+	@echo "twine upload --verbose dist/*"
