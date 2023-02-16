@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.14.1
+#       jupytext_version: 1.14.0
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
@@ -75,6 +75,20 @@ else:
 # # Process
 
 # %%
+
+
+def _fix_units(data: scmdata.ScmRun) -> scmdata.ScmRun:
+    data["variable"] = data["variable"].str.replace("SO2", "Sulfur")
+    data["variable"] = data["variable"].str.replace("NMVOC", "VOC")
+    data["unit"] = data["unit"].str.replace("NMVOC", "VOC")
+
+    return (
+        data.set_meta("unit", "kt NOx/yr", variable="Emissions|NOx", log_if_empty=False)
+        .set_meta("unit", "kt OC/yr", variable="Emissions|OC", log_if_empty=False)
+        .set_meta("unit", "kt BC/yr", variable="Emissions|BC", log_if_empty=False)
+    )
+
+
 def read_CEDS_format(fname: str) -> scmdata.ScmRun:
     fname_match = fnmatch.filter(ceds_archive_fnames, "*/" + fname)
 
@@ -100,51 +114,35 @@ def read_CEDS_format(fname: str) -> scmdata.ScmRun:
             columns.append(c)
     df.columns = columns
 
-    return scmdata.ScmRun(df)
+    data = scmdata.ScmRun(df)
+    data["region"] = data["region"].str.replace("GLOBAL", "World")
+    return _fix_units(data)
 
 
 # %%
-res = []
+ceds_by_country = []
 
 for species in ceds_species:
-    res.append(read_CEDS_format(f"{species}_CEDS_emissions_by_country_*.csv"))
-res = scmdata.run_append(res)
+    ceds_by_country.append(
+        read_CEDS_format(f"{species}_CEDS_emissions_by_country_*.csv")
+    )
+ceds_by_country = scmdata.run_append(ceds_by_country)
 
 # %%
-res["variable"] = res["variable"].str.replace("SO2", "Sulfur")
-res["variable"] = res["variable"].str.replace("NMVOC", "VOC")
-res["unit"] = res["unit"].str.replace("NMVOC", "VOC")
-res["unit"] = res["unit"].str.replace("NO2", "NOx")
-
-# %%
-oc_emms = res.filter(variable="Emissions|OC")
-oc_emms["unit"] = "kt OC/yr"
-bc_emms = res.filter(variable="Emissions|BC")
-bc_emms["unit"] = "kt BC/yr"
-remainder_emms = res.filter(variable=["Emissions|BC", "Emissions|OC"], keep=False)
-
-res = scmdata.run_append([oc_emms, bc_emms, remainder_emms])
-
-# %%
-res.meta[["variable", "unit"]].drop_duplicates()
-
-# %%
-res.timeseries()
+# Check units
+ceds_by_country.meta[["variable", "unit"]].drop_duplicates()
 
 # %%
 # Check country codes
-for c in res.get_unique_meta("region"):
+for c in ceds_by_country.get_unique_meta("region"):
     if pycountry.countries.get(alpha_3=c) is None:
         print(c)
 
 # %%
-res["region"] = res["region"].str.replace("GLOBAL", "World")
+ceds_by_country
 
 # %%
-res
-
-# %%
-book.add_timeseries("by_country", res)
+book.add_timeseries("by_country", ceds_by_country)
 
 
 # %% [markdown]
@@ -158,6 +156,7 @@ for species in ceds_species:
         read_CEDS_format(f"{species}_CEDS_emissions_by_sector_country_*.csv")
     )
 ceds_by_sector = scmdata.run_append(ceds_by_sector)
+ceds_by_sector.get_unique_meta("region")
 
 # %%
 ceds_by_sector.get_unique_meta("sector")
