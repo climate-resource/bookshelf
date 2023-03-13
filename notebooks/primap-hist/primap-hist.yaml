@@ -37,19 +37,21 @@ versions:
       documentation: https://zenodo.org/record/5494497
       author: Guetshow, Johannes; Pflueger, Mika
       time_domain: [ 1750, 2021 ]
-  - version: v2.4_alt
-    private: true
+  - version: v2.4.1
     dataset:
+      url: https://doi.org/10.5281/zenodo.7585420
+      doi: 10.5281/zenodo.7585420
       files:
-        - url: file://data/Guetschow-et-al-2022-PRIMAP-hist_v2.4_UNFCCC_no_rounding_30-Sep-2022.csv
-          hash: md5:3a40d9abb47fe688295af36301424679
+        - url: doi:10.5281/zenodo.7585420/Guetschow-et-al-2023-PRIMAP-hist_v2.4.1_final_no_rounding_16-Feb-2023.csv
+          hash: md5:c42d12533887c7b419608bce52f635f8
+      documentation: https://zenodo.org/record/7585420
       author: Guetshow, Johannes; Pflueger, Mika
       time_domain: [ 1750, 2021 ]
-  - version: v2.4.1_beta2
+  - version: v2.4.2
     private: true
     dataset:
       files:
-        - url: file://data/Guetschow-et-al-2023-PRIMAP-hist_v2.4.1_beta2_no_rounding_31-Jan-2023.csv
-          hash: md5:3a40d9abb47fe688295af36301424679
+        - url: file://data/Guetschow-et-al-2023a-PRIMAP-hist_v2.4.2_final_no_rounding_09-Mar-2023.csv
+          hash: md5:5d1fe818e7d373920cfca899fe48f7e5
       author: Guetshow, Johannes; Pflueger, Mika
       time_domain: [ 1750, 2021 ]
