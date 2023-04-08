@@ -25,7 +25,13 @@ logger = logging.getLogger(__name__)
     help="Run private versions. These will likely fail if the data is not available locally",
     default=False,
 )
-def cli(name: str, version: list[str], include_private: bool) -> None:
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Override the existing published data",
+    default=False,
+)
+def cli(name: str, version: list[str], include_private: bool, force: bool) -> None:
     """
     Build and upload a Book to the Bookshelf
 
@@ -55,7 +61,7 @@ def cli(name: str, version: list[str], include_private: bool) -> None:
                 logger.info(f"Finish building {name}@{book.long_version()}")
 
                 shelf = BookShelf()
-                shelf.publish(book)
+                shelf.publish(book, force=force)
             except Exception as exc:
                 logger.error(str(exc))
                 raise click.Abort() from exc

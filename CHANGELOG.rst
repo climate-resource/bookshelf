@@ -18,6 +18,7 @@ Unreleased
 Added
 =====
 
+- (`!26 <https://gitlab.com/climate-resource/bookshelf/bookshelf/merge_requests/26>`_) Add ``force`` option to the publish CLI command to upload data even if a matching edition already exists
 - (`!25 <https://gitlab.com/climate-resource/bookshelf/bookshelf/merge_requests/25>`_) Add primap-hist v2.4.1 and v2.4.2
 
 Changed
