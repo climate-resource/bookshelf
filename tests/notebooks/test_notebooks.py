@@ -4,6 +4,7 @@ import tempfile
 from glob import glob
 
 import pytest
+import sys
 
 from bookshelf import BookShelf
 from bookshelf.errors import UnknownBook
@@ -14,6 +15,13 @@ from bookshelf.notebook import (
 )
 
 logger = logging.getLogger("test-notebooks")
+
+
+if sys.platform.startswith("win"):
+    # https://gitlab.com/climate-resource/bookshelf/bookshelf/-/issues/23
+    pytest.skip(
+        "skipping notebook tests on windows, see issue !23", allow_module_level=True
+    )
 
 
 def find_notebooks():

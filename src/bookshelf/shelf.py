@@ -172,7 +172,10 @@ class BookShelf:
 
         if not metadata_fname.exists():
             try:
-                url = build_url(self.remote_bookshelf, metadata_fragment)
+                url = build_url(
+                    self.remote_bookshelf,
+                    *LocalBook.path_parts(name, version, edition, "datapackage.json"),
+                )
                 fetch_file(
                     url,
                     local_fname=metadata_fname,
@@ -296,8 +299,13 @@ class BookShelf:
 
         logger.info(f"Beginning to upload {book.name}@{book.version}")
         for resource_file in files:
-            key = os.path.join(
-                prefix, book.name, book.long_version(), os.path.basename(resource_file)
+            key = "/".join(
+                (
+                    prefix,
+                    book.name,
+                    book.long_version(),
+                    os.path.basename(resource_file),
+                )
             )
             _upload_file(s3, bucket, key, resource_file)
 
@@ -305,7 +313,7 @@ class BookShelf:
         # Note that this doesn't have any guardrails and is susceptible to race conditions
         # Shouldn't be a problem for testing, but shouldn't be used in production
         meta_fname = _update_volume_meta(book, self.remote_bookshelf)
-        key = os.path.join(prefix, book.name, os.path.basename(meta_fname))
+        key = "/".join((prefix, book.name, os.path.basename(meta_fname)))
         _upload_file(s3, bucket, key, meta_fname)
 
         logger.info(

@@ -33,15 +33,13 @@ checks: $(VENV_DIR)  ## run all the checks
 		echo
 
 .PHONY: format
-format:  ## re-format files
-	make isort
-	make black
+format: isort black  ## re-format files
 
 .PHONY: black
 black: $(VENV_DIR)  ## apply black formatter to source and tests
 	@status=$$(git status --porcelain src tests docs scripts); \
 	if test "x$${status}" = x; then \
-		$(VENV_DIR)/bin/black setup.py src tests docs/conf.py; \
+		$(VENV_DIR)/bin/black setup.py src tests; \
 	else \
 		echo Not trying any formatting. Working directory is dirty ... >&2; \
 	fi;

@@ -20,7 +20,6 @@ def read_data(fname):
 
 @pytest.fixture(scope="function", autouse=True)
 def remote_bookshelf(requests_mock, monkeypatch):
-
     prefix = f"https://bookshelf.local/{DATA_FORMAT_VERSION}"
     monkeypatch.setenv("BOOKSHELF_REMOTE", prefix)
 

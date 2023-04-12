@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import pathlib
+import platform
 import re
 
 import appdirs
@@ -54,7 +55,15 @@ def test_local_cache(monkeypatch):
 
     shelf = BookShelf()
 
-    exp = pathlib.Path(appdirs.user_cache_dir()) / "bookshelf" / DATA_FORMAT_VERSION
+    if platform.system() == "Windows":
+        exp = (
+            pathlib.Path(appdirs.user_cache_dir())
+            / "bookshelf"
+            / "Cache"
+            / DATA_FORMAT_VERSION
+        )
+    else:
+        exp = pathlib.Path(appdirs.user_cache_dir()) / "bookshelf" / DATA_FORMAT_VERSION
     assert shelf.path == exp
 
 
@@ -202,7 +211,9 @@ def test_publish_wrong_permissions(shelf, remote_bookshelf, monkeypatch, caplog)
     caplog.set_level(logging.ERROR)
 
     book = LocalBook.create_new("new-package", "v1.0.0")
-    with pytest.raises(UploadError, match=f"Failed to upload {book.files()[0]} to s3"):
+    with pytest.raises(
+        UploadError, match=re.escape(f"Failed to upload {book.files()[0]} to s3")
+    ):
         shelf.publish(book)
 
     assert "NoSuchBucket" in caplog.text

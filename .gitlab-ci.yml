@@ -4,6 +4,13 @@ stages:
   - build
   - test
 
+# Use our linux CR runner by default
+default:
+  tags:
+    - docker
+    - linux
+    - cr
+
 variables:
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
     BOOKSHELF_DOWNLOAD_CACHE_LOCATION: "$CI_PROJECT_DIR/.cache/pooch"
@@ -23,7 +30,6 @@ build:
     - make -B virtual-environment
 
 
-# Test the rcmip package and CLI
 test: &test_config
   stage: test
   cache:
@@ -43,6 +49,25 @@ test: &test_config
         coverage_format: cobertura
         path: coverage.xml
       junit: report.xml
+
+# Run a basic test-suite on Windows using python 3.11
+# This spawns a new VM for each job which can take a few minutes
+test-windows:
+  tags:
+    - shared-windows
+    - windows
+    - windows-1809
+  stage: test
+  cache: []  # Disable caching on Windows
+  script:
+    - choco install python --version=3.11.2 -y
+    - $env:Path = "C:\Python311;" + $env:Path
+    - python -m venv venv
+    - '& venv/Scripts/Activate.ps1'
+    - pip install -e .[tests]
+    # Ignore tests/notebooks on windows
+    - pytest -rfsxEX --ignore=tests/notebooks
+
 
 test:notebooks:
   <<: *test_config

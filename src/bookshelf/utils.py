@@ -100,7 +100,7 @@ def download(
     )
 
 
-def build_url(bookshelf: str, *paths: Union[str, pathlib.Path]) -> str:
+def build_url(bookshelf: str, *paths: str) -> str:
     """
     Build a URL
 
@@ -108,7 +108,7 @@ def build_url(bookshelf: str, *paths: Union[str, pathlib.Path]) -> str:
     ----------
     bookshelf: str
         The remote bookshelf
-    paths : list of str or pathlib.Path
+    paths : list of str
         A collection of paths that form the path of the URL
     Returns
     -------
@@ -116,7 +116,7 @@ def build_url(bookshelf: str, *paths: Union[str, pathlib.Path]) -> str:
         The merged URL
 
     """
-    return os.path.join(bookshelf, *paths)
+    return "/".join([bookshelf, *paths])
 
 
 def fetch_file(

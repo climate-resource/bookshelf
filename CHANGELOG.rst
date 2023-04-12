@@ -24,7 +24,13 @@ Added
 Changed
 =======
 
+- (`!29 <https://gitlab.com/climate-resource/bookshelf/bookshelf/merge_requests/29>`_) Move ``python-dotenv`` from a development dependency to a core dependency
 - (`!23 <https://gitlab.com/climate-resource/bookshelf/bookshelf/merge_requests/23>`_) Fix CEDs unit names for all resources. Bumps ``ceds`` to ed.3
+
+Fixed
+=====
+
+- (`!28 <https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/28>`_) Fix file retrieval and publishing on windows
 
 v0.2.1
 ------

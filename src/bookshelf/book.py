@@ -8,7 +8,7 @@ import glob
 import json
 import os.path
 import pathlib
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Union, cast, Iterable
 
 import datapackage
 import pooch
@@ -52,7 +52,38 @@ class _Book:
         return f"{self.version}_e{self.edition:03}"
 
     @staticmethod
+    def path_parts(
+        name: str,
+        version: Version,
+        edition: Edition,
+        fname: Optional[str] = None,
+    ) -> Iterable[str]:
+        """
+        Build the parts needed to unambiguously reference an edition.
+
+        Parameters
+        ----------
+        name
+            Book name
+        version
+            Book version
+        edition
+            Book edition
+        fname
+            If provided, reference a specific file within the data
+        Returns
+        -------
+            Iterable of the parts, which can be joined as needed to get
+            a path.
+        """
+        parts = [name, f"{version}_e{edition:03}"]
+        if fname is not None:
+            parts.append(fname)
+        return parts
+
+    @classmethod
     def relative_path(
+        cls,
         name: str,
         version: Version,
         edition: Edition,
@@ -75,11 +106,9 @@ class _Book:
         -------
             Relative path to the book or resource within the book
         """
-        parts = [name, f"{version}_e{edition:03}"]
-        if fname:
-            parts.append(fname)
-
-        return os.path.join(*parts)
+        return os.path.join(
+            *cls.path_parts(name=name, version=version, edition=edition, fname=fname)
+        )
 
     def url(self, fname: Optional[str] = None) -> str:
         """
@@ -99,7 +128,7 @@ class _Book:
         """
         return build_url(
             self.bookshelf,
-            self.relative_path(self.name, self.version, self.edition, fname),
+            *self.path_parts(self.name, self.version, self.edition, fname),
         )
 
 

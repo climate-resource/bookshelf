@@ -83,6 +83,7 @@ data.head()
 #
 # Minor renames and enrichment
 
+
 # %%
 def rename_variable(v):
     return (
