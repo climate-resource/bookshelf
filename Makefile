@@ -54,7 +54,6 @@ test-notebooks:  $(VENV_DIR) ## run the full testsuite
 .PHONY: test-full
 test-full:  test test-notebooks
 
-
 .PHONY: virtual-environment
 virtual-environment: $(VENV_DIR) ## update venv, create a new venv if it doesn't exist
 
@@ -63,23 +62,19 @@ $(VENV_DIR): setup.py setup.cfg pyproject.toml
 
 	$(VENV_DIR)/bin/pip install --upgrade pip wheel
 	$(VENV_DIR)/bin/pip install -e .[dev]
-	#$(VENV_DIR)/bin/jupyter nbextension enable --py widgetsnbextension
 
 	touch $(VENV_DIR)
 
-
 .PHONY: build
 build:
-	rm -r dist
+	rm -rf dist
 	python -m build
-
 
 .PHONY: deploy
 deploy: build
 	@echo
 	@echo "Run the following command to complete the upload:"
 	@echo "twine upload --verbose dist/*"
-
 
 .PHONY: docs
 docs:
