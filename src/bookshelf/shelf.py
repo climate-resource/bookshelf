@@ -1,7 +1,5 @@
 """
-BookShelf
-
-A BookShelf is a collection of Books
+A BookShelf is a collection of Books that can be queried and fetched as needed.
 """
 import json
 import logging

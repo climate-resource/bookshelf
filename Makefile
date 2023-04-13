@@ -37,22 +37,11 @@ format: isort black  ## re-format files
 
 .PHONY: black
 black: $(VENV_DIR)  ## apply black formatter to source and tests
-	@status=$$(git status --porcelain src tests docs scripts); \
-	if test "x$${status}" = x; then \
-		$(VENV_DIR)/bin/black setup.py src tests; \
-	else \
-		echo Not trying any formatting. Working directory is dirty ... >&2; \
-	fi;
+	$(VENV_DIR)/bin/black .
 
 .PHONY: isort
 isort: $(VENV_DIR)  ## format the code
-	@status=$$(git status --porcelain src tests); \
-	if test "x$${status}" = x; then \
-		$(VENV_DIR)/bin/isort src tests setup.py; \
-	else \
-		echo Not trying any formatting. Working directory is dirty ... >&2; \
-	fi;
-
+	$(VENV_DIR)/bin/isort .
 
 .PHONY: test
 test:  $(VENV_DIR) ## run the full testsuite
@@ -90,3 +79,8 @@ deploy: build
 	@echo
 	@echo "Run the following command to complete the upload:"
 	@echo "twine upload --verbose dist/*"
+
+
+.PHONY: docs
+docs:
+	$(MAKE) -C docs html

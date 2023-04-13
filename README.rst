@@ -41,7 +41,9 @@ License
 
 .. sec-begin-license
 
-Licensed under MIT. See the LICENSE file for more information
+Bookshelf is licensed under MIT. See the LICENSE file for more information. The hosted
+books may be licensed under different conditions. The license for a specific book can
+be found in a Book's metadata.
 
 .. sec-end-license
 .. sec-end-long-description

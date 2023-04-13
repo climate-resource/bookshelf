@@ -1,10 +1,10 @@
 import logging
 import os
+import sys
 import tempfile
 from glob import glob
 
 import pytest
-import sys
 
 from bookshelf import BookShelf
 from bookshelf.errors import UnknownBook

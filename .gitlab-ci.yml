@@ -89,3 +89,9 @@ test:format:
     - mypy --install-types --non-interactive src --exclude src/bookshelf/__init__.py
     - pylint --fail-under=9.5 src
     - bandit -r src
+
+test:docs:
+  <<: *test_config
+  script:
+#    - pydocstyle src
+    - sphinx-build -M html docs/source docs/_build -qW

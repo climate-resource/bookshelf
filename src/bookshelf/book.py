@@ -1,6 +1,4 @@
 """
-Book
-
 A Book represents a single versioned dataset. A dataset can contain multiple resources
 each of which are loaded independently.
 """
@@ -8,7 +6,7 @@ import glob
 import json
 import os.path
 import pathlib
-from typing import Any, Dict, List, Optional, Union, cast, Iterable
+from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
 import datapackage
 import pooch
@@ -196,7 +194,7 @@ class LocalBook(_Book):
         """
         Package representation of the book
 
-        :module:`datapackage` is used for handling the metadata. Modifying
+        :mod:`datapackage` is used for handling the metadata. Modifying
         the package also modifies the Book.
 
         Returns
