@@ -253,7 +253,10 @@ class LocalBook(_Book):
             Timeseries data to add to the Book
         """
         fname = f"{name}.csv"
-        data.timeseries().sort_index().to_csv(self.local_fname(fname))
+
+        # TODO: this flag could be exposed in future
+        quoting = None  # csv.QUOTE_NONNUMERIC
+        data.timeseries().sort_index().to_csv(self.local_fname(fname), quoting=quoting)
         resource_hash = pooch.hashes.file_hash(self.local_fname(fname))
 
         metadata = self.as_datapackage()

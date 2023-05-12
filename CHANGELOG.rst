@@ -15,6 +15,10 @@ The changes listed in this file are categorised as follows:
 Unreleased
 ----------
 
+Changed
+=======
+
+- (`!32 <https://gitlab.com/climate-resource/bookshelf/bookshelf/merge_requests/32>`_) Convert PRIMAP-hist to units of the form ``kt X / yr`` to be consistent. Bumps ``primap-hist`` to ed.3
 
 v0.2.2
 ------

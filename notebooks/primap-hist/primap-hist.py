@@ -42,7 +42,7 @@ logging.basicConfig(level=logging.INFO)
 # %% tags=["parameters"]
 # This cell contains additional parameters that are controlled using papermill
 local_bookshelf = tempfile.mkdtemp()
-version = "v2.4"
+version = "v2.4.2"
 
 # %%
 metadata = load_nb_metadata("primap-hist", version=version)
@@ -183,7 +183,16 @@ data.get_unique_meta("unit")
 def convert_units(run):
     unit = run.get_unique_meta("unit", True)
 
-    return run.convert_unit(unit.replace("Gg", "kt").replace("gigagram", "kt"))
+    # This assumes that the form of 'X * gigagram / a'
+    # The unit conversion should fail if this assumption proves wrong
+    variable_dimension = unit.split()[0]
+
+    # Pint changed the unit ordering in v2.4
+    if variable_dimension == "Gg":
+        variable_dimension = unit.split()[1]
+
+    target_unit = f"kt {variable_dimension} / yr"
+    return run.convert_unit(target_unit)
 
 
 data = data.groupby("unit").map(convert_units)
@@ -210,7 +219,7 @@ book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 
 # %%
 book.add_timeseries("by_country", data_countries)
-book.add_timeseries("by_regions", data_regions)
+book.add_timeseries("by_region", data_regions)
 
 # %%
 book.metadata()
