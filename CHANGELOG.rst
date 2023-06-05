@@ -19,6 +19,12 @@ Changed
 =======
 
 - (`!32 <https://gitlab.com/climate-resource/bookshelf/bookshelf/merge_requests/32>`_) Convert PRIMAP-hist to units of the form ``kt X / yr`` to be consistent. Bumps ``primap-hist`` to ed.3
+- (`!34 <https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/34>`_) Use original region abbreviations in PRIMAP-hist. Bumps ``primap-hist`` to edition 4.
+
+Added
+=====
+
+- (`!34 <https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/34>`_) Add PRIMAP downscaled SSPs dataset.
 
 v0.2.2
 ------

@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.14.1
+#       jupytext_version: 1.14.5
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
@@ -16,6 +16,7 @@
 # %% [markdown]
 # # PRIMAP-hist
 #
+# The PRIMAP-hist dataset of historical GHG emissions.
 
 # %%
 # Need to think about how to handle notebook dependencies
@@ -136,26 +137,22 @@ data.get_unique_meta("variable")
 data.timeseries()
 
 # %%
-region_map = {
-    "ANNEXI": "Annex I",
-    "ANT": "Antartica",
-    "AOSIS": "Alliance of Small Island States (AOSIS)",
-    "BASIC": "BASIC",
-    "EARTH": "World",
-    "EU27BX": "EU27 Post-Brexit",
-    "LDC": "Least Developed Countries (LDC)",
-    "NONANNEXI": "Non-Annex I",
-    "UMBRELLA": "Umbrella",
+regions = {
+    "ANNEXI",
+    "ANT",
+    "AOSIS",
+    "BASIC",
+    "EARTH",
+    "EU27BX",
+    "LDC",
+    "NONANNEXI",
+    "UMBRELLA",
 }
 
 
 # %%
 def rename_regions(d):
     region = d.get_unique_meta("region", True)
-
-    if region in region_map:
-        region = region_map[region]
-        d["region"] = region
 
     country_data = pycountry.countries.get(alpha_3=region)
     if country_data is not None:
@@ -168,12 +165,14 @@ def rename_regions(d):
 data = data.groupby("region").map(rename_regions)
 
 
-regions = []
+regions_used = []
 for region in data.get_unique_meta("region"):
     country_data = pycountry.countries.get(alpha_3=region)
     if country_data is None:
-        regions.append(region)
-        print(region)
+        regions_used.append(region)
+
+if set(regions_used) != regions:
+    print(set(regions_used).symmetric_difference(regions))
 
 # %%
 data.get_unique_meta("unit")
@@ -225,8 +224,6 @@ book.add_timeseries("by_region", data_regions)
 book.metadata()
 
 # %% [markdown]
-# That is all.
-#
 # This notebook is not responsible for uploading the book to the `BookShelf`. See docs for how to upload `Books` to the `BookShelf`
 
 # %%
