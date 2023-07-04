@@ -46,11 +46,7 @@ docs:  ## build the docs
 
 .PHONY: check-commit-messages
 check-commit-messages:  ## check commit messages
-        # If you only want to check a certain range (e.g. we
-        # have old commits we don't want to re-write), this
-        # can be changed to
-        # poetry run cz check --rev-range <commit-to-start-from-sha>..HEAD
-	poetry run cz check --rev-range HEAD
+	poetry run cz check --rev-range 01c3ff5d..HEAD
 
 .PHONY: licence-check
 licence-check:  ## Check that licences of the dependencies are suitable

@@ -41,6 +41,7 @@ pydantic = "^1.10.7"
 appdirs = "*"
 python-dotenv = "*"
 pycountry = "*"
+datapackage = "^1.15.2"
 
 [tool.poetry.group.tests.dependencies]
 pytest = "^7.3.1"

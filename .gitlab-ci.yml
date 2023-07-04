@@ -65,11 +65,7 @@ test:commit-messages:
       - $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TITLE =~ /^Draft/
   script:
     - pip install commitizen
-    # If you only want to check a certain range (e.g. we
-    # have old commits we don't want to re-write), this
-    # can be changed to
-    # - cz check --rev-range <commit-to-start-from-sha>..HEAD
-    - cz check --rev-range HEAD
+    - cz check --rev-range 01c3ff5d..HEAD
 
 .pytest:
   script:
