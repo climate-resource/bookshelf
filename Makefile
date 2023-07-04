@@ -1,81 +1,69 @@
+# Makefile to help automate key steps
+
 .DEFAULT_GOAL := help
+# Will likely fail on Windows, but Makefiles are in general not Windows
+# compatible so we're not too worried
+TEMP_FILE := $(shell mktemp)
 
-VENV_DIR ?= venv
-
-TESTS_DIR=./tests
-NOTEBOOKS_DIR=./notebooks
-
+# A helper script to get short descriptions of each target in the Makefile
 define PRINT_HELP_PYSCRIPT
 import re, sys
 
 for line in sys.stdin:
-	match = re.match(r'^([a-zA-Z_-]+):.*?## (.*)$$', line)
+	match = re.match(r'^([\$$\(\)a-zA-Z_-]+):.*?## (.*)$$', line)
 	if match:
 		target, help = match.groups()
-		print("%-20s %s" % (target, help))
+		print("%-30s %s" % (target, help))
 endef
 export PRINT_HELP_PYSCRIPT
 
-.PHONY: help
-help:
-	@python -c "$$PRINT_HELP_PYSCRIPT" < $(MAKEFILE_LIST)
 
-checks: $(VENV_DIR)  ## run all the checks
-	@echo "=== bandit ==="; $(VENV_DIR)/bin/bandit -r src || echo "--- bandit failed ---" >&2; \
-``		echo "\n\n=== black ==="; $(VENV_DIR)/bin/black --check src tests setup.py || echo "--- black failed ---" >&2; \
-		echo "\n\n=== flake8 ==="; $(VENV_DIR)/bin/flake8 src tests setup.py || echo "--- flake8 failed ---" >&2; \
-		echo "\n\n=== isort ==="; $(VENV_DIR)/bin/isort --check-only --quiet src tests setup.py || echo "--- isort failed ---" >&2; \
-		echo "\n\n=== mypy ==="; $(VENV_DIR)/bin/mypy --install-types --non-interactive src || echo "--- mypy failed ---" >&2; \
-		echo "\n\n=== pydocstyle ==="; $(VENV_DIR)/bin/pydocstyle src || echo "--- pydocstyle failed ---" >&2; \
-		echo "\n\n=== pylint ==="; $(VENV_DIR)/bin/pylint --fail-under=9.5 src || echo "--- pylint failed ---" >&2; \
-		echo "\n\n=== tests ==="; $(VENV_DIR)/bin/pytest tests -r a --cov=bookshelf --cov-report=term-missing \
-			&& $(VENV_DIR)/bin/coverage report --fail-under=95 || echo "--- tests failed ---" >&2; \
-		echo
+help:  ## print short description of each target
+	@python3 -c "$$PRINT_HELP_PYSCRIPT" < $(MAKEFILE_LIST)
 
-.PHONY: format
-format: isort black  ## re-format files
+.PHONY: checks
+checks:  ## run all the linting checks of the codebase
+	@echo "=== pre-commit ==="; poetry run pre-commit run --all-files || echo "--- pre-commit failed ---" >&2; \
+		echo "=== mypy ==="; MYPYPATH=stubs poetry run mypy src || echo "--- mypy failed ---" >&2; \
+		echo "======"
 
 .PHONY: black
-black: $(VENV_DIR)  ## apply black formatter to source and tests
-	$(VENV_DIR)/bin/black .
+black:  ## format the code using black
+	poetry run black src tests docs/source/conf.py scripts docs/source/notebooks/*.py
+	poetry run blackdoc src
 
-.PHONY: isort
-isort: $(VENV_DIR)  ## format the code
-	$(VENV_DIR)/bin/isort .
+.PHONY: ruff-fixes
+ruff-fixes:  ## fix the code using ruff
+	poetry run ruff src tests scripts docs/source/conf.py docs/source/notebooks/*.py --fix
 
 .PHONY: test
-test:  $(VENV_DIR) ## run the full testsuite
-	$(VENV_DIR)/bin/pytest tests --cov bookshelf -rfsxEX --cov-report term-missing --ignore tests/notebooks
-
-.PHONY: test-notebooks
-test-notebooks:  $(VENV_DIR) ## run the full testsuite
-	$(VENV_DIR)/bin/pytest tests/notebooks --log-cli-level INFO
-
-.PHONY: test-full
-test-full:  test test-notebooks
-
-.PHONY: virtual-environment
-virtual-environment: $(VENV_DIR) ## update venv, create a new venv if it doesn't exist
-
-$(VENV_DIR): setup.py setup.cfg pyproject.toml
-	[ -d $(VENV_DIR) ] || python3 -m venv $(VENV_DIR)
-
-	$(VENV_DIR)/bin/pip install --upgrade pip wheel
-	$(VENV_DIR)/bin/pip install -e .[dev]
-
-	touch $(VENV_DIR)
-
-.PHONY: build
-build:
-	rm -rf dist
-	python -m build
-
-.PHONY: deploy
-deploy: build
-	@echo
-	@echo "Run the following command to complete the upload:"
-	@echo "twine upload --verbose dist/*"
+test:  ## run the tests
+	poetry run pytest src tests -r a -v --doctest-modules --cov
 
 .PHONY: docs
-docs:
-	$(MAKE) -C docs html
+docs:  ## build the docs
+	poetry run sphinx-build -T -b html docs/source docs/build/html
+
+.PHONY: check-commit-messages
+check-commit-messages:  ## check commit messages
+        # If you only want to check a certain range (e.g. we
+        # have old commits we don't want to re-write), this
+        # can be changed to
+        # poetry run cz check --rev-range <commit-to-start-from-sha>..HEAD
+	poetry run cz check --rev-range HEAD
+
+.PHONY: licence-check
+licence-check:  ## Check that licences of the dependencies are suitable
+	# Will likely fail on Windows, but Makefiles are in general not Windows
+	# compatible so we're not too worried
+	poetry export --without=tests --without=docs --without=dev > $(TEMP_FILE)
+	poetry run liccheck -r $(TEMP_FILE) -R licence-check.txt
+	rm -f $(TEMP_FILE)
+
+.PHONY: virtual-environment
+virtual-environment:  ## update virtual environment, create a new one if it doesn't already exist
+	poetry lock
+	# Put virtual environments in the project
+	poetry config virtualenvs.in-project true
+	poetry install --all-extras
+	poetry run pre-commit install

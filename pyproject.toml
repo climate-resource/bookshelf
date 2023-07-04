@@ -1,27 +1,159 @@
-[build-system]
-requires = [
-    "setuptools>=41.2",
-    "setuptools_scm[toml]>=1.15",
-    "wheel>=0.31.0",
+[tool.coverage.run]
+source = ["src"]
+branch = true
+
+[tool.poetry]
+name = "bookshelf"
+version = "0.2.2"
+description = "A collection of curated climate data sets"
+authors = ["Jared Lewis <jared.lewis@climate-resource.com>"]
+readme = "README.md"
+packages = [{include = "bookshelf", from = "src"}]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering",
 ]
-build-backend = "setuptools.build_meta"
 
-[tool.setuptools_scm]
+[tool.commitizen]
+version = "0.1.0"
+version_files = ["pyproject.toml:^version"]
+tag_format = "v$version"
+major_version_zero = true
 
-[tool.black]
-line-length = 88
-target-version = ['py39']
+[tool.poetry.dependencies]
+python = "^3.9"
+click = ">8"
+click-log = "*"
+scmdata = ">=0.14.2"
+urllib3 = "<2"
+boto3 = "*"
+pooch = "*"
+pydantic = "^1.10.7"
+appdirs = "*"
+python-dotenv = "*"
+pycountry = "*"
 
+[tool.poetry.group.tests.dependencies]
+pytest = "^7.3.1"
+pytest-mock = "^3.11.1"
+pytest-xdist = "^3.3.1"
+requests-mock = "^1.11.0"
+moto = {extras = ["s3"], version = "^4.1.12"}
+
+[tool.poetry.group.docs.dependencies]
+myst-nb = "^0.17.0"
+sphinx-rtd-theme = "^1.2.0"
+sphinx-autodoc-typehints = "^1.23.0"
+sphinx-autodocgen = "^1.3"
+jupytext = "^1.14.5"
+sphinx-copybutton = "^0.5.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest-cov = "^4.0.0"
+coverage = "^7.2.0"
+black = "23.3.0"
+blackdoc = "0.3.8"
+commitizen = "^3.1.1"
+mypy = "^1.2.0"
+ruff = "0.0.264"
+pre-commit = "^3.3.1"
+
+[tool.poetry.group.notebooks.dependencies]
+notebook = "^6.5.4"
+matplotlib = "^3.7.1"
+seaborn = "^0.12.2"
+papermill = "^2.4.0"
+jupytext = "^1.14.7"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.coverage.report]
+fail_under = 95
+skip_empty = true
+show_missing = true
+# Regexes for lines to exclude from consideration in addition to the defaults
+exclude_also = [
+    # Don't complain about missing type checking code:
+    "if TYPE_CHECKING",
+]
+
+[tool.mypy]
+strict = true
+# prevent unimported libraries silently being treated as Any
+disallow_any_unimported = true
+# show error codes on failure with context
+show_error_codes = true
+show_error_context = true
+# warn if code can't be reached
+warn_unreachable = true
+# importing following uses default settings
+follow_imports = "normal"
+
+[tool.jupytext]
+formats = "ipynb,py:percent"
 
 [tool.pytest.ini_options]
-testpaths = "tests"
-filterwarnings = [
-    "ignore::DeprecationWarning",
+addopts = [
+    "--import-mode=importlib",
 ]
 
-[tool.pylint.messages_control]
-disable = [
-    "logging-fstring-interpolation",
-    "too-few-public-methods",
-    "unspecified-encoding"
+[tool.ruff]
+src = ["src"]
+target-version = "py39"
+select = [
+    "E",  # pycodestyle error
+    "W",  # pycodestyle warning
+    "F",  # pyflakes
+    "I",  # isort
+    "D",  # pydocstyle
+    "PL",  # pylint
+    "TRY",  # tryceratops
+    "NPY",  # numpy rules
+    "RUF",  # ruff specifics
+    "UP",  # pyupgrade
+    "S",  # flake8-bandit
+    # pandas support via pandas-vet. In some cases we will want to disable
+    # this because it can lead to too many false positives.
+    "PD",
 ]
+unfixable = [
+    "PD002",  # Disable autofix for inplace as this often introduces bugs
+]
+ignore = [
+    "D200",  # One-line docstring should fit on one line with quotes
+    "D400",  # First line should end with a period
+]
+# Provide some leeway for long docstring, this is otherwise handled by black
+line-length = 110
+
+[tool.ruff.per-file-ignores]
+"test*.py" = [
+    "D",  # Documentation not needed in tests
+    "S101",  # S101 Use of `assert` detected
+    "PLR2004" # Magic value used in comparison
+]
+"docs/source/notebooks/*" = [
+    "D100",  # Missing docstring at the top of file
+    "E402",  # Module level import not at top of file
+    "S101",  # Use of `assert` detected
+]
+"scripts/*" = [
+    "S101" # S101 Use of `assert` detected
+]
+
+[tool.ruff.isort]
+known-first-party = ["src"]
+
+[tool.ruff.pydocstyle]
+convention = "numpy"
