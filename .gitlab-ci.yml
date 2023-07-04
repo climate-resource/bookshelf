@@ -5,12 +5,20 @@ stages:
   - bump
   - release
 
+# Use our linux CR runner by default
+default:
+  tags:
+    - docker
+    - linux
+    - cr
+
 image: python:3.9
 
 # Change pip's cache directory to be inside the project directory since we can
 # only cache local items.
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  BOOKSHELF_DOWNLOAD_CACHE_LOCATION: "$CI_PROJECT_DIR/.cache/pooch"
 
 cache:
   key:
@@ -18,7 +26,7 @@ cache:
       - poetry.lock
     prefix: python-3.9-
   paths:
-    - .cache/pip
+    - .cache
 
 before_script:
   - python -V
@@ -66,7 +74,7 @@ test:commit-messages:
 .pytest:
   script:
     - poetry install --no-interaction --all-extras
-    - poetry run pytest -r a -v src tests --doctest-modules --cov --cov-report=term-missing --cov-report=xml:coverage.xml
+    - poetry run pytest -r a -v src tests --doctest-modules --cov --cov-report=term-missing --cov-report=xml:coverage.xml  --ignore=tests/notebooks
 
 test:python 3.9:pytest:
   image: python:3.9
@@ -105,6 +113,46 @@ test:python 3.11:pytest:
       prefix: python-3.11-
     paths:
       - .cache/pip
+
+# Run a basic test-suite on Windows using python 3.11
+# This spawns a new VM for each job which can take a few minutes
+test:windows:
+  tags:
+    - shared-windows
+    - windows
+    - windows-1809
+  stage: test
+  cache: []  # Disable caching on Windows
+  script:
+    - choco install python --version=3.11.2 -y
+    - $env:Path = "C:\Python311;" + $env:Path
+    - python -m venv venv
+    - '& venv/Scripts/Activate.ps1'
+    - pip install -e .[tests]
+    # Ignore tests/notebooks on windows
+    - pytest -rfsxEX --ignore=tests/notebooks
+
+test:notebooks:
+  image: python:3.10
+  stage: test
+  extends:
+    - .pytest
+  cache:
+    key:
+      files:
+        - poetry.lock
+      prefix: python-3.10-
+    paths:
+      - .cache/pip
+  variables:
+    BOOKSHELF_CACHE_LOCATION: out
+  script:
+    - pytest -n auto tests/notebooks --log-cli-level INFO
+  artifacts:
+    when: always
+    paths:
+      - out
+    expire_in: 1 week
 
 test:bundle:
   stage: test
