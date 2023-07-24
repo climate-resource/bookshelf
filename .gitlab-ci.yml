@@ -143,7 +143,7 @@ test:notebooks:
   variables:
     BOOKSHELF_CACHE_LOCATION: out
   script:
-    - pytest -n auto tests/notebooks --log-cli-level INFO
+    - poetry run pytest -n auto tests/notebooks --log-cli-level INFO
   artifacts:
     when: always
     paths:
