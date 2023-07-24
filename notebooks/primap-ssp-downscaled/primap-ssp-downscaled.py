@@ -16,12 +16,16 @@
 # %% [markdown]
 # # PRIMAP-SSP-downscaled
 #
-# Here, we download the SSP dataset from PRIMAP, which is downscaled to country level. We extract only the pathways produced by REMIND-MAgPIE for now, limiting ourselves to the `PMSSPBIE` variant, which means
+# Here, we download the SSP dataset from PRIMAP, which is downscaled to country level. We extract only the pathways
+# produced the `PMSSPBIE` variant, which means
 # * SSPs
 # * with international bunkers removed before downscaling
 # * Convergence downscaling with exponential convergence of emissions intensities and convergence before transitioning to negative emissions.
 #
-# Only SSP1, SSP2, and SSP5 data are included after this filtering, and we only include baseline data for now, not specific forcing targets.
+# We extract the SSP marker scenarios denoted by the scenario name `SSPX-Y.Z`. Additionally, we extract the SSP1, SSP2,
+# SSP5 baseline scenarios for "REMIND-MAgPIE" denoted by `SSPX|Baseline`. In the case of `SSP5|Baseline` it is identical
+# to the `SSP5-8.5` marker scenario, but duplicate timeseries with `scenario=SSP5|Baseline` have been included in the
+# final dataset.
 #
 # Additional data from the whole dataset can be added as needed in future revisions.
 

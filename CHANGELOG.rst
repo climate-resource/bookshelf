@@ -18,6 +18,7 @@ Unreleased
 Changed
 =======
 
+- (`!36 <https://gitlab.com/climate-resource/bookshelf/bookshelf/merge_requests/36>`_) Extract SSP marker scenarios. Bumps ``primap-ssp-downscaled`` to ed.2
 - (`!32 <https://gitlab.com/climate-resource/bookshelf/bookshelf/merge_requests/32>`_) Convert PRIMAP-hist to units of the form ``kt X / yr`` to be consistent. Bumps ``primap-hist`` to ed.3
 - (`!34 <https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/34>`_) Use original region abbreviations in PRIMAP-hist. Bumps ``primap-hist`` to edition 4.
 
