@@ -5,5 +5,5 @@ Please confirm that this pull request has done the following:
 - [ ] Tests added
 - [ ] Documentation added (where applicable)
 - [ ] Example added (either to an existing notebook or as a new notebook, where applicable)
-- [ ] Description in ``CHANGELOG.rst`` added
+- [ ] Changelog entry added to `/changelog`
 - [ ] Book has been published and verified with the CI (where applicable)

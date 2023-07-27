@@ -6,7 +6,7 @@ Please confirm that this pull request has done the following:
 
 - [ ] New notebook based on `notebooks/example.py`
 - [ ] Documentation and metadata added
-- [ ] Description in ``CHANGELOG.rst`` added
+- [ ] Changelog entry added to `/changelog`
 - [ ] Book has been published and verified with the CI
 
 /label ~"New Book"
