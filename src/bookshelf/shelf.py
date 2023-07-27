@@ -71,8 +71,9 @@ def _upload_file(s3, bucket, key, fname):  # pylint: disable=invalid-name
         logger.info(f"Uploading {fname} to {bucket} - {key}")
         s3.upload_file(fname, bucket, key, ExtraArgs={"ACL": "public-read"})
     except boto3.exceptions.S3UploadFailedError as s3_error:
-        logger.exception()
-        raise UploadError(f"Failed to upload {fname} to s3") from s3_error
+        msg = f"Failed to upload {fname} to s3"
+        logger.exception(msg)
+        raise UploadError(msg) from s3_error
 
 
 def _update_volume_meta(book: LocalBook, remote_bookshelf: str) -> str:
