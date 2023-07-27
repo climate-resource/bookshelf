@@ -16,12 +16,16 @@
 # %% [markdown]
 # # PRIMAP-SSP-downscaled
 #
-# Here, we download the SSP dataset from PRIMAP, which is downscaled to country level. We extract only the pathways produced by REMIND-MAgPIE for now, limiting ourselves to the `PMSSPBIE` variant, which means
+# Here, we download the SSP dataset from PRIMAP, which is downscaled to country level. We extract only the pathways
+# produced the `PMSSPBIE` variant, which means
 # * SSPs
 # * with international bunkers removed before downscaling
 # * Convergence downscaling with exponential convergence of emissions intensities and convergence before transitioning to negative emissions.
 #
-# Only SSP1, SSP2, and SSP5 data are included after this filtering, and we only include baseline data for now, not specific forcing targets.
+# We extract the SSP marker scenarios denoted by the scenario name `SSPX-Y.Z`. Additionally, we extract the SSP1, SSP2,
+# SSP5 baseline scenarios for "REMIND-MAgPIE" denoted by `SSPX|Baseline`. In the case of `SSP5|Baseline` it is identical
+# to the `SSP5-8.5` marker scenario, but duplicate timeseries with `scenario=SSP5|Baseline` have been included in the
+# final dataset.
 #
 # Additional data from the whole dataset can be added as needed in future revisions.
 
@@ -72,7 +76,12 @@ df.head()
 
 # %%
 dff = df.query(
-    "source == 'PMSSPBIE' and scenario in ('SSP1BLREMMP', 'SSP2BLREMMP', 'SSP5BLREMMP')"
+    "source == 'PMSSPBIE' and scenario in ("
+    # Baseline
+    "'SSP1BLREMMP', 'SSP2BLREMMP', "
+    # Markers (SSP5-baseline has been duplicated)
+    "'SSP119IMAGE', 'SSP126IMAGE', 'SSP245MESGB', 'SSP3BLAIMCGE', 'SSP434GCAM4', 'SSP460GCAM4', "
+    "'SSP534REMMP', 'SSP5BLREMMP')"
 )
 
 # %%
@@ -80,11 +89,40 @@ dff["entity"].unique()
 
 # %%
 df_renamed = dff.rename(columns={"country": "region", "entity": "variable"})
-df_renamed["model"] = "REMIND-MAgPIE"
 df_renamed["variable"] = "Emissions|" + df_renamed["variable"]
 df_renamed["category"] = df_renamed["category"].str.replace("IPCM0EL", "M.0.EL")
-df_renamed["scenario"] = df_renamed["scenario"].str.replace("REMMP", "")
 
+# %%
+model_names = {
+    ".*REMMP": "REMIND-MAgPIE",
+    ".*IMAGE": "IMAGE",
+    ".*MESGB": "MESSAGE-GLOBIOM",
+    ".*AIMCGE": "AIM/CGE",
+    ".*GCAM4": "GCAM4",
+}
+
+df_renamed["model"] = df_renamed["scenario"].replace(model_names, regex=True)
+if set(df_renamed["model"].unique()) != set(model_names.values()):
+    raise ValueError(
+        f"Could not map all model names: {set(df_renamed['model'].unique())}"
+    )
+
+# %%
+scenario_map = {
+    "SSP119IMAGE": "SSP1-1.9",
+    "SSP126IMAGE": "SSP1-2.6",
+    "SSP245MESGB": "SSP2-4.5",
+    "SSP3BLAIMCGE": "SSP3-7.0",
+    "SSP434GCAM4": "SSP4-3.4",
+    "SSP460GCAM4": "SSP4-6.0",
+    "SSP534REMMP": "SSP5-3.4",
+    "SSP5BLREMMP": "SSP5-8.5",
+}
+
+df_renamed["scenario"] = df_renamed["scenario"].replace(scenario_map)
+df_renamed["scenario"] = df_renamed["scenario"].replace(
+    {k.replace(".*", ""): "" for k in model_names.keys()}, regex=True
+)
 # %%
 data = scmdata.ScmRun(df_renamed)
 data.head()
@@ -145,8 +183,16 @@ def add_gwp_context(run):
 data = data.groupby("variable").map(add_gwp_context)
 
 # %%
+# Handle Baseline scenarios
 data["scenario"] = data["scenario"].str.replace("BL", "|Baseline")
 
+# Duplicate ssp585 which is also the REMIND baseline
+remind_baseline = data.filter(model="REMIND-MAgPIE", scenario="SSP5-8.5").set_meta(
+    "scenario", "SSP5|Baseline"
+)
+data.append(remind_baseline, inplace=True)
+
+data.meta[["model", "scenario"]].drop_duplicates()
 # %%
 regions = {
     "ANNEXI",
@@ -191,6 +237,9 @@ data.head()
 data_countries = data.filter(region=regions, keep=False)
 data_regions = data.filter(region=regions).drop_meta("country")
 data_regions
+
+# %%
+data.get_unique_meta("scenario")
 
 # %%
 book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
