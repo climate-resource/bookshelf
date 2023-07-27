@@ -15,7 +15,7 @@ for the expected format of this file.
 * Update the fetch and processing steps as needed, adding additional `Resource`s
   to the `Book` as needed.
 * Run the notebook and check the output
-* **TODO** Perform the release procedure to upload the built book to the remote 
+* **TODO** Perform the release procedure to upload the built book to the remote
   `BookShelf`
   `bookshelf save {volume}`
 
@@ -25,5 +25,5 @@ for the expected format of this file.
 * Modify other metadata attributes as needed
 * Update the data fetching and processing steps in the notebook
 * Run the notebook and check the output
-* **TODO** Perform the release procedure to upload the built book to the remote 
+* **TODO** Perform the release procedure to upload the built book to the remote
   `BookShelf`

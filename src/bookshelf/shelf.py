@@ -267,8 +267,8 @@ class BookShelf:
 
             if remote_book.edition >= book.edition:
                 msg = (
-                    f"Edition value has not been increased "
-                    f"(remote: {remote_book.long_version()}, local: {book.long_version()})"
+                    "Edition value has not been increased (remote:"
+                    f" {remote_book.long_version()}, local: {book.long_version()})"
                 )
                 if not force:
                     raise UploadError(msg)

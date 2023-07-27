@@ -231,7 +231,8 @@ def test_publish_existing(shelf, remote_bookshelf):
     with pytest.raises(
         UploadError,
         match=re.escape(
-            "Edition value has not been increased (remote: v1.0.0_e001, local: v1.0.0_e001)"
+            "Edition value has not been increased (remote: v1.0.0_e001, local:"
+            " v1.0.0_e001)"
         ),
     ):
         shelf.publish(book, force=False)

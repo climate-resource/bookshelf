@@ -183,7 +183,7 @@ def process_aggregate_sector(sector_column: str, sector: str):
     ]
     ceds_sector_aggregate = ceds_by_sector.filter(
         sector=target_sector_info.CEDS_working_sector.to_list(), log_if_empty=False
-    ).process_over(("sector"), "sum")
+    ).process_over("sector", "sum")
     ceds_sector_aggregate["sector"] = sector
     ceds_sector_aggregate["sector_short"] = target_sector_info[
         sector_column + "_short"

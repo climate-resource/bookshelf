@@ -95,13 +95,13 @@ def run_notebook_and_check_results(notebook, version, notebook_dir, output_direc
 
         if existing_book.edition != target_book.edition:
             raise ValueError(
-                f"Edition of calculated book doesn't match the remote bookshelf "
+                "Edition of calculated book doesn't match the remote bookshelf "
                 f"({target_book.edition} != {existing_book.edition})"
             )
 
         if existing_book.hash() != target_book.hash():
             raise ValueError(
-                f"Hash of calculated book doesn't match the remote bookshelf "
+                "Hash of calculated book doesn't match the remote bookshelf "
                 f"({target_book.hash()} != {existing_book.hash()})"
             )
     else:

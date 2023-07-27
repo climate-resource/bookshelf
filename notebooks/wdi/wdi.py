@@ -134,11 +134,21 @@ variable_map = {
     "Agricultural nitrous oxide emissions": "Emissions|N2O|Agriculture",
     "CO2 emissions": "Emissions|CO2",
     "CO2 emissions from electricity and heat production|Total": "Emissions|CO2",
-    "CO2 emissions from gaseous fuel consumption": "Emissions|CO2|Gaseous Fuel Consumption",
-    "CO2 emissions from liquid fuel consumption": "Emissions|CO2|Liquid Fuel Consumption",
-    "CO2 emissions from manufacturing industries and construction": "Emissions|CO2|Manufacturing Industries and Construction",
-    "CO2 emissions from other sectors|Excluding residential buildings and commercial and public services": "Emissions|CO2|Other Sectors",
-    "CO2 emissions from residential buildings and commercial and public services": "Emissions|CO2|Residential Buildings and Commercial and Public Services",
+    "CO2 emissions from gaseous fuel consumption": (
+        "Emissions|CO2|Gaseous Fuel Consumption"
+    ),
+    "CO2 emissions from liquid fuel consumption": (
+        "Emissions|CO2|Liquid Fuel Consumption"
+    ),
+    "CO2 emissions from manufacturing industries and construction": (
+        "Emissions|CO2|Manufacturing Industries and Construction"
+    ),
+    "CO2 emissions from other sectors|Excluding residential buildings and commercial and public services": (
+        "Emissions|CO2|Other Sectors"
+    ),
+    "CO2 emissions from residential buildings and commercial and public services": (
+        "Emissions|CO2|Residential Buildings and Commercial and Public Services"
+    ),
     "CO2 emissions from solid fuel consumption": "Emissions|CO2|Solid Fuel Consumption",
     "CO2 emissions from transport": "Emissions|CO2|Transport",
     "Energy related methane emissions": "Emissions|CH4|Energy",
@@ -212,9 +222,12 @@ subset = scmdata.run_append(
 book.add_timeseries("core", subset)
 
 # %% [markdown]
-# Below the `Book`'s metadata is shown. This contains all of the metadata about the `Book` and the associated `Resources`.
+# Below the `Book`'s metadata is shown. This contains all of the metadata about the `Book` and the associated
+# `Resources`.
 #
-# This is the metadata that clients download and can be used to fetch the `Book`'s `Resources`. Once deployed this `Book` becomes immutable. Any changes to the metadata or data requires releasing a new version of a `Book`.
+# This is the metadata that clients download and can be used to fetch the `Book`'s `Resources`. Once deployed
+# this `Book` becomes immutable. Any changes to the metadata or data requires releasing a new version of a
+# `Book`.
 
 # %%
 book.metadata()
@@ -222,6 +235,7 @@ book.metadata()
 # %% [markdown]
 # That is all.
 #
-# This notebook is not responsible for uploading the book to the `BookShelf`. See docs for how to upload `Books` to the `BookShelf`
+# This notebook is not responsible for uploading the book to the `BookShelf`. See docs for how to upload
+# `Books` to the `BookShelf`
 
 # %%

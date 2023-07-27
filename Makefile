@@ -29,12 +29,12 @@ checks:  ## run all the linting checks of the codebase
 
 .PHONY: black
 black:  ## format the code using black
-	poetry run black src tests docs/source/conf.py scripts docs/source/notebooks/*.py
+	poetry run black src notebooks tests docs/source/conf.py scripts docs/source/notebooks/*.py
 	poetry run blackdoc src
 
 .PHONY: ruff-fixes
 ruff-fixes:  ## fix the code using ruff
-	poetry run ruff src tests scripts docs/source/conf.py docs/source/notebooks/*.py --fix
+	poetry run ruff src notebooks tests scripts docs/source/conf.py docs/source/notebooks/*.py --fix
 
 .PHONY: test
 test:  ## run the tests
