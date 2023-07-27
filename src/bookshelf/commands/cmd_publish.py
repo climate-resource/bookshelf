@@ -63,5 +63,5 @@ def cli(name: str, version: list[str], include_private: bool, force: bool) -> No
                 shelf = BookShelf()
                 shelf.publish(book, force=force)
             except Exception as exc:
-                logger.error(str(exc))
+                logger.exception()
                 raise click.Abort() from exc

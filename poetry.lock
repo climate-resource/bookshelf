@@ -3365,7 +3365,7 @@ files = [
 name = "pyyaml"
 version = "6.0.1"
 description = "YAML parser and emitter for Python"
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=3.6"
 files = [
@@ -4748,4 +4748,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "bcb50208190f3bcd5a97aba645a49afcede4922d51ac1a1474a9d34ff753becf"
+content-hash = "c14a06322d4ca0b56a14e86aa5c2af2506365bfdb50cdff1a760e94beee69f36"

@@ -176,8 +176,13 @@ def test_publish_new_version(
 
 @pytest.mark.parametrize("edition", [2, 900])
 @moto.mock_s3
-def test_publish_new_edition(
-    shelf, remote_bookshelf, monkeypatch, caplog, example_data, edition
+def test_publish_new_edition(  # noqa
+    shelf,
+    remote_bookshelf,
+    monkeypatch,
+    caplog,
+    example_data,
+    edition,
 ):
     conn = setup_upload_bucket(remote_bookshelf, monkeypatch)
     book = LocalBook.create_new("test", "v1.1.0", edition=edition)

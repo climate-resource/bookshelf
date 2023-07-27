@@ -1,4 +1,6 @@
 """
+Books
+
 A Book represents a single versioned dataset. A dataset can contain multiple resources
 each of which are loaded independently.
 """
@@ -6,7 +8,8 @@ import glob
 import json
 import os.path
 import pathlib
-from typing import Any, Dict, Iterable, List, Optional, Union, cast
+from collections.abc import Iterable
+from typing import Any, Optional, Union, cast
 
 import datapackage
 import pooch
@@ -192,7 +195,7 @@ class LocalBook(_Book):
 
     def as_datapackage(self) -> datapackage.Package:
         """
-        Package representation of the book
+        Datapackage for the current book
 
         :mod:`datapackage` is used for handling the metadata. Modifying
         the package also modifies the Book.
@@ -212,7 +215,7 @@ class LocalBook(_Book):
             self._metadata = datapackage.Package(file_data)
         return self._metadata
 
-    def metadata(self) -> Dict[str, Any]:
+    def metadata(self) -> dict[str, Any]:
         """
         Metadata about the current book
 
@@ -221,9 +224,9 @@ class LocalBook(_Book):
         dict
             Metadata about the Book
         """
-        return cast(Dict[str, Any], self.as_datapackage().descriptor)
+        return cast(dict[str, Any], self.as_datapackage().descriptor)
 
-    def files(self) -> List[str]:
+    def files(self) -> list[str]:
         """
         List of files that are locally available
 

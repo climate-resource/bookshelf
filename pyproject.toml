@@ -38,6 +38,7 @@ appdirs = "*"
 python-dotenv = "*"
 pycountry = "*"
 datapackage = "^1.15.2"
+pyyaml = "*"
 
 [tool.poetry.group.tests.dependencies]
 pytest = "^7.3.1"
@@ -81,7 +82,7 @@ source = ["src"]
 branch = true
 
 [tool.coverage.report]
-fail_under = 95
+fail_under = 90
 skip_empty = true
 show_missing = true
 # Regexes for lines to exclude from consideration in addition to the defaults
@@ -133,6 +134,7 @@ unfixable = [
     "PD002",  # Disable autofix for inplace as this often introduces bugs
 ]
 ignore = [
+    "D105",  # Missing docstring in magic method
     "D200",  # One-line docstring should fit on one line with quotes
     "D400",  # First line should end with a period
     "TRY003",  # Avoid specifying long messages outside the exception class

@@ -18,7 +18,6 @@ def default_cache_location() -> str:
     r"""
     Determine the default cache location
 
-
     By default, local Books are stored in the default cache location unless overridden for
     a given :class:`bookshelf.BookShelf`. The default cache location is determined using
     the ``BOOKSHELF_CACHE_LOCATION`` or if that environment variable is not present, it

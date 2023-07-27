@@ -2,7 +2,6 @@
 run CLI command
 """
 import logging
-from typing import Tuple
 
 import click
 
@@ -37,7 +36,7 @@ logger = logging.getLogger(__name__)
     is_flag=True,
 )
 def cli(
-    name: str, output: str, force: bool, version: Tuple[str], include_private: bool
+    name: str, output: str, force: bool, version: tuple[str], include_private: bool
 ) -> None:
     """
     Run a notebook
@@ -55,5 +54,5 @@ def cli(
                 name, output_directory=output, force=force, version=dataset_version
             )
         except Exception as exc:
-            logger.error(f"Failed to run {name}: {exc}")
+            logger.error(f"Failed to run {name}: {exc}")  # noqa
             raise click.Abort() from exc
