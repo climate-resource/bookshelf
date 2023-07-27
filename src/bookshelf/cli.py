@@ -3,6 +3,7 @@ Bookshelf CLI
 """
 import logging
 import os
+from typing import Optional
 
 import click
 import click_log
@@ -23,7 +24,7 @@ class _CLICommands(click.MultiCommand):
         commands.sort()
         return commands
 
-    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
+    def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
         try:
             mod = __import__(f"bookshelf.commands.cmd_{cmd_name}", None, None, ["cli"])
         except ImportError:  # pragma: no cover

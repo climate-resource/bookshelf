@@ -2,6 +2,8 @@
 Custom exceptions
 """
 
+from typing import Optional
+
 
 class UnknownBook(ValueError):
     """
@@ -14,7 +16,7 @@ class UnknownVersion(ValueError):
     An unknown version is requested
     """
 
-    def __init__(self, name: str, version: str | None):
+    def __init__(self, name: str, version: Optional[str]):
         self.name = name
         self.version = version
         super().__init__()
