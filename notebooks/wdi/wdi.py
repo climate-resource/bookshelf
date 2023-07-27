@@ -96,9 +96,7 @@ def get_units(run):
         run["unit"] = unit
         variable = re.sub(unit_regex, "", variable)
     toks = variable.split(", ")
-    variable = "|".join(
-        [t.capitalize() if not t[0].isupper() else t for t in toks]
-    ).rstrip("|")
+    variable = "|".join([t.capitalize() if not t[0].isupper() else t for t in toks]).rstrip("|")
     run["variable"] = variable
 
     return run
@@ -119,9 +117,7 @@ data.meta[data.meta.unit.str.contains("kt")][["variable", "unit"]].drop_duplicat
 
 # %%
 # Fix emissions units to be emissions/yr
-data["unit"] = data["unit"].replace(
-    "thousand metric tons of CO2 equivalent", "kt CO2-eq/yr"
-)
+data["unit"] = data["unit"].replace("thousand metric tons of CO2 equivalent", "kt CO2-eq/yr")
 data["unit"] = data["unit"].replace("kt of CO2 equivalent", "kt CO2-eq/yr")
 data["unit"] = data["unit"].replace("Mt of CO2 equivalent", "Mt CO2-eq/yr")
 # Check above shows that only emissions ts use "kt" as units
@@ -134,12 +130,8 @@ variable_map = {
     "Agricultural nitrous oxide emissions": "Emissions|N2O|Agriculture",
     "CO2 emissions": "Emissions|CO2",
     "CO2 emissions from electricity and heat production|Total": "Emissions|CO2",
-    "CO2 emissions from gaseous fuel consumption": (
-        "Emissions|CO2|Gaseous Fuel Consumption"
-    ),
-    "CO2 emissions from liquid fuel consumption": (
-        "Emissions|CO2|Liquid Fuel Consumption"
-    ),
+    "CO2 emissions from gaseous fuel consumption": ("Emissions|CO2|Gaseous Fuel Consumption"),
+    "CO2 emissions from liquid fuel consumption": ("Emissions|CO2|Liquid Fuel Consumption"),
     "CO2 emissions from manufacturing industries and construction": (
         "Emissions|CO2|Manufacturing Industries and Construction"
     ),

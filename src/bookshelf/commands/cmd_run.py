@@ -35,24 +35,20 @@ logger = logging.getLogger(__name__)
     help="Override the existing output if the output directory isn't empty",
     is_flag=True,
 )
-def cli(
-    name: str, output: str, force: bool, version: tuple[str], include_private: bool
-) -> None:
+def cli(name: str, output: str, force: bool, version: tuple[str], include_private: bool) -> None:
     """
     Run a notebook
 
     This runs one of the notebooks used to generate a Book
     """
-    if not version:
+    if not len(version):
         all_versions = get_available_versions(name, include_private=include_private)
     else:
         all_versions = version
 
     for dataset_version in all_versions:
         try:
-            run_notebook(
-                name, output_directory=output, force=force, version=dataset_version
-            )
+            run_notebook(name, output_directory=output, force=force, version=dataset_version)
         except Exception as exc:
             logger.error(f"Failed to run {name}: {exc}")  # noqa
             raise click.Abort() from exc

@@ -185,9 +185,7 @@ def prep_df(df, **kwargs):
     return df_wide.reset_index(drop=True)
 
 
-prepped = prep_df(
-    df_hist, model="World Population Prospects 2022", scenario="Historical"
-)
+prepped = prep_df(df_hist, model="World Population Prospects 2022", scenario="Historical")
 
 prepped
 

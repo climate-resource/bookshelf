@@ -164,9 +164,7 @@ def fetch_file(
         logger.info(f"{local_fname} downloaded from {url}")
 
     if not local_fname.exists():
-        raise FileNotFoundError(
-            f"Could not find file {local_fname}"
-        )  # pragma: no cover
+        raise FileNotFoundError(f"Could not find file {local_fname}")  # pragma: no cover
 
 
 def get_env_var(

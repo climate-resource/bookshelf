@@ -102,9 +102,7 @@ def test_run_failed(mocker, caplog):
 
 
 def test_publish(mocker, caplog):
-    mock_run = mocker.patch(
-        "bookshelf.commands.cmd_publish.run_notebook", autospec=True
-    )
+    mock_run = mocker.patch("bookshelf.commands.cmd_publish.run_notebook", autospec=True)
     mock_publish = mocker.patch.object(BookShelf, "publish", autospec=True)
 
     caplog.set_level("INFO")
@@ -122,9 +120,7 @@ def test_publish(mocker, caplog):
 
 
 def test_publish_multiple(mocker, caplog):
-    mock_run = mocker.patch(
-        "bookshelf.commands.cmd_publish.run_notebook", autospec=True
-    )
+    mock_run = mocker.patch("bookshelf.commands.cmd_publish.run_notebook", autospec=True)
     mock_publish = mocker.patch.object(BookShelf, "publish", autospec=True)
 
     runner = CliRunner()

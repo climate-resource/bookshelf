@@ -6,7 +6,6 @@ import os
 import shutil
 from typing import Any, Optional
 
-# pylint: disable=invalid-name
 try:
     import jupytext
 
@@ -14,7 +13,6 @@ try:
 except ImportError:  # pragma: no cover
     jupytext = None
     has_jupytext = False
-# pylint: disable=invalid-name
 try:
     import papermill
 
@@ -187,13 +185,9 @@ def run_notebook(
         The generated book
     """
     if not has_papermill:
-        raise ImportError(
-            "papermill is not installed. Run 'pip install bookshelf[notebooks]'"
-        )
+        raise ImportError("papermill is not installed. Run 'pip install bookshelf[notebooks]'")
     if not has_jupytext:
-        raise ImportError(
-            "jupytext is not installed. Run 'pip install bookshelf[notebooks]'"
-        )
+        raise ImportError("jupytext is not installed. Run 'pip install bookshelf[notebooks]'")
 
     short_name = name.split("/")[-1]
 
@@ -251,7 +245,7 @@ def run_notebook(
     return book
 
 
-def get_available_versions(name: str, include_private: bool = False) -> list[str]:
+def get_available_versions(name: str, include_private: bool = False) -> tuple[str, ...]:
     """
     Get a list of available versions of a book
 
@@ -272,4 +266,4 @@ def get_available_versions(name: str, include_private: bool = False) -> list[str
     if not include_private:
         versions = [v for v in versions if not v.private]
 
-    return [v.version for v in versions]
+    return tuple(v.version for v in versions)

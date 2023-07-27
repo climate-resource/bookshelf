@@ -4,7 +4,7 @@ Schema
 from typing import Any, Optional
 
 import pooch
-from pydantic import BaseModel, Field  # pylint: disable=no-name-in-module
+from pydantic import BaseModel, Field
 
 from bookshelf.utils import get_env_var
 

@@ -105,9 +105,7 @@ model_names = {
 
 df_renamed["model"] = df_renamed["scenario"].replace(model_names, regex=True)
 if set(df_renamed["model"].unique()) != set(model_names.values()):
-    raise ValueError(
-        f"Could not map all model names: {set(df_renamed['model'].unique())}"
-    )
+    raise ValueError(f"Could not map all model names: {set(df_renamed['model'].unique())}")
 
 # %%
 scenario_map = {

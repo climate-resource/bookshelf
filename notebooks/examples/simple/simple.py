@@ -67,9 +67,7 @@ data.head()
 data.get_unique_meta("variable")
 
 # %%
-rf = data.filter(
-    variable=["Radiative Forcing|Anthropogenic", "Radiative Forcing|Natural"]
-)
+rf = data.filter(variable=["Radiative Forcing|Anthropogenic", "Radiative Forcing|Natural"])
 rf
 
 # %%

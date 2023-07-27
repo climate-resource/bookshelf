@@ -19,9 +19,7 @@ logger = logging.getLogger("test-notebooks")
 
 if sys.platform.startswith("win"):
     # https://gitlab.com/climate-resource/bookshelf/bookshelf/-/issues/23
-    pytest.skip(
-        "skipping notebook tests on windows, see issue !23", allow_module_level=True
-    )
+    pytest.skip("skipping notebook tests on windows, see issue !23", allow_module_level=True)
 
 
 def find_notebooks():
@@ -33,9 +31,7 @@ def find_notebooks():
     notebook_info = []
 
     for nb in notebooks:
-        versions = get_available_versions(
-            nb.replace(".py", ".yaml"), include_private=False
-        )
+        versions = get_available_versions(nb.replace(".py", ".yaml"), include_private=False)
         notebook_name = os.path.basename(nb)[:-3]
         notebook_info.extend((nb, notebook_name, v) for v in versions)
 
@@ -67,9 +63,7 @@ def test_notebook(notebook_path, notebook_name, notebook_version, output_directo
         notebook_name,
         version=notebook_version,
         notebook_dir=notebook_dir,
-        output_directory=os.path.join(
-            output_directory, "sample", notebook_name, notebook_version
-        ),
+        output_directory=os.path.join(output_directory, "sample", notebook_name, notebook_version),
     )
 
 
@@ -88,9 +82,7 @@ def run_notebook_and_check_results(notebook, version, notebook_dir, output_direc
         return
 
     if shelf.is_available(name=target_book.name, version=target_book.version):
-        existing_book = shelf.load(
-            name=target_book.name, version=target_book.version, force=True
-        )
+        existing_book = shelf.load(name=target_book.name, version=target_book.version, force=True)
         logger.info(f"Remote book exists. Expecting hash: {existing_book.hash()}")
 
         if existing_book.edition != target_book.edition:

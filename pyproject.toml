@@ -59,6 +59,7 @@ ruff = "0.0.264"
 pre-commit = "^3.3.1"
 towncrier = "^23.6.0"
 liccheck = "^0.9.1"
+boto3-stubs = {version="*", extras=["essential"]}
 
 [tool.poetry.group.notebooks.dependencies]
 notebook = "^6.5.4"
@@ -72,8 +73,12 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.black]
-line-length = 88
-target-version = ['py310']
+line-length = 100
+target-version = [
+    'py39',
+    'py310',
+    'py311',
+]
 
 [tool.coverage.run]
 source = ["src"]
@@ -92,7 +97,7 @@ exclude_also = [
 [tool.mypy]
 strict = true
 # prevent unimported libraries silently being treated as Any
-disallow_any_unimported = true
+#disallow_any_unimported = true
 # show error codes on failure with context
 show_error_codes = true
 show_error_context = true
@@ -100,6 +105,17 @@ show_error_context = true
 warn_unreachable = true
 # importing following uses default settings
 follow_imports = "normal"
+
+[[tool.mypy.overrides]]
+module = [
+    "scmdata",
+    "pooch",
+    "jupytext",
+    "papermill",
+    "click_log",
+    "datapackage"
+]
+ignore_missing_imports = true
 
 [tool.jupytext]
 formats = "ipynb,py:percent"

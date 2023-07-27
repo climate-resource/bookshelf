@@ -306,9 +306,7 @@ class LocalBook(_Book):
         LocalBook
             An instance of a local book with the datapackage setup
         """
-        book = LocalBook(
-            meta.name, version=meta.version, edition=meta.edition, **kwargs
-        )
+        book = LocalBook(meta.name, version=meta.version, edition=meta.edition, **kwargs)
         book._metadata = datapackage.Package(
             {
                 "name": meta.name,

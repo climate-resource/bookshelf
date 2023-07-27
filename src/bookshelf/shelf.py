@@ -6,7 +6,7 @@ import logging
 import os
 import pathlib
 from collections.abc import Iterable
-from typing import Optional, Union, cast
+from typing import TYPE_CHECKING, Optional, Union, cast
 
 import boto3
 import boto3.exceptions
@@ -23,6 +23,10 @@ from bookshelf.utils import (
     get_env_var,
     get_remote_bookshelf,
 )
+
+if TYPE_CHECKING:
+    from mypy_boto3_s3.client import S3Client
+
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +70,7 @@ def _fetch_volume_meta(
     return VolumeMeta(**data)
 
 
-def _upload_file(s3, bucket, key, fname):  # pylint: disable=invalid-name
+def _upload_file(s3: "S3Client", bucket: str, key: str, fname: str) -> None:
     try:
         logger.info(f"Uploading {fname} to {bucket} - {key}")
         s3.upload_file(fname, bucket, key, ExtraArgs={"ACL": "public-read"})
@@ -165,9 +169,7 @@ class BookShelf:
         if version is None or edition is None or force:
             version, edition = self._resolve_version(name, version, edition)
 
-        metadata_fragment = LocalBook.relative_path(
-            name, version, edition, "datapackage.json"
-        )
+        metadata_fragment = LocalBook.relative_path(name, version, edition, "datapackage.json")
         metadata_fname = self.path / metadata_fragment
 
         if not metadata_fname.exists():
@@ -293,7 +295,7 @@ class BookShelf:
         # Upload using boto3 by default for testing
         # Maybe support other upload methods in future
 
-        s3 = boto3.client("s3")  # pylint: disable=invalid-name
+        s3 = boto3.client("s3")
         bucket = get_env_var("BUCKET", add_prefix=True)
         prefix = get_env_var("BUCKET_PREFIX", add_prefix=True)
 
@@ -316,9 +318,7 @@ class BookShelf:
         key = "/".join((prefix, book.name, os.path.basename(meta_fname)))
         _upload_file(s3, bucket, key, meta_fname)
 
-        logger.info(
-            f"Book {book.name}@{book.version} ed.{book.edition} uploaded successfully"
-        )
+        logger.info(f"Book {book.name}@{book.version} ed.{book.edition} uploaded successfully")
 
     def _resolve_version(
         self,

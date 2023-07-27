@@ -87,12 +87,8 @@ def clean_scenario(s):
     return s[:4]
 
 
-basic_elements_country["scenario"] = basic_elements_country["scenario"].apply(
-    clean_scenario
-)
-basic_elements_regions["scenario"] = basic_elements_regions["scenario"].apply(
-    clean_scenario
-)
+basic_elements_country["scenario"] = basic_elements_country["scenario"].apply(clean_scenario)
+basic_elements_regions["scenario"] = basic_elements_regions["scenario"].apply(clean_scenario)
 
 # %%
 basic_elements_regions.meta[["scenario", "model"]].drop_duplicates()
