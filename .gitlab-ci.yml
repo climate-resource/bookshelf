@@ -73,6 +73,7 @@ test:notebooks:
   <<: *test_config
   variables:
     BOOKSHELF_CACHE_LOCATION: out
+    OPENSSL_CONF: .gitlab/openssl.cnf
   script:
     - pytest -n auto tests/notebooks --log-cli-level INFO
   artifacts:
