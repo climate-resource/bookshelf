@@ -1,10 +1,11 @@
 # Bookshelf
 
-## Brief summary
+<!---
+Can use start-after and end-before directives in docs, see
+https://myst-parser.readthedocs.io/en/latest/syntax/organising_content.html#inserting-other-documents-directly-into-the-current-document
+-->
 
-% sec-begin-long-description
-
-% sec-begin-index
+<!--- sec-begin-description -->
 
 `bookshelf` is how Climate Resource reuses datasets across projects
 
@@ -32,98 +33,47 @@ Each Book consists of a [datapackage](https://specs.frictionlessdata.io/data-pac
 description of the metadata. This datapackage contains the associated `Resources` and
 their hashes. Each `Resource` is fetched when it is first used and then cached for later use
 
-% sec-end-index
 
-### License
+<!--- sec-end-description -->
 
-% sec-begin-license
+Full documentation can be found at:
+[bookshelf.readthedocs.io](https://bookshelf.readthedocs.io/en/latest/).
+We recommend reading the docs there because the internal documentation links
+don't render correctly on GitLab's viewer.
 
-Bookshelf is licensed under MIT. See the LICENSE file for more information. The hosted
-books may be licensed under different conditions. The license for a specific book can
-be found in a Book's metadata.
+## Installation
 
-% sec-end-license
+<!--- sec-begin-installation -->
 
-% sec-end-long-description
+`bookshelf` can be installed via pip:
 
-% sec-begin-installation
-
-### Installation
-
-`bookshelf` isn't available via pypi, but can be installed via pip assuming
-that you have access to the repository.
-
-```{code} bash
-pip install git+https://gitlab.com/climate-resource/bookshelf
+```bash
+pip install bookshelf
 ```
 
-### Usage
 
-# Data Consumer
+<!--- sec-end-installation -->
 
-Fetching and using `Books` requires very little setup in order to start playing with
-data.
+### For developers
 
-```{code} python
->> import bookshelf
->> shelf = bookshelf.BookShelf()
-# Load the latest version of the MAGICC specific rcmip emissions
->> book = shelf.load("rcmip-emissions")
-INFO:/home/user/.cache/bookshelf/v0.1.0/rcmip-emissions/volume.json downloaded from https://cr-prod-datasets-bookshelf.s3.us-west-2.amazonaws.com/v0.1.0/rcmip-emissions/volume.json
-# On the first call this will fetch the data from the server and cache locally
->> book.timeseries("magicc")
-INFO:/home/user/.cache/bookshelf/v0.1.0/rcmip-emissions/v0.0.2/magicc.csv downloaded from https://cr-prod-datasets-bookshelf.s3.us-west-2.amazonaws.com/v0.1.0/rcmip-emissions/v0.0.2/magicc.csv
-<ScmRun (timeseries: 1683, timepoints: 751)>
-Time:
-        Start: 1750-01-01T00:00:00
-        End: 2500-01-01T00:00:00
-Meta:
-                 activity_id mip_era        model region          scenario       unit                    variable
-        0     not_applicable   CMIP5          AIM  World             rcp60   Mt BC/yr                Emissions|BC
-        1     not_applicable   CMIP5          AIM  World             rcp60  Mt CH4/yr               Emissions|CH4
-        2     not_applicable   CMIP5          AIM  World             rcp60   Mt CO/yr                Emissions|CO
-        3     not_applicable   CMIP5          AIM  World             rcp60  Mt CO2/yr               Emissions|CO2
-        4     not_applicable   CMIP5          AIM  World             rcp60  Mt CO2/yr  Emissions|CO2|MAGICC AFOLU
-        ...              ...     ...          ...    ...               ...        ...                         ...
-        1678  not_applicable   CMIP5  unspecified  World  historical-cmip5  Mt NH3/yr               Emissions|NH3
-        1679  not_applicable   CMIP5  unspecified  World  historical-cmip5  Mt NOx/yr               Emissions|NOx
-        1680  not_applicable   CMIP5  unspecified  World  historical-cmip5   Mt OC/yr                Emissions|OC
-        1681  not_applicable   CMIP5  unspecified  World  historical-cmip5  Mt SO2/yr            Emissions|Sulfur
-        1682  not_applicable   CMIP5  unspecified  World  historical-cmip5  Mt VOC/yr               Emissions|VOC
+<!--- sec-begin-installation-dev -->
 
-        [1683 rows x 7 columns]
+For development, we rely on [poetry](https://python-poetry.org) for all our
+dependency management. To get started, you will need to make sure that poetry
+is installed
+([instructions here](https://python-poetry.org/docs/#installing-with-the-official-installer),
+we found that pipx and pip worked better to install on a Mac).
 
-# Subsequent calls use the result from the cache
->> book.timeseries("magicc")
-```
+For all of work, we use our `Makefile`.
+You can read the instructions out and run the commands by hand if you wish,
+but we generally discourage this because it can be error prone.
+In order to create your environment, run `make virtual-environment`.
 
-# Data Curator
+If there are any issues, the messages from the `Makefile` should guide you
+through. If not, please raise an issue in the [issue tracker][issue_tracker].
 
-If you wish to build/modify `Books` some additional dependencies are required. These can
-be installed using:
+For the rest of our developer docs, please see [](development-reference).
 
-```{code} bash
-pip install "bookshelf[notebooks]"
-```
+[issue_tracker]: https://gitlab.com/climate-resource/bookshelf/bookshelf/issues
 
-Building and deploying datasets is managed via Jupyter notebooks and a small yaml file that
-contains metadata about the dataset. These notebooks are stored as plain text Python files
-using the [jupytext](https://jupytext.readthedocs.io/en/latest/) plugin for Jupyter.
-See [notebooks/example.py](https://gitlab.com/climate-resource/bookshelf/-/blob/master/notebooks/example.py)
-for an example dataset. As part of the CI, these notebooks are run on each commit to ensure
-that the `Books` remain reproducible.
-
-Once the dataset has been developed, it can be deployed to the remote `BookShelf` so that
-other users can consume it. The dataset can deployed using the `publish` CLI as shown below:
-
-```{code} bash
-bookshelf publish my-dataset
-```
-
-This command first builds the `Book` in an isolated environment to ensure a reproducible
-build. Once the build is successful, the resulting `Book`, including `Resources` is
-uploaded to an AWS S3 bucket. Deploying datasets requires valid AWS credentials, as well as `BOOKSHELF_BUCKET` and
-`BOOKSHELF_BUCKET_PREFIX` environment variables. These can be managed using a local
-`.env` file.
-
-% sec-end-installation
+<!--- sec-end-installation-dev -->

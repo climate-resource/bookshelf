@@ -58,19 +58,10 @@ test:install-no-extras:
     - poetry install --no-interaction --only main
     - poetry run python scripts/test-install.py
 
-test:commit-messages:
-  stage: test
-  except:
-    variables:
-      - $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TITLE =~ /^Draft/
-  script:
-    - pip install commitizen
-    - cz check --rev-range 01c3ff5d..HEAD
-
 .pytest:
   script:
     - poetry install --no-interaction --all-extras
-    - poetry run pytest -r a -v src tests --doctest-modules --cov --cov-report=term-missing --cov-report=xml:coverage.xml  --ignore=tests/notebooks
+    - poetry run pytest -r a -v src tests --doctest-modules --cov --cov-report=term-missing --cov-report=xml:coverage.xml --ignore=tests/notebooks
 
 test:python 3.9:pytest:
   image: python:3.9
@@ -110,52 +101,15 @@ test:python 3.11:pytest:
     paths:
       - .cache/pip
 
-# Run a basic test-suite on Windows using python 3.11
-# This spawns a new VM for each job which can take a few minutes
-test:windows:
-  tags:
-    - shared-windows
-    - windows
-    - windows-1809
-  stage: test
-  cache: []  # Disable caching on Windows
-  script:
-    - choco install python --version=3.11.2 -y
-    - $env:Path = "C:\Python311;" + $env:Path
-    - python -m venv venv
-    - '& venv/Scripts/Activate.ps1'
-    - pip install -e .[tests]
-    # Ignore tests/notebooks on windows
-    - pytest -rfsxEX --ignore=tests/notebooks
-
-test:notebooks:
-  image: python:3.10
-  stage: test
-  extends:
-    - .pytest
-  cache:
-    key:
-      files:
-        - poetry.lock
-      prefix: python-3.10-
-    paths:
-      - .cache/pip
-  variables:
-    BOOKSHELF_CACHE_LOCATION: out
-  script:
-    - poetry run pytest -n auto tests/notebooks --log-cli-level INFO
-  artifacts:
-    when: always
-    paths:
-      - out
-    expire_in: 1 week
-
 test:bundle:
   stage: test
   script:
     - poetry build --no-interaction
     - tar -tvf dist/bookshelf-*.tar.gz --wildcards '*bookshelf/py.typed'
 
+# This job must be run manually
+# Defaults to performing a "prepatch" release (determined using "BUMP_RULE" CI variable)
+# Other bump rules can be found at https://python-poetry.org/docs/cli/#version
 bump:version:
   stage: bump
   only:
@@ -163,6 +117,8 @@ bump:version:
       - $CI_COMMIT_MESSAGE !~ /^bump:/
     refs:
       - main
+  variables:
+    BUMP_RULE: prepatch
   when: manual
   script:
     # SSH setup
@@ -181,34 +137,17 @@ bump:version:
     - 'exists=`git show-ref refs/heads/$CI_COMMIT_REF_NAME` && if [ -n "$exists" ]; then git branch -D $CI_COMMIT_REF_NAME; fi'
     - git checkout -b $CI_COMMIT_REF_NAME
     # Bump
-    - pip install commitizen
-    - cz bump --yes --changelog --check-consistency
+    - BASE_VERSION=`poetry version -s`
+    - NEW_VERSION=`poetry version -s $BUMP_RULE`
+    - echo "Bumping version $BASE_VERSION" > $NEW_VERSION"
+    - poetry install --no-interaction --only "dev"
+    - poetry run towncrier build --yes --version v$NEW_VERSION
+    - 'git commit -a -m "bump: version $BASE_VERSION > $NEW_VERSION"'
+    - git tag v$NEW_VERSION
     # Push commit and tag
     - git fetch origin
     - git push origin $CI_COMMIT_REF_NAME
     - git push origin --tags
-
-
-test:notebooks:
-  <<: *test_config
-  variables:
-    BOOKSHELF_CACHE_LOCATION: out
-    OPENSSL_CONF: .gitlab/openssl.cnf
-  script:
-    # Generate release notes
-    - echo "# Release $CI_COMMIT_TAG" > "release_notes.md"
-    - echo "" >> "release_notes.md"
-    - cat ".gitlab/release_template.md" >> "release_notes.md"
-    - echo "" >> "release_notes.md"
-    - git log $(git describe --tags --abbrev=0 HEAD^)..HEAD --pretty='format:* %h %s' --no-merges | grep -v "bump*" >> "release_notes.md"
-    # Publish to PyPI
-    - poetry config pypi-token.pypi $PYPI_TOKEN
-    - poetry publish --build --no-interaction
-  artifacts:
-    name: "release-bundle $CI_COMMIT_TAG"
-    paths:
-      - dist/
-      - release_notes.md
 
 release:pypi:
   stage: release
@@ -225,3 +164,8 @@ release:pypi:
     # Publish to PyPI
     - poetry config pypi-token.pypi $PYPI_TOKEN
     - poetry publish --build --no-interaction
+  artifacts:
+    name: "release-bundle $CI_COMMIT_TAG"
+    paths:
+      - dist/
+      - release_notes.md

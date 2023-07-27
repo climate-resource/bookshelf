@@ -44,10 +44,6 @@ test:  ## run the tests
 docs:  ## build the docs
 	poetry run sphinx-build -T -b html docs/source docs/build/html
 
-.PHONY: check-commit-messages
-check-commit-messages:  ## check commit messages
-	poetry run cz check --rev-range 01c3ff5d..HEAD
-
 .PHONY: licence-check
 licence-check:  ## Check that licences of the dependencies are suitable
 	# Will likely fail on Windows, but Makefiles are in general not Windows

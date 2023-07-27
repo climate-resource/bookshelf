@@ -4,7 +4,7 @@ Functions to run/manage notebooks
 import logging
 import os
 import shutil
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional
 
 # pylint: disable=invalid-name
 try:
@@ -69,7 +69,7 @@ def get_notebook_directory(nb_dir: Optional[str] = None) -> str:
 def _load_nb_config(
     name: str,
     nb_directory: Optional[str] = None,
-) -> Tuple[ConfigSchema, Dict[str, Any]]:
+) -> tuple[ConfigSchema, dict[str, Any]]:
     nb_directory = get_notebook_directory(nb_directory)
 
     metadata_fname = name
@@ -102,7 +102,7 @@ def load_nb_metadata(
     """
     Load notebook metadata
 
-    Attempts to search :param:`nb_directory` for a metadata YAML file. This YAML file
+    Attempts to search {param}`nb_directory` for a metadata YAML file. This YAML file
     contains information about the dataset that is being processed. See NotebookMetadata
     for a description of the available options.
 

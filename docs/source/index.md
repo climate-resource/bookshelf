@@ -11,13 +11,23 @@
 :end-before: <!--- sec-end-description -->
 ```
 
+## Installation
+
+```{include} ../../README.md
+:start-after: <!--- sec-begin-installation -->
+:end-before: <!--- sec-end-installation -->
+```
+
+
 ```{toctree}
 :caption: Contents
 :maxdepth: 2
 installation
-usage
-api/bookshelf
+getting_started
+configuration
+notebooks
 development
+api/bookshelf
 changelog
 ```
 
