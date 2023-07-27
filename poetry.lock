@@ -353,7 +353,7 @@ mypy-boto3-dynamodb = {version = ">=1.28.0,<1.29.0", optional = true, markers = 
 mypy-boto3-ec2 = {version = ">=1.28.0,<1.29.0", optional = true, markers = "extra == \"essential\""}
 mypy-boto3-lambda = {version = ">=1.28.0,<1.29.0", optional = true, markers = "extra == \"essential\""}
 mypy-boto3-rds = {version = ">=1.28.0,<1.29.0", optional = true, markers = "extra == \"essential\""}
-mypy-boto3-s3 = {version = ">=1.28.0,<1.29.0", optional = true, markers = "extra == \"essential\" or extra == \"s3\""}
+mypy-boto3-s3 = {version = ">=1.28.0,<1.29.0", optional = true, markers = "extra == \"essential\""}
 mypy-boto3-sqs = {version = ">=1.28.0,<1.29.0", optional = true, markers = "extra == \"essential\""}
 types-s3transfer = "*"
 
@@ -4993,6 +4993,18 @@ docs = ["myst-parser", "pydata-sphinx-theme", "sphinx"]
 test = ["argcomplete (>=2.0)", "pre-commit", "pytest", "pytest-mock"]
 
 [[package]]
+name = "types-appdirs"
+version = "1.4.3.5"
+description = "Typing stubs for appdirs"
+category = "dev"
+optional = false
+python-versions = "*"
+files = [
+    {file = "types-appdirs-1.4.3.5.tar.gz", hash = "sha256:83268da64585361bfa291f8f506a209276212a0497bd37f0512a939b3d69ff14"},
+    {file = "types_appdirs-1.4.3.5-py3-none-any.whl", hash = "sha256:337c750e423c40911d389359b4edabe5bbc2cdd5cd0bd0518b71d2839646273b"},
+]
+
+[[package]]
 name = "types-awscrt"
 version = "0.16.26"
 description = "Type annotations and code completion for awscrt"
@@ -5017,6 +5029,21 @@ files = [
 ]
 
 [[package]]
+name = "types-requests"
+version = "2.31.0.2"
+description = "Typing stubs for requests"
+category = "dev"
+optional = false
+python-versions = "*"
+files = [
+    {file = "types-requests-2.31.0.2.tar.gz", hash = "sha256:6aa3f7faf0ea52d728bb18c0a0d1522d9bfd8c72d26ff6f61bfc3d06a411cf40"},
+    {file = "types_requests-2.31.0.2-py3-none-any.whl", hash = "sha256:56d181c85b5925cbc59f4489a57e72a8b2166f18273fd8ba7b6fe0c0b986f12a"},
+]
+
+[package.dependencies]
+types-urllib3 = "*"
+
+[[package]]
 name = "types-s3transfer"
 version = "0.6.1"
 description = "Type annotations and code completion for s3transfer"
@@ -5030,6 +5057,18 @@ files = [
 
 [package.dependencies]
 types-awscrt = "*"
+
+[[package]]
+name = "types-urllib3"
+version = "1.26.25.14"
+description = "Typing stubs for urllib3"
+category = "dev"
+optional = false
+python-versions = "*"
+files = [
+    {file = "types-urllib3-1.26.25.14.tar.gz", hash = "sha256:229b7f577c951b8c1b92c1bc2b2fdb0b49847bd2af6d1cc2a2e3dd340f3bda8f"},
+    {file = "types_urllib3-1.26.25.14-py3-none-any.whl", hash = "sha256:9683bbb7fb72e32bfe9d2be6e04875fbe1b3eeec3cbb4ea231435aa7fd6b4f0e"},
+]
 
 [[package]]
 name = "typing-extensions"
@@ -5255,4 +5294,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "dd1bf6c4e9fe450fca73fe0c2c6497d73f06d8bb4fedcd0d21505ab75e25aff7"
+content-hash = "13da17ae6b1c906e2189b331764ccb1394c1d06ffce89febed24fe6fcc4b1ba0"

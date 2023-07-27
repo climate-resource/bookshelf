@@ -42,15 +42,14 @@ test:linting:
     paths:
       - ${PRE_COMMIT_HOME}
   script:
-    - poetry install --no-interaction --all-extras --only "main,tests,dev"
+    - poetry install --no-interaction --all-extras --only "main,tests,stubs,dev"
     - poetry run pre-commit run --all-files
-    - poetry run mypy --install-types src
     - poetry run mypy src
 
 test:docs:
   stage: test
   script:
-    - poetry install --no-interaction --all-extras --only "main,docs"
+    - poetry install --no-interaction --all-extras --only "main,stubs,docs"
     - poetry run sphinx-build -W --keep-going -T -b html docs/source docs/build
 
 test:install-no-extras:
