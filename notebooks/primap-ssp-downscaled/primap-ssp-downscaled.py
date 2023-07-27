@@ -107,7 +107,7 @@ if set(df_renamed["model"].unique()) != set(model_names.values()):
         f"Could not map all model names: {set(df_renamed['model'].unique())}"
     )
 
-#%%
+# %%
 scenario_map = {
     "SSP119IMAGE": "SSP1-1.9",
     "SSP126IMAGE": "SSP1-2.6",
