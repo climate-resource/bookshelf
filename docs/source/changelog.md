@@ -19,6 +19,26 @@ of rst and use slightly different categories.
 
 <!-- towncrier release notes start -->
 
+## bookshelf v0.2.3 (2023-07-28)
+
+
+### Features
+
+- Add PRIMAP downscaled SSPs dataset: `primap-ssp-downscaled` ([#34](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/34))
+- Migrate to the common Climate Resource copier template
+
+  Major changes include adding support for the use of `towncrier` for managing the changelogs and `liccheck` for verifying
+  the compliance of any project dependencies. ([#35](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/35))
+
+### Improvements
+
+- Use original region abbreviations in PRIMAP-hist. Bumps `primap-hist` to edition 4. ([#34](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/34))
+- Extract SSP marker scenarios in addition to the existing baseline scenarios. Bumps `primap-ssp-downscaled` to ed.2 ([#36](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/36))
+
+### Bug Fixes
+
+- Convert PRIMAP-hist to units of the form `kt X / yr` to be consistent. Bumps `primap-hist` to ed.3 ([#32](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/32))
+
 
 ## v0.2.2
 
