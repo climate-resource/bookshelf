@@ -3,6 +3,7 @@ Bookshelf CLI
 """
 import logging
 import os
+from typing import Optional
 
 import click
 import click_log
@@ -15,7 +16,7 @@ logger = logging.getLogger("bookshelf")
 
 
 class _CLICommands(click.MultiCommand):
-    def list_commands(self, ctx):
+    def list_commands(self, ctx: click.Context) -> list[str]:
         commands = []
         for filename in os.listdir(cmd_folder):
             if filename.endswith(".py") and filename.startswith("cmd_"):
@@ -23,19 +24,19 @@ class _CLICommands(click.MultiCommand):
         commands.sort()
         return commands
 
-    def get_command(self, ctx, cmd_name):
+    def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
         try:
             mod = __import__(f"bookshelf.commands.cmd_{cmd_name}", None, None, ["cli"])
         except ImportError:  # pragma: no cover
             return None
-        return mod.cli
+        return mod.cli  # type: ignore
 
 
 @click.command(cls=_CLICommands, name="bookshelf")
 @click.option("-q", "--quiet", is_flag=True)
-@click_log.simple_verbosity_option(logger)
+@click_log.simple_verbosity_option(logger)  # type: ignore
 @click.pass_context
-def main(ctx, quiet):
+def main(ctx, quiet) -> None:
     """
     Bookshelf for managing reusable datasets
     """

@@ -13,7 +13,6 @@ PROCESSED_DATA_DIR = os.path.join(DATA_DIR, "processed", DATA_FORMAT_VERSION)
 
 
 DEFAULT_BOOKSHELF = (
-    f"https://cr-prod-datasets-bookshelf.s3.us-west-2.amazonaws.com"
-    f"/{DATA_FORMAT_VERSION}"
+    "https://cr-prod-datasets-bookshelf.s3.us-west-2.amazonaws.com" f"/{DATA_FORMAT_VERSION}"
 )
 ENV_PREFIX = "BOOKSHELF_"

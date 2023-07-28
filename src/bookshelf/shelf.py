@@ -5,7 +5,8 @@ import json
 import logging
 import os
 import pathlib
-from typing import Iterable, List, Optional, Tuple, Union, cast
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Optional, Union, cast
 
 import boto3
 import boto3.exceptions
@@ -22,6 +23,10 @@ from bookshelf.utils import (
     get_env_var,
     get_remote_bookshelf,
 )
+
+if TYPE_CHECKING:
+    from mypy_boto3_s3.client import S3Client
+
 
 logger = logging.getLogger(__name__)
 
@@ -65,13 +70,14 @@ def _fetch_volume_meta(
     return VolumeMeta(**data)
 
 
-def _upload_file(s3, bucket, key, fname):  # pylint: disable=invalid-name
+def _upload_file(s3: "S3Client", bucket: str, key: str, fname: str) -> None:
     try:
         logger.info(f"Uploading {fname} to {bucket} - {key}")
         s3.upload_file(fname, bucket, key, ExtraArgs={"ACL": "public-read"})
     except boto3.exceptions.S3UploadFailedError as s3_error:
-        logger.exception(s3_error, exc_info=False)
-        raise UploadError(f"Failed to upload {fname} to s3") from s3_error
+        msg = f"Failed to upload {fname} to s3"
+        logger.exception(msg)
+        raise UploadError(msg) from s3_error
 
 
 def _update_volume_meta(book: LocalBook, remote_bookshelf: str) -> str:
@@ -163,9 +169,7 @@ class BookShelf:
         if version is None or edition is None or force:
             version, edition = self._resolve_version(name, version, edition)
 
-        metadata_fragment = LocalBook.relative_path(
-            name, version, edition, "datapackage.json"
-        )
+        metadata_fragment = LocalBook.relative_path(name, version, edition, "datapackage.json")
         metadata_fname = self.path / metadata_fragment
 
         if not metadata_fname.exists():
@@ -184,7 +188,7 @@ class BookShelf:
                 raise UnknownVersion(name, version) from http_error
 
         if not metadata_fname.exists():
-            raise AssertionError()  # noqa
+            raise AssertionError()
 
         return LocalBook(name, version, edition, local_bookshelf=self.path)
 
@@ -214,9 +218,9 @@ class BookShelf:
         """
         try:
             self._resolve_version(name, version, edition)
-            return True
         except (UnknownBook, UnknownVersion, UnknownEdition):
             return False
+        return True
 
     def is_cached(self, name: str, version: Version, edition: Edition) -> bool:
         """
@@ -240,9 +244,9 @@ class BookShelf:
             # Check if the metadata for the book can be successfully read
             book = LocalBook(name, version, edition, local_bookshelf=self.path)
             book.metadata()
-            return True
         except FileNotFoundError:
             return False
+        return True
 
     def publish(self, book: LocalBook, force: bool = False) -> None:
         """
@@ -266,8 +270,8 @@ class BookShelf:
 
             if remote_book.edition >= book.edition:
                 msg = (
-                    f"Edition value has not been increased "
-                    f"(remote: {remote_book.long_version()}, local: {book.long_version()})"
+                    "Edition value has not been increased (remote:"
+                    f" {remote_book.long_version()}, local: {book.long_version()})"
                 )
                 if not force:
                     raise UploadError(msg)
@@ -291,7 +295,7 @@ class BookShelf:
         # Upload using boto3 by default for testing
         # Maybe support other upload methods in future
 
-        s3 = boto3.client("s3")  # pylint: disable=invalid-name
+        s3 = boto3.client("s3")
         bucket = get_env_var("BUCKET", add_prefix=True)
         prefix = get_env_var("BUCKET_PREFIX", add_prefix=True)
 
@@ -314,16 +318,14 @@ class BookShelf:
         key = "/".join((prefix, book.name, os.path.basename(meta_fname)))
         _upload_file(s3, bucket, key, meta_fname)
 
-        logger.info(
-            f"Book {book.name}@{book.version} ed.{book.edition} uploaded successfully"
-        )
+        logger.info(f"Book {book.name}@{book.version} ed.{book.edition} uploaded successfully")
 
     def _resolve_version(
         self,
         name: str,
         version: Optional[Version] = None,
         edition: Optional[Edition] = None,
-    ) -> Tuple[Version, Edition]:
+    ) -> tuple[Version, Edition]:
         # Update the package metadata
         try:
             meta = _fetch_volume_meta(name, self.remote_bookshelf, self.path)
@@ -345,7 +347,7 @@ class BookShelf:
             raise UnknownEdition(name, version, edition)
         return version, edition
 
-    def list_versions(self, name: str) -> List[str]:
+    def list_versions(self, name: str) -> list[str]:
         """
         Get a list of available versions for a given Book
 
@@ -366,7 +368,7 @@ class BookShelf:
 
         return [version.version for version in meta.versions if not version.private]
 
-    def list_books(self) -> List[str]:
+    def list_books(self) -> list[str]:
         """
         Get a list of book names
 

@@ -26,17 +26,13 @@ def shelf(local_bookshelf):
 
 def get_meta(conn, bucket, pkg):
     volume_meta_contents = io.BytesIO()
-    conn.Object(bucket, f"/this/prefix/{pkg}/volume.json").download_fileobj(
-        volume_meta_contents
-    )
+    conn.Object(bucket, f"/this/prefix/{pkg}/volume.json").download_fileobj(volume_meta_contents)
     volume_meta_contents.seek(0)
     return json.load(volume_meta_contents)
 
 
 def setup_upload_bucket(remote_bookshelf, monkeypatch):
-    remote_bookshelf.mocker.get(
-        f"/{DATA_FORMAT_VERSION}/new-package/volume.json", status_code=404
-    )
+    remote_bookshelf.mocker.get(f"/{DATA_FORMAT_VERSION}/new-package/volume.json", status_code=404)
 
     bucket = "test-bucket"
     prefix = "/this/prefix"
@@ -56,21 +52,14 @@ def test_local_cache(monkeypatch):
     shelf = BookShelf()
 
     if platform.system() == "Windows":
-        exp = (
-            pathlib.Path(appdirs.user_cache_dir())
-            / "bookshelf"
-            / "Cache"
-            / DATA_FORMAT_VERSION
-        )
+        exp = pathlib.Path(appdirs.user_cache_dir()) / "bookshelf" / "Cache" / DATA_FORMAT_VERSION
     else:
         exp = pathlib.Path(appdirs.user_cache_dir()) / "bookshelf" / DATA_FORMAT_VERSION
     assert shelf.path == exp
 
 
 def test_load_missing(shelf, remote_bookshelf):
-    remote_bookshelf.mocker.get(
-        f"/{DATA_FORMAT_VERSION}/missing/volume.json", status_code=404
-    )
+    remote_bookshelf.mocker.get(f"/{DATA_FORMAT_VERSION}/missing/volume.json", status_code=404)
 
     with pytest.raises(UnknownBook, match=re.escape("No metadata for 'missing'")):
         shelf.load("missing")
@@ -153,9 +142,7 @@ def test_publish(shelf, remote_bookshelf, monkeypatch, caplog, example_data):
 
 
 @moto.mock_s3
-def test_publish_new_version(
-    shelf, remote_bookshelf, monkeypatch, caplog, example_data
-):
+def test_publish_new_version(shelf, remote_bookshelf, monkeypatch, caplog, example_data):
     conn = setup_upload_bucket(remote_bookshelf, monkeypatch)
 
     book = LocalBook.create_new("test", "v1.1.1", edition=25)
@@ -176,8 +163,13 @@ def test_publish_new_version(
 
 @pytest.mark.parametrize("edition", [2, 900])
 @moto.mock_s3
-def test_publish_new_edition(
-    shelf, remote_bookshelf, monkeypatch, caplog, example_data, edition
+def test_publish_new_edition(  # noqa
+    shelf,
+    remote_bookshelf,
+    monkeypatch,
+    caplog,
+    example_data,
+    edition,
 ):
     conn = setup_upload_bucket(remote_bookshelf, monkeypatch)
     book = LocalBook.create_new("test", "v1.1.0", edition=edition)
@@ -187,9 +179,7 @@ def test_publish_new_edition(
 
     # Check that files uploaded
     bucket = os.environ["BOOKSHELF_BUCKET"]
-    conn.Object(
-        bucket, f"/this/prefix/test/v1.1.0_e{edition:03}/datapackage.json"
-    ).load()
+    conn.Object(bucket, f"/this/prefix/test/v1.1.0_e{edition:03}/datapackage.json").load()
 
     volume_meta = get_meta(conn, bucket, "test")
     assert len(volume_meta["versions"]) == 3  # 2 existing in volume.json + one extra
@@ -211,9 +201,7 @@ def test_publish_wrong_permissions(shelf, remote_bookshelf, monkeypatch, caplog)
     caplog.set_level(logging.ERROR)
 
     book = LocalBook.create_new("new-package", "v1.0.0")
-    with pytest.raises(
-        UploadError, match=re.escape(f"Failed to upload {book.files()[0]} to s3")
-    ):
+    with pytest.raises(UploadError, match=re.escape(f"Failed to upload {book.files()[0]} to s3")):
         shelf.publish(book)
 
     assert "NoSuchBucket" in caplog.text
@@ -226,7 +214,7 @@ def test_publish_existing(shelf, remote_bookshelf):
     with pytest.raises(
         UploadError,
         match=re.escape(
-            "Edition value has not been increased (remote: v1.0.0_e001, local: v1.0.0_e001)"
+            "Edition value has not been increased (remote: v1.0.0_e001, local:" " v1.0.0_e001)"
         ),
     ):
         shelf.publish(book, force=False)
@@ -245,23 +233,17 @@ def test_publish_existing_forced(shelf, remote_bookshelf, monkeypatch, caplog):
 
 
 def test_publish_extra_file(shelf, remote_bookshelf):
-    remote_bookshelf.mocker.get(
-        f"/{DATA_FORMAT_VERSION}/new-package/volume.json", status_code=404
-    )
+    remote_bookshelf.mocker.get(f"/{DATA_FORMAT_VERSION}/new-package/volume.json", status_code=404)
 
     book = LocalBook.create_new("new-package", "v1.0.0")
     open(book.local_fname("extra_file.txt"), "w").close()
 
-    with pytest.raises(
-        UploadError, match="Non-resource file extra_file.txt found in book"
-    ):
+    with pytest.raises(UploadError, match="Non-resource file extra_file.txt found in book"):
         shelf.publish(book)
 
 
 def test_is_available(shelf, remote_bookshelf):
-    remote_bookshelf.mocker.get(
-        f"/{DATA_FORMAT_VERSION}/other/volume.json", status_code=404
-    )
+    remote_bookshelf.mocker.get(f"/{DATA_FORMAT_VERSION}/other/volume.json", status_code=404)
 
     assert shelf.is_available("test", "v1.0.0")
     assert shelf.is_available("test", "v1.1.0")
@@ -271,9 +253,7 @@ def test_is_available(shelf, remote_bookshelf):
 
 
 def test_is_available_any_version(shelf, remote_bookshelf):
-    remote_bookshelf.mocker.get(
-        f"/{DATA_FORMAT_VERSION}/other/volume.json", status_code=404
-    )
+    remote_bookshelf.mocker.get(f"/{DATA_FORMAT_VERSION}/other/volume.json", status_code=404)
 
     assert shelf.is_available("test")
     assert not shelf.is_available("other")
@@ -288,9 +268,7 @@ def test_is_cached(shelf):
 
 
 def test_list_versions(shelf, remote_bookshelf):
-    remote_bookshelf.mocker.get(
-        f"/{DATA_FORMAT_VERSION}/other/volume.json", status_code=404
-    )
+    remote_bookshelf.mocker.get(f"/{DATA_FORMAT_VERSION}/other/volume.json", status_code=404)
 
     assert shelf.list_versions("test") == ["v1.0.0", "v1.1.0"]
     with pytest.raises(UnknownBook):

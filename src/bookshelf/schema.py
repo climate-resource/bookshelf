@@ -1,10 +1,10 @@
 """
 Schema
 """
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import pooch
-from pydantic import BaseModel, Field  # pylint: disable=no-name-in-module
+from pydantic import BaseModel, Field
 
 from bookshelf.utils import get_env_var
 
@@ -31,7 +31,7 @@ class VolumeMeta(BaseModel):
 
     name: str
     license: str  # A change in license will require a new volume
-    versions: List[BookVersion]
+    versions: list[BookVersion]
 
     def get_latest_version(self) -> Version:
         """
@@ -47,7 +47,7 @@ class VolumeMeta(BaseModel):
 
         return ordered_versions[-1]
 
-    def get_version(self, version: Version) -> List[BookVersion]:
+    def get_version(self, version: Version) -> list[BookVersion]:
         """
         Get a set of books for a given version
 
@@ -83,7 +83,7 @@ class DatasetMetadata(BaseModel):
 
     url: Optional[str]
     doi: Optional[str]
-    files: List[FileDownloadInfo]
+    files: list[FileDownloadInfo]
     author: str
 
 
@@ -111,7 +111,7 @@ class NotebookMetadata(BaseModel):
     license: str
     source_file: str
     private: bool
-    metadata: Dict[str, Any]  # TODO: type this
+    metadata: dict[str, Any]  # TODO: type this
     dataset: DatasetMetadata
 
     def long_name(self) -> str:
@@ -192,5 +192,5 @@ class ConfigSchema(BaseModel):
     description: Optional[str]
     license: str
     source_file: str
-    metadata: Dict[str, Any]  # TODO: type this
-    versions: List[VersionMetadata]
+    metadata: dict[str, Any]  # TODO: type this
+    versions: list[VersionMetadata]

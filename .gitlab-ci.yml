@@ -1,8 +1,9 @@
-image: python:3.11
-
+# Based on
+# https://gitlab.com/gitlab-org/gitlab/-/tree/master/lib/gitlab/ci/templates/Python.gitlab-ci.yml
 stages:
-  - build
   - test
+  - bump
+  - release
 
 # Use our linux CR runner by default
 default:
@@ -11,88 +12,161 @@ default:
     - linux
     - cr
 
+image: python:3.9
+
+# Change pip's cache directory to be inside the project directory since we can
+# only cache local items.
 variables:
-    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
-    BOOKSHELF_DOWNLOAD_CACHE_LOCATION: "$CI_PROJECT_DIR/.cache/pooch"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  BOOKSHELF_DOWNLOAD_CACHE_LOCATION: "$CI_PROJECT_DIR/.cache/pooch"
 
-cache: &global_cache
-  key: ${CI_COMMIT_REF_SLUG}
+cache:
+  key:
+    files:
+      - poetry.lock
+    prefix: python-3.9-
   paths:
-    - .cache/pip
-    - .cache/pooch
-    - venv/
-  policy: pull-push
+    - .cache
 
+before_script:
+  - python -V
+  - pip install poetry
+  - poetry config virtualenvs.create true
+  - poetry config virtualenvs.in-project true
 
-build:
-  stage: build
-  script:
-    - make -B virtual-environment
-
-
-test: &test_config
+test:linting:
   stage: test
+  variables:
+    PRE_COMMIT_HOME: ${CI_PROJECT_DIR}/.cache/pre-commit
   cache:
-    <<: *global_cache
-  before_script:
-    - source venv/bin/activate
+    paths:
+      - ${PRE_COMMIT_HOME}
   script:
-    - pip freeze
-    # Ignore tests/notebooks as that is covered by test:notebooks
-    - pytest --cov bookshelf -rfsxEX --cov-report term-missing --junitxml=report.xml --ignore=tests/notebooks
-    - coverage xml
+    - poetry install --no-interaction --all-extras --only "main,tests,stubs,dev"
+    - poetry run pre-commit run --all-files
+    - poetry run mypy src
+
+test:docs:
+  stage: test
+  script:
+    - poetry install --no-interaction --all-extras --only "main,stubs,docs"
+    - poetry run sphinx-build -W --keep-going -T -b html docs/source docs/build
+
+test:install-no-extras:
+  stage: test
+  script:
+    - poetry install --no-interaction --only main
+    - poetry run python scripts/test-install.py
+
+.pytest:
+  script:
+    - poetry install --no-interaction --all-extras
+    - poetry run pytest -r a -v src tests --doctest-modules --cov --cov-report=term-missing --cov-report=xml:coverage.xml --ignore=tests/notebooks
+
+test:python 3.9:pytest:
+  image: python:3.9
+  stage: test
+  extends:
+    - .pytest
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   artifacts:
-    when: always
     reports:
       coverage_report:
         coverage_format: cobertura
         path: coverage.xml
-      junit: report.xml
 
-# Run a basic test-suite on Windows using python 3.11
-# This spawns a new VM for each job which can take a few minutes
-test-windows:
-  tags:
-    - shared-windows
-    - windows
-    - windows-1809
+test:python 3.10:pytest:
+  image: python:3.10
   stage: test
-  cache: []  # Disable caching on Windows
-  script:
-    - choco install python --version=3.11.2 -y
-    - $env:Path = "C:\Python311;" + $env:Path
-    - python -m venv venv
-    - '& venv/Scripts/Activate.ps1'
-    - pip install -e .[tests]
-    # Ignore tests/notebooks on windows
-    - pytest -rfsxEX --ignore=tests/notebooks
-
-
-test:notebooks:
-  <<: *test_config
-  variables:
-    BOOKSHELF_CACHE_LOCATION: out
-    OPENSSL_CONF: .gitlab/openssl.cnf
-  script:
-    - pytest -n auto tests/notebooks --log-cli-level INFO
-  artifacts:
-    when: always
+  extends:
+    - .pytest
+  cache:
+    key:
+      files:
+        - poetry.lock
+      prefix: python-3.10-
     paths:
-      - out
-    expire_in: 1 week
+      - .cache/pip
 
-test:format:
-  <<: *test_config
-  script:
-    - flake8 setup.py src tests notebooks
-    - black --check src tests notebooks
-    - mypy --install-types --non-interactive src --exclude src/bookshelf/__init__.py
-    - pylint --fail-under=9.5 src
-    - bandit -r src
+test:python 3.11:pytest:
+  image: python:3.11
+  stage: test
+  extends:
+    - .pytest
+  cache:
+    key:
+      files:
+        - poetry.lock
+      prefix: python-3.11-
+    paths:
+      - .cache/pip
 
-test:docs:
-  <<: *test_config
+test:bundle:
+  stage: test
   script:
-#    - pydocstyle src
-    - sphinx-build -M html docs/source docs/_build -qW
+    - poetry build --no-interaction
+    - tar -tvf dist/bookshelf-*.tar.gz --wildcards '*bookshelf/py.typed'
+
+# This job must be run manually
+# Defaults to performing a "prepatch" release (determined using "BUMP_RULE" CI variable)
+# Other bump rules can be found at https://python-poetry.org/docs/cli/#version
+bump:version:
+  stage: bump
+  only:
+    variables:
+      - $CI_COMMIT_MESSAGE !~ /^bump:/
+    refs:
+      - main
+  variables:
+    BUMP_RULE: prepatch
+  when: manual
+  script:
+    # SSH setup
+    - which ssh-agent
+    - eval `ssh-agent -s`
+    - chmod 600 ${SSH_PRIVATE_KEY}
+    - ssh-add ${SSH_PRIVATE_KEY}
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - cp "$SSH_KNOWN_HOSTS" ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+    # Git setup
+    - git remote set-url origin "git@gitlab.com:${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}.git"
+    - git config --global user.email "${CI_EMAIL}" && git config --global user.name "${CI_USERNAME}"
+    # For some reason you need to basically re-initialise the branch
+    - 'exists=`git show-ref refs/heads/$CI_COMMIT_REF_NAME` && if [ -n "$exists" ]; then git branch -D $CI_COMMIT_REF_NAME; fi'
+    - git checkout -b $CI_COMMIT_REF_NAME
+    # Bump
+    - BASE_VERSION=`poetry version -s`
+    - NEW_VERSION=`poetry version -s $BUMP_RULE`
+    - echo "Bumping version $BASE_VERSION > $NEW_VERSION"
+    - poetry install --no-interaction --only "dev"
+    - poetry run pre-commit install
+    - poetry run towncrier build --yes --version v$NEW_VERSION
+    - 'git commit -a -m "bump: version $BASE_VERSION > $NEW_VERSION"'
+    - git tag v$NEW_VERSION
+    # Push commit and tag
+    - git fetch origin
+    - git push origin $CI_COMMIT_REF_NAME
+    - git push origin --tags
+
+release:pypi:
+  stage: release
+  only:
+    variables:
+      - $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  script:
+    # Generate release notes
+    - echo "# Release $CI_COMMIT_TAG" > "release_notes.md"
+    - echo "" >> "release_notes.md"
+    - cat ".gitlab/release_template.md" >> "release_notes.md"
+    - echo "" >> "release_notes.md"
+    - git log $(git describe --tags --abbrev=0 HEAD^)..HEAD --pretty='format:* %h %s' --no-merges | grep -v "bump*" >> "release_notes.md"
+    # Publish to PyPI
+    - poetry config pypi-token.pypi $PYPI_TOKEN
+    - poetry publish --build --no-interaction
+  artifacts:
+    name: "release-bundle $CI_COMMIT_TAG"
+    paths:
+      - dist/
+      - release_notes.md

@@ -4,9 +4,8 @@ Functions to run/manage notebooks
 import logging
 import os
 import shutil
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional
 
-# pylint: disable=invalid-name
 try:
     import jupytext
 
@@ -14,7 +13,6 @@ try:
 except ImportError:  # pragma: no cover
     jupytext = None
     has_jupytext = False
-# pylint: disable=invalid-name
 try:
     import papermill
 
@@ -69,7 +67,7 @@ def get_notebook_directory(nb_dir: Optional[str] = None) -> str:
 def _load_nb_config(
     name: str,
     nb_directory: Optional[str] = None,
-) -> Tuple[ConfigSchema, Dict[str, Any]]:
+) -> tuple[ConfigSchema, dict[str, Any]]:
     nb_directory = get_notebook_directory(nb_directory)
 
     metadata_fname = name
@@ -102,7 +100,7 @@ def load_nb_metadata(
     """
     Load notebook metadata
 
-    Attempts to search :param:`nb_directory` for a metadata YAML file. This YAML file
+    Attempts to search {param}`nb_directory` for a metadata YAML file. This YAML file
     contains information about the dataset that is being processed. See NotebookMetadata
     for a description of the available options.
 
@@ -187,13 +185,9 @@ def run_notebook(
         The generated book
     """
     if not has_papermill:
-        raise ImportError(
-            "papermill is not installed. Run 'pip install bookshelf[notebooks]'"
-        )
+        raise ImportError("papermill is not installed. Run 'pip install bookshelf[notebooks]'")
     if not has_jupytext:
-        raise ImportError(
-            "jupytext is not installed. Run 'pip install bookshelf[notebooks]'"
-        )
+        raise ImportError("jupytext is not installed. Run 'pip install bookshelf[notebooks]'")
 
     short_name = name.split("/")[-1]
 
@@ -207,7 +201,7 @@ def run_notebook(
     logger.info(f"Loaded metadata from {metadata.source_file}")
     if metadata.name != short_name:  # pragma: no cover
         raise ValueError(
-            f"name in metadata does not match the name of the notebook "
+            "name in metadata does not match the name of the notebook "
             f"({metadata.name} != {name}"
         )
     logger.info(f"Processing {metadata.long_name()}")
@@ -251,7 +245,7 @@ def run_notebook(
     return book
 
 
-def get_available_versions(name: str, include_private: bool = False) -> list[str]:
+def get_available_versions(name: str, include_private: bool = False) -> tuple[str, ...]:
     """
     Get a list of available versions of a book
 
@@ -272,4 +266,4 @@ def get_available_versions(name: str, include_private: bool = False) -> list[str
     if not include_private:
         versions = [v for v in versions if not v.private]
 
-    return [v.version for v in versions]
+    return tuple(v.version for v in versions)

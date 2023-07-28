@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
     help="Override the existing published data",
     default=False,
 )
-def cli(name: str, version: list[str], include_private: bool, force: bool) -> None:
+def cli(name: str, version: tuple[str, ...], include_private: bool, force: bool) -> None:
     """
     Build and upload a Book to the Bookshelf
 
@@ -63,5 +63,5 @@ def cli(name: str, version: list[str], include_private: bool, force: bool) -> No
                 shelf = BookShelf()
                 shelf.publish(book, force=force)
             except Exception as exc:
-                logger.error(str(exc))
+                logger.exception(f"Unable to process {name}@{version}")
                 raise click.Abort() from exc

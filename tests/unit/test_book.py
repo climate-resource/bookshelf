@@ -58,9 +58,7 @@ def test_timeseries(example_data):
 def test_timeseries_remote(example_data, remote_bookshelf):
     book = BookShelf().load("test", "v1.0.0")
 
-    scmdata.testing.assert_scmdf_almost_equal(
-        example_data, book.timeseries("leakage_rates_low")
-    )
+    scmdata.testing.assert_scmdf_almost_equal(example_data, book.timeseries("leakage_rates_low"))
 
     with pytest.raises(ValueError, match="Unknown timeseries 'other'"):
         book.timeseries("other")

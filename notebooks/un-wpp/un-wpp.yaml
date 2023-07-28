@@ -2,14 +2,14 @@ name: un-wpp
 edition: 1
 license: CC-BY-IGO
 description: |
-  The 2022 Revision of World Population Prospects is the twenty-seventh edition of official United Nations 
-  population estimates and projections that have been prepared by the Population Division of the Department 
-  of Economic and Social Affairs of the United Nations Secretariat. It presents population estimates from 
-  1950 to the present for 237 countries or areas, underpinned by analyses of historical demographic trends. 
-  
-  This latest assessment considers the results of 1,758 national population censuses conducted between 1950 
-  and 2022, as well as information from vital registration systems and from 2,890 nationally representative 
-  sample surveys The 2022 revision also presents population projections to the year 2100 that reflect a 
+  The 2022 Revision of World Population Prospects is the twenty-seventh edition of official United Nations
+  population estimates and projections that have been prepared by the Population Division of the Department
+  of Economic and Social Affairs of the United Nations Secretariat. It presents population estimates from
+  1950 to the present for 237 countries or areas, underpinned by analyses of historical demographic trends.
+
+  This latest assessment considers the results of 1,758 national population censuses conducted between 1950
+  and 2022, as well as information from vital registration systems and from 2,890 nationally representative
+  sample surveys The 2022 revision also presents population projections to the year 2100 that reflect a
   range of plausible outcomes at the global, regional and national levels.
 metadata:
   author: Jared Lewis

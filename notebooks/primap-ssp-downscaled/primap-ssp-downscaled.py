@@ -16,16 +16,17 @@
 # %% [markdown]
 # # PRIMAP-SSP-downscaled
 #
-# Here, we download the SSP dataset from PRIMAP, which is downscaled to country level. We extract only the pathways
-# produced the `PMSSPBIE` variant, which means
+# Here, we download the SSP dataset from PRIMAP, which is downscaled to country level. We extract only the
+# pathways produced the `PMSSPBIE` variant, which means
 # * SSPs
 # * with international bunkers removed before downscaling
-# * Convergence downscaling with exponential convergence of emissions intensities and convergence before transitioning to negative emissions.
+# * Convergence downscaling with exponential convergence of emissions intensities and convergence before
+# transitioning to negative emissions.
 #
-# We extract the SSP marker scenarios denoted by the scenario name `SSPX-Y.Z`. Additionally, we extract the SSP1, SSP2,
-# SSP5 baseline scenarios for "REMIND-MAgPIE" denoted by `SSPX|Baseline`. In the case of `SSP5|Baseline` it is identical
-# to the `SSP5-8.5` marker scenario, but duplicate timeseries with `scenario=SSP5|Baseline` have been included in the
-# final dataset.
+# We extract the SSP marker scenarios denoted by the scenario name `SSPX-Y.Z`. Additionally, we extract the
+# SSP1, SSP2, SSP5 baseline scenarios for "REMIND-MAgPIE" denoted by `SSPX|Baseline`. In the case of
+# `SSP5|Baseline` it is identical to the `SSP5-8.5` marker scenario, but duplicate timeseries with
+# `scenario=SSP5|Baseline` have been included in the final dataset.
 #
 # Additional data from the whole dataset can be added as needed in future revisions.
 
@@ -80,7 +81,8 @@ dff = df.query(
     # Baseline
     "'SSP1BLREMMP', 'SSP2BLREMMP', "
     # Markers (SSP5-baseline has been duplicated)
-    "'SSP119IMAGE', 'SSP126IMAGE', 'SSP245MESGB', 'SSP3BLAIMCGE', 'SSP434GCAM4', 'SSP460GCAM4', "
+    "'SSP119IMAGE', 'SSP126IMAGE', 'SSP245MESGB', 'SSP3BLAIMCGE', 'SSP434GCAM4',"
+    " 'SSP460GCAM4', "
     "'SSP534REMMP', 'SSP5BLREMMP')"
 )
 
@@ -103,9 +105,7 @@ model_names = {
 
 df_renamed["model"] = df_renamed["scenario"].replace(model_names, regex=True)
 if set(df_renamed["model"].unique()) != set(model_names.values()):
-    raise ValueError(
-        f"Could not map all model names: {set(df_renamed['model'].unique())}"
-    )
+    raise ValueError(f"Could not map all model names: {set(df_renamed['model'].unique())}")
 
 # %%
 scenario_map = {
@@ -190,7 +190,7 @@ data["scenario"] = data["scenario"].str.replace("BL", "|Baseline")
 remind_baseline = data.filter(model="REMIND-MAgPIE", scenario="SSP5-8.5").set_meta(
     "scenario", "SSP5|Baseline"
 )
-data.append(remind_baseline, inplace=True)
+data = data.append(remind_baseline)
 
 data.meta[["model", "scenario"]].drop_duplicates()
 # %%
@@ -252,6 +252,7 @@ book.add_timeseries("by_region", data_regions)
 book.metadata()
 
 # %% [markdown]
-# This notebook is not responsible for uploading the book to the `BookShelf`. See docs for how to upload `Books` to the `BookShelf`
+# This notebook is not responsible for uploading the book to the `BookShelf`. See docs for how to upload
+# `Books` to the `BookShelf`
 
 # %%

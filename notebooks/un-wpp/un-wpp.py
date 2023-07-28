@@ -111,12 +111,30 @@ value_cols = [
     "Mortality before Age 60, both sexes (deaths under age 60 per 1,000 live births)",
     "Male Mortality before Age 60 (deaths under age 60 per 1,000 male live births)",
     "Female Mortality before Age 60 (deaths under age 60 per 1,000 female live births)",
-    "Mortality between Age 15 and 50, both sexes (deaths under age 50 per 1,000 alive at age 15)",
-    "Male Mortality between Age 15 and 50 (deaths under age 50 per 1,000 males alive at age 15)",
-    "Female Mortality between Age 15 and 50 (deaths under age 50 per 1,000 females alive at age 15)",
-    "Mortality between Age 15 and 60, both sexes (deaths under age 60 per 1,000 alive at age 15)",
-    "Male Mortality between Age 15 and 60 (deaths under age 60 per 1,000 males alive at age 15)",
-    "Female Mortality between Age 15 and 60 (deaths under age 60 per 1,000 females alive at age 15)",
+    (
+        "Mortality between Age 15 and 50, both sexes (deaths under age 50 per 1,000"
+        " alive at age 15)"
+    ),
+    (
+        "Male Mortality between Age 15 and 50 (deaths under age 50 per 1,000 males"
+        " alive at age 15)"
+    ),
+    (
+        "Female Mortality between Age 15 and 50 (deaths under age 50 per 1,000 females"
+        " alive at age 15)"
+    ),
+    (
+        "Mortality between Age 15 and 60, both sexes (deaths under age 60 per 1,000"
+        " alive at age 15)"
+    ),
+    (
+        "Male Mortality between Age 15 and 60 (deaths under age 60 per 1,000 males"
+        " alive at age 15)"
+    ),
+    (
+        "Female Mortality between Age 15 and 60 (deaths under age 60 per 1,000 females"
+        " alive at age 15)"
+    ),
     "Net Number of Migrants (thousands)",
     "Net Migration Rate (per 1,000 population)",
 ]
@@ -127,7 +145,7 @@ def prep_df(df, **kwargs):
     df = df[~df["Year"].isna()]
 
     df_wide = (
-        df.melt(
+        df.melt(  # noqa
             id_vars=[
                 "Region, subregion, country or area *",
                 "ISO3 Alpha-code",
@@ -167,9 +185,7 @@ def prep_df(df, **kwargs):
     return df_wide.reset_index(drop=True)
 
 
-prepped = prep_df(
-    df_hist, model="World Population Prospects 2022", scenario="Historical"
-)
+prepped = prep_df(df_hist, model="World Population Prospects 2022", scenario="Historical")
 
 prepped
 
@@ -221,6 +237,7 @@ book.metadata()
 # %% [markdown]
 # That is all.
 #
-# This notebook is not responsible for uploading the book to the `BookShelf`. See docs for how to upload `Books` to the `BookShelf`
+# This notebook is not responsible for uploading the book to the `BookShelf`. See docs for how to upload
+# `Books` to the `BookShelf`
 
 # %%

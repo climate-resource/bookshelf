@@ -23,9 +23,7 @@ def test_load_nb_metadata_versioned():
     res = load_nb_metadata(
         "multiple_versions",
         version="v5.1.0",
-        nb_directory=os.path.join(
-            get_notebook_directory(), "examples", "multiple_versions"
-        ),
+        nb_directory=os.path.join(get_notebook_directory(), "examples", "multiple_versions"),
     )
     assert res.name == "multiple_versions"
     assert res.version == "v5.1.0"
@@ -33,9 +31,7 @@ def test_load_nb_metadata_versioned():
     # Be explicit
     res = load_nb_metadata(
         "multiple_versions",
-        nb_directory=os.path.join(
-            get_notebook_directory(), "examples", "multiple_versions"
-        ),
+        nb_directory=os.path.join(get_notebook_directory(), "examples", "multiple_versions"),
         version="v4.0.0",
     )
     assert res.name == "multiple_versions"
@@ -132,9 +128,7 @@ def test_missing_deps(package):
     try:
         setattr(bookshelf.notebook, f"has_{package}", False)
 
-        match = re.escape(
-            f"{package} is not installed. Run 'pip install bookshelf[notebooks]'"
-        )
+        match = re.escape(f"{package} is not installed. Run 'pip install bookshelf[notebooks]'")
         with pytest.raises(ImportError, match=match):
             run_notebook("test")
     finally:
