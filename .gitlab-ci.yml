@@ -139,8 +139,9 @@ bump:version:
     # Bump
     - BASE_VERSION=`poetry version -s`
     - NEW_VERSION=`poetry version -s $BUMP_RULE`
-    - echo "Bumping version $BASE_VERSION" > $NEW_VERSION"
+    - echo "Bumping version $BASE_VERSION > $NEW_VERSION"
     - poetry install --no-interaction --only "dev"
+    - poetry run pre-commit install
     - poetry run towncrier build --yes --version v$NEW_VERSION
     - 'git commit -a -m "bump: version $BASE_VERSION > $NEW_VERSION"'
     - git tag v$NEW_VERSION

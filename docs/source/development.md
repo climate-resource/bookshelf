@@ -10,6 +10,11 @@ Notes for developers. If you want to get involved, please do!
 :end-before: <!--- sec-end-installation-dev -->
 ```
 
+## Language
+
+We use British English for our development.
+We do this for consistency with the broader work context of our lead developers.
+
 ## Versioning
 
 This package follows the version format described in [PEP440](https://peps.python.org/pep-0440/) and
@@ -30,14 +35,16 @@ The steps required are the following:
 
 
 1. Bump the version: manually trigger the "bump" stage from the latest commit
-   in main (pipelines are [here](https://gitlab.com/magicc/fgen/-/pipelines)).
-   A valid "bump_rule" will need to be specified via the "BUMP_RULE" CI variable. This will then trigger a release,
-   including publication to PyPI.
+   in main (pipelines are [here](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/pipelines)).
+   A valid "bump_rule" (see https://python-poetry.org/docs/cli/#version)
+   will need to be specified via the "BUMP_RULE" CI
+   variable (see https://docs.gitlab.com/ee/ci/variables/). This will then
+   trigger a release, including publication to PyPI.
 
-1. Download the artifacts from the release job. The `release_notes.md` artifact
+1. Download the artefacts from the release job. The `release_notes.md` artefact
    will be pre-filled with the list of changes included in this release. You find it
    in the release-bundle zip file at
-   [the artifacts section](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/artifacts). The
+   [the artefacts section](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/artifacts). The
    announcements section should be completed manually to highlight any
    particularly notable changes or other announcements (or deleted if not
    relevant for this release).
