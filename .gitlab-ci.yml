@@ -120,6 +120,14 @@ bump:version:
   variables:
     BUMP_RULE: prepatch
   when: manual
+  image: python:3.10
+  cache:
+    key:
+      files:
+        - poetry.lock
+      prefix: python-3.10-
+    paths:
+      - .cache
   script:
     # SSH setup
     - which ssh-agent
