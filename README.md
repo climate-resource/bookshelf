@@ -36,11 +36,6 @@ their hashes. Each `Resource` is fetched when it is first used and then cached f
 
 <!--- sec-end-description -->
 
-Full documentation can be found at:
-[bookshelf.readthedocs.io](https://bookshelf.readthedocs.io/en/latest/).
-We recommend reading the docs there because the internal documentation links
-don't render correctly on GitLab's viewer.
-
 ## Installation
 
 <!--- sec-begin-installation -->
