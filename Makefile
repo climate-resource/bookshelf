@@ -5,6 +5,11 @@
 # compatible so we're not too worried
 TEMP_FILE := $(shell mktemp)
 
+# some of our sources have to be downloaded from older servers, need
+# a more relaxed openssl config
+OPENSSL_CONF ?= .gitlab/openssl.cnf
+export OPENSSL_CONF
+
 # A helper script to get short descriptions of each target in the Makefile
 define PRINT_HELP_PYSCRIPT
 import re, sys
