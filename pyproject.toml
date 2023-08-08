@@ -19,6 +19,9 @@ classifiers = [
     "Topic :: Scientific/Engineering",
 ]
 
+[tool.poetry.scripts]
+bookshelf = "bookshelf.cli:main"
+
 [tool.poetry.dependencies]
 python = "^3.9"
 click = ">8"
