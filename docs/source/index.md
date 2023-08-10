@@ -25,7 +25,7 @@
 installation
 getting_started
 configuration
-notebooks
+usage
 development
 api/bookshelf
 changelog
