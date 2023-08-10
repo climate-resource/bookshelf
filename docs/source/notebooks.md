@@ -50,3 +50,26 @@ for the expected format of this file.
 * Run the notebook and check the output
 * **TODO** Perform the release procedure to upload the built book to the remote
   `BookShelf`
+
+## Testing a notebook locally
+
+You can run a notebook with a specified output directory for local testing:
+```bash
+poetry run bookshelf run --output /path/to/custom/directory <notebook_name>
+```
+
+The generated book can then be used directly from the local directory.
+Note that the path to the custom directory needs to specify the `version` of the
+Book.
+When loading the Book, you must also specify the version and the edition otherwise it
+will query the remote bookshelf.
+
+```python
+import bookshelf
+
+shelf = bookshelf.BookShelf("/path/to/custom/directory/{version}")
+
+new_book = shelf.load("{notebook_name}", version="{version}", edition=edition)
+```
+When updating an existing Book, remember to increase the version or the edition to make
+sure you load your newly generated data, not the old data.
