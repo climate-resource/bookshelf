@@ -280,19 +280,21 @@ def clean(df):
 cdf_wm = clean(df_wm)
 cdf_wam = clean(df_wam)
 cdf_wom = clean(df_wom)
+cdf_wm["category"].unique()
 
 
 # %%
-def dedup(df):
-    return df[
-        df.duplicated(["category", "model", "region", "scenario", "source", "unit", "variable"])
-    ]
+def dedup(df: pd.DataFrame):
+    return df.drop_duplicates(
+        ["category", "model", "region", "scenario", "source", "unit", "variable"]
+    )
 
 
 # national total is duplicated in Sector and Gas, so needs to be deduplicated here.
 ddf_wm = dedup(cdf_wm)
 ddf_wam = dedup(cdf_wam)
 ddf_wom = dedup(cdf_wom)
+ddf_wm["category"].unique()
 
 # %%
 data_wom = scmdata.ScmRun(ddf_wom)
