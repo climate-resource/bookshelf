@@ -1,5 +1,5 @@
 (notebooks-reference)=
-# Notebooks
+# Usage Examples
 
 Here we provide various examples of how to use bookshelf.
 They  are derived from
