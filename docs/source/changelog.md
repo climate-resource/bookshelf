@@ -19,6 +19,28 @@ of rst and use slightly different categories.
 
 <!-- towncrier release notes start -->
 
+## bookshelf v0.2.4 (2023-08-14)
+
+
+### Features
+
+- Added the Biennial Reports Common Table Format data reported by Annex-I parties as un-br-ctf.
+
+  For now, contains the GHG projections data. ([#38](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/38))
+
+### Bug Fixes
+
+- Add CLI entrypoint that was inadvertently missed when migrating to the new copier template. ([#39](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/39))
+- Fixed the un-br-ctf dataset, now includes a lot more data.
+
+  Version 2023-08, edition 1 of the un-br-ctf dataset is to be considered broken, always
+  use edition 2 instead. ([#40](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/40))
+
+### Improved Documentation
+
+- Added documentation about generating and using new versions of Books locally. ([#41](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/41))
+
+
 ## bookshelf v0.2.3 (2023-07-28)
 
 
