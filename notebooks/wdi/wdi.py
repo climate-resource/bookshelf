@@ -35,13 +35,14 @@ from bookshelf.notebook import load_nb_metadata
 # %%
 logging.basicConfig(level=logging.INFO)
 
-# %%
-metadata = load_nb_metadata("wdi")
-metadata.dict()
-
 # %% tags=["parameters"]
 # This cell contains additional parameters that are controlled using papermill
 local_bookshelf = tempfile.mkdtemp()
+version = "v23"
+
+# %%
+metadata = load_nb_metadata("wdi", version=version)
+metadata.dict()
 
 # %%
 local_bookshelf
@@ -193,9 +194,7 @@ data.filter(variable="GDP|PPP", unit="constant 2017 international $").lineplot(
 data.get_unique_meta("region")
 
 # %%
-book = LocalBook.create_new(
-    name=metadata.name, version=metadata.version, local_bookshelf=local_bookshelf
-)
+book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 
 # %%
 # Entire dataset (~168 MB uncompressed)
