@@ -1,0 +1,15 @@
+name: gdp-ndc-tool
+edition: 1
+license: not specified
+description: GDP results from the Excel NDC Tool version 13Mar23a_CR - legacy use only
+metadata:
+  author: Mika Pflüger
+  author_email: mika.pflueger@climate-resource.com
+
+versions:
+  - version: 2023-10
+    dataset:
+      files:
+        - url: https://example.com
+          hash: nonmatching
+      author: Climate Resource
