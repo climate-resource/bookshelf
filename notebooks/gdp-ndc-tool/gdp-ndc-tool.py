@@ -49,7 +49,10 @@ local_bookshelf
 # # Fetch
 
 # %%
-sr = scmdata.ScmRun("13Mar2023a_CR_gdp_results.csv")
+csv_fname = metadata.download_file()
+
+# %%
+sr = scmdata.ScmRun(csv_fname)
 sr
 
 # %% [markdown]

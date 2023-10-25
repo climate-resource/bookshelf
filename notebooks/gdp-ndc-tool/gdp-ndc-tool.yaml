@@ -10,6 +10,6 @@ versions:
   - version: 2023-10
     dataset:
       files:
-        - url: https://example.com
-          hash: nonmatching
+        - url: file://13Mar2023a_CR_gdp_results.csv
+          hash: 716b7abd675273cc499646cb007d218779250590a68915421c7c3fbfab90aa51
       author: Climate Resource
