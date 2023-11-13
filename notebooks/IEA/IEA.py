@@ -56,7 +56,7 @@ output_totco2_df = pd.DataFrame(output_totco2)
 
 # %%
 output_totco2_df = output_totco2_df.rename(
-    columns={"country": "region", "short": "name", "seriesLabel": "variable", "units": "unit"}
+    columns={"country": "region", "seriesLabel": "variable", "units": "unit"}
 )
 output_totco2_df["scenario"] = "default_scenario"
 output_totco2_df["model"] = "IEA model"
@@ -79,6 +79,11 @@ for index, row in output_totco2_df.iterrows():
     else:
         output_totco2_df.loc[index, "country"] = None
 
+
+# %%
+output_totco2_df = output_totco2_df.drop("short", axis=1)
+output_totco2_df = output_totco2_df.rename(columns={"country": "name"})
+
 # %%
 output_totco2_df = output_totco2_df.pivot_table(
     index=[
@@ -100,16 +105,16 @@ output_totco2_df = output_totco2_df.pivot_table(
 output_totco2_df
 
 # %%
-output_totco2_ScmRun2 = ScmRun(output_totco2_df)
+output_totco2_ScmRun = ScmRun(output_totco2_df)
 
 # %%
-output_totco2_ScmRun2.timeseries()
+output_totco2_ScmRun.timeseries()
 
 # %%
 book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 
 # %%
-book.add_timeseries("totco2", output_totco2_ScmRun2)
+book.add_timeseries("iea_totco2", output_totco2_ScmRun)
 
 # %%
 book.metadata()
