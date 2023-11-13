@@ -148,7 +148,6 @@ select = [
     "NPY",  # numpy rules
     "RUF",  # ruff specifics
     "UP",  # pyupgrade
-    "S",  # flake8-bandit
     # pandas support via pandas-vet. In some cases we will want to disable
     # this because it can lead to too many false positives.
     "PD",

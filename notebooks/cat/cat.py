@@ -118,9 +118,6 @@ for year in range(1990, 2051):
 CAT_df
 
 # %%
-# CAT_df.to_csv(constants.PROCESS_DATA_DIR / "CAT.csv", index=False)
-
-# %%
 CAT_df_ScmRun = ScmRun(CAT_df)
 
 # %%
