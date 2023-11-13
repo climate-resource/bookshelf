@@ -34,12 +34,6 @@ for country in tqdm.tqdm(iso3):
     totco2.append(totco2_data)
 
 # %%
-sum([1 for i in ndc if len(i) != 0])
-
-# %%
-sum([1 for i in totco2 if len(i) != 0])
-
-# %%
 output_ndc = []
 for i in range(len(ndc)):
     if len(ndc[i]) != 0:
