@@ -63,5 +63,5 @@ def cli(name: str, version: tuple[str, ...], include_private: bool, force: bool)
                 shelf = BookShelf()
                 shelf.publish(book, force=force)
             except Exception as exc:
-                logger.exception(f"Unable to process {name}@{version}")
+                logger.exception(f"Unable to process {name}@{dataset_version}")
                 raise click.Abort() from exc

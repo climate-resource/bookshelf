@@ -35,13 +35,14 @@ from bookshelf.notebook import load_nb_metadata
 # %%
 logging.basicConfig(level=logging.INFO)
 
-# %%
-metadata = load_nb_metadata("wdi")
-metadata.dict()
-
 # %% tags=["parameters"]
 # This cell contains additional parameters that are controlled using papermill
 local_bookshelf = tempfile.mkdtemp()
+version = "v23"
+
+# %%
+metadata = load_nb_metadata("wdi", version=version)
+metadata.dict()
 
 # %%
 local_bookshelf
@@ -75,9 +76,12 @@ column_rename = {
 df = df.rename(column_rename, axis=1)
 df["scenario"] = "historical"
 df["model"] = "World Bank"
-df["source"] = f"WDI_{metadata.version}"
+df["source"] = f"WDI @ {metadata.version}"
 df["unit"] = ""
-del df["Unnamed: 66"]
+
+bad_cols = df.columns[df.columns.str.startswith("Unnamed")]
+for col in bad_cols:
+    del df[col]
 
 # %%
 data = scmdata.ScmRun(df)
@@ -103,7 +107,7 @@ def get_units(run):
 
 
 # This can take a minute or two
-data = data.groupby("variable").map(get_units)
+data = data.groupby("variable").apply(get_units)
 
 # %% [markdown]
 # ## Emissions cleaning
@@ -117,9 +121,9 @@ data.meta[data.meta.unit.str.contains("kt")][["variable", "unit"]].drop_duplicat
 
 # %%
 # Fix emissions units to be emissions/yr
-data["unit"] = data["unit"].replace("thousand metric tons of CO2 equivalent", "kt CO2-eq/yr")
-data["unit"] = data["unit"].replace("kt of CO2 equivalent", "kt CO2-eq/yr")
-data["unit"] = data["unit"].replace("Mt of CO2 equivalent", "Mt CO2-eq/yr")
+data["unit"] = data["unit"].replace("thousand metric tons of CO2 equivalent", "kt CO2/yr")
+data["unit"] = data["unit"].replace("kt of CO2 equivalent", "kt CO2/yr")
+data["unit"] = data["unit"].replace("Mt of CO2 equivalent", "Mt CO2/yr")
 # Check above shows that only emissions ts use "kt" as units
 data["unit"] = data["unit"].replace("^kt$", "kt CO2/yr", regex=True)
 
@@ -130,8 +134,8 @@ variable_map = {
     "Agricultural nitrous oxide emissions": "Emissions|N2O|Agriculture",
     "CO2 emissions": "Emissions|CO2",
     "CO2 emissions from electricity and heat production|Total": "Emissions|CO2",
-    "CO2 emissions from gaseous fuel consumption": ("Emissions|CO2|Gaseous Fuel Consumption"),
-    "CO2 emissions from liquid fuel consumption": ("Emissions|CO2|Liquid Fuel Consumption"),
+    "CO2 emissions from gaseous fuel consumption": "Emissions|CO2|Gaseous Fuel Consumption",
+    "CO2 emissions from liquid fuel consumption": "Emissions|CO2|Liquid Fuel Consumption",
     "CO2 emissions from manufacturing industries and construction": (
         "Emissions|CO2|Manufacturing Industries and Construction"
     ),
@@ -190,9 +194,7 @@ data.filter(variable="GDP|PPP", unit="constant 2017 international $").lineplot(
 data.get_unique_meta("region")
 
 # %%
-book = LocalBook.create_new(
-    name=metadata.name, version=metadata.version, local_bookshelf=local_bookshelf
-)
+book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 
 # %%
 # Entire dataset (~168 MB uncompressed)
@@ -205,29 +207,13 @@ data.filter(variable="GDP").get_unique_meta("unit")
 # Smaller subset of data that is typically used for analysis
 subset = scmdata.run_append(
     [
-        data.filter(variable="GDP|PPP", unit="constant 2017 international $"),
-        data.filter(variable="GDP", unit="constant 2015 US$"),
+        data.filter(variable="GDP|PPP"),
+        data.filter(variable="GDP"),
         data.filter(variable="Emissions|*"),
         data.filter(variable="Population|Total"),
     ]
 )
 book.add_timeseries("core", subset)
 
-# %% [markdown]
-# Below the `Book`'s metadata is shown. This contains all of the metadata about the `Book` and the associated
-# `Resources`.
-#
-# This is the metadata that clients download and can be used to fetch the `Book`'s `Resources`. Once deployed
-# this `Book` becomes immutable. Any changes to the metadata or data requires releasing a new version of a
-# `Book`.
-
 # %%
 book.metadata()
-
-# %% [markdown]
-# That is all.
-#
-# This notebook is not responsible for uploading the book to the `BookShelf`. See docs for how to upload
-# `Books` to the `BookShelf`
-
-# %%
