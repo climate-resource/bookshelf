@@ -1,11 +1,11 @@
-name: IEA
+name: iea
 edition: 1
-license: MIT
+license: CC BY 4.0
 metadata:
   author: Yini Lai
   author_email: yini.lai@climate-resource.com
 versions:
-  - version: v0.1.0
+  - version: v20231116
     dataset:
       url: https://www.iea.org/data-and-statistics/data-tools/climate-pledges-explorer
       files:
