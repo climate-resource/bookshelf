@@ -1,11 +1,12 @@
-name: PBL
+name: ndcs-pbl
 edition: 1
-license: MIT
+license: Unknown
 metadata:
   author: Yini Lai
   author_email: yini.lai@climate-resource.com
 versions:
-  - version: v0.1.0
+  - version: v20230418
+    private: true
     dataset:
       url: https://themasites.pbl.nl/o/climate-ndc-policies-tool/data/pledges_data.php
       files:

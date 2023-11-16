@@ -1,11 +1,12 @@
 name: CAT
 edition: 1
-license: MIT
+license: Unknown
 metadata:
   author: Yini Lai
   author_email: yini.lai@climate-resource.com
 versions:
-  - version: v0.1.0
+  - version: v20231005
+    private: true
     dataset:
       url: https://climateactiontracker.org/
       files:

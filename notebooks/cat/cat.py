@@ -11,6 +11,13 @@ from scmdata import ScmRun
 from bookshelf import LocalBook
 from bookshelf.notebook import load_nb_metadata
 
+# %% [markdown]
+# ## How to download the data
+# 1. Go to the Climate Action Tracker homepage
+# 2. On the menu on the top, click the Countries drop-down list
+# 3. Go to the each country's homepage, There is a button named "DATA DOWNLOAD" under the line chart.
+# Click this button, the data can be downloaded
+
 # %%
 # This cell contains additional parameters that are controlled using papermill
 local_bookshelf = tempfile.mkdtemp()
@@ -20,8 +27,8 @@ metadata = load_nb_metadata("cat")
 metadata.dict()
 
 # %%
-ROOT_DIR = pathlib.Path("cat.py").resolve().parents[1]
-RAW_CAT_DATA_DIR = ROOT_DIR / "cat" / "CAT"
+ROOT_DIR = pathlib.Path(__file__).resolve().parents[1]
+RAW_CAT_DATA_DIR = ROOT_DIR / "cat" / metadata.version
 
 csv_files = glob.glob(os.path.join(RAW_CAT_DATA_DIR, "*.xls*"))
 
@@ -48,7 +55,7 @@ def get_CAT_countries() -> dict:
     countries = {}
     supplementary_countries = {
         "United States": "USA",
-        "European Union": "EU",
+        "European Union": "EU27",
         "Vietnam": "VNM",
         "Russia": "RUS",
         "Iran": "IRN",
@@ -84,13 +91,22 @@ for f in csv_files:
         region_name = countries[country_name]
 
     date = CAT_data.iloc[1, 3]
+    year = str(date.year)
+    month = str(date.month)
+    day = str(date.day)
+    if len(month) == 1:
+        month = "0" + month
+    if len(day) == 1:
+        day = "0" + day
+    date = "v" + year + month + day
+
     CAT_data = CAT_data.iloc[3:, 2:]
     CAT_data.columns = CAT_data.iloc[0]
     CAT_data = CAT_data[1:]
 
     # Insert meta data columns into dataframe.
-    CAT_data.insert(2, "variable", "Total GHG")
-    CAT_data.insert(2, "unit", "MtCO2e/yr")
+    CAT_data.insert(2, "variable", "Emissions|Total GHG")
+    CAT_data.insert(2, "unit", "MtCO2/yr")
     CAT_data.insert(0, "country", country_name)
     CAT_data.insert(0, "region", str(region_name))
     CAT_data.insert(0, "model_version", date)

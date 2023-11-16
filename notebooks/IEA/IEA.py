@@ -15,7 +15,7 @@ from bookshelf.notebook import load_nb_metadata
 local_bookshelf = tempfile.mkdtemp()
 
 # %%
-metadata = load_nb_metadata("IEA")
+metadata = load_nb_metadata("iea")
 metadata.dict()
 
 # %%
@@ -58,11 +58,13 @@ output_totco2_df = pd.DataFrame(output_totco2)
 output_totco2_df = output_totco2_df.rename(
     columns={"country": "region", "seriesLabel": "variable", "units": "unit"}
 )
+output_totco2_df["category"] = "1"
+output_totco2_df["variable"] = "Emissions|CO2"
 output_totco2_df["scenario"] = "default_scenario"
 output_totco2_df["model"] = "IEA model"
-output_totco2_df["model_version"] = "IEA_default_model_version"
+output_totco2_df["model_version"] = metadata.version
 output_totco2_df["conditionality"] = "unconditional"
-output_totco2_df["unit"] = output_totco2_df["unit"].map({"Mt of CO2": "MtCO2e/yr"})
+output_totco2_df["unit"] = output_totco2_df["unit"].map({"Mt of CO2": "MtCO2/yr"})
 
 # %%
 output_totco2_df = output_totco2_df.drop(columns=["flowLabel", "flowOrder", "flow"])
@@ -75,14 +77,13 @@ for index, row in output_totco2_df.iterrows():
     region = row["region"]
     region_lst = pycountry.countries.get(alpha_3=region)
     if region_lst is not None:
-        output_totco2_df.loc[index, "country"] = region_lst.name
+        output_totco2_df.loc[index, "name"] = region_lst.name
     else:
-        output_totco2_df.loc[index, "country"] = None
+        output_totco2_df.loc[index, "name"] = None
 
 
 # %%
 output_totco2_df = output_totco2_df.drop("short", axis=1)
-output_totco2_df = output_totco2_df.rename(columns={"country": "name"})
 
 # %%
 output_totco2_df = output_totco2_df.pivot_table(
@@ -91,11 +92,11 @@ output_totco2_df = output_totco2_df.pivot_table(
         "variable",
         "unit",
         "region",
+        "category",
         "scenario",
         "model",
         "model_version",
         "conditionality",
-        "country",
     ],
     columns="year",
     values="value",
