@@ -20,7 +20,7 @@ metadata.dict()
 
 
 # %%
-def get_PBL_countries() -> dict:
+def get_PBL_countries() -> dict[str, str]:
     """
     Retrieve country names and 3 letter code for countries in PBL
 
@@ -30,7 +30,6 @@ def get_PBL_countries() -> dict:
 
     Returns
     -------
-    dict
         A dictionary mapping country names (keys) to their ISO 3166-1 alpha-3 codes (values).
 
     Notes
@@ -86,15 +85,17 @@ encoding = x.info().get_content_charset("utf8")
 data = json.loads(raw_data.decode(encoding))
 
 # %%
-VALUE_LEN = 1
-BOUND_LEN = 2
+VALUE_LEN = 1  # comment explaining what this is
+BOUND_LEN = 2  # comment explaining what this is
 output = []
 countries = get_PBL_countries()
+# How do we know this?
 year_lst = list(range(1990, 2031))
 
 # Metadata fields of interest
 interested_meta = ["name", "lulucf"]
 unit_mapping = {
+    # How do we know this?
     "emissions": "Mt CO2/yr",
     "gdp": "10^12 $/Currency",
     "population": "Mio",
@@ -117,6 +118,7 @@ for k, v in data.items():
         meta_dict["region"] = countries[meta_dict["name"]]
 
     # If country name is blank, use name as fallback
+    # To avoid nans? Makes sense but differs from IEA
     else:
         meta_dict["region"] = meta_dict["name"]
 
@@ -137,8 +139,16 @@ for k, v in data.items():
 
                     timeseries_dict[time] = number
 
+                common_meta = {
+                    "scenario": scenario,
+                    "conditionality": None,
+                    "unit": unit_mapping[variable],
+                    "variable": variable,
+                }
+
                 # If data includes bounds, split into low and high
                 if any([isinstance(i, tuple) for i in timeseries_dict.values()]):
+                    # Add assertion that v[0] <= v[1] in case bounds are backwards for some reason
                     low_timerseries_dict = {
                         k: (v[0] if type(v) == tuple else v) for k, v in timeseries_dict.items()
                     }
@@ -149,10 +159,7 @@ for k, v in data.items():
                         {
                             **meta_dict,
                             "ambition": "low",
-                            "scenario": scenario,
-                            "conditionality": None,
-                            "unit": unit_mapping[variable],
-                            "variable": variable,
+                            **common_meta,
                             **low_timerseries_dict,
                         }
                     )
@@ -160,10 +167,7 @@ for k, v in data.items():
                         {
                             **meta_dict,
                             "ambition": "high",
-                            "scenario": scenario,
-                            "conditionality": None,
-                            "unit": unit_mapping[variable],
-                            "variable": variable,
+                            **common_meta,
                             **high_timerseries_dict,
                         }
                     )
@@ -172,10 +176,7 @@ for k, v in data.items():
                         {
                             **meta_dict,
                             "ambition": None,
-                            "scenario": scenario,
-                            "conditionality": None,
-                            "unit": unit_mapping[variable],
-                            "variable": variable,
+                            **common_meta,
                             **timeseries_dict,
                         }
                     )
@@ -214,6 +215,8 @@ for k, v in data.items():
 output_df = pd.DataFrame(output)
 
 # %%
+# This remapping is complicated enough that I would write a simple test to make sure it behaves
+
 # output_df ambition
 output_df.loc[output_df["conditionality"].str.contains("l", na=False), "ambition"] = "low"
 output_df.loc[output_df["conditionality"].str.contains("h", na=False), "ambition"] = "high"
