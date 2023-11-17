@@ -4,6 +4,7 @@ import os
 import pathlib
 import tempfile
 
+import numpy as np
 import pandas as pd
 import pycountry
 from scmdata import ScmRun
@@ -27,14 +28,15 @@ metadata = load_nb_metadata("cat")
 metadata.dict()
 
 # %%
-ROOT_DIR = pathlib.Path(__file__).resolve().parents[1]
+# ROOT_DIR = pathlib.Path(__file__).resolve().parents[1]
+ROOT_DIR = pathlib.Path("..").resolve()
 RAW_CAT_DATA_DIR = ROOT_DIR / "cat" / metadata.version
 
 csv_files = glob.glob(os.path.join(RAW_CAT_DATA_DIR, "*.xls*"))
 
 
 # %%
-def get_CAT_countries() -> dict:
+def get_CAT_countries() -> dict[str, str]:
     """
     Retrieve country names and 3 letter code for countries in CAT
 
@@ -72,16 +74,19 @@ def get_CAT_countries() -> dict:
 
 
 # %%
-CAT_df = pd.DataFrame()
-# Iterate through each Excel file.
+CAT_df = []
+
 for f in csv_files:
-    # Skip initial 19 rows which contain dataset descriptions, repeated across files.
+    # Skip initial 19 rows which contain dataset descriptions, same across files.
     CAT_data = pd.read_excel(open(f, "rb"), sheet_name="Assessment", skiprows=19)
+    # Country name always in same cell
     country_name = CAT_data.iloc[0, 3]
+    date = CAT_data.iloc[1, 3]
 
     # Standardize country names to maintain consistency.
     if country_name == "USA":
         country_name = "United States"
+
     elif country_name == "EU ":
         country_name = "European Union"
 
@@ -90,15 +95,12 @@ for f in csv_files:
     if country_name in countries.keys():
         region_name = countries[country_name]
 
-    date = CAT_data.iloc[1, 3]
     year = str(date.year)
-    month = str(date.month)
-    day = str(date.day)
-    if len(month) == 1:
-        month = "0" + month
-    if len(day) == 1:
-        day = "0" + day
-    date = "v" + year + month + day
+    month = f"{date.month:02}"
+    day = f"{date.day:02}"
+
+    # What does model_version mean?
+    model_version = "v" + year + month + day
 
     CAT_data = CAT_data.iloc[3:, 2:]
     CAT_data.columns = CAT_data.iloc[0]
@@ -108,15 +110,19 @@ for f in csv_files:
     CAT_data.insert(2, "variable", "Emissions|Total GHG")
     CAT_data.insert(2, "unit", "MtCO2/yr")
     CAT_data.insert(0, "country", country_name)
+    # Do we always store ISO3 in region?
     CAT_data.insert(0, "region", str(region_name))
-    CAT_data.insert(0, "model_version", date)
+    CAT_data.insert(0, "model_version", model_version)
+    # How do we know this value is correct?
     CAT_data.insert(0, "gwp_metric", "AR4GWP100")
+    # Why put CAT in model column?
     CAT_data.insert(0, "model", "CAT")
 
     # Consolidate current country's data with main dataframe.
-    CAT_df = pd.concat([CAT_df, CAT_data])
+    CAT_df.append(CAT_data)
 
-CAT_df = CAT_df.rename(columns={"Graph label": "scenario"})
+
+CAT_df = pd.concat(CAT_df).rename(columns={"Graph label": "scenario"})
 
 # Create a category column based on the information in the Sector/Type and scenario
 CAT_df.loc[
@@ -124,12 +130,12 @@ CAT_df.loc[
 ] = "M.0.EL"
 CAT_df.loc[CAT_df["Sector/Type"].str.contains("LULUCF", na=False), "category"] = "M.LULUCF"
 
+# How do we know this is correct?
 CAT_df.loc[CAT_df["scenario"].str.contains("Unconditional", na=False), "category"] = "M.0.EL"
 CAT_df.loc[CAT_df["scenario"].str.contains("Conditional", na=False), "category"] = "M.0.EL"
 
-# Replace placeholder values ('-') with None.
-for year in range(1990, 2051):
-    CAT_df[year] = CAT_df[year].replace("-", None)
+# Identify nan values consistently
+CAT_df = CAT_df.replace("-", np.nan)
 
 CAT_df
 
