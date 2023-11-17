@@ -10,6 +10,4 @@ versions:
     dataset:
       url: https://climateactiontracker.org/
       files:
-        - url: https://climateactiontracker.org/
-          hash: 6d337104e918c4f77651ea74e9935884f6eb275725ec5c7a43eb343826bcd03a
       author: CAT

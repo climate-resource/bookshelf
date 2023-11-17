@@ -95,7 +95,7 @@ year_lst = list(range(1990, 2031))
 # Metadata fields of interest
 interested_meta = ["name", "lulucf"]
 unit_mapping = {
-    "emissions": "Mt CO2eq/yr",
+    "emissions": "Mt CO2/yr",
     "gdp": "10^12 $/Currency",
     "population": "Mio",
 }
