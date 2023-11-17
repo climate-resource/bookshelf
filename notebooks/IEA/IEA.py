@@ -34,35 +34,50 @@ for country in tqdm.tqdm(iso3):
     totco2.append(totco2_data)
 
 # %%
+# Probably better way to do this with zip and something else
+# I would say worth 10 mins looking into that
 output_ndc = []
-for i in range(len(ndc)):
-    if len(ndc[i]) != 0:
-        for j in range(len(ndc[i])):
-            output_ndc.append(ndc[i][j])
+for ndc_target_list in ndc:
+    if not ndc_target_list:
+        continue
+
+    for ndc_target in ndc_target_list:
+        output_ndc.append(ndc_target)
 
 # %%
 output_ndc_df = pd.DataFrame(output_ndc)
 output_ndc_df
 
 # %%
+# Probably better way to do this with zip and something else
+# I would say worth 10 mins looking into that
 output_totco2 = []
-for i in range(len(totco2)):
-    if len(totco2[i]) != 0:
-        for j in range(len(totco2[i])):
-            output_totco2.append(totco2[i][j])
+for totco2_group in totco2:
+    if not totco2_group:
+        continue
+
+    for co2_emms_yr in totco2_group:
+        output_totco2.append(co2_emms_yr)
 
 # %%
 output_totco2_df = pd.DataFrame(output_totco2)
+output_totco2_df
 
 # %%
 output_totco2_df = output_totco2_df.rename(
     columns={"country": "region", "seriesLabel": "variable", "units": "unit"}
 )
+# How do we know this?
 output_totco2_df["category"] = "1"
+# How do we know this?
 output_totco2_df["variable"] = "Emissions|CO2"
+# What is this?
 output_totco2_df["scenario"] = "default_scenario"
+# How do we know this?
 output_totco2_df["model"] = "IEA model"
+# What is model_version?
 output_totco2_df["model_version"] = metadata.version
+# How do we know this?
 output_totco2_df["conditionality"] = "unconditional"
 output_totco2_df["unit"] = output_totco2_df["unit"].map({"Mt of CO2": "MtCO2/yr"})
 
@@ -76,10 +91,12 @@ output_totco2_df = output_totco2_df.drop_duplicates()
 for index, row in output_totco2_df.iterrows():
     region = row["region"]
     region_lst = pycountry.countries.get(alpha_3=region)
+
     if region_lst is not None:
-        output_totco2_df.loc[index, "name"] = region_lst.name
+        output_totco2_df.loc[index, "country"] = region_lst.name
     else:
-        output_totco2_df.loc[index, "name"] = None
+        # Surely raise here rather than None? Why would we want an unlabelled country?
+        output_totco2_df.loc[index, "country"] = None
 
 
 # %%
@@ -88,7 +105,7 @@ output_totco2_df = output_totco2_df.drop("short", axis=1)
 # %%
 output_totco2_df = output_totco2_df.pivot_table(
     index=[
-        "name",
+        "country",
         "variable",
         "unit",
         "region",
@@ -115,6 +132,7 @@ output_totco2_ScmRun.timeseries()
 book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 
 # %%
+# What is this name? iea_totco2?
 book.add_timeseries("iea_totco2", output_totco2_ScmRun)
 
 # %%
