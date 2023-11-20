@@ -180,7 +180,7 @@ class NotebookMetadata(BaseModel):
             )
             return res
         else:
-            return None
+            return "No file to download"
 
 
 class ConfigSchema(BaseModel):
