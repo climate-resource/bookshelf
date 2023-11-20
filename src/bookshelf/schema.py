@@ -83,7 +83,7 @@ class DatasetMetadata(BaseModel):
 
     url: Optional[str]
     doi: Optional[str]
-    files: list[FileDownloadInfo] = []
+    files: Optional[list[FileDownloadInfo]]
     author: str
 
 
