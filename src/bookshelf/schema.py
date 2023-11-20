@@ -159,25 +159,28 @@ class NotebookMetadata(BaseModel):
         str
             Filename of the locally downloaded file
         """
-        cache_location = get_env_var(
-            "DOWNLOAD_CACHE_LOCATION", raise_on_missing=False, default=None
-        )
-        file_info = self.dataset.files[idx]
+        if self.dataset.files:
+            cache_location = get_env_var(
+                "DOWNLOAD_CACHE_LOCATION", raise_on_missing=False, default=None
+            )
+            file_info = self.dataset.files[idx]
 
-        file_hash: Optional[str] = file_info.hash
-        if not file_hash:
-            # replace an empty string with None
-            file_hash = None
+            file_hash: Optional[str] = file_info.hash
+            if not file_hash:
+                # replace an empty string with None
+                file_hash = None
 
-        if file_info.url.startswith("file://"):
-            return file_info.url[7:]
+            if file_info.url.startswith("file://"):
+                return file_info.url[7:]
 
-        res: str = pooch.retrieve(
-            file_info.url,
-            known_hash=file_hash,
-            path=cache_location,
-        )
-        return res
+            res: str = pooch.retrieve(
+                file_info.url,
+                known_hash=file_hash,
+                path=cache_location,
+            )
+            return res
+        else:
+            return None
 
 
 class ConfigSchema(BaseModel):
