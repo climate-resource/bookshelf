@@ -1,6 +1,8 @@
 name: iea
 edition: 1
 license: CC BY 4.0
+description: |
+  IEA's estimated energy sector CO2 emissions implied by the counrties current mitigation targets
 metadata:
   author: Yini Lai
   author_email: yini.lai@climate-resource.com

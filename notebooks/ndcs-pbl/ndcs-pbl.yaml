@@ -1,6 +1,10 @@
 name: ndcs-pbl
 edition: 1
 license: Unknown
+description: |
+  Comprehensive set of historical greenhouse gas emissions,
+  updated NDCs and greenhouse gas emission projections with
+  and without current domestic climate policies up to 2030 for every country
 metadata:
   author: Yini Lai
   author_email: yini.lai@climate-resource.com

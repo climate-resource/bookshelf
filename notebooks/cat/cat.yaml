@@ -1,6 +1,8 @@
 name: CAT
 edition: 1
 license: Unknown
+description:
+  Comprehensive set of historical and projected greenhouse gas emissions for every country
 metadata:
   author: Yini Lai
   author_email: yini.lai@climate-resource.com
