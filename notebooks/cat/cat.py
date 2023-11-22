@@ -27,8 +27,8 @@ metadata = load_nb_metadata("cat")
 metadata.dict()
 
 # %%
-ROOT_DIR = pathlib.Path(__file__).resolve().parents[1]
-RAW_CAT_DATA_DIR = ROOT_DIR / "cat" / metadata.version
+NOTEBOOK_DIR = pathlib.Path().resolve()
+RAW_CAT_DATA_DIR = NOTEBOOK_DIR / metadata.version
 
 csv_files = glob.glob(os.path.join(RAW_CAT_DATA_DIR, "*.xls*"))
 
