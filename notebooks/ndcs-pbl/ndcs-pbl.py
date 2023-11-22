@@ -20,7 +20,7 @@ metadata.dict()
 
 
 # %%
-def get_PBL_countries() -> dict:
+def get_PBL_countries() -> dict[str, str]:
     """
     Retrieve country names and 3 letter code for countries in PBL
 
@@ -137,22 +137,36 @@ for k, v in data.items():
 
                     timeseries_dict[time] = number
 
+                common_meta = {
+                    "scenario": scenario,
+                    "conditionality": None,
+                    "unit": unit_mapping[variable],
+                    "variable": variable,
+                }
+
                 # If data includes bounds, split into low and high
                 if any([isinstance(i, tuple) for i in timeseries_dict.values()]):
-                    low_timerseries_dict = {
-                        k: (v[0] if type(v) == tuple else v) for k, v in timeseries_dict.items()
-                    }
-                    high_timerseries_dict = {
-                        k: (v[1] if type(v) == tuple else v) for k, v in timeseries_dict.items()
-                    }
+                    low_timerseries_dict = {}
+                    high_timerseries_dict = {}
+                    for key, value in timeseries_dict.items():
+                        if type(value) == tuple:
+                            if value[0] is None or value[1] is None:
+                                low_timerseries_dict[key] = value[0]
+                                high_timerseries_dict[key] = value[1]
+                            elif value[0] <= value[1]:
+                                low_timerseries_dict[key] = value[0]
+                                high_timerseries_dict[key] = value[1]
+                            else:
+                                low_timerseries_dict[key] = value[1]
+                                high_timerseries_dict[key] = value[0]
+                        else:
+                            low_timerseries_dict[key] = value
+
                     output.append(
                         {
                             **meta_dict,
                             "ambition": "low",
-                            "scenario": scenario,
-                            "conditionality": None,
-                            "unit": unit_mapping[variable],
-                            "variable": variable,
+                            **common_meta,
                             **low_timerseries_dict,
                         }
                     )
@@ -160,10 +174,7 @@ for k, v in data.items():
                         {
                             **meta_dict,
                             "ambition": "high",
-                            "scenario": scenario,
-                            "conditionality": None,
-                            "unit": unit_mapping[variable],
-                            "variable": variable,
+                            **common_meta,
                             **high_timerseries_dict,
                         }
                     )
@@ -172,10 +183,7 @@ for k, v in data.items():
                         {
                             **meta_dict,
                             "ambition": None,
-                            "scenario": scenario,
-                            "conditionality": None,
-                            "unit": unit_mapping[variable],
-                            "variable": variable,
+                            **common_meta,
                             **timeseries_dict,
                         }
                     )
@@ -246,13 +254,42 @@ output_df.loc[output_df["variable"] == "population", "variable"] = "Population"
 output_df.loc[output_df["variable"] == "gdp", "variable"] = "GDP"
 
 # category
-
 output_df.loc[
     (output_df["variable"] == "Emissions|Total GHG") & (output_df["lulucf"] == "excl"), "category"
 ] = "M.0.EL"
 output_df.loc[
     (output_df["variable"] == "Emissions|Total GHG") & (output_df["lulucf"] == "incl"), "category"
 ] = "0"
+
+# %%
+assert [value for value in output_df["ambition"].unique().tolist() if value is not None].sort() == [
+    "low",
+    "high",
+    "mean",
+].sort()
+
+assert (
+    output_df["scenario"].unique().tolist().sort()
+    == [
+        "Historical",
+        "bound",
+        "degree",
+        "degree15",
+        "pbl",
+        "national",
+        "pledge ndcs",
+        "Updated NDC",
+        "Initial NDC",
+    ].sort()
+)
+assert [
+    value for value in output_df["conditionality"].unique().tolist() if value is not None
+].sort() == ["conditional", "unconditional"].sort()
+assert (
+    output_df["variable"].unique().tolist().sort()
+    == ["Emissions|Total GHG", "Population", "GDP"].sort()
+)
+assert output_df["category"].unique().tolist().sort() == ["M.0.EL", "nan", "0"].sort()
 
 
 # %%
