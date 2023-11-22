@@ -15,7 +15,7 @@ from bookshelf.notebook import load_nb_metadata
 local_bookshelf = tempfile.mkdtemp()
 
 # %%
-metadata = load_nb_metadata("iea")
+metadata = load_nb_metadata("IEA")
 metadata.dict()
 
 # %%
