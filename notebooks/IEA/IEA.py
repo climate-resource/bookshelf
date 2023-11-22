@@ -15,7 +15,7 @@ from bookshelf.notebook import load_nb_metadata
 local_bookshelf = tempfile.mkdtemp()
 
 # %%
-metadata = load_nb_metadata("IEA")
+metadata = load_nb_metadata("iea")
 metadata.dict()
 
 # %%
@@ -35,10 +35,12 @@ for country in tqdm.tqdm(iso3):
 
 # %%
 output_ndc = []
-for i in range(len(ndc)):
-    if len(ndc[i]) != 0:
-        for j in range(len(ndc[i])):
-            output_ndc.append(ndc[i][j])
+for ndc_target_list in ndc:
+    if not ndc_target_list:
+        continue
+
+    for ndc_target in ndc_target_list:
+        output_ndc.append(ndc_target)
 
 # %%
 output_ndc_df = pd.DataFrame(output_ndc)
@@ -46,10 +48,12 @@ output_ndc_df
 
 # %%
 output_totco2 = []
-for i in range(len(totco2)):
-    if len(totco2[i]) != 0:
-        for j in range(len(totco2[i])):
-            output_totco2.append(totco2[i][j])
+for totco2_group in totco2:
+    if not totco2_group:
+        continue
+
+    for co2_emms_yr in totco2_group:
+        output_totco2.append(co2_emms_yr)
 
 # %%
 output_totco2_df = pd.DataFrame(output_totco2)
@@ -115,7 +119,7 @@ output_totco2_ScmRun.timeseries()
 book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 
 # %%
-book.add_timeseries("iea_totco2", output_totco2_ScmRun)
+book.add_timeseries("iea_energy_sector_co2_emissions", output_totco2_ScmRun)
 
 # %%
 book.metadata()
