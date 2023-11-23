@@ -159,12 +159,14 @@ class NotebookMetadata(BaseModel):
         str
             Filename of the locally downloaded file
         """
-        if len(self.dataset.files) < idx:
-            raise ValueError("Requested index does not exist")
         cache_location = get_env_var(
             "DOWNLOAD_CACHE_LOCATION", raise_on_missing=False, default=None
         )
-        file_info = self.dataset.files[idx]
+
+        try:
+            file_info = self.dataset.files[idx]
+        except IndexError as e:
+            raise ValueError("Requested index does not exist") from e
 
         file_hash: Optional[str] = file_info.hash
         if not file_hash:
