@@ -83,7 +83,7 @@ class DatasetMetadata(BaseModel):
 
     url: Optional[str]
     doi: Optional[str]
-    files: list[FileDownloadInfo]
+    files: list[FileDownloadInfo] = Field(default_factory=list)
     author: str
 
 
@@ -162,7 +162,11 @@ class NotebookMetadata(BaseModel):
         cache_location = get_env_var(
             "DOWNLOAD_CACHE_LOCATION", raise_on_missing=False, default=None
         )
-        file_info = self.dataset.files[idx]
+
+        try:
+            file_info = self.dataset.files[idx]
+        except IndexError as e:
+            raise ValueError("Requested index does not exist") from e
 
         file_hash: Optional[str] = file_info.hash
         if not file_hash:
