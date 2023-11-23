@@ -57,7 +57,6 @@ def get_dataset_structure(data: ScmRun) -> None:
         row_str = " "
         for i in range(len(v_lst) - 1):
             v = np.array(v_lst[i]).astype(str)
-            width = len(sorted(v, key=len, reverse=True)[0]) + 5
             if index < len(v_lst[i]):
                 row_str += "{:<{width}}".format(v_lst[i][index], width=width_lst[i])
             else:
