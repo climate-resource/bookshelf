@@ -11,7 +11,7 @@ from scmdata import ScmRun
 
 
 # %%
-def get_dataset_dictionary(data: ScmRun) -> dict:
+def get_dataset_dictionary(data: ScmRun) -> dict[str, any]:
     """
     Extract unique metadata values from an ScmRun object.
 
