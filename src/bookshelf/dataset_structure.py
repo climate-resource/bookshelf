@@ -1,4 +1,3 @@
-# %%
 """
 Dataset structure
 
@@ -6,11 +5,11 @@ This module offers some functions to display the structure of a dataset
 """
 
 
-# %%
+from __future__ import annotations
+
 from scmdata import ScmRun
 
 
-# %%
 def get_dataset_dictionary(data: ScmRun) -> dict[str, str | float | int]:
     """
     Extract unique metadata values from an ScmRun object.
@@ -36,7 +35,6 @@ def get_dataset_dictionary(data: ScmRun) -> dict[str, str | float | int]:
     return data_dict
 
 
-# %%
 def print_dataset_structure(data: ScmRun) -> None:
     """
     Print the structure of a dataset.
