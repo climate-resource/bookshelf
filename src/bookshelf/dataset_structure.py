@@ -21,24 +21,23 @@ def get_dataset_dictionary(data: ScmRun) -> dict[str, str]:
 
     Parameters
     ----------
-    data: ScmRun
+    data
         The input ScmRun object from which metadata will be extracted.
 
     Returns
     -------
-    dict
         A dictionary with column names as keys and lists of unique values in those
         columns as values. The values are extracted from the metadata of the ScmRun object.
     """
     data_dict = {}
-    for column in data.meta.columns:
+    for column in data.meta_attributes:
         data_dict[column] = data.get_unique_meta(column)
 
     return data_dict
 
 
 # %%
-def get_dataset_structure(data: ScmRun) -> None:
+def print_dataset_structure(data: ScmRun) -> None:
     """
     Print the structure of a dataset.
 
@@ -48,12 +47,11 @@ def get_dataset_structure(data: ScmRun) -> None:
 
     Parameters
     ----------
-    data: ScmRun
+    data
         The input dataset in the form of an ScmRun object.
 
     Returns
     -------
-    None
         This function does not return anything. It prints the dataset structure
         directly to the console.
     """
@@ -71,6 +69,14 @@ def get_dataset_structure(data: ScmRun) -> None:
 
     # Print header
     print("".join(f"{item:{width}}" for item, width in zip(k_lst, width_lst)))
+
+    # Print header divider
+    print(
+        "".join(
+            f"{item:{width}}"
+            for item, width in zip(["-" * (width - 5) for width in width_lst], width_lst)
+        )
+    )
 
     # Print each row of values
     for i in range(max_length):

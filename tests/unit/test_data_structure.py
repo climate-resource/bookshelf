@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 from scmdata import ScmRun
 
-from bookshelf.dataset_structure import get_dataset_dictionary, get_dataset_structure
+from bookshelf.dataset_structure import get_dataset_dictionary, print_dataset_structure
 
 
 # Fixture for creating a sample ScmRun object
@@ -35,15 +35,16 @@ def test_get_dataset_dictionary(sample_scmrun):
     assert result_dict == expected_dict, "Dictionary output does not match expected format."
 
 
-def test_get_dataset_structure(sample_scmrun, capsys):
+def test_print_dataset_structure(sample_scmrun, capsys):
     # Call the function which will print to the console
-    get_dataset_structure(sample_scmrun)
+    print_dataset_structure(sample_scmrun)
 
     # Capture the output from stdout and stderr
     captured = capsys.readouterr()
 
     expected_output = (
         "model      region          scenario     unit            variable        \n"
+        "------     -----------     --------     -----------     -----------     \n"
         "model1     unspecified     rcp26        unspecified     unspecified     \n"
         "model2                                                                  \n"
         "model3                                                                  \n"
