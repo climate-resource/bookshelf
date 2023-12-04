@@ -7,10 +7,12 @@ This module offers some functions to display the structure of a dataset
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from scmdata import ScmRun
 
 
-def get_dataset_dictionary(data: ScmRun) -> dict[str, str | float | int]:
+def get_dataset_dictionary(data: ScmRun) -> dict[str, Iterable[str | float | int]]:
     """
     Extract unique metadata values from an ScmRun object.
 
@@ -28,7 +30,7 @@ def get_dataset_dictionary(data: ScmRun) -> dict[str, str | float | int]:
         A dictionary with column names as keys and lists of unique values in those
         columns as values. The values are extracted from the metadata of the ScmRun object.
     """
-    data_dict = {}
+    data_dict: dict[str, Iterable[str | int | float]] = {}
     for column in data.meta_attributes:
         data_dict[column] = data.get_unique_meta(column)
 
