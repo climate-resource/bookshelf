@@ -120,7 +120,7 @@ CAT_df = pd.concat(CAT_df).rename(columns={"Graph label": "scenario"})
 CAT_df.loc[
     CAT_df["Sector/Type"].str.contains("Total, excl LULUCF", na=False), "category"
 ] = "M.0.EL"
-CAT_df.loc[CAT_df["Sector/Type"].str.contains("LULUCF", na=False), "category"] = "M.LULUCF"
+CAT_df.loc[CAT_df["Sector/Type"] == "LULUCF", "category"] = "M.LULUCF"
 
 CAT_df.loc[CAT_df["scenario"].str.contains("Unconditional", na=False), "category"] = "M.0.EL"
 CAT_df.loc[CAT_df["scenario"].str.contains("Conditional", na=False), "category"] = "M.0.EL"
