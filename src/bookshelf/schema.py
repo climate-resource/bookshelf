@@ -74,6 +74,27 @@ class FileDownloadInfo(BaseModel):
     hash: str
 
 
+class Controlled_Vocabulary(BaseModel):
+    """
+    Controlled vocabulary information about a dimension
+    """
+
+    value: str
+    description: str
+
+
+class Dimension(BaseModel):
+    """
+    Dimension information about a single version of a book
+    """
+
+    name: str
+    description: str
+    type: str
+    required: bool
+    controlled_vocabulary: Optional[list[Controlled_Vocabulary]] = None
+
+
 class DatasetMetadata(BaseModel):
     """
     Metadata about a dataset
@@ -95,6 +116,7 @@ class VersionMetadata(BaseModel):
     version: Version
     dataset: DatasetMetadata
     private: Optional[bool] = Field(default=False)
+    structure: list[Dimension]
 
 
 class NotebookMetadata(BaseModel):
@@ -113,6 +135,7 @@ class NotebookMetadata(BaseModel):
     private: bool
     metadata: dict[str, Any]  # TODO: type this
     dataset: DatasetMetadata
+    structure: list[Dimension]
 
     def long_name(self) -> str:
         """
