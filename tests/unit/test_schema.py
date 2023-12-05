@@ -17,6 +17,13 @@ def notebook_metadata():
             "author": "test",
             "files": [{"url": "file://local/filename.txt", "hash": "myhash"}],
         },
+        structure={
+            "name": "test",
+            "description": "test description",
+            "type": "string",
+            "required": True,
+            "controlled_vocabulary": {"value": "test", "description": "test description"},
+        },
     )
 
 
