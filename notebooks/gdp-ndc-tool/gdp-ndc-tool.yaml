@@ -5,7 +5,6 @@ description: GDP results from the Excel NDC Tool version 13Mar23a_CR - legacy us
 metadata:
   author: Mika Pflüger
   author_email: mika.pflueger@climate-resource.com
-
 versions:
   - version: 2023-10
     dataset:

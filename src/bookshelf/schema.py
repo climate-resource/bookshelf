@@ -116,7 +116,6 @@ class VersionMetadata(BaseModel):
     version: Version
     dataset: DatasetMetadata
     private: Optional[bool] = Field(default=False)
-    structure: list[Dimension]
 
 
 class NotebookMetadata(BaseModel):
@@ -135,6 +134,7 @@ class NotebookMetadata(BaseModel):
     private: bool
     metadata: dict[str, Any]  # TODO: type this
     dataset: DatasetMetadata
+    structure: list[Dimension]
 
     def long_name(self) -> str:
         """
