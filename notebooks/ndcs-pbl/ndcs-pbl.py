@@ -306,3 +306,5 @@ book.add_timeseries("pbl", PBL_df_ScmRun)
 
 # %%
 book.metadata()
+
+# %%
