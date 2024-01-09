@@ -25,6 +25,7 @@
 import logging
 import tempfile
 
+import pandas as pd
 import scmdata
 
 from bookshelf import LocalBook
@@ -59,6 +60,23 @@ local_bookshelf
 data_fname = metadata.download_file()
 data = scmdata.ScmRun(data_fname, lowercase_cols=True)
 data.head()
+
+
+# %%
+metadata_dict = metadata.dict()
+metadata_dict["data_dictionary"]
+
+# %%
+structure = []
+for column in data.meta_attributes:
+    dimension = {}
+    dimension["name"] = column
+    dimension["type"] = data[column].dtypes
+    structure.append(dimension)
+pd.DataFrame(data.timeseries().reset_index()).dtypes
+
+# %%
+
 
 # %% [markdown]
 # # Process

@@ -301,6 +301,15 @@ def test_update_volume_meta(local_bookshelf, remote_bookshelf):
             private=True,
             dataset={"author": "", "files": []},
             metadata={},
+            data_dictionary=[
+                {
+                    "name": "test",
+                    "description": "test description",
+                    "type": "string",
+                    "required": True,
+                    "controlled_vocabulary": [{"value": "test", "description": "test description"}],
+                }
+            ],
         ),
         local_bookshelf=local_bookshelf,
     )

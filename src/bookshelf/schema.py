@@ -74,6 +74,58 @@ class FileDownloadInfo(BaseModel):
     hash: str
 
 
+class ControlledVocabularyValue(BaseModel):
+    """
+    A value in a controlled vocabulary
+    """
+
+    value: str
+    """
+    Value of the controlled vocabulary
+    """
+    description: str
+    """
+    Description of the controlled vocabulary value
+    """
+
+
+class Dimension(BaseModel):
+    """
+    Dimension information
+
+    A dimension describes a feature of the metadata (expressed as a column
+    in the index of an {py:class}`scmdata.ScmRun`). This dimension can optionally be controlled by
+    a controlled vocabulary which limits the possible values.
+    """
+
+    name: str
+    """
+    Name of the metadata dimension
+
+    This is the same as the column in {py:class}`scmdata.ScmRun`
+    """
+    description: str
+    """
+    Description of the metadata dimension
+    """
+    type: str
+    """
+    Type of the values in the metadata dimension
+
+    This is not currently verified
+    """
+    required: bool
+    """
+    Indication about whether this metadata dimension is compulsory
+
+    For required dimensions, all values must be non-empty
+    """
+    controlled_vocabulary: Optional[list[ControlledVocabularyValue]] = None
+    """
+    List of possible controlled vocabulary of this metadata dimension
+    """
+
+
 class DatasetMetadata(BaseModel):
     """
     Metadata about a dataset
@@ -113,6 +165,7 @@ class NotebookMetadata(BaseModel):
     private: bool
     metadata: dict[str, Any]  # TODO: type this
     dataset: DatasetMetadata
+    data_dictionary: list[Dimension]
 
     def long_name(self) -> str:
         """
@@ -198,3 +251,4 @@ class ConfigSchema(BaseModel):
     source_file: str
     metadata: dict[str, Any]  # TODO: type this
     versions: list[VersionMetadata]
+    data_dictionary: list[Dimension]

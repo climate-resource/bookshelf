@@ -4,6 +4,43 @@ license: MIT
 metadata:
   author: Jared Lewis
   author_email: jared.lewis@climate-resource.com
+data_dictionary:
+  - name: activity_id
+    description: The activity that was undertaken
+    type: string
+    required: true
+  - name: mip_era
+    description: mip_era
+    type: string
+    required: false
+    controlled_vocabulary:
+      - value: CMIP5
+        description: Results from CMIP5
+      - value: CMIP6
+        description: Results from CMIP6
+  - name: model
+    description: The IAM that was used to create the scenario
+    type: string
+    required: false
+  - name: unit
+    description: Unit of the timeseries
+    type: string
+    required: true
+  - name: scenario
+    description: scenario
+    type: string
+    required: true
+  - name: Region name
+    description: Area that the results are valid for
+    type: string
+    required: true
+    controlled_vocabulary:
+      - value: World
+        description: Aggregate results for the world
+  - name: variable
+    description: Variable name
+    type: string
+    required: false
 versions:
   - version: v4.0.0
     dataset:
