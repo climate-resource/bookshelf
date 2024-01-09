@@ -74,9 +74,9 @@ class FileDownloadInfo(BaseModel):
     hash: str
 
 
-class ControlledVocabulary(BaseModel):
+class ControlledVocabularyValue(BaseModel):
     """
-    An item in a controlled vocabulary for the a given dimensions
+    A value in a controlled vocabulary
     """
 
     value: str
@@ -85,7 +85,7 @@ class ControlledVocabulary(BaseModel):
     """
     description: str
     """
-    Description of the controlled vocabulary
+    Description of the controlled vocabulary value
     """
 
 
@@ -94,26 +94,33 @@ class Dimension(BaseModel):
     Dimension information
 
     A dimension describes a feature of the metadata (expressed as a column
-    in the index of an {py:class}`scmdata.ScmRun`).
+    in the index of an {py:class}`scmdata.ScmRun`). This dimension can optionally be controlled by
+    a controlled vocabulary which limits the possible values.
     """
 
     name: str
     """
-    Name of the metadata dimensions
+    Name of the metadata dimension
+
+    This is the same as the column in {py:class}`scmdata.ScmRun`
     """
     description: str
     """
-    Description of the metadata dimensions
+    Description of the metadata dimension
     """
     type: str
     """
-    Name of the metadata dimensions
+    Type of the values in the metadata dimension
+
+    This is not currently verified
     """
     required: bool
     """
-    Indication about whether this metadata dimension is complusory
+    Indication about whether this metadata dimension is compulsory
+
+    For required dimensions, all values must be non-empty
     """
-    controlled_vocabulary: Optional[list[ControlledVocabulary]] = None
+    controlled_vocabulary: Optional[list[ControlledVocabularyValue]] = None
     """
     List of possible controlled vocabulary of this metadata dimension
     """
