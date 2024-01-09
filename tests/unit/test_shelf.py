@@ -301,7 +301,7 @@ def test_update_volume_meta(local_bookshelf, remote_bookshelf):
             private=True,
             dataset={"author": "", "files": []},
             metadata={},
-            structure=[
+            data_dictionary=[
                 {
                     "name": "test",
                     "description": "test description",

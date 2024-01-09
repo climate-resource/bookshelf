@@ -64,7 +64,7 @@ data.head()
 
 # %%
 metadata_dict = metadata.dict()
-metadata_dict["structure"]
+metadata_dict["data_dictionary"]
 
 # %%
 structure = []
