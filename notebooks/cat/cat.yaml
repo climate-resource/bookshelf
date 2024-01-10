@@ -47,11 +47,11 @@ data_dictionary:
   - name: source
     description: Name of the dataset
     type: string
-    required: false
+    required: true
   - name: source_version
     description: Identifier for the dataset (of the form `v{date}`)
     type: string
-    required: false
+    required: true
   - name: unit
     description: Unit of variable
     type: string
