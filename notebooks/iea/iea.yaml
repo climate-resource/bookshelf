@@ -22,11 +22,15 @@ data_dictionary:
       - value: unconditional
         description: An unconditional target is a target that a country will implement with their own resources.
   - name: model
+    description: Software/dataset name that the results were sourced from
+    type: string
+    required: false
+  - name: source
     description: Name of the dataset
     type: string
     required: true
-  - name: model_version
-    description: Unique idenfier for the dataset (of the form `v{date}`)
+  - name: source_version
+    description: Identifier for the dataset (of the form `v{date}`)
     type: string
     required: true
   - name: name

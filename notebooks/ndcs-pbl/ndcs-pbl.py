@@ -8,6 +8,7 @@ import pycountry
 from scmdata import ScmRun
 
 from bookshelf import LocalBook
+from bookshelf.dataset_structure import print_dataset_structure
 from bookshelf.notebook import load_nb_metadata
 
 # %%
@@ -102,7 +103,12 @@ unit_mapping = {
 
 # Iterate through the provided data, which is expected to be a dictionary of countries or regions'
 for k, v in data.items():
-    meta_dict = {"model": "PBL", "model_version": metadata.version, "scenario": None}
+    meta_dict = {
+        "source": "PBL",
+        "source_version": metadata.version,
+        "model": None,
+        "scenario": None,
+    }
     variable_names = []
 
     for key, value in v.items():
@@ -297,6 +303,9 @@ PBL_df_ScmRun = ScmRun(output_df)
 
 # %%
 PBL_df_ScmRun.timeseries()
+
+# %%
+print_dataset_structure(PBL_df_ScmRun)
 
 # %%
 book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)

@@ -109,8 +109,10 @@ for f in csv_files:
     CAT_data.insert(0, "name", country_name)
     CAT_data.insert(0, "region", str(region_name))
     CAT_data.insert(0, "model_version", model_version)
+    CAT_data.insert(0, "model", None)
     CAT_data.insert(0, "ghg_metric", "AR4GWP100")
-    CAT_data.insert(0, "model", "CAT")
+    CAT_data.insert(0, "source_version", metadata.version)
+    CAT_data.insert(0, "source", "CAT")
 
     # Consolidate current country's data with main dataframe.
     CAT_df.append(CAT_data)

@@ -10,7 +10,7 @@ metadata:
   author_email: yini.lai@climate-resource.com
 data_dictionary:
   - name: ambition
-    description: Represent a spread in a the interpretation of NDCs due to vague NDC definitions and ambiguous expression of commitments or a stated range.
+    description: Represent a spread in a the interpretation of NDCs due to vague NDC definitions and ambiguous expression of commitments or a stated range
     type: string
     required: false
     controlled_vocabulary:
@@ -42,14 +42,18 @@ data_dictionary:
     description: Indication about whether Land use, land use change and forestry emissions is included or not
     type: string
     required: false
-  - name: model
+  - name: source
     description: Name of the dataset
     type: string
     required: true
-  - name: model_version
-    description: Unique idenfier for the dataset (of the form `v{date}`)
+  - name: source_version
+    description: Identifier for the dataset (of the form `v{date}`)
     type: string
     required: true
+  - name: model
+    description: Software/dataset name that the results were sourced from
+    type: string
+    required: false
   - name: name
     description: Complete country name
     type: string

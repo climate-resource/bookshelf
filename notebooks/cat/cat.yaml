@@ -25,7 +25,7 @@ data_dictionary:
     type: string
     required: false
   - name: model
-    description: Name of the dataset
+    description: Software/dataset name that the results were sourced from
     type: string
     required: false
   - name: model_version
@@ -42,6 +42,14 @@ data_dictionary:
     required: true
   - name: scenario
     description: Scenarios of the data
+    type: string
+    required: false
+  - name: source
+    description: Name of the dataset
+    type: string
+    required: false
+  - name: source_version
+    description: Identifier for the dataset (of the form `v{date}`)
     type: string
     required: false
   - name: unit
