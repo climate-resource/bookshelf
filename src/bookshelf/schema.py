@@ -1,7 +1,9 @@
 """
 Schema
 """
-from typing import Any, Optional
+from __future__ import annotations
+
+from typing import Any
 
 import pooch
 from pydantic import BaseModel, Field
@@ -21,7 +23,7 @@ class BookVersion(BaseModel):
     edition: Edition
     url: str
     hash: str
-    private: Optional[bool] = False
+    private: bool | None = False
 
 
 class VolumeMeta(BaseModel):
@@ -120,7 +122,7 @@ class Dimension(BaseModel):
 
     For required dimensions, all values must be non-empty
     """
-    controlled_vocabulary: Optional[list[ControlledVocabularyValue]] = None
+    controlled_vocabulary: list[ControlledVocabularyValue] | None = None
     """
     List of possible controlled vocabulary of this metadata dimension
     """
@@ -133,8 +135,8 @@ class DatasetMetadata(BaseModel):
     A dataset may consist of multiple files (:class:`FileDownloadInfo`)
     """
 
-    url: Optional[str]
-    doi: Optional[str]
+    url: str | None
+    doi: str | None
     files: list[FileDownloadInfo] = Field(default_factory=list)
     author: str
 
@@ -146,7 +148,7 @@ class VersionMetadata(BaseModel):
 
     version: Version
     dataset: DatasetMetadata
-    private: Optional[bool] = Field(default=False)
+    private: bool | None = Field(default=False)
 
 
 class NotebookMetadata(BaseModel):
@@ -159,7 +161,7 @@ class NotebookMetadata(BaseModel):
     name: str
     version: Version
     edition: Edition
-    description: Optional[str]
+    description: str | None
     license: str
     source_file: str
     private: bool
@@ -221,7 +223,7 @@ class NotebookMetadata(BaseModel):
         except IndexError as e:
             raise ValueError("Requested index does not exist") from e
 
-        file_hash: Optional[str] = file_info.hash
+        file_hash: str | None = file_info.hash
         if not file_hash:
             # replace an empty string with None
             file_hash = None
@@ -246,7 +248,7 @@ class ConfigSchema(BaseModel):
 
     name: str
     edition: Edition
-    description: Optional[str]
+    description: str | None
     license: str
     source_file: str
     metadata: dict[str, Any]  # TODO: type this
