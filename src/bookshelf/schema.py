@@ -165,7 +165,7 @@ class NotebookMetadata(BaseModel):
     private: bool
     metadata: dict[str, Any]  # TODO: type this
     dataset: DatasetMetadata
-    data_dictionary: list[Dimension]
+    data_dictionary: list[Dimension] | None = None
 
     def long_name(self) -> str:
         """
