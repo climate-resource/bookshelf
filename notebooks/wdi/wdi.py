@@ -38,7 +38,7 @@ logging.basicConfig(level=logging.INFO)
 # %% tags=["parameters"]
 # This cell contains additional parameters that are controlled using papermill
 local_bookshelf = tempfile.mkdtemp()
-version = "v23"
+version = "v13"
 
 # %%
 metadata = load_nb_metadata("wdi", version=version)

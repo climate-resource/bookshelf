@@ -165,7 +165,7 @@ class NotebookMetadata(BaseModel):
     private: bool
     metadata: dict[str, Any]  # TODO: type this
     dataset: DatasetMetadata
-    data_dictionary: list[Dimension]
+    data_dictionary: list[Dimension] = Field(default_factory=list)
 
     def long_name(self) -> str:
         """
@@ -251,4 +251,4 @@ class ConfigSchema(BaseModel):
     source_file: str
     metadata: dict[str, Any]  # TODO: type this
     versions: list[VersionMetadata]
-    data_dictionary: list[Dimension]
+    data_dictionary: list[Dimension] = Field(default_factory=list)

@@ -30,7 +30,7 @@ data_dictionary:
     description: scenario
     type: string
     required: true
-  - name: Region name
+  - name: region
     description: Area that the results are valid for
     type: string
     required: true
