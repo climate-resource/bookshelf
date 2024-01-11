@@ -251,4 +251,7 @@ class ConfigSchema(BaseModel):
     source_file: str
     metadata: dict[str, Any]  # TODO: type this
     versions: list[VersionMetadata]
-    data_dictionary: list[Dimension]
+    data_dictionary: list[Dimension] | None = None
+    """
+    Data dictionary that describes the different metadata attributes of the dataset
+    """
