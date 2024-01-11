@@ -103,6 +103,20 @@ test:python 3.11:pytest:
     paths:
       - .cache/pip
 
+test:python 3.11:notebooks:
+  image: python:3.11
+  stage: test
+  cache:
+    key:
+      files:
+        - poetry.lock
+      prefix: python-3.11-
+    paths:
+      - .cache/pip
+  script:
+    - poetry install --no-interaction --all-extras
+    - poetry run pytest -r a -v tests/notebooks
+
 test:bundle:
   stage: test
   script:
