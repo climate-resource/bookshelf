@@ -1,6 +1,9 @@
+import os
+
 import pytest
 
 from bookshelf.schema import DatasetMetadata, NotebookMetadata
+from bookshelf.utils import get_notebook_directory
 
 
 @pytest.fixture
@@ -97,7 +100,7 @@ def test_download_files(idx, notebook_metadata):
     else:
         res = notebook_metadata.download_file()
 
-    assert res == "local/filename.txt"
+    assert res == os.path.join(get_notebook_directory(), "local/filename.txt")
 
 
 @pytest.mark.parametrize("idx", (-100, 999))
