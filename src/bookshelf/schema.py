@@ -1,10 +1,8 @@
 """
 Schema
 """
-from __future__ import annotations
-
 import os
-from typing import Any
+from typing import Any, Optional
 
 import pooch
 from pydantic import BaseModel, Field
@@ -24,7 +22,7 @@ class BookVersion(BaseModel):
     edition: Edition
     url: str
     hash: str
-    private: bool | None = False
+    private: Optional[bool] = False
 
 
 class VolumeMeta(BaseModel):
@@ -135,7 +133,7 @@ class Dimension(BaseModel):
 
     For required dimensions, all values must be non-empty
     """
-    controlled_vocabulary: list[ControlledVocabularyValue] | None = None
+    controlled_vocabulary: Optional[list[ControlledVocabularyValue]] = None
     """
     List of possible controlled vocabulary of this metadata dimension
     """
@@ -148,8 +146,8 @@ class DatasetMetadata(BaseModel):
     A dataset may consist of multiple files (:class:`FileDownloadInfo`)
     """
 
-    url: str | None
-    doi: str | None
+    url: Optional[str]
+    doi: Optional[str]
     files: list[FileDownloadInfo] = Field(default_factory=list)
     author: str
 
@@ -161,7 +159,7 @@ class VersionMetadata(BaseModel):
 
     version: Version
     dataset: DatasetMetadata
-    private: bool | None = Field(default=False)
+    private: Optional[bool] = Field(default=False)
 
 
 class NotebookMetadata(BaseModel):
@@ -174,13 +172,13 @@ class NotebookMetadata(BaseModel):
     name: str
     version: Version
     edition: Edition
-    description: str | None
+    description: Optional[str]
     license: str
     source_file: str
     private: bool
     metadata: dict[str, Any]  # TODO: type this
     dataset: DatasetMetadata
-    data_dictionary: list[Dimension] | None = None
+    data_dictionary: Optional[list[Dimension]] = None
 
     def long_name(self) -> str:
         """
@@ -236,7 +234,7 @@ class NotebookMetadata(BaseModel):
         except IndexError as e:
             raise ValueError("Requested index does not exist") from e
 
-        file_hash: str | None = file_info.hash
+        file_hash: Optional[str] = file_info.hash
         if not file_hash:
             # replace an empty string with None
             file_hash = None
@@ -261,12 +259,12 @@ class ConfigSchema(BaseModel):
 
     name: str
     edition: Edition
-    description: str | None
+    description: Optional[str]
     license: str
     source_file: str
     metadata: dict[str, Any]  # TODO: type this
     versions: list[VersionMetadata]
-    data_dictionary: list[Dimension] | None = None
+    data_dictionary: Optional[list[Dimension]] = None
     """
     Data dictionary that describes the different metadata attributes of the dataset
     """
