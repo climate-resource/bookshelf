@@ -115,7 +115,7 @@ test:python 3.11:notebooks:
       - .cache/pip
   script:
     - poetry install --no-interaction --all-extras
-    - poetry run pytest -r a -v tests/notebooks
+    - poetry run pytest -r a -v -n auto tests/notebooks
 
 test:bundle:
   stage: test
