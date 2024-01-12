@@ -24,44 +24,12 @@ except ImportError:  # pragma: no cover
 import yaml
 
 from bookshelf import BookShelf, LocalBook
-from bookshelf.constants import PROCESSED_DATA_DIR, ROOT_DIR
+from bookshelf.constants import PROCESSED_DATA_DIR
 from bookshelf.errors import UnknownVersion
 from bookshelf.schema import ConfigSchema, NotebookMetadata, Version
-from bookshelf.utils import get_env_var
+from bookshelf.utils import get_notebook_directory
 
 logger = logging.getLogger(__name__)
-
-
-def get_notebook_directory(nb_dir: Optional[str] = None) -> str:
-    """
-    Get the root location of the notebooks used to generate books
-
-    The order of lookup is (in increasing precedence):
-
-    * default ("/notebooks" in a locally checked out version of the repository)
-    * ``BOOKSHELF_NOTEBOOK_DIRECTORY`` environment variable
-    * ``nb_dir`` parameter
-
-    Parameters
-    ----------
-    nb_dir : str
-        If provided override the default value
-
-    Returns
-    -------
-    str
-        Location of notebooks
-
-    """
-    if nb_dir:
-        return nb_dir
-
-    try:
-        nb_directory = get_env_var("NOTEBOOK_DIRECTORY")
-    except ValueError:
-        nb_directory = os.path.join(ROOT_DIR, "notebooks")
-
-    return nb_directory
 
 
 def _load_nb_config(
