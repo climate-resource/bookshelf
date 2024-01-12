@@ -57,10 +57,10 @@ versions:
       author: Gütschow, Johannes; Pflüger, Mika
       time_domain: [ 1750, 2021 ]
   - version: v2.5
-    private: true
+    private: false
     dataset:
       files:
-        - url: file://data/Guetschow_et_al_2023b-PRIMAP-hist_v2.5_final_no_rounding_15-Oct-2023.csv
+        - url: doi:10.5281/zenodo.10006301/Guetschow_et_al_2023b-PRIMAP-hist_v2.5_final_no_rounding_15-Oct-2023.csv
           hash: md5:e4ddeeb06d9cff9c7e16fc320797d2f1
       author: Gütschow, Johannes; Pflüger, Mika
       time_domain: [ 1750, 2022 ]

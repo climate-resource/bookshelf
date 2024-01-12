@@ -201,7 +201,7 @@ def get_env_var(
     if add_prefix:
         name = ENV_PREFIX + name
     name = name.upper()
-    if raise_on_missing and name not in os.environ:
+    if raise_on_missing and default is None and name not in os.environ:
         raise ValueError(f"Environment variable {name} not set. Check configuration")
     return os.environ.get(name, default)
 
