@@ -14,6 +14,7 @@ import datapackage
 import requests.exceptions
 
 from bookshelf.book import LocalBook
+from bookshelf.constants import DATA_FORMAT_VERSION, DEFAULT_S3_BUCKET
 from bookshelf.errors import UnknownBook, UnknownEdition, UnknownVersion, UploadError
 from bookshelf.schema import BookVersion, Edition, Version, VolumeMeta
 from bookshelf.utils import (
@@ -296,8 +297,8 @@ class BookShelf:
         # Maybe support other upload methods in future
 
         s3 = boto3.client("s3")
-        bucket = get_env_var("BUCKET", add_prefix=True)
-        prefix = get_env_var("BUCKET_PREFIX", add_prefix=True)
+        bucket = get_env_var("BUCKET", add_prefix=True, default=DEFAULT_S3_BUCKET)
+        prefix = get_env_var("BUCKET_PREFIX", add_prefix=True, default=DATA_FORMAT_VERSION)
 
         logger.info(f"Beginning to upload {book.name}@{book.version}")
         for resource_file in files:
