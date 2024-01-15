@@ -1,12 +1,13 @@
 """
 Schema
 """
+import os
 from typing import Any, Optional
 
 import pooch
 from pydantic import BaseModel, Field
 
-from bookshelf.utils import get_env_var
+from bookshelf.utils import get_env_var, get_notebook_directory
 
 Version = str
 Edition = int
@@ -71,7 +72,19 @@ class FileDownloadInfo(BaseModel):
     """
 
     url: str
+    """
+    URL of the file to be downloaded
+
+    This can be any URLs supported by :func:`pooch.download_file`, or a local file if the prefix "file://" is
+    used. With local files, the filename must be a path relative to the notebooks directory. For example,
+    `file://gdp-ndc-tool/13Mar2023a_CR_gdp_results.csv`.
+    """
     hash: str
+    """
+    Hash of the file to be downloaded
+
+    Used to verify the consistency of the downloaded file
+    """
 
 
 class ControlledVocabularyValue(BaseModel):
@@ -166,7 +179,6 @@ class NotebookMetadata(BaseModel):
     metadata: dict[str, Any]  # TODO: type this
     dataset: DatasetMetadata
     data_dictionary: list[Dimension] = Field(default_factory=list)
-    data_dictionary: list[Dimension] = Field(default_factory=list)
 
     def long_name(self) -> str:
         """
@@ -228,7 +240,7 @@ class NotebookMetadata(BaseModel):
             file_hash = None
 
         if file_info.url.startswith("file://"):
-            return file_info.url[7:]
+            return os.path.join(get_notebook_directory(), file_info.url[7:])
 
         res: str = pooch.retrieve(
             file_info.url,
@@ -252,5 +264,4 @@ class ConfigSchema(BaseModel):
     source_file: str
     metadata: dict[str, Any]  # TODO: type this
     versions: list[VersionMetadata]
-    data_dictionary: list[Dimension] = Field(default_factory=list)
     data_dictionary: list[Dimension] = Field(default_factory=list)

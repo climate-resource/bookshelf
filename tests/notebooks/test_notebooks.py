@@ -31,7 +31,7 @@ def find_notebooks():
     notebook_info = []
 
     for nb in notebooks:
-        versions = get_available_versions(nb.replace(".py", ".yaml"), include_private=True)
+        versions = get_available_versions(nb.replace(".py", ".yaml"), include_private=False)
         notebook_name = os.path.basename(nb)[:-3]
         notebook_info.extend((nb, notebook_name, v) for v in versions)
 
@@ -134,12 +134,7 @@ def run_notebook_and_check_results(notebook, version, notebook_dir, output_direc
         return
 
     if shelf.is_available(name=target_book.name, version=target_book.version):
-        existing_book = shelf.load(
-            name=target_book.name,
-            version=target_book.version,
-            edition=target_book.edition,
-            force=False,
-        )
+        existing_book = shelf.load(name=target_book.name, version=target_book.version, force=True)
         logger.info(f"Remote book exists. Expecting hash: {existing_book.hash()}")
         # import pdb; pdb.set_trace()
         if existing_book.edition != target_book.edition:
