@@ -6,7 +6,8 @@ import pytest
 
 import bookshelf.notebook
 from bookshelf.errors import UnknownVersion
-from bookshelf.notebook import get_notebook_directory, load_nb_metadata, run_notebook
+from bookshelf.notebook import load_nb_metadata, run_notebook
+from bookshelf.utils import get_notebook_directory
 
 
 def test_load_nb_metadata():

@@ -57,6 +57,9 @@ def test_notebook(notebook_path, notebook_name, notebook_version, output_directo
     # * notebooks run as expected
     # * that hash matches an existing notebook
 
+    if notebook_name == "iea":
+        pytest.xfail("IEA website is broken")
+
     notebook_dir = os.path.dirname(notebook_path)
 
     run_notebook_and_check_results(

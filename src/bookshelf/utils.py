@@ -9,7 +9,7 @@ from typing import Any, Optional, Union
 import appdirs
 import pooch
 
-from bookshelf.constants import DATA_FORMAT_VERSION, DEFAULT_BOOKSHELF, ENV_PREFIX
+from bookshelf.constants import DATA_FORMAT_VERSION, DEFAULT_BOOKSHELF, ENV_PREFIX, ROOT_DIR
 
 logger = logging.getLogger(__file__)
 
@@ -201,7 +201,7 @@ def get_env_var(
     if add_prefix:
         name = ENV_PREFIX + name
     name = name.upper()
-    if raise_on_missing and name not in os.environ:
+    if raise_on_missing and default is None and name not in os.environ:
         raise ValueError(f"Environment variable {name} not set. Check configuration")
     return os.environ.get(name, default)
 
@@ -229,3 +229,35 @@ def get_remote_bookshelf(bookshelf: Optional[str]) -> str:
     if bookshelf is None:
         return os.environ.get(ENV_PREFIX + "REMOTE", DEFAULT_BOOKSHELF)
     return bookshelf
+
+
+def get_notebook_directory(nb_dir: Optional[str] = None) -> str:
+    """
+    Get the root location of the notebooks used to generate books
+
+    The order of lookup is (in increasing precedence):
+
+    * default ("/notebooks" in a locally checked out version of the repository)
+    * ``BOOKSHELF_NOTEBOOK_DIRECTORY`` environment variable
+    * ``nb_dir`` parameter
+
+    Parameters
+    ----------
+    nb_dir : str
+        If provided override the default value
+
+    Returns
+    -------
+    str
+        Location of notebooks
+
+    """
+    if nb_dir:
+        return nb_dir
+
+    try:
+        nb_directory = get_env_var("NOTEBOOK_DIRECTORY")
+    except ValueError:
+        nb_directory = os.path.join(ROOT_DIR, "notebooks")
+
+    return nb_directory
