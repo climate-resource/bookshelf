@@ -7,10 +7,12 @@ from glob import glob
 import pytest
 
 from bookshelf import BookShelf
+from bookshelf.dataset_structure import get_dataset_dictionary
 from bookshelf.errors import UnknownBook
 from bookshelf.notebook import (
     get_available_versions,
     get_notebook_directory,
+    load_nb_metadata,
     run_notebook,
 )
 
@@ -70,39 +72,39 @@ def test_notebook(notebook_path, notebook_name, notebook_version, output_directo
     )
 
 
-# def verify_data_dictionary(data, yaml_file):
-#     verification = {
-#         "col_name_macth": True,
-#         "col_type_match": True,
-#         "controlled_vocabulary_match": True,
-#         "non_na_col_match": True,
-#         "model_validate_true": True,
-#     }
-#     if "data_dictionary" not in yaml_file[1].keys():
-#         return None
-#     else:
-#         data_dictionary = yaml_file[1]["data_dictionary"]
-#         if len(data_dictionary) == len(data.meta.columns):
-#             unique_values = dataset_structure.get_dataset_dictionary(data)
-#             for variable in data_dictionary:
-#                 if variable["name"] not in data.meta.columns:
-#                     verification["col_name_macth"] = False
-#                 else:
-#                     try:
-#                         data.meta[variable["name"]].astype(variable["type"])
-#                     except:
-#                         verification["col_type_match"] = False
-#                     if "controlled_vocabulary" in variable.keys():
-#                         if not set(unique_values[variable["name"]]).issubset(
-#                             set([i["value"] for i in variable["controlled_vocabulary"]])
-#                         ):
-#                             verification["controlled_vocabulary_match"] = False
-#                     if variable["required"]:
-#                         if data.meta[variable["name"]].isnull().any():
-#                             verification["non_na_col_match"] = False
-#         else:
-#             verification["col_name_macth"] = False
-#         return verification
+def verify_data_dictionary(data, yaml_file):
+    verification = {
+        "col_name_macth": True,
+        "col_type_match": True,
+        "controlled_vocabulary_match": True,
+        "non_na_col_match": True,
+    }
+    if len(yaml_file.data_dictionary) == 0:
+        return None
+    else:
+        unique_values = get_dataset_dictionary(data)
+        for variable in yaml_file.data_dictionary:
+            if variable.name not in data.meta.columns:
+                verification["col_name_macth"] = False
+            else:
+                try:
+                    data.meta[variable.name].astype(variable.type)
+                except ValueError:
+                    verification["col_type_match"] = False
+                if variable.controlled_vocabulary is not None:
+                    if not set(unique_values[variable.name]).issubset(
+                        set(
+                            [
+                                controlled_vocabulary.value
+                                for controlled_vocabulary in variable.controlled_vocabulary
+                            ]
+                        )
+                    ):
+                        verification["controlled_vocabulary_match"] = False
+                if variable.required is True:
+                    if data.meta[variable.name].isna().any():
+                        verification["non_na_col_match"] = False
+        return verification
 
 
 def run_notebook_and_check_results(notebook, version, notebook_dir, output_directory):
@@ -115,19 +117,19 @@ def run_notebook_and_check_results(notebook, version, notebook_dir, output_direc
             output_directory=output_directory,
             version=version,
         )
-        # yaml_file = _load_nb_config(notebook_dir)
-        # # import pdb; pdb.set_trace()
-        # time_series_names = [i['name'] for i in target_book.metadata()['resources']]
+        yaml_file = load_nb_metadata(notebook, version, notebook_dir)
+        files_names = [i["name"] for i in target_book.metadata()["resources"]]
 
-        # for name in time_series_names:
-        #     df = target_book.timeseries(name)
-        #     verification = verify_data_dictionary(df, yaml_file)
-        #     if verification:
-        #         for k,v in verification.items():
-        #             if not v:
-        #                 raise Exception("{} is not true".format(k))
-        #     else:
-        #         print("WARNING: {} does not contain data dictionary".format(notebook))
+        for name in files_names:
+            data = target_book.timeseries(name)
+            verification = verify_data_dictionary(data, yaml_file)
+            if verification:
+                for k, v in verification.items():
+                    if not v:
+                        pytest.xfail(f"Data dictionary is incorrect {k} is not true")
+
+            else:
+                print(f"WARNING: {notebook} does not contain data dictionary")
 
     except UnknownBook:
         logger.info("Book has not been pushed yet")
@@ -136,7 +138,6 @@ def run_notebook_and_check_results(notebook, version, notebook_dir, output_direc
     if shelf.is_available(name=target_book.name, version=target_book.version):
         existing_book = shelf.load(name=target_book.name, version=target_book.version, force=True)
         logger.info(f"Remote book exists. Expecting hash: {existing_book.hash()}")
-        # import pdb; pdb.set_trace()
         if existing_book.edition != target_book.edition:
             raise ValueError(
                 "Edition of calculated book doesn't match the remote bookshelf "
