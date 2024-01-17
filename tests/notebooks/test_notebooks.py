@@ -5,6 +5,7 @@ import tempfile
 from glob import glob
 
 import pytest
+from scmdata import testing
 
 from bookshelf import BookShelf
 from bookshelf.dataset_structure import get_dataset_dictionary
@@ -15,6 +16,7 @@ from bookshelf.notebook import (
     load_nb_metadata,
     run_notebook,
 )
+from bookshelf.schema import NotebookMetadata
 
 logger = logging.getLogger("test-notebooks")
 
@@ -105,6 +107,289 @@ def verify_data_dictionary(data, yaml_file):
                     if data.meta[variable.name].isna().any():
                         verification["non_na_col_match"] = False
         return verification
+
+
+def test_verify_data_dictionary_col_name_macth():
+    # Are all the columns in the data dictionary
+
+    data = testing.get_single_ts()
+
+    config = NotebookMetadata(
+        name="test",
+        version="v1.0.0",
+        edition=1,
+        license="unspecified",
+        source_file="",
+        private=False,
+        metadata={},
+        dataset={
+            "author": "test",
+            "files": [],
+        },
+        data_dictionary=[
+            {
+                "name": "model",
+                "description": "The IAM that was used to create the scenario",
+                "type": "string",
+                "required": False,
+            },
+            # no "source" exist in data
+            {
+                "name": "source",
+                "description": "Name of the dataset",
+                "type": "string",
+                "required": True,
+            },
+            {
+                "name": "region",
+                "description": "Area that the results are valid for",
+                "type": "string",
+                "required": True,
+                "controlled_vocabulary": [
+                    {"value": "World", "description": "Aggregate results for the world"}
+                ],
+            },
+            {
+                "name": "scenario",
+                "description": "scenario",
+                "type": "string",
+                "required": False,
+            },
+            {
+                "name": "unit",
+                "description": "Unit of the timeseries",
+                "type": "string",
+                "required": True,
+            },
+            {
+                "name": "variable",
+                "description": "Variable name",
+                "type": "string",
+                "required": True,
+            },
+        ],
+    )
+
+    verification = verify_data_dictionary(data, config)
+
+    expected_columns = {entry.name for entry in config.data_dictionary}
+    actual_columns = set(data.meta.columns)
+    expected_result = expected_columns.issubset(actual_columns)
+    assert verification["col_name_macth"] == expected_result
+
+
+def test_verify_data_dictionary_col_type_match():
+    # Is the type of a column correct
+
+    data = testing.get_single_ts()
+
+    config = NotebookMetadata(
+        name="test",
+        version="v1.0.0",
+        edition=1,
+        license="unspecified",
+        source_file="",
+        private=False,
+        metadata={},
+        dataset={
+            "author": "test",
+            "files": [],
+        },
+        data_dictionary=[
+            {
+                "name": "model",
+                "description": "The IAM that was used to create the scenario",
+                # type == "int" rather than "string"
+                "type": "int",
+                "required": False,
+            },
+            {
+                "name": "region",
+                "description": "Area that the results are valid for",
+                "type": "string",
+                "required": True,
+                "controlled_vocabulary": [
+                    {"value": "World", "description": "Aggregate results for the world"}
+                ],
+            },
+            {
+                "name": "scenario",
+                "description": "scenario",
+                "type": "string",
+                "required": False,
+            },
+            {
+                "name": "unit",
+                "description": "Unit of the timeseries",
+                "type": "string",
+                "required": True,
+            },
+            {
+                "name": "variable",
+                "description": "Variable name",
+                "type": "string",
+                "required": True,
+            },
+        ],
+    )
+
+    verification = verify_data_dictionary(data, config)
+
+    type_mismatch = False
+    for entry in config.data_dictionary:
+        column_name = entry.name
+        expected_type = entry.type
+        if column_name in data.meta.columns:
+            try:
+                data.meta[column_name].astype(expected_type)
+                type_mismatch = False
+            except ValueError:
+                type_mismatch = True
+                break
+
+    assert verification["col_type_match"] != type_mismatch
+
+
+def test_verify_data_dictionary_controlled_vocabulary_match():
+    # If a CV is present, are there any values not in the CV
+
+    data = testing.get_single_ts()
+
+    config = NotebookMetadata(
+        name="test",
+        version="v1.0.0",
+        edition=1,
+        license="unspecified",
+        source_file="",
+        private=False,
+        metadata={},
+        dataset={
+            "author": "test",
+            "files": [],
+        },
+        data_dictionary=[
+            {
+                "name": "model",
+                "description": "The IAM that was used to create the scenario",
+                "type": "int",
+                "required": False,
+            },
+            {
+                "name": "region",
+                "description": "Area that the results are valid for",
+                "type": "string",
+                "required": True,
+                "controlled_vocabulary": [
+                    {
+                        # "World" is a value in region column in data, which is not a subset of ["Test"]
+                        "value": "Test",
+                        "description": "Aggregate results for the world",
+                    }
+                ],
+            },
+            {
+                "name": "scenario",
+                "description": "scenario",
+                "type": "string",
+                "required": False,
+            },
+            {
+                "name": "unit",
+                "description": "Unit of the timeseries",
+                "type": "string",
+                "required": True,
+            },
+            {
+                "name": "variable",
+                "description": "Variable name",
+                "type": "string",
+                "required": True,
+            },
+        ],
+    )
+
+    verification = verify_data_dictionary(data, config)
+
+    cv_mismatch = False
+    for entry in config.data_dictionary:
+        column_name = entry.name
+        if entry.controlled_vocabulary is not None and column_name in data.meta.columns:
+            allowed_values = {cv.value for cv in entry.controlled_vocabulary}
+            actual_values = set(data.meta[column_name].dropna().unique())
+            if not actual_values.issubset(allowed_values):
+                cv_mismatch = True
+                break
+
+    assert verification["controlled_vocabulary_match"] != cv_mismatch
+
+
+def test_verify_data_dictionary_non_na_col_match():
+    # If a CV is present, are there any values not in the CV
+
+    data = testing.get_single_ts()
+    # unit column with missing value
+    data["unit"] = None
+
+    config = NotebookMetadata(
+        name="test",
+        version="v1.0.0",
+        edition=1,
+        license="unspecified",
+        source_file="",
+        private=False,
+        metadata={},
+        dataset={
+            "author": "test",
+            "files": [],
+        },
+        data_dictionary=[
+            {
+                "name": "model",
+                "description": "The IAM that was used to create the scenario",
+                "type": "int",
+                "required": False,
+            },
+            {
+                "name": "region",
+                "description": "Area that the results are valid for",
+                "type": "string",
+                "required": True,
+                "controlled_vocabulary": [
+                    {"value": "World", "description": "Aggregate results for the world"}
+                ],
+            },
+            {
+                "name": "scenario",
+                "description": "scenario",
+                "type": "string",
+                "required": False,
+            },
+            {
+                "name": "unit",
+                "description": "Unit of the timeseries",
+                "type": "string",
+                "required": True,
+            },
+            {
+                "name": "variable",
+                "description": "Variable name",
+                "type": "string",
+                "required": True,
+            },
+        ],
+    )
+
+    verification = verify_data_dictionary(data, config)
+
+    non_na_mismatch = False
+    for entry in config.data_dictionary:
+        column_name = entry.name
+        if entry.required is True and column_name in data.meta.columns:
+            if data.meta[column_name].isna().any():
+                non_na_mismatch = True
+                break
+
+    assert verification["non_na_col_match"] != non_na_mismatch
 
 
 def run_notebook_and_check_results(notebook, version, notebook_dir, output_directory):
