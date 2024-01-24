@@ -3,9 +3,10 @@ import os
 import sys
 import tempfile
 from glob import glob
+from typing import Optional
 
+import attrs
 import pytest
-from attrs import define, field
 from scmdata import ScmRun, testing
 
 from bookshelf import BookShelf
@@ -75,28 +76,69 @@ def test_notebook(notebook_path, notebook_name, notebook_version, output_directo
     )
 
 
-@define
-class verification:
-    col_name_match: bool = field(init=False, default=True)
-    col_type_match: bool = field(init=False, default=True)
-    controlled_vocabulary_match: bool = field(init=False, default=True)
-    non_na_col_match: bool = field(init=False, default=True)
+@attrs.define
+class VerificationInfo:
+    col_name_match: bool = attrs.field(init=False, default=True)
+    col_type_match: bool = attrs.field(init=False, default=True)
+    controlled_vocabulary_match: bool = attrs.field(init=False, default=True)
+    non_na_col_match: bool = attrs.field(init=False, default=True)
+
+    def is_valid(self):
+        validation = attrs.asdict(self, recurse=False)
+        for attr, value in validation.items():
+            if not value:
+                return False, f"Data dictionary does not match the data: {attr} is not true"
+        return True, ""
 
 
-def verify_data_dictionary(data: ScmRun, notebook_config: NotebookMetadata) -> verification:
-    verificat = verification()
+def verify_data_dictionary(
+    data: ScmRun, notebook_config: NotebookMetadata
+) -> Optional[VerificationInfo]:
+    """
+     Verifies the consistency of data against the specifications in a notebook's data dictionary.
+
+     This function checks various aspects of data integrity, including column name matching,
+     data type consistency, adherence to controlled vocabularies, and the presence of required
+     fields without missing (NA) values. It performs these checks by comparing the actual data
+     with the requirements specified in the data dictionary of the notebook configuration.
+
+     Parameters
+     ----------
+     data: ScmRun
+         The data set to be verified.
+     notebook_config: NotebookMetadata
+         Configuration of the notebook, including the data dictionary which contains specifications
+         for data validation.
+
+     Returns:
+    :Optional[class:`VerificationInfo`]: An instance of VerificationInfo that contains the results of the
+         data verification. If the data dictionary is empty, the function returns None, indicating
+         that no verification is necessary.
+    """
+
+    # Return None if the notebook's data dictionary is empty, indicating no verification needed.
     if len(notebook_config.data_dictionary) == 0:
         return None
 
+    verificat = VerificationInfo()
+
+    # Retrieve unique metadata values from the data for comparison with the data dictionary.
     unique_values = get_dataset_dictionary(data)
+
+    # Iterate through each entry (dimension) in the data dictionary.
     for variable in notebook_config.data_dictionary:
+        # Check if the dimension's name in the data dictionary matches any column in the data.
         if variable.name not in data.meta.columns:
             verificat.col_name_match = False
         else:
+            # Validate that the data type of the column in the data matches its specified type
+            # in the data dictionary.
             try:
                 data.meta[variable.name].astype(variable.type)
             except ValueError:
                 verificat.col_type_match = False
+
+            # If a controlled vocabulary (CV) is defined, check if all data values are included in the CV.
             if variable.controlled_vocabulary is not None:
                 if not set(unique_values[variable.name]).issubset(
                     set(
@@ -107,10 +149,69 @@ def verify_data_dictionary(data: ScmRun, notebook_config: NotebookMetadata) -> v
                     )
                 ):
                     verificat.controlled_vocabulary_match = False
+
+            # For required dimensions, verify there are no missing (NA) values in the data.
             if variable.required is True:
                 if data.meta[variable.name].isna().any():
                     verificat.non_na_col_match = False
     return verificat
+
+
+def test_verify_data_dictionary():
+    data = testing.get_single_ts()
+
+    config = NotebookMetadata(
+        name="test",
+        version="v1.0.0",
+        edition=1,
+        license="unspecified",
+        source_file="",
+        private=False,
+        metadata={},
+        dataset={
+            "author": "test",
+            "files": [],
+        },
+        data_dictionary=[
+            {
+                "name": "model",
+                "description": "The IAM that was used to create the scenario",
+                "type": "string",
+                "required": False,
+            },
+            {
+                "name": "region",
+                "description": "Area that the results are valid for",
+                "type": "string",
+                "required": True,
+                "controlled_vocabulary": [
+                    {"value": "World", "description": "Aggregate results for the world"}
+                ],
+            },
+            {
+                "name": "scenario",
+                "description": "scenario",
+                "type": "string",
+                "required": False,
+            },
+            {
+                "name": "unit",
+                "description": "Unit of the timeseries",
+                "type": "string",
+                "required": True,
+            },
+            {
+                "name": "variable",
+                "description": "Variable name",
+                "type": "string",
+                "required": True,
+            },
+        ],
+    )
+
+    verification = verify_data_dictionary(data, config)
+
+    assert verification.is_valid()
 
 
 def test_verify_data_dictionary_col_name_macth():
@@ -176,10 +277,7 @@ def test_verify_data_dictionary_col_name_macth():
 
     verification = verify_data_dictionary(data, config)
 
-    expected_columns = {entry.name for entry in config.data_dictionary}
-    actual_columns = set(data.meta.columns)
-    expected_result = expected_columns.issubset(actual_columns)
-    assert verification.col_name_match == expected_result
+    assert not verification.col_name_match
 
 
 def test_verify_data_dictionary_col_type_match():
@@ -239,19 +337,7 @@ def test_verify_data_dictionary_col_type_match():
 
     verification = verify_data_dictionary(data, config)
 
-    type_mismatch = False
-    for entry in config.data_dictionary:
-        column_name = entry.name
-        expected_type = entry.type
-        if column_name in data.meta.columns:
-            try:
-                data.meta[column_name].astype(expected_type)
-                type_mismatch = False
-            except ValueError:
-                type_mismatch = True
-                break
-
-    assert verification.col_type_match != type_mismatch
+    assert not verification.col_type_match
 
 
 def test_verify_data_dictionary_controlled_vocabulary_match():
@@ -314,21 +400,11 @@ def test_verify_data_dictionary_controlled_vocabulary_match():
 
     verification = verify_data_dictionary(data, config)
 
-    cv_mismatch = False
-    for entry in config.data_dictionary:
-        column_name = entry.name
-        if entry.controlled_vocabulary is not None and column_name in data.meta.columns:
-            allowed_values = {cv.value for cv in entry.controlled_vocabulary}
-            actual_values = set(data.meta[column_name].dropna().unique())
-            if not actual_values.issubset(allowed_values):
-                cv_mismatch = True
-                break
-
-    assert verification.controlled_vocabulary_match != cv_mismatch
+    assert not verification.controlled_vocabulary_match
 
 
 def test_verify_data_dictionary_non_na_col_match():
-    # If a CV is present, are there any values not in the CV
+    # If required is set, are there any missing values
 
     data = testing.get_single_ts()
     # unit column with missing value
@@ -385,15 +461,7 @@ def test_verify_data_dictionary_non_na_col_match():
 
     verification = verify_data_dictionary(data, config)
 
-    non_na_mismatch = False
-    for entry in config.data_dictionary:
-        column_name = entry.name
-        if entry.required is True and column_name in data.meta.columns:
-            if data.meta[column_name].isna().any():
-                non_na_mismatch = True
-                break
-
-    assert verification.non_na_col_match != non_na_mismatch
+    assert not verification.non_na_col_match
 
 
 def run_notebook_and_check_results(notebook, version, notebook_dir, output_directory):
@@ -413,16 +481,12 @@ def run_notebook_and_check_results(notebook, version, notebook_dir, output_direc
             data = target_book.timeseries(name)
             verification = verify_data_dictionary(data, nb_metadata)
 
-            if verification:
-                for attr in dir(verification):
-                    if not attr.startswith("__"):
-                        result = getattr(verification, attr)
-                        if not result:
-                            pytest.xfail(
-                                f"Data dictionary does not match the data: {attr} is not true"
-                            )
-            else:
-                logger.warning(f"{notebook} does not contain data dictionary")
+        if verification:
+            is_valid, error_message = verification.is_valid()
+            if not is_valid:
+                pytest.xfail(error_message)
+        else:
+            logger.warning(f"{notebook} does not contain data dictionary")
 
     except UnknownBook:
         logger.info("Book has not been pushed yet")

@@ -167,13 +167,10 @@ class BookShelf:
         :class:`LocalBook`
             A book from which the resources can be accessed
         """
-        # import pdb; pdb.set_trace()
         if version is None or edition is None or force:
             version, edition = self._resolve_version(name, version, edition)
-        # import pdb; pdb.set_trace()
         metadata_fragment = LocalBook.relative_path(name, version, edition, "datapackage.json")
         metadata_fname = self.path / metadata_fragment
-        # import pdb; pdb.set_trace()
         if not metadata_fname.exists():
             try:
                 url = build_url(
