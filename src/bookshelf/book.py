@@ -12,6 +12,7 @@ from collections.abc import Iterable
 from typing import Any, Optional, Union, cast
 
 import datapackage
+import pandas as pd
 import pooch
 import scmdata
 
@@ -260,6 +261,39 @@ class LocalBook(_Book):
         # TODO: this flag could be exposed in future
         quoting = None  # csv.QUOTE_NONNUMERIC
         data.timeseries().sort_index().to_csv(self.local_fname(fname), quoting=quoting)
+        resource_hash = pooch.hashes.file_hash(self.local_fname(fname))
+
+        metadata = self.as_datapackage()
+        metadata.add_resource(
+            {
+                "name": name,
+                "format": "CSV",
+                "filename": fname,
+                "hash": resource_hash,
+            }
+        )
+        metadata.save(self.local_fname(DATAPACKAGE_FILENAME))
+
+    def add_long_format(self, name: str, data: pd.DataFrame) -> None:
+        """
+        Add a timeseries resource to the Book
+
+        Updates the Books metadata
+
+        Parameters
+        ----------
+        name : str
+            Unique name of the resource
+        data : scmdata.ScmRun
+            Timeseries data to add to the Book
+        """
+        fname = f"{name}.csv.gz"
+
+        # TODO: this flag could be exposed in future
+        quoting = None  # csv.QUOTE_NONNUMERIC
+        data.sort_index().to_csv(
+            self.local_fname(fname), quoting=quoting, sep=",", encoding="utf-8", compression="gzip"
+        )
         resource_hash = pooch.hashes.file_hash(self.local_fname(fname))
 
         metadata = self.as_datapackage()

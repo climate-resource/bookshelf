@@ -321,6 +321,49 @@ class BookShelf:
 
         logger.info(f"Book {book.name}@{book.version} ed.{book.edition} uploaded successfully")
 
+    def publish_long_format(self, book: LocalBook) -> None:
+        """
+        Publish a book in long format to the remote bookshelf
+
+        Parameters
+        ----------
+        book : LocalBook
+            Book to upload
+
+        Raises
+        ------
+        UploadError
+            Unable to upload the book to the remote bookshelf. See error message for
+            more information about how to resolve this issue.
+        """
+        files = book.files()
+
+        s3 = boto3.client("s3")
+        bucket = get_env_var("BUCKET", add_prefix=True, default=DEFAULT_S3_BUCKET)
+        prefix = get_env_var("BUCKET_PREFIX", add_prefix=True, default=DATA_FORMAT_VERSION)
+
+        logger.info(f"Beginning to upload {book.name}@{book.version}")
+        for resource_file in files:
+            key = "/".join(
+                (
+                    prefix,
+                    "tableau",
+                    book.name,
+                    book.long_version(),
+                    os.path.basename(resource_file),
+                )
+            )
+            _upload_file(s3, bucket, key, resource_file)
+
+        # Update the metadata with the latest version information
+        # Note that this doesn't have any guardrails and is susceptible to race conditions
+        # Shouldn't be a problem for testing, but shouldn't be used in production
+        meta_fname = _update_volume_meta(book, self.remote_bookshelf)
+        key = "/".join((prefix, "tableau", book.name, os.path.basename(meta_fname)))
+        _upload_file(s3, bucket, key, meta_fname)
+
+        logger.info(f"Book {book.name}@{book.version} ed.{book.edition} uploaded successfully")
+
     def _resolve_version(
         self,
         name: str,

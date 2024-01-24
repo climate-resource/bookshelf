@@ -1,0 +1,55 @@
+name: long_format
+edition: 1
+license: Unknown
+description:
+  Long format data for different datasources
+metadata:
+  author: Yini Lai
+  author_email: yini.lai@climate-resource.com
+data_dictionary:
+  - name: category
+    description: Category of emissions
+    type: string
+    required: false
+  - name: country
+    description: Global warming potentials used to calculate CO2-equivalent emissions
+    type: string
+    required: false
+  - name: gwp_context
+    description: Software/dataset name that the results were sourced from
+    type: string
+    required: false
+  - name: model
+    description: Version of the data
+    type: string
+    required: false
+  - name: region
+    description: Complete country name
+    type: string
+    required: false
+  - name: scenario
+    description: Indentifier for the geographic region that the timeseries applies to. Common region idenifiers include  ISO 3166-1 alpha-3 codes (always capatilised)
+    type: string
+    required: true
+  - name: scenario
+    description: Scenarios of the data
+    type: string
+    required: false
+  - name: source
+    description: Name of the dataset
+    type: string
+    required: true
+  - name: unit
+    description: Identifier for the dataset (of the form `v{date}`)
+    type: string
+    required: true
+  - name: variable
+    description: Name of the quantity being captured/recorded
+    type: string
+    required: true
+versions:
+  - version: vtest1
+    private: true
+    dataset:
+      url:
+      author: test_author
