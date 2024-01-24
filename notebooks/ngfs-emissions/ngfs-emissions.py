@@ -45,7 +45,7 @@ local_bookshelf = tempfile.mkdtemp()
 version = "v3.4"
 
 # %%
-metadata = load_nb_metadata("ngfs", version=version)
+metadata = load_nb_metadata("ngfs-emissions", version=version)
 metadata.model_dump()
 
 
