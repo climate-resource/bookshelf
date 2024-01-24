@@ -5,13 +5,6 @@ stages:
   - bump
   - release
 
-# Use our linux CR runner by default
-default:
-  tags:
-    - docker
-    - linux
-    - cr
-
 image: python:3.10
 
 # Change pip's cache directory to be inside the project directory since we can
