@@ -9,23 +9,28 @@ data_dictionary:
   - name: model
     description: Name of the dataset. This should be the same of a given dataset
     type: string
-    required: true
+    allowed_NA: false
+    required_column: true
   - name: region
     description: Indentifier for the geographic region that the timeseries applies to. Common region idenifiers include  ISO 3166-1 alpha-3 codes (always capatilised)
     type: string
-    required: false
+    allowed_NA: true
+    required_column: true
   - name: scenario
     description: Configuration used to define the historical emissions.
     type: string
-    required: false
+    allowed_NA: true
+    required_column: true
   - name: unit
     description: Unit of the timeseries
     type: string
-    required: true
+    allowed_NA: false
+    required_column: true
   - name: variable
     description: Name of the variable
     type: string
-    required: true
+    allowed_NA: false
+    required_column: true
     controlled_vocabulary:
       - value: GDP
         description: Gross Domestic Products in constant dollar terms.

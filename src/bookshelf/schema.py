@@ -127,11 +127,13 @@ class Dimension(BaseModel):
 
     This is not currently verified
     """
-    required: bool
+    required_column: bool = Field(default=True)
     """
-    Indication about whether this metadata dimension is compulsory
-
-    For required dimensions, all values must be non-empty
+    Indication about whether this metadata dimension is compulsory in all the dataset in the book
+    """
+    allowed_NA: bool
+    """
+    Indication about whether all values in this metadata dimension must be non-empty
     """
     controlled_vocabulary: Optional[list[ControlledVocabularyValue]] = None
     """

@@ -26,7 +26,8 @@ def notebook_metadata():
                 "name": "test",
                 "description": "test description",
                 "type": "string",
-                "required": True,
+                "allowed_NA": False,
+                "required_column": True,
                 "controlled_vocabulary": [{"value": "test", "description": "test description"}],
             }
         ],
@@ -57,7 +58,8 @@ def notebook_metadata_no_cv():
                 "name": "test",
                 "description": "test description",
                 "type": "string",
-                "required": True,
+                "allowed_NA": False,
+                "required_column": True,
             }
         ],
     )
@@ -81,7 +83,8 @@ def test_notebook_metadata_no_controlled_vocabulary(notebook_metadata_no_cv):
                 "name": "test",
                 "description": "test description",
                 "type": "string",
-                "required": True,
+                "allowed_NA": False,
+                "required_column": True,
             }
         ],
     )
@@ -110,7 +113,8 @@ def test_notebook_metadata_invalid_data_dictionary():
                     "name": "test",
                     # 'description' field is missing here
                     "type": "string",
-                    "required": True,
+                    "allowed_NA": False,
+                    "required_column": True,
                 }
             ],
         )

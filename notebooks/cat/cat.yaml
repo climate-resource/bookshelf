@@ -10,11 +10,13 @@ data_dictionary:
   - name: Sector/Type
     description: Indication about the minimum or maximum estimation of a specific category
     type: string
-    required: false
+    allowed_NA: true
+    required_column: true
   - name: category
     description: Category of emissions
     type: string
-    required: false
+    allowed_NA: true
+    required_column: true
     controlled_vocabulary:
       - value: M.0.EL
         description: National total emission excluding LULUCF
@@ -23,43 +25,53 @@ data_dictionary:
   - name: ghg_metric
     description: Global warming potentials used to calculate CO2-equivalent emissions
     type: string
-    required: false
+    allowed_NA: true
+    required_column: true
   - name: model
     description: Software/dataset name that the results were sourced from
     type: string
-    required: false
+    allowed_NA: true
+    required_column: true
   - name: model_version
     description: Version of the data
     type: string
-    required: false
+    allowed_NA: true
+    required_column: true
   - name: name
     description: Complete country name
     type: string
-    required: false
+    allowed_NA: true
+    required_column: true
   - name: region
     description: Indentifier for the geographic region that the timeseries applies to. Common region idenifiers include  ISO 3166-1 alpha-3 codes (always capatilised)
     type: string
-    required: true
+    allowed_NA: false
+    required_column: true
   - name: scenario
     description: Scenarios of the data
     type: string
-    required: false
+    allowed_NA: true
+    required_column: true
   - name: source
     description: Name of the dataset
     type: string
-    required: true
+    allowed_NA: false
+    required_column: true
   - name: source_version
     description: Identifier for the dataset (of the form `v{date}`)
     type: string
-    required: true
+    allowed_NA: false
+    required_column: true
   - name: unit
     description: Unit of variable
     type: string
-    required: true
+    allowed_NA: false
+    required_column: true
   - name: variable
     description: Name of the quantity being captured/recorded
     type: string
-    required: true
+    allowed_NA: false
+    required_column: true
     controlled_vocabulary:
       - value: Emissions|Total GHG
         description: Total greenhouse gas emissions. This can be refered to either total emissions include LULUCF or exclude LULUCF. Refers to category for the details

@@ -97,7 +97,7 @@ def verify_data_dictionary(
     """
      Verifies the consistency of data against the specifications in a notebook's data dictionary.
 
-     This function checks various aspects of data integrity, including column name matching,
+     This function checks various aspects of data integrity, including column matching,
      data type consistency, adherence to controlled vocabularies, and the presence of required
      fields without missing (NA) values. It performs these checks by comparing the actual data
      with the requirements specified in the data dictionary of the notebook configuration.
@@ -127,9 +127,12 @@ def verify_data_dictionary(
 
     # Iterate through each entry (dimension) in the data dictionary.
     for variable in notebook_config.data_dictionary:
-        # Check if the dimension's name in the data dictionary matches any column in the data.
+        # Check if the required dimension in the data dictionary not in the data.
         if variable.name not in data.meta.columns:
-            verificat.col_name_match = False
+            if variable.required_column is True:
+                verificat.col_name_match = False
+            else:
+                continue
         else:
             # Validate that the data type of the column in the data matches its specified type
             # in the data dictionary.
@@ -150,8 +153,8 @@ def verify_data_dictionary(
                 ):
                     verificat.controlled_vocabulary_match = False
 
-            # For required dimensions, verify there are no missing (NA) values in the data.
-            if variable.required is True:
+            # For not allowed missing value(NA) dimensions, verify there are NA values in the data.
+            if variable.allowed_NA is False:
                 if data.meta[variable.name].isna().any():
                     verificat.non_na_col_match = False
     return verificat
@@ -177,13 +180,15 @@ def test_verify_data_dictionary():
                 "name": "model",
                 "description": "The IAM that was used to create the scenario",
                 "type": "string",
-                "required": False,
+                "allowed_NA": True,
+                "required_column": True,
             },
             {
                 "name": "region",
                 "description": "Area that the results are valid for",
                 "type": "string",
-                "required": True,
+                "allowed_NA": False,
+                "required_column": True,
                 "controlled_vocabulary": [
                     {"value": "World", "description": "Aggregate results for the world"}
                 ],
@@ -192,19 +197,22 @@ def test_verify_data_dictionary():
                 "name": "scenario",
                 "description": "scenario",
                 "type": "string",
-                "required": False,
+                "allowed_NA": True,
+                "required_column": True,
             },
             {
                 "name": "unit",
                 "description": "Unit of the timeseries",
                 "type": "string",
-                "required": True,
+                "allowed_NA": False,
+                "required_column": True,
             },
             {
                 "name": "variable",
                 "description": "Variable name",
                 "type": "string",
-                "required": True,
+                "allowed_NA": False,
+                "required_column": True,
             },
         ],
     )
@@ -236,20 +244,23 @@ def test_verify_data_dictionary_col_name_macth():
                 "name": "model",
                 "description": "The IAM that was used to create the scenario",
                 "type": "string",
-                "required": False,
+                "allowed_NA": True,
+                "required_column": True,
             },
             # no "source" exist in data
             {
                 "name": "source",
                 "description": "Name of the dataset",
                 "type": "string",
-                "required": True,
+                "allowed_NA": False,
+                "required_column": True,
             },
             {
                 "name": "region",
                 "description": "Area that the results are valid for",
                 "type": "string",
-                "required": True,
+                "allowed_NA": False,
+                "required_column": True,
                 "controlled_vocabulary": [
                     {"value": "World", "description": "Aggregate results for the world"}
                 ],
@@ -258,19 +269,22 @@ def test_verify_data_dictionary_col_name_macth():
                 "name": "scenario",
                 "description": "scenario",
                 "type": "string",
-                "required": False,
+                "allowed_NA": True,
+                "required_column": True,
             },
             {
                 "name": "unit",
                 "description": "Unit of the timeseries",
                 "type": "string",
-                "required": True,
+                "allowed_NA": False,
+                "required_column": True,
             },
             {
                 "name": "variable",
                 "description": "Variable name",
                 "type": "string",
-                "required": True,
+                "allowed_NA": False,
+                "required_column": True,
             },
         ],
     )
@@ -303,13 +317,15 @@ def test_verify_data_dictionary_col_type_match():
                 "description": "The IAM that was used to create the scenario",
                 # type == "int" rather than "string"
                 "type": "int",
-                "required": False,
+                "allowed_NA": True,
+                "required_column": True,
             },
             {
                 "name": "region",
                 "description": "Area that the results are valid for",
                 "type": "string",
-                "required": True,
+                "allowed_NA": False,
+                "required_column": True,
                 "controlled_vocabulary": [
                     {"value": "World", "description": "Aggregate results for the world"}
                 ],
@@ -318,19 +334,22 @@ def test_verify_data_dictionary_col_type_match():
                 "name": "scenario",
                 "description": "scenario",
                 "type": "string",
-                "required": False,
+                "allowed_NA": True,
+                "required_column": True,
             },
             {
                 "name": "unit",
                 "description": "Unit of the timeseries",
                 "type": "string",
-                "required": True,
+                "allowed_NA": False,
+                "required_column": True,
             },
             {
                 "name": "variable",
                 "description": "Variable name",
                 "type": "string",
-                "required": True,
+                "allowed_NA": False,
+                "required_column": True,
             },
         ],
     )
@@ -362,13 +381,15 @@ def test_verify_data_dictionary_controlled_vocabulary_match():
                 "name": "model",
                 "description": "The IAM that was used to create the scenario",
                 "type": "int",
-                "required": False,
+                "allowed_NA": True,
+                "required_column": True,
             },
             {
                 "name": "region",
                 "description": "Area that the results are valid for",
                 "type": "string",
-                "required": True,
+                "allowed_NA": False,
+                "required_column": True,
                 "controlled_vocabulary": [
                     {
                         # "World" is a value in region column in data, which is not a subset of ["Test"]
@@ -381,19 +402,22 @@ def test_verify_data_dictionary_controlled_vocabulary_match():
                 "name": "scenario",
                 "description": "scenario",
                 "type": "string",
-                "required": False,
+                "allowed_NA": True,
+                "required_column": True,
             },
             {
                 "name": "unit",
                 "description": "Unit of the timeseries",
                 "type": "string",
-                "required": True,
+                "allowed_NA": False,
+                "required_column": True,
             },
             {
                 "name": "variable",
                 "description": "Variable name",
                 "type": "string",
-                "required": True,
+                "allowed_NA": False,
+                "required_column": True,
             },
         ],
     )
@@ -427,13 +451,15 @@ def test_verify_data_dictionary_non_na_col_match():
                 "name": "model",
                 "description": "The IAM that was used to create the scenario",
                 "type": "int",
-                "required": False,
+                "allowed_NA": True,
+                "required_column": True,
             },
             {
                 "name": "region",
                 "description": "Area that the results are valid for",
                 "type": "string",
-                "required": True,
+                "allowed_NA": False,
+                "required_column": True,
                 "controlled_vocabulary": [
                     {"value": "World", "description": "Aggregate results for the world"}
                 ],
@@ -442,19 +468,22 @@ def test_verify_data_dictionary_non_na_col_match():
                 "name": "scenario",
                 "description": "scenario",
                 "type": "string",
-                "required": False,
+                "allowed_NA": True,
+                "required_column": True,
             },
             {
                 "name": "unit",
                 "description": "Unit of the timeseries",
                 "type": "string",
-                "required": True,
+                "allowed_NA": False,
+                "required_column": True,
             },
             {
                 "name": "variable",
                 "description": "Variable name",
                 "type": "string",
-                "required": True,
+                "allowed_NA": False,
+                "required_column": True,
             },
         ],
     )
