@@ -78,7 +78,7 @@ def test_notebook(notebook_path, notebook_name, notebook_version, output_directo
 
 @attrs.define
 class VerificationInfo:
-    col_name_match: bool = attrs.field(init=False, default=True)
+    column_match: bool = attrs.field(init=False, default=True)
     col_type_match: bool = attrs.field(init=False, default=True)
     controlled_vocabulary_match: bool = attrs.field(init=False, default=True)
     non_na_col_match: bool = attrs.field(init=False, default=True)
@@ -130,7 +130,7 @@ def verify_data_dictionary(
         # Check if the required dimension in the data dictionary not in the data.
         if variable.name not in data.meta.columns:
             if variable.required_column is True:
-                verificat.col_name_match = False
+                verificat.column_match = False
             else:
                 continue
         else:
@@ -291,7 +291,7 @@ def test_verify_data_dictionary_col_name_macth():
 
     verification = verify_data_dictionary(data, config)
 
-    assert not verification.col_name_match
+    assert not verification.column_match
 
 
 def test_verify_data_dictionary_col_type_match():
