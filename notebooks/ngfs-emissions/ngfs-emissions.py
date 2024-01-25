@@ -20,7 +20,7 @@
 
 # %%
 # Need to think about how to handle notebook dependencies
-# !pip install pyam-iamc
+# !pip install "pyam-iamc>=2"
 
 # %%
 import logging
@@ -32,6 +32,9 @@ import scmdata
 
 from bookshelf import LocalBook
 from bookshelf.notebook import load_nb_metadata
+
+# %%
+pyam.__version__
 
 # %% [markdown]
 # # Initialise
@@ -46,7 +49,7 @@ version = "v3.4"
 
 # %%
 metadata = load_nb_metadata("ngfs-emissions", version=version)
-metadata.model_dump()
+dict(metadata)
 
 
 # %% [markdown]
