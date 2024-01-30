@@ -83,7 +83,7 @@ class VerificationInfo:
     controlled_vocabulary_match: bool = attrs.field(init=False, default=True)
     non_na_col_match: bool = attrs.field(init=False, default=True)
 
-    def is_valid(self):
+    def is_valid(self) -> tuple[bool, str]:
         validation = attrs.asdict(self, recurse=False)
         for attr, value in validation.items():
             if not value:
@@ -120,7 +120,7 @@ def verify_data_dictionary(
     if len(notebook_config.data_dictionary) == 0:
         return None
 
-    verificat = VerificationInfo()
+    verification_info = VerificationInfo()
 
     # Retrieve unique metadata values from the data for comparison with the data dictionary.
     unique_values = get_dataset_dictionary(data)
@@ -130,7 +130,7 @@ def verify_data_dictionary(
         # Check if the required dimension in the data dictionary not in the data.
         if variable.name not in data.meta.columns:
             if variable.required_column is True:
-                verificat.column_match = False
+                verification_info.column_match = False
             else:
                 continue
         else:
@@ -139,7 +139,7 @@ def verify_data_dictionary(
             try:
                 data.meta[variable.name].astype(variable.type)
             except ValueError:
-                verificat.col_type_match = False
+                verification_info.col_type_match = False
 
             # If a controlled vocabulary (CV) is defined, check if all data values are included in the CV.
             if variable.controlled_vocabulary is not None:
@@ -151,13 +151,13 @@ def verify_data_dictionary(
                         ]
                     )
                 ):
-                    verificat.controlled_vocabulary_match = False
+                    verification_info.controlled_vocabulary_match = False
 
             # For not allowed missing value(NA) dimensions, verify there are NA values in the data.
             if variable.allowed_NA is False:
                 if data.meta[variable.name].isna().any():
-                    verificat.non_na_col_match = False
-    return verificat
+                    verification_info.non_na_col_match = False
+    return verification_info
 
 
 def test_verify_data_dictionary():
