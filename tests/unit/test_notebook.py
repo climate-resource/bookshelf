@@ -89,9 +89,7 @@ def test_run_notebook(remote_bookshelf, name, version):
             version=version,
         )
 
-        with pytest.raises(
-            ValueError, match=re.escape(f"{os.path.join(td, version)} is not empty")
-        ):
+        with pytest.raises(ValueError, match=re.escape(f"{os.path.join(td, version)} is not empty")):
             run_notebook(
                 nb_name,
                 output_directory=td,

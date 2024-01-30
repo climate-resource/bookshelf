@@ -169,8 +169,7 @@ def run_notebook(
     logger.info(f"Loaded metadata from {metadata.source_file}")
     if metadata.name != short_name:  # pragma: no cover
         raise ValueError(
-            "name in metadata does not match the name of the notebook "
-            f"({metadata.name} != {name}"
+            "name in metadata does not match the name of the notebook " f"({metadata.name} != {name}"
         )
     logger.info(f"Processing {metadata.long_name()}")
 

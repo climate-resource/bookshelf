@@ -183,9 +183,7 @@ data.get_unique_meta("variable")
 data.filter(variable="GDP|PPP")
 
 # %%
-data.filter(variable="GDP|PPP", unit="constant 2017 international $").lineplot(
-    units="region", estimator=None
-)
+data.filter(variable="GDP|PPP", unit="constant 2017 international $").lineplot(units="region", estimator=None)
 
 # %% [markdown]
 # # Process

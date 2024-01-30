@@ -151,9 +151,7 @@ for k, v in data.items():
                     time, numbers = timestamp[0], timestamp[1:]
                     if len(numbers) == VALUE_LEN:
                         number = numbers[0]
-                    elif (
-                        len(numbers) == BOUND_LEN
-                    ):  # Bounds given, e.g., [lower_bound, upper_bound]
+                    elif len(numbers) == BOUND_LEN:  # Bounds given, e.g., [lower_bound, upper_bound]
                         number = tuple(numbers)
 
                     timeseries_dict[time] = number
@@ -261,12 +259,8 @@ output_df.loc[output_df["conditionality"].str.contains("h_c", na=False), "scenar
 output_df.loc[output_df["scenario"] == "history", "scenario"] = "Historical"
 
 # output_df conditionality
-output_df.loc[
-    output_df["conditionality"].str.contains("_con", na=False), "conditionality"
-] = "conditional"
-output_df.loc[
-    output_df["conditionality"].str.contains("_ucon", na=False), "conditionality"
-] = "unconditional"
+output_df.loc[output_df["conditionality"].str.contains("_con", na=False), "conditionality"] = "conditional"
+output_df.loc[output_df["conditionality"].str.contains("_ucon", na=False), "conditionality"] = "unconditional"
 
 # variable
 output_df.loc[output_df["variable"] == "emissions", "variable"] = "Emissions|Total GHG"
@@ -276,10 +270,12 @@ output_df.loc[output_df["variable"] == "gdp", "variable"] = "GDP"
 
 # category
 output_df.loc[
-    (output_df["variable"] == "Emissions|Total GHG") & (output_df["lulucf"] == "excl"), "category"
+    (output_df["variable"] == "Emissions|Total GHG") & (output_df["lulucf"] == "excl"),
+    "category",
 ] = "M.0.EL"
 output_df.loc[
-    (output_df["variable"] == "Emissions|Total GHG") & (output_df["lulucf"] == "incl"), "category"
+    (output_df["variable"] == "Emissions|Total GHG") & (output_df["lulucf"] == "incl"),
+    "category",
 ] = "0"
 
 # %%
@@ -303,13 +299,11 @@ assert (
         "Initial NDC",
     ].sort()
 )
-assert [
-    value for value in output_df["conditionality"].unique().tolist() if value is not None
-].sort() == ["conditional", "unconditional"].sort()
-assert (
-    output_df["variable"].unique().tolist().sort()
-    == ["Emissions|Total GHG", "Population", "GDP"].sort()
-)
+assert [value for value in output_df["conditionality"].unique().tolist() if value is not None].sort() == [
+    "conditional",
+    "unconditional",
+].sort()
+assert output_df["variable"].unique().tolist().sort() == ["Emissions|Total GHG", "Population", "GDP"].sort()
 assert output_df["category"].unique().tolist().sort() == ["M.0.EL", "nan", "0"].sort()
 
 

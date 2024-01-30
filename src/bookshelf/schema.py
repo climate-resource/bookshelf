@@ -227,9 +227,7 @@ class NotebookMetadata(BaseModel):
         str
             Filename of the locally downloaded file
         """
-        cache_location = get_env_var(
-            "DOWNLOAD_CACHE_LOCATION", raise_on_missing=False, default=None
-        )
+        cache_location = get_env_var("DOWNLOAD_CACHE_LOCATION", raise_on_missing=False, default=None)
 
         try:
             file_info = self.dataset.files[idx]

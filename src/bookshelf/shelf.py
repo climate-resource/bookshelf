@@ -83,9 +83,7 @@ def _upload_file(s3: "S3Client", bucket: str, key: str, fname: str) -> None:
 
 def _update_volume_meta(book: LocalBook, remote_bookshelf: str) -> str:
     try:
-        volume_meta = _fetch_volume_meta(
-            book.name, remote_bookshelf, book.local_bookshelf, force=True
-        )
+        volume_meta = _fetch_volume_meta(book.name, remote_bookshelf, book.local_bookshelf, force=True)
     except requests.exceptions.HTTPError:
         volume_meta = VolumeMeta(name=book.name, license="", versions=[])
 
@@ -280,8 +278,7 @@ class BookShelf:
         # Check if additional files are going to be uploaded
         resources = book.as_datapackage().resources
         resource_fnames = [
-            resource.descriptor["filename"]
-            for resource in cast(Iterable[datapackage.Resource], resources)
+            resource.descriptor["filename"] for resource in cast(Iterable[datapackage.Resource], resources)
         ]
         for resource_file in files:
             fname = os.path.basename(resource_file)
@@ -328,7 +325,7 @@ class BookShelf:
         try:
             meta = _fetch_volume_meta(name, self.remote_bookshelf, self.path)
         except requests.exceptions.HTTPError as http_error:
-            raise UnknownBook(f"No metadata for {repr(name)}") from http_error
+            raise UnknownBook(f"No metadata for {name!r}") from http_error
 
         if version is None:
             version = meta.get_latest_version()
@@ -362,7 +359,7 @@ class BookShelf:
         try:
             meta = _fetch_volume_meta(name, self.remote_bookshelf, self.path)
         except requests.exceptions.HTTPError as http_error:
-            raise UnknownBook(f"No metadata for {repr(name)}") from http_error
+            raise UnknownBook(f"No metadata for {name!r}") from http_error
 
         return [version.version for version in meta.versions if not version.private]
 

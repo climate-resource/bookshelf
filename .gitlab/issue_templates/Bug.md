@@ -1,28 +1,34 @@
 ## Describe the bug
-
-A clear and concise description of what the bug is.
+<!--- A clear and concise description of what the bug is. -->
 
 ## Failing Test
+<!---
+Please put the code (ideally in the form of a unit test) which fails below.
 
-Please put the code (ideally in the form of a unit
-test) which fails below
+e.g.
+
+```python
+def test_bug_12():
+    # Python code here which fails because of the bug
+    # This is best if other developers can simply copy and paste this test in
+    # order to run it
+```
+-->
 
 ## Expected behavior
-
-A clear and concise description of what you expected to happen.
+<!--- A clear and concise description of what you expected to happen. -->
 
 ## Screenshots
+<!--- If applicable, add screenshots to help explain your problem. -->
 
-If applicable, add screenshots to help explain your problem.
-
-## System (please complete the following information)
+## System
+<!--- Please complete the following information. -->
 
  - OS: [e.g. Windows, Linux, macOS]
- - Python version [e.g. Python 3.5] and output of `conda list --export` and `pip freeze` as applicable
+ - Python version [e.g. Python 3.11]
+ - Please also upload your `poetry.lock` file (first run `poetry lock` to make sure the lock file is up-to-date)
 
 ## Additional context
+<!--- Add any other context about the problem here. -->
 
-Add any other context about the problem here.
-
-
-/label ~Bug
+/label ~bug

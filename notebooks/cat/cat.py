@@ -135,9 +135,7 @@ for f in csv_files:
 CAT_df = pd.concat(CAT_df).rename(columns={"Graph label": "scenario"})
 
 # Create a category column based on the information in the Sector/Type and scenario
-CAT_df.loc[
-    CAT_df["Sector/Type"].str.contains("Total, excl LULUCF", na=False), "category"
-] = "M.0.EL"
+CAT_df.loc[CAT_df["Sector/Type"].str.contains("Total, excl LULUCF", na=False), "category"] = "M.0.EL"
 CAT_df.loc[CAT_df["Sector/Type"] == "LULUCF", "category"] = "M.LULUCF"
 
 CAT_df.loc[CAT_df["scenario"].str.contains("Unconditional", na=False), "category"] = "M.0.EL"

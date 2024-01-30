@@ -5,6 +5,10 @@
 # compatible so we're not too worried
 TEMP_FILE := $(shell mktemp)
 
+# Files that are formatted by Ruff
+FILES_TO_FORMAT := src tests notebooks scripts docs/source/conf.py docs/source/notebooks/*.py
+
+
 # some of our sources have to be downloaded from older servers, need
 # a more relaxed openssl config
 OPENSSL_CONF ?= .gitlab/openssl.cnf
@@ -23,6 +27,7 @@ endef
 export PRINT_HELP_PYSCRIPT
 
 
+.PHONY: help
 help:  ## print short description of each target
 	@python3 -c "$$PRINT_HELP_PYSCRIPT" < $(MAKEFILE_LIST)
 
@@ -32,22 +37,35 @@ checks:  ## run all the linting checks of the codebase
 		echo "=== mypy ==="; MYPYPATH=stubs poetry run mypy src || echo "--- mypy failed ---" >&2; \
 		echo "======"
 
-.PHONY: black
-black:  ## format the code using black
-	poetry run black src notebooks tests docs/source/conf.py scripts docs/source/notebooks/*.py
-	poetry run blackdoc src
-
 .PHONY: ruff-fixes
 ruff-fixes:  ## fix the code using ruff
-	poetry run ruff src notebooks tests scripts docs/source/conf.py docs/source/notebooks/*.py --fix
+    # format before and after checking so that the formatted stuff is checked and
+    # the fixed stuff is formatted
+	poetry run ruff format $(FILES_TO_FORMAT)
+	poetry run ruff $(FILES_TO_FORMAT) --fix
+	poetry run ruff format $(FILES_TO_FORMAT)
 
 .PHONY: test
 test:  ## run the tests
-	poetry run pytest src tests -r a -v --doctest-modules --cov
+	poetry run pytest src tests -r a -v --doctest-modules --cov=src
+
+# Note on code coverage and testing:
+# You must specify cov=src as otherwise funny things happen when doctests are
+# involved.
+# If you want to debug what is going on with coverage, we have found
+# that adding COVERAGE_DEBUG=trace to the front of the below command
+# can be very helpful as it shows you if coverage is tracking the coverage
+# of all of the expected files or not.
+# We are sure that the coverage maintainers would appreciate a PR that improves
+# the coverage handling when there are doctests and a `src` layout like ours.
 
 .PHONY: docs
 docs:  ## build the docs
 	poetry run sphinx-build -T -b html docs/source docs/build/html
+
+.PHONY: changelog-draft
+changelog-draft:  ## compile a draft of the next changelog
+	poetry run towncrier build --draft
 
 .PHONY: licence-check
 licence-check:  ## Check that licences of the dependencies are suitable

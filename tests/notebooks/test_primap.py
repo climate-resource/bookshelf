@@ -13,10 +13,7 @@ def primap_book(local_bookshelf: os.PathLike) -> LocalBook:
 
 
 @pytest.mark.xfail(
-    reason=(
-        "scmdata reading bug:"
-        " https://gitlab.com/climate-resource/bookshelf/bookshelf/-/issues/20"
-    )
+    reason=("scmdata reading bug:" " https://gitlab.com/climate-resource/bookshelf/bookshelf/-/issues/20")
 )
 def test_primap_categories(primap_book, local_bookshelf):
     # Read the PRIMAP results from the local bookshelf

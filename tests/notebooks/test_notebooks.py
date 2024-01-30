@@ -87,13 +87,14 @@ class VerificationInfo:
         validation = attrs.asdict(self, recurse=False)
         for attr, value in validation.items():
             if not value:
-                return False, f"Data dictionary does not match the data: {attr} is not true"
+                return (
+                    False,
+                    f"Data dictionary does not match the data: {attr} is not true",
+                )
         return True, ""
 
 
-def verify_data_dictionary(
-    data: ScmRun, notebook_config: NotebookMetadata
-) -> Optional[VerificationInfo]:
+def verify_data_dictionary(data: ScmRun, notebook_config: NotebookMetadata) -> Optional[VerificationInfo]:
     """
      Verifies the consistency of data against the specifications in a notebook's data dictionary.
 
