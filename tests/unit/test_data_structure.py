@@ -55,6 +55,4 @@ def test_print_dataset_structure(sample_scmrun, capsys):
     expected_output = expected_output.strip()
 
     # Assert that the captured output matches the expected format
-    assert (
-        captured_output == expected_output
-    ), "The output format does not match the expected format."
+    assert captured_output == expected_output, "The output format does not match the expected format."

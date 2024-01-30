@@ -63,9 +63,7 @@ def print_dataset_structure(data: ScmRun) -> None:
     max_length = max(len(values) for values in v_lst)
 
     # Calculate width for each column
-    width_lst = [
-        max(len(str(item)) for item in [key, *values]) + 5 for key, values in zip(k_lst, v_lst)
-    ]
+    width_lst = [max(len(str(item)) for item in [key, *values]) + 5 for key, values in zip(k_lst, v_lst)]
 
     # Print header
     print("".join(f"{item:{width}}" for item, width in zip(k_lst, width_lst)))
@@ -73,8 +71,7 @@ def print_dataset_structure(data: ScmRun) -> None:
     # Print header divider
     print(
         "".join(
-            f"{item:{width}}"
-            for item, width in zip(["-" * (width - 5) for width in width_lst], width_lst)
+            f"{item:{width}}" for item, width in zip(["-" * (width - 5) for width in width_lst], width_lst)
         )
     )
 

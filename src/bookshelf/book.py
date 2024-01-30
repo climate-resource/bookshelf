@@ -72,6 +72,7 @@ class _Book:
             Book edition
         fname
             If provided, reference a specific file within the data
+
         Returns
         -------
             Iterable of the parts, which can be joined as needed to get
@@ -103,13 +104,12 @@ class _Book:
             Book edition
         fname
             If provided, reference a specific file within the data
+
         Returns
         -------
             Relative path to the book or resource within the book
         """
-        return os.path.join(
-            *cls.path_parts(name=name, version=version, edition=edition, fname=fname)
-        )
+        return os.path.join(*cls.path_parts(name=name, version=version, edition=edition, fname=fname))
 
     def url(self, fname: Optional[str] = None) -> str:
         """
@@ -274,9 +274,7 @@ class LocalBook(_Book):
         metadata.save(self.local_fname(DATAPACKAGE_FILENAME))
 
     @classmethod
-    def create_new(
-        cls, name: str, version: Version, edition: Edition = 1, **kwargs: Any
-    ) -> "LocalBook":
+    def create_new(cls, name: str, version: Version, edition: Edition = 1, **kwargs: Any) -> "LocalBook":
         """
         Create a new Book
         """

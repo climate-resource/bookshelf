@@ -6,7 +6,7 @@
 TEMP_FILE := $(shell mktemp)
 
 # Files that are formatted by Ruff
-FILES_TO_FORMAT := "src tests notebooks scripts docs/source/conf.py docs/source/notebooks/*.py"
+FILES_TO_FORMAT := src tests notebooks scripts docs/source/conf.py docs/source/notebooks/*.py
 
 
 # some of our sources have to be downloaded from older servers, need

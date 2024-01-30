@@ -9,7 +9,12 @@ from typing import Any, Optional, Union
 import appdirs
 import pooch
 
-from bookshelf.constants import DATA_FORMAT_VERSION, DEFAULT_BOOKSHELF, ENV_PREFIX, ROOT_DIR
+from bookshelf.constants import (
+    DATA_FORMAT_VERSION,
+    DEFAULT_BOOKSHELF,
+    ENV_PREFIX,
+    ROOT_DIR,
+)
 
 logger = logging.getLogger(__file__)
 
@@ -109,6 +114,7 @@ def build_url(bookshelf: str, *paths: str) -> str:
         The remote bookshelf
     paths : list of str
         A collection of paths that form the path of the URL
+
     Returns
     -------
     str
@@ -155,8 +161,7 @@ def fetch_file(
         if pooch.hashes.hash_matches(local_fname, known_hash):
             return
         raise ValueError(
-            f"Hash for existing file {local_fname} does not match the expected "
-            f"value {known_hash}"
+            f"Hash for existing file {local_fname} does not match the expected " f"value {known_hash}"
         )
 
     if force or not local_fname.exists():
@@ -188,6 +193,7 @@ def get_env_var(
         If ``True``, a ValueError is raised
     default : Any
         Value to return if the environment variable is missing and ``raise_on_missing`` is ``True``
+
     Returns
     -------
     str

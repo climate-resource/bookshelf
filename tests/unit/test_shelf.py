@@ -66,9 +66,7 @@ def test_load_missing(shelf, remote_bookshelf):
 
 
 def test_load_missing_version(shelf, remote_bookshelf):
-    remote_bookshelf.mocker.get(
-        f"/{DATA_FORMAT_VERSION}/test/v1.1.1/datapackage.json", status_code=404
-    )
+    remote_bookshelf.mocker.get(f"/{DATA_FORMAT_VERSION}/test/v1.1.1/datapackage.json", status_code=404)
     with pytest.raises(UnknownVersion, match="Could not find test@v1.1.1"):
         shelf.load("test", "v1.1.1")
 
@@ -213,9 +211,7 @@ def test_publish_existing(shelf, remote_bookshelf):
 
     with pytest.raises(
         UploadError,
-        match=re.escape(
-            "Edition value has not been increased (remote: v1.0.0_e001, local:" " v1.0.0_e001)"
-        ),
+        match=re.escape("Edition value has not been increased (remote: v1.0.0_e001, local:" " v1.0.0_e001)"),
     ):
         shelf.publish(book, force=False)
 

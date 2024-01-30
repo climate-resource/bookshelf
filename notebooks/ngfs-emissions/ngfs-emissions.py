@@ -122,9 +122,7 @@ data.head()
 data.get_unique_meta("model")
 
 # %%
-downscaled_models = [
-    re.escape(m) for m in data.get_unique_meta("model") if m.startswith("Downscaling ")
-]
+downscaled_models = [re.escape(m) for m in data.get_unique_meta("model") if m.startswith("Downscaling ")]
 downscaled_models
 
 # %%

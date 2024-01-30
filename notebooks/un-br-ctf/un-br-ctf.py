@@ -116,7 +116,10 @@ for sector in (
     translation[sector] = ("Emissions|Total GHG", sector)
     translation[f"Other ({sector})"] = ("Emissions|Total GHG", sector)
 translation["Total with LULUCF"] = ("Emissions|Total GHG", "National Total")
-translation["Total without LULUCF"] = ("Emissions|Total GHG", "Total emissions excluding LULUCF")
+translation["Total without LULUCF"] = (
+    "Emissions|Total GHG",
+    "Total emissions excluding LULUCF",
+)
 for gas in ("CO2", "CH4", "N2O", "HFCs", "PFCs", "SF6", "NF3", "F-gases"):
     # gases are totals or w/o lulucf, as specified
     translation[gas] = (f"Emissions|{gas}", "National Total")
@@ -168,7 +171,12 @@ unhandled
 
 # %%
 df_renamed = df.rename(
-    columns={"PartyCode": "region", "DataSource": "source", "Unit": "unit", "Year1990": "1990"}
+    columns={
+        "PartyCode": "region",
+        "DataSource": "source",
+        "Unit": "unit",
+        "Year1990": "1990",
+    }
 )
 df_renamed["model"] = "BR-CTF"
 df_renamed["category"] = category
@@ -285,9 +293,7 @@ cdf_wm["category"].unique()
 
 # %%
 def dedup(df: pd.DataFrame):
-    return df.drop_duplicates(
-        ["category", "model", "region", "scenario", "source", "unit", "variable"]
-    )
+    return df.drop_duplicates(["category", "model", "region", "scenario", "source", "unit", "variable"])
 
 
 # national total is duplicated in Sector and Gas, so needs to be deduplicated here.
@@ -337,9 +343,7 @@ def add_ghg_metric(run):
     region = run.get_unique_meta("region", True)
     source = run.get_unique_meta("source", True)
 
-    gwp_used = target_df.query(f"PartyCode == {region!r} and DataSource == {source!r}")[
-        "GwpUsed"
-    ].iloc[0]
+    gwp_used = target_df.query(f"PartyCode == {region!r} and DataSource == {source!r}")["GwpUsed"].iloc[0]
 
     if isinstance(gwp_used, float) and np.isnan(gwp_used):
         run["ghg_metric"] = np.nan

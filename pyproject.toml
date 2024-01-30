@@ -80,14 +80,6 @@ jupyter = "^1.0.0"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.black]
-line-length = 100
-target-version = [
-    'py39',
-    'py310',
-    'py311',
-]
-
 [tool.coverage.run]
 source = ["src"]
 branch = true
@@ -160,7 +152,7 @@ ignore = [
     "D400",  # First line should end with a period
     "TRY003",  # Avoid specifying long messages outside the exception class
 ]
-line-length = 88
+line-length = 110
 
 [tool.ruff.format]
 docstring-code-format = true

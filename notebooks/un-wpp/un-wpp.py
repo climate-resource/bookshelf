@@ -44,9 +44,7 @@ local_bookshelf = tempfile.mkdtemp()
 local_bookshelf
 
 # %%
-book = LocalBook.create_new(
-    metadata.name, version=metadata.version, local_bookshelf=local_bookshelf
-)
+book = LocalBook.create_new(metadata.name, version=metadata.version, local_bookshelf=local_bookshelf)
 
 # %% [markdown]
 # # Fetch
@@ -111,30 +109,12 @@ value_cols = [
     "Mortality before Age 60, both sexes (deaths under age 60 per 1,000 live births)",
     "Male Mortality before Age 60 (deaths under age 60 per 1,000 male live births)",
     "Female Mortality before Age 60 (deaths under age 60 per 1,000 female live births)",
-    (
-        "Mortality between Age 15 and 50, both sexes (deaths under age 50 per 1,000"
-        " alive at age 15)"
-    ),
-    (
-        "Male Mortality between Age 15 and 50 (deaths under age 50 per 1,000 males"
-        " alive at age 15)"
-    ),
-    (
-        "Female Mortality between Age 15 and 50 (deaths under age 50 per 1,000 females"
-        " alive at age 15)"
-    ),
-    (
-        "Mortality between Age 15 and 60, both sexes (deaths under age 60 per 1,000"
-        " alive at age 15)"
-    ),
-    (
-        "Male Mortality between Age 15 and 60 (deaths under age 60 per 1,000 males"
-        " alive at age 15)"
-    ),
-    (
-        "Female Mortality between Age 15 and 60 (deaths under age 60 per 1,000 females"
-        " alive at age 15)"
-    ),
+    ("Mortality between Age 15 and 50, both sexes (deaths under age 50 per 1,000" " alive at age 15)"),
+    ("Male Mortality between Age 15 and 50 (deaths under age 50 per 1,000 males" " alive at age 15)"),
+    ("Female Mortality between Age 15 and 50 (deaths under age 50 per 1,000 females" " alive at age 15)"),
+    ("Mortality between Age 15 and 60, both sexes (deaths under age 60 per 1,000" " alive at age 15)"),
+    ("Male Mortality between Age 15 and 60 (deaths under age 60 per 1,000 males" " alive at age 15)"),
+    ("Female Mortality between Age 15 and 60 (deaths under age 60 per 1,000 females" " alive at age 15)"),
     "Net Number of Migrants (thousands)",
     "Net Migration Rate (per 1,000 population)",
 ]
@@ -190,9 +170,7 @@ prepped = prep_df(df_hist, model="World Population Prospects 2022", scenario="Hi
 prepped
 
 # %%
-data_hist = scmdata.ScmRun(
-    prep_df(df_hist, model="World Population Prospects 2022", scenario="Historical")
-)
+data_hist = scmdata.ScmRun(prep_df(df_hist, model="World Population Prospects 2022", scenario="Historical"))
 data_proj = scmdata.ScmRun(
     prep_df(df_proj, model="World Population Prospects 2022", scenario="Medium variant")
 )
