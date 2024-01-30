@@ -37,5 +37,5 @@ features it is usually better to stick to a single paragraph to keep it concise.
 cross-referencing](https://myst-parser.readthedocs.io/en/latest/syntax/cross-referencing.html) within your news items to link to other
 documentation.
 
-You can also run `towncrier --draft` to see the draft changelog that will be appended to [docs/source/changelog.md]()
+You can also run `towncrier build --draft` to see the draft changelog that will be appended to [docs/source/changelog.md]()
 on the next release.

@@ -1,17 +1,25 @@
-## Is your feature request related to a problem? Please describe.
+## The motivation
 
-A clear and concise description of what the problem is. Ex. It's annoying that I always have to [...]
+<!--- Useful to breakdown to "As a [persona], I [want to do], so that [reason] -->
 
-##  Describe the solution you'd like
+## The proposed solution
 
-A clear and concise description of the solution you would like to see.
+<!---
+If you'd like, please provide a description of the solution you would like to see
 
-## Describe alternatives you've considered
+If you don't have any ideas for the solution, simply leave this blank
+-->
 
-A clear and concise description of any alternative solutions or features you've considered.
+## Alternatives
+
+<!---
+If you've considered any alternatives, please describe them here
+
+If you don't have any alternatives, simply leave this blank
+-->
 
 ## Additional context
 
-Add any other context or screenshots about the feature request here.
+<!--- Add any additional context can go here -->
 
-/label ~Feature
+/label ~feature
