@@ -8,11 +8,13 @@ data_dictionary:
   - name: activity_id
     description: The activity that was undertaken
     type: string
-    required: true
+    allowed_NA: false
+    required_column: true
   - name: mip_era
     description: mip_era
     type: string
-    required: false
+    allowed_NA: true
+    required_column: true
     controlled_vocabulary:
       - value: CMIP5
         description: Results from CMIP5
@@ -21,26 +23,31 @@ data_dictionary:
   - name: model
     description: The IAM that was used to create the scenario
     type: string
-    required: false
+    allowed_NA: true
+    required_column: true
   - name: unit
     description: Unit of the timeseries
     type: string
-    required: true
+    allowed_NA: false
+    required_column: true
   - name: scenario
     description: scenario
     type: string
-    required: true
-  - name: Region name
+    allowed_NA: false
+    required_column: true
+  - name: region
     description: Area that the results are valid for
     type: string
-    required: true
+    allowed_NA: false
+    required_column: true
     controlled_vocabulary:
       - value: World
         description: Aggregate results for the world
   - name: variable
     description: Variable name
     type: string
-    required: false
+    allowed_NA: true
+    required_column: true
 versions:
   - version: v0.1.0
     dataset:

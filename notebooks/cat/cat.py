@@ -25,6 +25,7 @@ import pycountry
 from scmdata import ScmRun
 
 from bookshelf import LocalBook
+from bookshelf.dataset_structure import print_dataset_structure
 from bookshelf.notebook import load_nb_metadata
 
 # %% [markdown]
@@ -120,11 +121,13 @@ for f in csv_files:
     # Insert meta data columns into dataframe.
     CAT_data.insert(2, "variable", "Emissions|Total GHG")
     CAT_data.insert(2, "unit", "MtCO2/yr")
-    CAT_data.insert(0, "country", country_name)
+    CAT_data.insert(0, "name", country_name)
     CAT_data.insert(0, "region", str(region_name))
     CAT_data.insert(0, "model_version", model_version)
+    CAT_data.insert(0, "model", None)
     CAT_data.insert(0, "ghg_metric", "AR4GWP100")
-    CAT_data.insert(0, "model", "CAT")
+    CAT_data.insert(0, "source_version", metadata.version)
+    CAT_data.insert(0, "source", "CAT")
 
     # Consolidate current country's data with main dataframe.
     CAT_df.append(CAT_data)
@@ -150,6 +153,10 @@ CAT_df_ScmRun = ScmRun(CAT_df)
 
 # %%
 CAT_df_ScmRun.timeseries()
+
+
+# %%
+print_dataset_structure(CAT_df_ScmRun)
 
 # %%
 book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)

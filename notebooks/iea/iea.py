@@ -80,9 +80,10 @@ output_totco2_df = output_totco2_df.rename(
 )
 output_totco2_df["category"] = "1"
 output_totco2_df["variable"] = "Emissions|CO2"
-output_totco2_df["scenario"] = "default_scenario"
-output_totco2_df["model"] = "IEA model"
-output_totco2_df["model_version"] = metadata.version
+output_totco2_df["scenario"] = None
+output_totco2_df["source"] = "IEA"
+output_totco2_df["source_version"] = metadata.version
+output_totco2_df["model"] = None
 output_totco2_df["conditionality"] = "unconditional"
 output_totco2_df["unit"] = output_totco2_df["unit"].map({"Mt of CO2": "MtCO2/yr"})
 

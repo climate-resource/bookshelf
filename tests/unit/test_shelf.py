@@ -306,7 +306,8 @@ def test_update_volume_meta(local_bookshelf, remote_bookshelf):
                     "name": "test",
                     "description": "test description",
                     "type": "string",
-                    "required": True,
+                    "allowed_NA": False,
+                    "required_column": True,
                     "controlled_vocabulary": [{"value": "test", "description": "test description"}],
                 }
             ],

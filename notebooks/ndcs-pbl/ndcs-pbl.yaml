@@ -8,6 +8,91 @@ description: |
 metadata:
   author: Yini Lai
   author_email: yini.lai@climate-resource.com
+data_dictionary:
+  - name: ambition
+    description: Represent a spread in a the interpretation of NDCs due to vague NDC definitions and ambiguous expression of commitments or a stated range
+    type: string
+    allowed_NA: true
+    required_column: true
+    controlled_vocabulary:
+      - value: low
+        description: Low ambition (high emissions). May be the same as the high ambition pathway if a target was clearly defined.
+      - value: high
+        description: High ambition (low emissions).  May be the same as the low ambition pathway if a target was clearly defined.
+      - value: mean
+        description: Mean of the high and low ambition pathways. This is only used in the summary statistics and not provided as individual timeseries
+  - name: category
+    description: Category of emissions
+    type: string
+    allowed_NA: true
+    required_column: true
+    controlled_vocabulary:
+      - value: M.0.EL
+        description: National total emission excluding LULUCF
+      - value: 0
+        description: Total emissions
+  - name: conditionality
+    description: Denotes the conditionality of a pathway
+    type: string
+    allowed_NA: true
+    required_column: true
+    controlled_vocabulary:
+      - value: conditional
+        description: A conditional target with higher emissions reductions, subject to achieving international support.
+      - value: unconditional
+        description: An unconditional target is a target that a country will implement with their own resources.
+  - name: lulucf
+    description: Indication about whether Land use, land use change and forestry emissions is included or not
+    type: string
+    allowed_NA: true
+    required_column: true
+  - name: source
+    description: Name of the dataset
+    type: string
+    allowed_NA: false
+    required_column: true
+  - name: source_version
+    description: Identifier for the dataset (of the form `v{date}`)
+    type: string
+    allowed_NA: false
+    required_column: true
+  - name: model
+    description: Software/dataset name that the results were sourced from
+    type: string
+    allowed_NA: true
+    required_column: true
+  - name: name
+    description: Complete country name
+    type: string
+    allowed_NA: true
+    required_column: true
+  - name: region
+    description: Indentifier for the geographic region that the timeseries applies to. Common region idenifiers include  ISO 3166-1 alpha-3 codes (always capatilised)
+    type: string
+    allowed_NA: false
+    required_column: true
+  - name: scenario
+    description: Scenarios of the data
+    type: string
+    allowed_NA: true
+    required_column: true
+  - name: unit
+    description: Unit of variable
+    type: string
+    allowed_NA: false
+    required_column: true
+  - name: variable
+    description: Name of the quantity being captured/recorded
+    type: string
+    allowed_NA: false
+    required_column: true
+    controlled_vocabulary:
+      - value: Emissions|Total GHG
+        description: Total greenhouse gas emissions. This can be refered to either total emissions include LULUCF or exclude LULUCF. Refers to category for the details
+      - value: Population
+        description: Population statistics
+      - value: GDP
+        description: GDP statistics
 versions:
   - version: v20230418
     private: true

@@ -169,10 +169,8 @@ class BookShelf:
         """
         if version is None or edition is None or force:
             version, edition = self._resolve_version(name, version, edition)
-
         metadata_fragment = LocalBook.relative_path(name, version, edition, "datapackage.json")
         metadata_fname = self.path / metadata_fragment
-
         if not metadata_fname.exists():
             try:
                 url = build_url(
@@ -190,7 +188,6 @@ class BookShelf:
 
         if not metadata_fname.exists():
             raise AssertionError()
-
         return LocalBook(name, version, edition, local_bookshelf=self.path)
 
     def is_available(
