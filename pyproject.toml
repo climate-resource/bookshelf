@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "bookshelf"
-version = "0.2.4"
+version = "0.3.0"
 description = "A collection of curated climate data sets"
 authors = ["Jared Lewis <jared.lewis@climate-resource.com>"]
 readme = "README.md"

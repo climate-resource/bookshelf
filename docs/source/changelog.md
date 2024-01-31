@@ -19,6 +19,36 @@ of rst and use slightly different categories.
 
 <!-- towncrier release notes start -->
 
+## bookshelf v0.3.0 (2024-01-31)
+
+
+### Features
+
+- * Added legacy GDP results from Excel NDC Tool. ([#42](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/42))
+- Add an updated version of the World Bank's World Development Indicators (v23). The `wdi` book has also been
+  updated to edition 2. ([#43](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/43))
+- * Added greenhouse gas emissions data from Climate Action Tracker (CAT).
+  * Added historical greenhouse gas emission data and projection data from PBL Netherlands Environmental Assessment Agency.
+  * Added estimated energy sector CO2 emissions data from International Energy Agency.
+
+  ([#45](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/45))
+- Add a function to display the structure of a dataset ([#48](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/48))
+- Add data dictionary to schema ([#49](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/49))
+- Add data dictionary verification ([#50](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/50))
+- Added NGFS3 emissions data. ([#53](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/53))
+
+### Bug Fixes
+
+- Fix to the schema for datasets to allow no files to be specified ([#47](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/47))
+- Re-add notebook tests to CI
+
+  Updated primap-hist and primap-ssp-downscaled editions to update reflect the renaming of `turkey` to `Türkiye` ([#51](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/51))
+
+### Trivial/Internal Changes
+
+- [#55](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/merge_requests/55)
+
+
 ## bookshelf v0.2.4 (2023-08-14)
 
 
