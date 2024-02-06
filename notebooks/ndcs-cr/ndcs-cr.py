@@ -30,6 +30,10 @@ for file in metadata.dataset.files:
     file_name = re.findall(pattern, file.url)[0]
     RAW_DATA_PATH = NOTEBOOK_DIR / file.url
     file_data = scmdata.ScmRun(RAW_DATA_PATH)
+    if file_name[-2:] == "TP":
+        file_data["scenario"] = "TP"
+    else:
+        file_data["scenario"] = "CR"
     book.add_timeseries(file_name, file_data)
 
 # %%
