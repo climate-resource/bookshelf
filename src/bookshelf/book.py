@@ -243,9 +243,9 @@ class LocalBook(_Book):
         file_list = glob.glob(self.local_fname("*"))
         return file_list
 
-    def add_timeseries(self, name: str, data: scmdata.ScmRun, compressed) -> None:
+    def add_timeseries(self, name: str, data: scmdata.ScmRun, compressed: bool = False) -> None:
         """
-        Add a timeseries resource to the Book
+        Add two timeseries resource (wide format and long format) to the Book
 
         Updates the Books metadata
 
@@ -255,74 +255,85 @@ class LocalBook(_Book):
             Unique name of the resource
         data : scmdata.ScmRun
             Timeseries data to add to the Book
+        compressed: bool
+            Whether compressed the file or not
         """
         if compressed:
-            format = "csv.gz"
-            compression = "gzip"
+            compression_info = {"format": "csv.gz", "compression": "gzip"}
         else:
-            format = "csv"
-            compression = "infer"
-        compressed = [format, compression]
-        name = name + self.long_version()
+            compression_info = {"format": "csv", "compression": "infer"}
+        name = self.name + "_" + self.long_version() + "_" + name
         metadata = self.as_datapackage()
-        self.write_wide_timeseries(metadata, data, name, compressed)
-        self.write_long_timeseries(metadata, data, name, compressed)
+        self.write_wide_timeseries(metadata, data, name, compression_info)
+        self.write_long_timeseries(metadata, data, name, compression_info)
         metadata.save(self.local_fname(DATAPACKAGE_FILENAME))
 
-    def write_wide_timeseries(self, metadata, data, name, compressed):
+    def write_wide_timeseries(
+        self, metadata: datapackage.Package, data: scmdata.ScmRun, name: str, compression_info: dict
+    ) -> None:
         """
-        Add a timeseries resource to the Book
-
-        Updates the Books metadata
+        Add the wide format timeseries data to the Book
 
         Parameters
         ----------
-        name : str
-            Unique name of the resource
+        metadata : datapackage.Package
+            Metadata about the Book
         data : scmdata.ScmRun
             Timeseries data to add to the Book
+        name: str
+            Unique name of the resource
+        compression_info: dict
+            A dictionary about the format of the file and the compression type
         """
-        format = compressed[0]
-        compression = compressed[1]
         name = name + "_wide"
-        fname = f"{name}.{format}"
-        data.timeseries().sort_index().to_csv(self.local_fname(fname), compression=compression)
+        fname = f"{name}.{compression_info['format']}"
+        data.timeseries().sort_index().to_csv(
+            self.local_fname(fname), compression=compression_info["compression"]
+        )
         resource_hash = pooch.hashes.file_hash(self.local_fname(fname))
         metadata.add_resource(
             {
                 "name": name,
-                "format": format,
+                "format": compression_info["format"],
                 "filename": fname,
                 "hash": resource_hash,
             }
         )
 
-    def write_long_timeseries(self, metadata, data, name, compressed):
+    def write_long_timeseries(
+        self, metadata: datapackage.Package, data: scmdata.ScmRun, name: str, compression_info: dict
+    ) -> None:
         """
-        Add a timeseries resource to the Book
-
-        Updates the Books metadata
+        Add the long format timeseries data to the Book
 
         Parameters
         ----------
-        name : str
-            Unique name of the resource
+        metadata : datapackage.Package
+            Metadata about the Book
         data : scmdata.ScmRun
             Timeseries data to add to the Book
+        name: str
+            Unique name of the resource
+        compression_info: dict
+            A dictionary about the format of the file and the compression type
         """
-        format = compressed[0]
-        compression = compressed[1]
         name = name + "_long"
-        fname = f"{name}.{format}"
+        fname = f"{name}.{compression_info['format']}"
         var_lst = list(data.meta.columns)
-        data = pd.Dataframe(data.timeseries().reset_index())
+        data = pd.DataFrame(data.timeseries().reset_index())
         data = pd.melt(data, id_vars=var_lst, var_name="year", value_name="values")
-        data.to_csv(self.local_fname(fname), sep=",", index=False, header=True, compression=compression)
+        data.to_csv(
+            self.local_fname(fname),
+            sep=",",
+            index=False,
+            header=True,
+            compression=compression_info["compression"],
+        )
         resource_hash = pooch.hashes.file_hash(self.local_fname(fname))
         metadata.add_resource(
             {
                 "name": name,
-                "format": format,
+                "format": compression_info["format"],
                 "filename": fname,
                 "hash": resource_hash,
             }
