@@ -1,6 +1,5 @@
 # %%
 import logging
-import re
 import tempfile
 
 import scmdata
@@ -26,12 +25,14 @@ book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 # %%
 for idx, file in enumerate(metadata.dataset.files):
     file_data = scmdata.ScmRun(metadata.download_file(idx))
-    pattern = r"(\d{1,2}[A-Za-z]{3}\d{2,4}[a-z]_[\w-]+|\d{8}c_[\w-]+)(?=\.)"
-    file_name = re.findall(pattern, file.url)[0]
-    if file.url[-2:] == "TP":
+    scenario_name = file_data.get_unique_meta("scenario")
+    variant = scenario_name[0].split("_")[-1]
+    if variant in ["TP", "CR"]:
         file_data["scenario"] = "TP"
-    else:
+    elif variant in ["AVIVA", "CR-noOverrides"]:
         file_data["scenario"] = "CR"
+    else:
+        raise ValueError(f"Unknown variant: {variant}")
     book.add_timeseries(file.url, file_data)
 
 
