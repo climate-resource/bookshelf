@@ -36,6 +36,7 @@ python-dotenv = "*"
 pycountry = "*"
 datapackage = "^1.15.2"
 pyyaml = "*"
+pandas-stubs = "^2.1.4.231227"
 
 [tool.poetry.group.tests.dependencies]
 pytest = "^7.3.1"

@@ -33,15 +33,15 @@ def test_create_local(local_bookshelf):
 def test_add_timeseries(local_bookshelf, example_data):
     book = LocalBook.create_new("test", "v1.1.0", local_bookshelf=local_bookshelf)
     book.add_timeseries("test", example_data)
-    assert len(book.as_datapackage().resources) == 1
+    assert len(book.as_datapackage().resources) == 2
 
-    expected_fname = local_bookshelf / "test" / "v1.1.0_e001" / "test.csv"
+    expected_fname = local_bookshelf / "test" / "v1.1.0_e001" / "test_wide.csv"
     assert expected_fname.exists()
 
     res = book.as_datapackage().resources[0]
-    assert res.name == "test"
-    assert res.descriptor["format"] == "CSV"
-    assert res.descriptor["filename"] == "test.csv"
+    assert res.name == "test_wide"
+    assert res.descriptor["format"] == "csv"
+    assert res.descriptor["filename"] == "test_wide.csv"
     assert res.descriptor["hash"] == pooch.hashes.file_hash(expected_fname)
 
 
@@ -49,7 +49,7 @@ def test_timeseries(example_data):
     book = LocalBook.create_new("test", "v1.1.0")
     book.add_timeseries("test", example_data)
 
-    scmdata.testing.assert_scmdf_almost_equal(example_data, book.timeseries("test"))
+    scmdata.testing.assert_scmdf_almost_equal(example_data, book.timeseries("test_wide"))
 
     with pytest.raises(ValueError, match="Unknown timeseries 'other'"):
         book.timeseries("other")

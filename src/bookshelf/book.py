@@ -262,14 +262,14 @@ class LocalBook(_Book):
             compression_info = {"format": "csv.gz", "compression": "gzip"}
         else:
             compression_info = {"format": "csv", "compression": "infer"}
-        name = self.name + "_" + self.long_version() + "_" + name
+        # name = self.name + "/" + self.long_version() + "/" + name
         metadata = self.as_datapackage()
         self.write_wide_timeseries(metadata, data, name, compression_info)
         self.write_long_timeseries(metadata, data, name, compression_info)
         metadata.save(self.local_fname(DATAPACKAGE_FILENAME))
 
     def write_wide_timeseries(
-        self, metadata: datapackage.Package, data: scmdata.ScmRun, name: str, compression_info: dict
+        self, metadata: datapackage.Package, data: scmdata.ScmRun, name: str, compression_info: dict[str, str]
     ) -> None:
         """
         Add the wide format timeseries data to the Book
@@ -301,7 +301,7 @@ class LocalBook(_Book):
         )
 
     def write_long_timeseries(
-        self, metadata: datapackage.Package, data: scmdata.ScmRun, name: str, compression_info: dict
+        self, metadata: datapackage.Package, data: scmdata.ScmRun, name: str, compression_info: dict[str, str]
     ) -> None:
         """
         Add the long format timeseries data to the Book
