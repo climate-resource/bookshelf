@@ -1,6 +1,5 @@
 # %%
 import logging
-import pathlib
 import re
 import tempfile
 
@@ -12,7 +11,7 @@ from bookshelf.notebook import load_nb_metadata
 # %%
 logging.basicConfig(level=logging.INFO)
 
-# %%
+# %% tags=["parameters"]
 local_bookshelf = tempfile.mkdtemp()
 version = "13Mar23a"
 
@@ -23,18 +22,18 @@ metadata.dict()
 # %%
 book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 
+
 # %%
-NOTEBOOK_DIR = pathlib.Path().resolve()
-for file in metadata.dataset.files:
+for idx, file in enumerate(metadata.dataset.files):
+    file_data = scmdata.ScmRun(metadata.download_file(idx))
     pattern = r"(\d{1,2}[A-Za-z]{3}\d{2,4}[a-z]_[\w-]+|\d{8}c_[\w-]+)(?=\.)"
     file_name = re.findall(pattern, file.url)[0]
-    RAW_DATA_PATH = NOTEBOOK_DIR / file.url
-    file_data = scmdata.ScmRun(RAW_DATA_PATH)
-    if file_name[-2:] == "TP":
+    if file.url[-2:] == "TP":
         file_data["scenario"] = "TP"
     else:
         file_data["scenario"] = "CR"
-    book.add_timeseries(file_name, file_data)
+    book.add_timeseries(file.url, file_data)
+
 
 # %%
 book.metadata()
