@@ -8,17 +8,25 @@ metadata:
   author_email: yini.lai@climate-resource.com
 data_dictionary:
   - name: ambition
-    description: Used to represent a spread in a the interpretation of NDCs due to vague NDC definitions and ambiguous expression of commitments or a stated range.
+    description: |
+      Used to represent a spread in the interpretation of NDCs due to vague NDC definitions and ambiguous
+      expression of commitments or a stated range. All values may be the same if there is no ambiguity in the
+      pledged targets.
     type: string
     allowed_NA: true
     required_column: true
+    controlled_vocabulary:
+      - value: high
+        description: The highest level of ambition (lowest level of emissions)
+      - value: low
+        description: The lowest level of ambition (highest level of emissions)
   - name: category
     description: Category of emissions
     type: string
     allowed_NA: false
     required_column: true
     controlled_vocabulary:
-      - value: 0
+      - value: "0"
         description: Total emissions
       - value: M.0.EL
         description: National total emission excluding LULUCF
@@ -57,14 +65,14 @@ data_dictionary:
     allowed_NA: false
     required_column: true
   - name: region
-    description: Indentifier for the geographic region that the timeseries applies to. Common region idenifiers include  ISO 3166-1 alpha-3 codes (always capatilised)
+    description: Identifier for the geographic region that the timeseries applies to. Common region identifiers include ISO 3166-1 alpha-3 codes (always capitalised)
     type: string
     allowed_NA: false
     required_column: true
   - name: scenario
-    description: Scenarios of the data
+    description: A unique description of the version of the data and the variant used.
     type: string
-    allowed_NA: true
+    allowed_NA: false
     required_column: true
   - name: unit
     description: Unit of variable
@@ -78,7 +86,14 @@ data_dictionary:
     required_column: true
     controlled_vocabulary:
       - value: Emissions|Total GHG
-        description: Total greenhouse gas emissions. This can be refered to either total emissions include LULUCF or exclude LULUCF. Refers to category for the details
+        description: Total greenhouse gas emissions. This can be referred to either total emissions including LULUCF or excluding LULUCF. Refers to category for the details.
+  - name: variant
+    description: |
+      A Variant specifies the sources and parameters used to create an input dataset. Older variant names have been
+      translated into the current variant naming scheme as of Feb 2023.
+    type: string
+    allowed_NA: false
+    required_column: true
 versions:
   - version: 20231201c
     private: true
