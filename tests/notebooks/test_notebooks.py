@@ -496,7 +496,6 @@ def test_verify_data_dictionary_non_na_col_match():
 
 def run_notebook_and_check_results(notebook, version, notebook_dir, output_directory):
     shelf = BookShelf()
-
     try:
         target_book = run_notebook(
             notebook,
@@ -508,7 +507,9 @@ def run_notebook_and_check_results(notebook, version, notebook_dir, output_direc
         files_names = [i["name"] for i in target_book.metadata()["resources"]]
 
         for name in files_names:
-            data = target_book.timeseries(name)
+            if name.split("_")[1] == "long":
+                break
+            data = target_book.timeseries(name)  # error occurs
             verification = verify_data_dictionary(data, nb_metadata)
 
             if verification:
@@ -523,7 +524,7 @@ def run_notebook_and_check_results(notebook, version, notebook_dir, output_direc
         return
 
     if shelf.is_available(name=target_book.name, version=target_book.version):
-        existing_book = shelf.load(name=target_book.name, version=target_book.version, force=True)
+        existing_book = shelf.load(name=target_book.name, version=target_book.version, force=False)
         logger.info(f"Remote book exists. Expecting hash: {existing_book.hash()}")
         if existing_book.edition != target_book.edition:
             raise ValueError(

@@ -263,13 +263,13 @@ class LocalBook(_Book):
         else:
             compression_info = {"format": "csv", "compression": "infer"}
         # name = self.name + "/" + self.long_version() + "/" + name
-        metadata = self.as_datapackage()
-        self.write_wide_timeseries(metadata, data, name, compression_info)
-        self.write_long_timeseries(metadata, data, name, compression_info)
-        metadata.save(self.local_fname(DATAPACKAGE_FILENAME))
+        # metadata = self.as_datapackage()
+        self.write_wide_timeseries(data, name, compression_info)
+        self.write_long_timeseries(data, name, compression_info)
+        # metadata.save(self.local_fname(DATAPACKAGE_FILENAME))
 
     def write_wide_timeseries(
-        self, metadata: datapackage.Package, data: scmdata.ScmRun, name: str, compression_info: dict[str, str]
+        self, data: scmdata.ScmRun, name: str, compression_info: dict[str, str]
     ) -> None:
         """
         Add the wide format timeseries data to the Book
@@ -285,10 +285,12 @@ class LocalBook(_Book):
         compression_info: dict
             A dictionary about the format of the file and the compression type
         """
+        metadata = self.as_datapackage()
         name = name + "_wide"
         fname = f"{name}.{compression_info['format']}"
+        quoting = None
         data.timeseries().sort_index().to_csv(
-            self.local_fname(fname), compression=compression_info["compression"]
+            self.local_fname(fname), compression=compression_info["compression"], quoting=quoting
         )
         resource_hash = pooch.hashes.file_hash(self.local_fname(fname))
         metadata.add_resource(
@@ -299,9 +301,10 @@ class LocalBook(_Book):
                 "hash": resource_hash,
             }
         )
+        metadata.save(self.local_fname(DATAPACKAGE_FILENAME))
 
     def write_long_timeseries(
-        self, metadata: datapackage.Package, data: scmdata.ScmRun, name: str, compression_info: dict[str, str]
+        self, data: scmdata.ScmRun, name: str, compression_info: dict[str, str]
     ) -> None:
         """
         Add the long format timeseries data to the Book
@@ -317,17 +320,34 @@ class LocalBook(_Book):
         compression_info: dict
             A dictionary about the format of the file and the compression type
         """
+
+        def customised_melt(data, id_vars, var_name, value_name):
+            pivot_list = list()
+            chunk_size = 100000
+
+            for i in range(0, len(data), chunk_size):
+                row_pivot = data.iloc[i : i + chunk_size].melt(
+                    id_vars=id_vars, var_name=var_name, value_name=value_name
+                )
+                pivot_list.append(row_pivot)
+
+            melt_df = pd.concat(pivot_list)
+            return melt_df
+
+        metadata = self.as_datapackage()
         name = name + "_long"
         fname = f"{name}.{compression_info['format']}"
         var_lst = list(data.meta.columns)
         data = pd.DataFrame(data.timeseries().reset_index())
-        data = pd.melt(data, id_vars=var_lst, var_name="year", value_name="values")
+        data = customised_melt(data, var_lst, "year", "values")
+        quoting = None
         data.to_csv(
             self.local_fname(fname),
             sep=",",
             index=False,
             header=True,
             compression=compression_info["compression"],
+            quoting=quoting,
         )
         resource_hash = pooch.hashes.file_hash(self.local_fname(fname))
         metadata.add_resource(
@@ -338,6 +358,7 @@ class LocalBook(_Book):
                 "hash": resource_hash,
             }
         )
+        metadata.save(self.local_fname(DATAPACKAGE_FILENAME))
 
     @classmethod
     def create_new(cls, name: str, version: Version, edition: Edition = 1, **kwargs: Any) -> "LocalBook":
