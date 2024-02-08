@@ -1,3 +1,18 @@
+# ---
+# jupyter:
+#   jupytext:
+#     cell_metadata_filter: -pycharm
+#     text_representation:
+#       extension: .py
+#       format_name: percent
+#       format_version: '1.3'
+#       jupytext_version: 1.14.5
+#   kernelspec:
+#     display_name: Python 3 (ipykernel)
+#     language: python
+#     name: python3
+# ---
+
 # %%
 import logging
 import tempfile
@@ -12,7 +27,7 @@ logging.basicConfig(level=logging.INFO)
 
 # %% tags=["parameters"]
 local_bookshelf = tempfile.mkdtemp()
-version = "13Mar23a"
+version = "2023-12-05-a"
 
 # %%
 metadata = load_nb_metadata("ndcs-cr", version=version)
