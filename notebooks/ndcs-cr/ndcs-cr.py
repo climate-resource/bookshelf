@@ -1,6 +1,20 @@
+# ---
+# jupyter:
+#   jupytext:
+#     cell_metadata_filter: -pycharm
+#     text_representation:
+#       extension: .py
+#       format_name: percent
+#       format_version: '1.3'
+#       jupytext_version: 1.14.5
+#   kernelspec:
+#     display_name: Python 3 (ipykernel)
+#     language: python
+#     name: python3
+# ---
+
 # %%
 import logging
-import re
 import tempfile
 
 import scmdata
@@ -13,7 +27,7 @@ logging.basicConfig(level=logging.INFO)
 
 # %% tags=["parameters"]
 local_bookshelf = tempfile.mkdtemp()
-version = "13Mar23a"
+version = "2023-12-05-a"
 
 # %%
 metadata = load_nb_metadata("ndcs-cr", version=version)
@@ -25,18 +39,19 @@ book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 
 # %%
 for idx, file in enumerate(metadata.dataset.files):
-    pattern = r"(\d{1,2}[A-Za-z]{3}\d{2,4}[a-z]_[\w-]+|\d{8}c_[\w-]+)(?=\.)"
-    file_name = re.findall(pattern, file.url)[0]
     file_data = scmdata.ScmRun(metadata.download_file(idx))
     scenario_name = file_data.get_unique_meta("scenario")
     variant = scenario_name[0].split("_")[-1]
     if variant in ["TP", "CR"]:
-        file_data["scenario"] = "TP"
+        variant_clean = "TP"
     elif variant in ["AVIVA", "CR-noOverrides"]:
-        file_data["scenario"] = "CR"
+        variant_clean = "CR-noOverrides"
+    elif variant in ["UNFCCC"]:
+        variant_clean = "UNFCCC"
     else:
         raise ValueError(f"Unknown variant: {variant}")
-    book.add_timeseries(file_name, file_data)
+    file_data["variant"] = variant_clean
+    book.add_timeseries(variant_clean, file_data)
 
 
 # %%
