@@ -321,7 +321,7 @@ class LocalBook(_Book):
             A dictionary about the format of the file and the compression type
         """
 
-        def customised_melt(data, id_vars, var_name, value_name):
+        def customised_melt(data: pd.DataFrame, id_vars: list, var_name: str, value_name: str):
             pivot_list = list()
             chunk_size = 100000
 
