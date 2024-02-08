@@ -46,6 +46,8 @@ for idx, file in enumerate(metadata.dataset.files):
         variant_clean = "TP"
     elif variant in ["AVIVA", "CR-noOverrides"]:
         variant_clean = "CR-noOverrides"
+    elif variant in ["UNFCCC"]:
+        variant_clean = "UNFCCC"
     else:
         raise ValueError(f"Unknown variant: {variant}")
     file_data["variant"] = variant_clean
