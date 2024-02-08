@@ -152,7 +152,7 @@ versions:
       url: https://www.climate-resource.com/tools/ndcs
       author: Climate Resource
       files:
-        - url: s3://ndcs-cr/data/2023-03-13-a_AVIVA_results.csv.zst
+        - url: file://ndcs-cr/data/2023-03-13-a_AVIVA_results.csv.zst
           hash: md5:0c6ca51115c0f6096029d4309240fb3e
         - url: file://ndcs-cr/data/2023-03-13-a_CR_results.csv.zst
           hash: md5:49fca13c1acdf3cbe935e60908d1b89b
