@@ -48,6 +48,11 @@ def find_notebooks():
 
 
 notebooks = find_notebooks()
+notebooks_lst = []
+# for notebook in notebooks:
+#     if notebook[-2] == "primap-hist":
+#         notebooks_lst.append(notebook)
+# notebooks = notebooks_lst
 
 
 @pytest.fixture()
@@ -507,8 +512,8 @@ def run_notebook_and_check_results(notebook, version, notebook_dir, output_direc
         files_names = [i["name"] for i in target_book.metadata()["resources"]]
 
         for name in files_names:
-            if name.split("_")[1] == "long":
-                break
+            if name.split("_")[-1] == "long":
+                continue
             data = target_book.timeseries(name)  # error occurs
             verification = verify_data_dictionary(data, nb_metadata)
 

@@ -321,7 +321,9 @@ class LocalBook(_Book):
             A dictionary about the format of the file and the compression type
         """
 
-        def customised_melt(data: pd.DataFrame, id_vars: list, var_name: str, value_name: str):
+        def customised_melt(
+            data: pd.DataFrame, id_vars: list[str], var_name: str, value_name: str
+        ) -> pd.DataFrame:
             pivot_list = list()
             chunk_size = 100000
 
@@ -338,10 +340,10 @@ class LocalBook(_Book):
         name = name + "_long"
         fname = f"{name}.{compression_info['format']}"
         var_lst = list(data.meta.columns)
-        data = pd.DataFrame(data.timeseries().reset_index())
-        data = customised_melt(data, var_lst, "year", "values")
+        data_df = pd.DataFrame(data.timeseries().reset_index())
+        data_melt = customised_melt(data_df, var_lst, "year", "values")
         quoting = None
-        data.to_csv(
+        data_melt.to_csv(
             self.local_fname(fname),
             sep=",",
             index=False,

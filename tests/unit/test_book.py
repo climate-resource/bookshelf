@@ -70,7 +70,6 @@ def test_metadata():
         "v1.0.0",
         local_bookshelf=os.path.join(TEST_DATA_DIR, DATA_FORMAT_VERSION),
     )
-
     package = book.as_datapackage()
 
     assert isinstance(package, datapackage.Package)
