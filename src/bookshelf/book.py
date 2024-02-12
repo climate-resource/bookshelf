@@ -262,11 +262,8 @@ class LocalBook(_Book):
             compression_info = {"format": "csv.gz", "compression": "gzip"}
         else:
             compression_info = {"format": "csv", "compression": "infer"}
-        # name = self.name + "/" + self.long_version() + "/" + name
-        # metadata = self.as_datapackage()
         self.write_wide_timeseries(data, name, compression_info)
         self.write_long_timeseries(data, name, compression_info)
-        # metadata.save(self.local_fname(DATAPACKAGE_FILENAME))
 
     def write_wide_timeseries(
         self, data: scmdata.ScmRun, name: str, compression_info: dict[str, str]
@@ -290,7 +287,7 @@ class LocalBook(_Book):
         fname = f"{name}.{compression_info['format']}"
         quoting = None
         data.timeseries().sort_index().to_csv(
-            self.local_fname(fname), compression=compression_info["compression"], quoting=quoting
+            path_or_buf=self.local_fname(fname), compression=compression_info["compression"], quoting=quoting
         )
         resource_hash = pooch.hashes.file_hash(self.local_fname(fname))
         metadata.add_resource(
@@ -344,7 +341,7 @@ class LocalBook(_Book):
         data_melt = customised_melt(data_df, var_lst, "year", "values")
         quoting = None
         data_melt.to_csv(
-            self.local_fname(fname),
+            path_or_buf=self.local_fname(fname),
             sep=",",
             index=False,
             header=True,

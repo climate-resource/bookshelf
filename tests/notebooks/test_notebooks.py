@@ -49,10 +49,6 @@ def find_notebooks():
 
 notebooks = find_notebooks()
 notebooks_lst = []
-# for notebook in notebooks:
-#     if notebook[-2] == "primap-hist":
-#         notebooks_lst.append(notebook)
-# notebooks = notebooks_lst
 
 
 @pytest.fixture()
