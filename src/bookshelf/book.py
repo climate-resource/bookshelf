@@ -286,7 +286,7 @@ class LocalBook(_Book):
         name = name + "_wide"
         fname = f"{name}.{compression_info['format']}"
         quoting = None
-        data.timeseries().sort_index().to_csv(
+        pd.DataFrame(data.timeseries().sort_index()).to_csv(
             path_or_buf=self.local_fname(fname), compression=compression_info["compression"], quoting=quoting
         )
         resource_hash = pooch.hashes.file_hash(self.local_fname(fname))
