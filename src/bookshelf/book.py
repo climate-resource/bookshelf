@@ -275,8 +275,6 @@ class LocalBook(_Book):
 
         Parameters
         ----------
-        metadata : datapackage.Package
-            Metadata about the Book
         data : scmdata.ScmRun
             Timeseries data to add to the Book
         name: str
@@ -312,8 +310,6 @@ class LocalBook(_Book):
 
         Parameters
         ----------
-        metadata : datapackage.Package
-            Metadata about the Book
         data : scmdata.ScmRun
             Timeseries data to add to the Book
         name: str
