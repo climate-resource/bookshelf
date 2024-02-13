@@ -4,9 +4,9 @@
   "edition": 1,
     "resources": [
         {
-            "name": "leakage_rates_low",
+            "name": "test_v1.0.0_e001_leakage_rates_low_wide",
             "format": "csv",
-            "filename": "leakage_rates_low.csv",
+            "filename": "test_v1.0.0_e001_leakage_rates_low_wide.csv",
             "hash": "b1c6712a571d4efbea0c181448644d6872f82c79e1581a83e6eb383bf5cda0a6",
             "profile": "data-resource"
         }

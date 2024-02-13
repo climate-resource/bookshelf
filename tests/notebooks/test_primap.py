@@ -45,7 +45,7 @@ def test_primap_categories(primap_book, local_bookshelf):
 
 
 def test_primap_units(primap_book, local_bookshelf):
-    emissions = primap_book.timeseries("primap-hist_v2.5_e005_by_region_wide")
+    emissions = primap_book.timeseries("by_region")
     assert emissions.get_unique_meta("unit") == [
         "kt CO2 / yr",
         "kt CH4 / yr",

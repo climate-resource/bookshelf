@@ -318,9 +318,33 @@ class LocalBook(_Book):
             A dictionary about the format of the file and the compression type
         """
 
-        def customised_melt(
+        def chunked_melt(
             data: pd.DataFrame, id_vars: list[str], var_name: str, value_name: str
         ) -> pd.DataFrame:
+            """
+            Melt wide format timeseries data to long format
+
+            Efficiently melts large wide-format timeseries data into long format in chunks,
+            addressing performance and memory issues associated with melting large DataFrames.
+
+            Parameters
+            ----------
+            data : pd.DataFrame
+                The wide-format DataFrame to be melted into long format.
+            id_vars : list[str]
+                Column(s) to use as identifier variables. These columns will be
+                preserved during the melt operation.
+            var_name : str
+                Name to assign to the variable column in the melted DataFrame.
+            value_name : str
+                Name to assign to the value column in the melted DataFrame.
+                This name must not match any existing column labels in `data`.
+
+            Returns
+            -------
+            pd.DataFrame
+                The melted DataFrame in long format, combining all chunks.
+            """
             pivot_list = list()
             chunk_size = 100000
 
@@ -338,7 +362,7 @@ class LocalBook(_Book):
         fname = f"{name}.{compression_info['format']}"
         var_lst = list(data.meta.columns)
         data_df = pd.DataFrame(data.timeseries().reset_index())
-        data_melt = customised_melt(data_df, var_lst, "year", "values")
+        data_melt = chunked_melt(data_df, var_lst, "year", "values")
         quoting = None
         data_melt.to_csv(  # type: ignore
             path_or_buf=self.local_fname(fname),
@@ -421,6 +445,8 @@ class LocalBook(_Book):
             Timeseries data
 
         """
+        name_tuple = (self.name, self.long_version(), name, "wide")
+        name = "_".join(name_tuple)
         resource: datapackage.Resource = self.as_datapackage().get_resource(name)
 
         if resource is None:
