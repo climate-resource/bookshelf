@@ -35,13 +35,13 @@ def test_add_timeseries(local_bookshelf, example_data):
     book.add_timeseries("test", example_data)
     assert len(book.as_datapackage().resources) == 2
 
-    expected_fname = local_bookshelf / "test" / "v1.1.0_e001" / "test_wide.csv"
+    expected_fname = local_bookshelf / "test" / "v1.1.0_e001" / "test_v1.1.0_e001_test_wide.csv.gz"
     assert expected_fname.exists()
 
     res = book.as_datapackage().resources[0]
-    assert res.name == "test_wide"
-    assert res.descriptor["format"] == "csv"
-    assert res.descriptor["filename"] == "test_wide.csv"
+    assert res.name == "test_v1.1.0_e001_test_wide"
+    assert res.descriptor["format"] == "csv.gz"
+    assert res.descriptor["filename"] == "test_v1.1.0_e001_test_wide.csv.gz"
     assert res.descriptor["hash"] == pooch.hashes.file_hash(expected_fname)
 
 
@@ -49,7 +49,7 @@ def test_timeseries(example_data):
     book = LocalBook.create_new("test", "v1.1.0")
     book.add_timeseries("test", example_data)
 
-    scmdata.testing.assert_scmdf_almost_equal(example_data, book.timeseries("test_wide"))
+    scmdata.testing.assert_scmdf_almost_equal(example_data, book.timeseries("test_v1.1.0_e001_test_wide"))
 
     with pytest.raises(ValueError, match="Unknown timeseries 'other'"):
         book.timeseries("other")

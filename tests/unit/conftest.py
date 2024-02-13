@@ -57,8 +57,13 @@ def remote_bookshelf(requests_mock, monkeypatch):
                 f"{url_prefix}/datapackage.json",
                 json=read_json("v0.2.0/example/v1.0.0_e001/datapackage.json"),
             )
+            # only wide format data is currently return
             requests_mock.get(
-                f"{url_prefix}/leakage_rates_low.csv",
+                f"{url_prefix}/example_v1.0.0_e001_leakage_rates_low_wide_wide.csv",
+                text=read_data("v0.2.0/example/v1.0.0_e001/leakage_rates_low.csv"),
+            )
+            requests_mock.get(
+                f"{url_prefix}/example_v1.0.0_e001_leakage_rates_low_wide_long.csv",
                 text=read_data("v0.2.0/example/v1.0.0_e001/leakage_rates_low.csv"),
             )
 

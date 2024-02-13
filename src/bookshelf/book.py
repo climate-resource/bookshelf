@@ -243,7 +243,7 @@ class LocalBook(_Book):
         file_list = glob.glob(self.local_fname("*"))
         return file_list
 
-    def add_timeseries(self, name: str, data: scmdata.ScmRun, compressed: bool = False) -> None:
+    def add_timeseries(self, name: str, data: scmdata.ScmRun, compressed: bool = True) -> None:
         """
         Add two timeseries resource (wide format and long format) to the Book
 
@@ -262,6 +262,8 @@ class LocalBook(_Book):
             compression_info = {"format": "csv.gz", "compression": "gzip"}
         else:
             compression_info = {"format": "csv", "compression": "infer"}
+        name_tuple = (self.name, self.long_version(), name)
+        name = "_".join(name_tuple)
         self.write_wide_timeseries(data, name, compression_info)
         self.write_long_timeseries(data, name, compression_info)
 
@@ -286,11 +288,8 @@ class LocalBook(_Book):
         name = name + "_wide"
         fname = f"{name}.{compression_info['format']}"
         quoting = None
-        pd.DataFrame(data.timeseries().sort_index()).to_csv(
+        pd.DataFrame(data.timeseries().sort_index()).to_csv(  # type: ignore
             path_or_buf=self.local_fname(fname),
-            sep=",",
-            index=False,
-            header=True,
             compression=compression_info["compression"],
             quoting=quoting,
         )
@@ -345,7 +344,7 @@ class LocalBook(_Book):
         data_df = pd.DataFrame(data.timeseries().reset_index())
         data_melt = customised_melt(data_df, var_lst, "year", "values")
         quoting = None
-        data_melt.to_csv(
+        data_melt.to_csv(  # type: ignore
             path_or_buf=self.local_fname(fname),
             sep=",",
             index=False,
