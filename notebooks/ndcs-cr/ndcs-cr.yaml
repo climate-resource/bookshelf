@@ -1,0 +1,158 @@
+name: ndcs-cr
+edition: 1
+license: CC-BY
+description:
+  Comprehensive quantification of nationally determined contributions (NDCs) for every country
+metadata:
+  author: Yini Lai
+  author_email: yini.lai@climate-resource.com
+data_dictionary:
+  - name: ambition
+    description: |
+      Used to represent a spread in the interpretation of NDCs due to vague NDC definitions and ambiguous
+      expression of commitments or a stated range. All values may be the same if there is no ambiguity in the
+      pledged targets.
+    type: string
+    allowed_NA: true
+    required_column: true
+    controlled_vocabulary:
+      - value: high
+        description: The highest level of ambition (lowest level of emissions)
+      - value: low
+        description: The lowest level of ambition (highest level of emissions)
+  - name: category
+    description: Category of emissions
+    type: string
+    allowed_NA: false
+    required_column: true
+    controlled_vocabulary:
+      - value: "0"
+        description: Total emissions
+      - value: M.0.EL
+        description: National total emission excluding LULUCF
+      - value: M.LULUCF
+        description: Land Use, Land Use Change, and Forestry
+  - name: conditionality
+    description: |
+      Denotes the conditionality of a pathway. The international community is expected to provide both
+      technological and financial support to assist many lower income developing countries to transition to
+      low-emissions economic growth paths therefore only Non-Annex I countries generally have targets that are
+      conditional on funding.
+    type: string
+    allowed_NA: false
+    required_column: true
+    controlled_vocabulary:
+      - value: conditional
+        description: |
+          A conditional target with higher emissions reductions, subject to achieving international support.
+          The conditions and support specified may relate to financial resources, technology transfer,
+          technical cooperation, capacity-building support from other countries, the availability of
+          market-based mechanisms, or absorptive capacity of forests and other ecosystems. For countries
+          without conditional targets, this timeseries will be the same as the 'unconditional' case.
+      - value: unconditional
+        description: An unconditional target is a target that a country will implement with their own resources.
+      - value: range
+        description: |
+          Min-max range of targets ranging from the highest emission level of the unconditional target to the
+          lowest emission level of the full implementation NDC (conditional and unconditional)
+  - name: covered
+    description: Coverage information for emissions
+    type: string
+    allowed_NA: true
+    required_column: true
+    controlled_vocabulary:
+      - value: total
+        description: The sum of covered and uncovered emissions
+      - value: covered
+        description: The covered component of the emissions
+  - name: ghg_metric
+    description: Global warming potentials used to calculate CO2-equivalent emissions
+    type: string
+    allowed_NA: true
+    required_column: true
+  - name: hot_air
+    description: |
+      The treatment of pathways where targets lack ambition and exceed a reference
+      'no-additional-climate-policy' emissions scenario. The reference scenario depends on the version of the
+      dataset that is used.
+    type: string
+    allowed_NA: false
+    required_column: true
+  - name: model
+    description: Software/dataset name that the results were sourced from
+    type: string
+    allowed_NA: false
+    required_column: true
+  - name: region
+    description: |
+      Identifier for the geographic region that the timeseries applies to. Common region identifiers include
+      ISO 3166-1 alpha-3 codes (always capitalised)
+    type: string
+    allowed_NA: false
+    required_column: true
+  - name: scenario
+    description: A unique description of the version of the data and the variant used.
+    type: string
+    allowed_NA: false
+    required_column: true
+  - name: unit
+    description: Unit of variable
+    type: string
+    allowed_NA: false
+    required_column: true
+  - name: variable
+    description: Name of the quantity being captured/recorded
+    type: string
+    allowed_NA: false
+    required_column: true
+    controlled_vocabulary:
+      - value: Emissions|Total GHG
+        description: |
+          Total greenhouse gas emissions. This can be referred to either total emissions including LULUCF
+          or excluding LULUCF. Refers to category for the details.
+  - name: variant
+    description: |
+      A Variant specifies the sources and parameters used to create an input dataset. Older variant names have
+      been translated into the current variant naming scheme as of Feb 2023.
+    type: string
+    allowed_NA: false
+    required_column: true
+versions:
+  - version: 2023-12-05-a
+    private: true
+    dataset:
+      url: https://www.climate-resource.com/tools/ndcs
+      author: Climate Resource
+      files:
+        - url: file://ndcs-cr/data/2023-12-05-a_CR-noOverrides_results.csv.zst
+          hash: md5:4fcdb9aac88e3d094877a3fefa6fca63
+        - url: file://ndcs-cr/data/2023-12-05-a_TP_results.csv.zst
+          hash: md5:3342a222c29ab845ca4f1df5d98934ee
+  - version: 2023-10-16-d
+    private: true
+    dataset:
+      url: https://www.climate-resource.com/tools/ndcs
+      author: Climate Resource
+      files:
+        - url: file://ndcs-cr/data/2023-10-16-d_AVIVA_results.csv.zst
+          hash: md5:f1371427a6ab27de2ccab88db2be487c
+        - url: file://ndcs-cr/data/2023-10-16-d_TP_results.csv.zst
+          hash: md5:ab7781c56c70ac312106557aec085377
+  - version: 2023-10-10-a
+    private: true
+    dataset:
+      url: https://www.climate-resource.com/tools/ndcs
+      author: Climate Resource
+      files:
+        - url: file://ndcs-cr/data/2023-10-10-a_UNFCCC_results.csv.zst
+          hash: md5:46f77f9972962e8864ff23bbb2e356d8
+  - version: 2023-03-13-a
+    private: true
+    dataset:
+      url: https://www.climate-resource.com/tools/ndcs
+      author: Climate Resource
+      files:
+        - url: file://ndcs-cr/data/2023-03-13-a_AVIVA_results.csv.zst
+          hash: md5:0c6ca51115c0f6096029d4309240fb3e
+        - url: file://ndcs-cr/data/2023-03-13-a_CR_results.csv.zst
+          hash: md5:49fca13c1acdf3cbe935e60908d1b89b
