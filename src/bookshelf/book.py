@@ -243,7 +243,7 @@ class LocalBook(_Book):
         file_list = glob.glob(self.local_fname("*"))
         return file_list
 
-    def add_timeseries(self, name: str, data: scmdata.ScmRun, compressed: bool = True) -> None:
+    def add_timeseries(self, timeseries_name: str, data: scmdata.ScmRun, compressed: bool = True) -> None:
         """
         Add two timeseries resource (wide format and long format) to the Book
 
@@ -262,13 +262,12 @@ class LocalBook(_Book):
             compression_info = {"format": "csv.gz", "compression": "gzip"}
         else:
             compression_info = {"format": "csv", "compression": "infer"}
-        name_tuple = (self.name, self.long_version(), name)
-        name = "_".join(name_tuple)
-        self.write_wide_timeseries(data, name, compression_info)
-        self.write_long_timeseries(data, name, compression_info)
+
+        self.write_wide_timeseries(data, timeseries_name, compression_info)
+        self.write_long_timeseries(data, timeseries_name, compression_info)
 
     def write_wide_timeseries(
-        self, data: scmdata.ScmRun, name: str, compression_info: dict[str, str]
+        self, data: scmdata.ScmRun, timeseries_name: str, compression_info: dict[str, str]
     ) -> None:
         """
         Add the wide format timeseries data to the Book
@@ -282,9 +281,14 @@ class LocalBook(_Book):
         compression_info: dict
             A dictionary about the format of the file and the compression type
         """
+        shape = "wide"
         metadata = self.as_datapackage()
-        name = name + "_wide"
-        fname = f"{name}.{compression_info['format']}"
+
+        name = get_resource_key(timeseries_name, shape)
+
+        fname = get_resource_key(self.name, self.long_version(), timeseries_name, shape)
+        fname = f"{fname}.{compression_info['format']}"
+
         quoting = None
         pd.DataFrame(data.timeseries().sort_index()).to_csv(  # type: ignore
             path_or_buf=self.local_fname(fname),
@@ -295,6 +299,8 @@ class LocalBook(_Book):
         metadata.add_resource(
             {
                 "name": name,
+                "timeseries_name": timeseries_name,
+                "shape": shape,
                 "format": compression_info["format"],
                 "filename": fname,
                 "hash": resource_hash,
@@ -303,7 +309,7 @@ class LocalBook(_Book):
         metadata.save(self.local_fname(DATAPACKAGE_FILENAME))
 
     def write_long_timeseries(
-        self, data: scmdata.ScmRun, name: str, compression_info: dict[str, str]
+        self, data: scmdata.ScmRun, timeseries_name: str, compression_info: dict[str, str]
     ) -> None:
         """
         Add the long format timeseries data to the Book
@@ -357,9 +363,14 @@ class LocalBook(_Book):
             melt_df = pd.concat(pivot_list)
             return melt_df
 
+        shape = "long"
         metadata = self.as_datapackage()
-        name = name + "_long"
-        fname = f"{name}.{compression_info['format']}"
+
+        name = get_resource_key(timeseries_name, shape)
+
+        fname = get_resource_key(self.name, self.long_version(), timeseries_name, shape)
+        fname = f"{fname}.{compression_info['format']}"
+
         var_lst = list(data.meta.columns)
         data_df = pd.DataFrame(data.timeseries().reset_index())
         data_melt = chunked_melt(data_df, var_lst, "year", "values")
@@ -376,6 +387,8 @@ class LocalBook(_Book):
         metadata.add_resource(
             {
                 "name": name,
+                "timeseries_name": timeseries_name,
+                "shape": shape,
                 "format": compression_info["format"],
                 "filename": fname,
                 "hash": resource_hash,
@@ -428,7 +441,7 @@ class LocalBook(_Book):
 
         return book
 
-    def timeseries(self, name: str) -> scmdata.ScmRun:
+    def timeseries(self, timeseries_name: str) -> scmdata.ScmRun:
         """
         Get a timeseries resource
 
@@ -445,13 +458,11 @@ class LocalBook(_Book):
             Timeseries data
 
         """
-        name_tuple = (self.name, self.long_version(), name, "wide")
-        name = "_".join(name_tuple)
-        resource: datapackage.Resource = self.as_datapackage().get_resource(name)
-
+        timeseries_shape = "wide"
+        key_name = get_resource_key(timeseries_name, timeseries_shape)
+        resource: datapackage.Resource = self.as_datapackage().get_resource(key_name)
         if resource is None:
-            raise ValueError(f"Unknown timeseries '{name}'")
-
+            raise ValueError(f"Unknown timeseries '{key_name}'")
         local_fname = self.local_fname(resource.descriptor["filename"])
         fetch_file(
             self.url(resource.descriptor.get("filename")),
@@ -460,3 +471,25 @@ class LocalBook(_Book):
         )
 
         return scmdata.ScmRun(local_fname)
+
+
+def get_resource_key(*argv) -> str:
+    """
+    Construct a resource key name by concatenating all given arguments with underscores.
+
+    Take any number of string arguments, concatenate them using an underscore as a separator,
+    and return the resulting string.
+
+    Parameters
+    ----------
+    *argv : str
+        Variable number of string arguments to be concatenated into the key name.
+
+    Returns
+    -------
+    str
+        The concatenated key name formed from all the input arguments.
+    """
+    key_name_tuple = argv
+    key_name = "_".join(key_name_tuple)
+    return key_name

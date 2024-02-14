@@ -42,7 +42,7 @@ def example_data():
         scmdata.ScmRun(
             os.path.join(
                 TEST_DATA_DIR,
-                "v0.2.0",
+                "v0.3.1",
                 "example",
                 "v1.0.0_e001",
                 "test_v1.0.0_e001_leakage_rates_low_wide.csv",
