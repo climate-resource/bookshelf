@@ -473,7 +473,7 @@ class LocalBook(_Book):
         return scmdata.ScmRun(local_fname)
 
 
-def get_resource_key(*argv) -> str:
+def get_resource_key(*argv: str) -> str:
     """
     Construct a resource key name by concatenating all given arguments with underscores.
 
