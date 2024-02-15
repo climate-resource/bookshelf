@@ -67,6 +67,15 @@ def test_timeseries(example_data):
         book.timeseries("other")
 
 
+def test_get_long_format_data(example_data, example_long_format_data):
+    book = LocalBook.create_new("test", "v1.1.0")
+    book.add_timeseries("test", example_data)
+    example_long_format_data.equals(book.get_long_format_data("test"))
+
+    with pytest.raises(ValueError, match="Unknown timeseries 'other_long'"):
+        book.get_long_format_data("other")
+
+
 def test_timeseries_remote(example_data, remote_bookshelf):
     book = BookShelf().load("test", "v1.0.0")
     scmdata.testing.assert_scmdf_almost_equal(example_data, book.timeseries("leakage_rates_low"))
@@ -108,7 +117,8 @@ def test_files(local_bookshelf):
         "v1.0.0",
         local_bookshelf=os.path.join(TEST_DATA_DIR, DATA_FORMAT_VERSION),
     )
-    assert len(book.files()) == 2
+
+    assert len(book.files()) == 3
 
     book = LocalBook.create_new("example", "v1.1.0", local_bookshelf=local_bookshelf)
     book_files = book.files()

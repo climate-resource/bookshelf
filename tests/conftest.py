@@ -51,3 +51,16 @@ def example_data():
         .timeseries()
         .sort_index()
     )
+
+
+@pytest.fixture()
+def example_long_format_data():
+    return pd.read_csv(
+        os.path.join(
+            TEST_DATA_DIR,
+            "v0.3.1",
+            "example",
+            "v1.0.0_e001",
+            "test_v1.0.0_e001_leakage_rates_low_long.csv",
+        )
+    )
