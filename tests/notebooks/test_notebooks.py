@@ -507,7 +507,7 @@ def run_notebook_and_check_results(notebook, version, notebook_dir, output_direc
         files_names = [i["timeseries_name"] for i in target_book.metadata()["resources"]]
         files_names = list(set(files_names))
         for name in files_names:
-            data = target_book.timeseries(name)  # error occurs
+            data = target_book.timeseries(name)
             verification = verify_data_dictionary(data, nb_metadata)
 
             if verification:
