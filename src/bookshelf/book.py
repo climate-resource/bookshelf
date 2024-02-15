@@ -454,8 +454,8 @@ class LocalBook(_Book):
 
         Parameters
         ----------
-        name : str
-            Name of the volume
+        timeseries_name : str
+            Name of the resource
 
         Returns
         -------
