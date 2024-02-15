@@ -476,6 +476,36 @@ class LocalBook(_Book):
 
         return scmdata.ScmRun(local_fname)
 
+    def get_long_format_data(self, timeseries_name: str) -> pd.DataFrame:
+        """
+        Get a timeseries resource in long format
+
+        If the data is not available in the local cache, it is downloaded from the
+        remote BookShelf.
+
+        Parameters
+        ----------
+        name : str
+            Name of the volume
+
+        Returns
+        -------
+            Timeseries data
+
+        """
+        timeseries_shape = "long"
+        key_name = get_resource_key(timeseries_name=timeseries_name, shape=timeseries_shape)
+        resource: datapackage.Resource = self.as_datapackage().get_resource(key_name)
+        if resource is None:
+            raise ValueError(f"Unknown timeseries '{key_name}'")
+        local_fname = self.local_fname(resource.descriptor["filename"])
+        fetch_file(
+            self.url(resource.descriptor.get("filename")),
+            pathlib.Path(local_fname),
+            known_hash=resource.descriptor.get("hash"),
+        )
+        return pd.read_csv(local_fname)
+
 
 def get_resource_key(*, timeseries_name: str, shape: str) -> str:
     """
