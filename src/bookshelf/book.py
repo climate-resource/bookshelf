@@ -363,6 +363,8 @@ class LocalBook(_Book):
                 pivot_list.append(row_pivot)
 
             melt_df = pd.concat(pivot_list)
+            melt_df["year"] = pd.to_datetime(melt_df["year"])
+            melt_df["year"] = melt_df["year"].dt.strftime("%Y-%m-%d")
             return melt_df
 
         shape = "long"
