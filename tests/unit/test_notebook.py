@@ -102,7 +102,7 @@ def test_run_notebook(remote_bookshelf, name, version):
             version=version,
         )
 
-        assert len(book.files()) == 2
+        assert len(book.files()) == 3
         assert os.listdir(td) == [version]
         assert sorted(os.listdir(os.path.join(td, version))) == sorted(
             [

@@ -12,6 +12,7 @@ from collections.abc import Iterable
 from typing import Any, Optional, Union, cast
 
 import datapackage
+import pandas as pd
 import pooch
 import scmdata
 
@@ -242,31 +243,157 @@ class LocalBook(_Book):
         file_list = glob.glob(self.local_fname("*"))
         return file_list
 
-    def add_timeseries(self, name: str, data: scmdata.ScmRun) -> None:
+    def add_timeseries(self, timeseries_name: str, data: scmdata.ScmRun, compressed: bool = True) -> None:
         """
-        Add a timeseries resource to the Book
+        Add two timeseries resource (wide format and long format) to the Book
 
         Updates the Books metadata
 
         Parameters
         ----------
-        name : str
-            Unique name of the resource
+        timeseries_name : str
+            Name of the resource
         data : scmdata.ScmRun
             Timeseries data to add to the Book
+        compressed: bool
+            Whether compressed the file or not
         """
-        fname = f"{name}.csv"
+        if compressed:
+            compression_info = {"format": "csv.gz", "compression": "gzip"}
+        else:
+            compression_info = {"format": "csv", "compression": "infer"}
 
-        # TODO: this flag could be exposed in future
-        quoting = None  # csv.QUOTE_NONNUMERIC
-        data.timeseries().sort_index().to_csv(self.local_fname(fname), quoting=quoting)
-        resource_hash = pooch.hashes.file_hash(self.local_fname(fname))
+        self.write_wide_timeseries(data, timeseries_name, compression_info)
+        self.write_long_timeseries(data, timeseries_name, compression_info)
 
+    def write_wide_timeseries(
+        self, data: scmdata.ScmRun, timeseries_name: str, compression_info: dict[str, str]
+    ) -> None:
+        """
+        Add the wide format timeseries data to the Book
+
+        Parameters
+        ----------
+        data : scmdata.ScmRun
+            Timeseries data to add to the Book
+        timeseries_name: str
+            Name of the resource
+        compression_info: dict
+            A dictionary about the format of the file and the compression type
+        """
+        shape = "wide"
         metadata = self.as_datapackage()
+
+        name = get_resource_key(timeseries_name=timeseries_name, shape=shape)
+        fname = get_resource_filename(
+            book_name=self.name,
+            long_version=self.long_version(),
+            timeseries_name=timeseries_name,
+            shape=shape,
+            file_format=compression_info["format"],
+        )
+
+        pd.DataFrame(data.timeseries().sort_index()).to_csv(  # type: ignore
+            path_or_buf=self.local_fname(fname),
+            compression=compression_info["compression"],
+        )
+        resource_hash = pooch.hashes.file_hash(self.local_fname(fname))
         metadata.add_resource(
             {
                 "name": name,
-                "format": "CSV",
+                "timeseries_name": timeseries_name,
+                "shape": shape,
+                "format": compression_info["format"],
+                "filename": fname,
+                "hash": resource_hash,
+            }
+        )
+        metadata.save(self.local_fname(DATAPACKAGE_FILENAME))
+
+    def write_long_timeseries(
+        self, data: scmdata.ScmRun, timeseries_name: str, compression_info: dict[str, str]
+    ) -> None:
+        """
+        Add the long format timeseries data to the Book
+
+        Parameters
+        ----------
+        data : scmdata.ScmRun
+            Timeseries data to add to the Book
+        timeseries_name: str
+            Name of the resource
+        compression_info: dict
+            A dictionary about the format of the file and the compression type
+        """
+
+        def chunked_melt(
+            data: pd.DataFrame, id_vars: list[str], var_name: str, value_name: str
+        ) -> pd.DataFrame:
+            """
+            Melt wide format timeseries data to long format
+
+            Efficiently melts large wide-format timeseries data into long format in chunks,
+            addressing performance and memory issues associated with melting large DataFrames.
+
+            Parameters
+            ----------
+            data : pd.DataFrame
+                The wide-format DataFrame to be melted into long format.
+            id_vars : list[str]
+                Column(s) to use as identifier variables. These columns will be
+                preserved during the melt operation.
+            var_name : str
+                Name to assign to the variable column in the melted DataFrame.
+            value_name : str
+                Name to assign to the value column in the melted DataFrame.
+                This name must not match any existing column labels in `data`.
+
+            Returns
+            -------
+            pd.DataFrame
+                The melted DataFrame in long format, combining all chunks.
+            """
+            pivot_list = list()
+            chunk_size = 100000
+
+            for i in range(0, len(data), chunk_size):
+                row_pivot = data.iloc[i : i + chunk_size].melt(
+                    id_vars=id_vars, var_name=var_name, value_name=value_name
+                )
+                pivot_list.append(row_pivot)
+
+            melt_df = pd.concat(pivot_list)
+            return melt_df
+
+        shape = "long"
+        metadata = self.as_datapackage()
+
+        name = get_resource_key(timeseries_name=timeseries_name, shape=shape)
+        fname = get_resource_filename(
+            book_name=self.name,
+            long_version=self.long_version(),
+            timeseries_name=timeseries_name,
+            shape=shape,
+            file_format=compression_info["format"],
+        )
+
+        var_lst = list(data.meta.columns)
+        data_df = pd.DataFrame(data.timeseries().reset_index())
+        data_melt = chunked_melt(data_df, var_lst, "year", "values")
+        data_melt.to_csv(  # type: ignore
+            path_or_buf=self.local_fname(fname),
+            sep=",",
+            index=False,
+            header=True,
+            compression=compression_info["compression"],
+        )
+        resource_hash = pooch.hashes.file_hash(self.local_fname(fname))
+        metadata.add_resource(
+            {
+                "name": name,
+                "timeseries_name": timeseries_name,
+                "shape": shape,
+                "format": compression_info["format"],
                 "filename": fname,
                 "hash": resource_hash,
             }
@@ -318,7 +445,7 @@ class LocalBook(_Book):
 
         return book
 
-    def timeseries(self, name: str) -> scmdata.ScmRun:
+    def timeseries(self, timeseries_name: str) -> scmdata.ScmRun:
         """
         Get a timeseries resource
 
@@ -335,11 +462,11 @@ class LocalBook(_Book):
             Timeseries data
 
         """
-        resource: datapackage.Resource = self.as_datapackage().get_resource(name)
-
+        timeseries_shape = "wide"
+        key_name = get_resource_key(timeseries_name=timeseries_name, shape=timeseries_shape)
+        resource: datapackage.Resource = self.as_datapackage().get_resource(key_name)
         if resource is None:
-            raise ValueError(f"Unknown timeseries '{name}'")
-
+            raise ValueError(f"Unknown timeseries '{key_name}'")
         local_fname = self.local_fname(resource.descriptor["filename"])
         fetch_file(
             self.url(resource.descriptor.get("filename")),
@@ -348,3 +475,60 @@ class LocalBook(_Book):
         )
 
         return scmdata.ScmRun(local_fname)
+
+
+def get_resource_key(*, timeseries_name: str, shape: str) -> str:
+    """
+    Construct a resource key name by concatenating all given arguments with underscores.
+
+    Take any number of string arguments, concatenate them using an underscore as a separator,
+    and return the resulting string.
+
+    Parameters
+    ----------
+    timeseries_name : str
+        The name of the timeseries the resource represents.
+    shape : str
+        The shape of the data (e.g., 'wide', 'long') the resource contains.
+
+    Returns
+    -------
+    str
+        The concatenated key name formed from all the input arguments.
+    """
+    key_name_tuple = (timeseries_name, shape)
+    key_name = "_".join(key_name_tuple)
+    return key_name
+
+
+def get_resource_filename(
+    *, book_name: str, long_version: str, timeseries_name: str, shape: str, file_format: str
+) -> str:
+    """
+    Generate a resource filename using specified attributes and file format.
+
+    This function constructs a filename by concatenating given book attributes with underscores
+    and appending the specified file format.
+
+    Parameters
+    ----------
+    book_name : str
+        The name of the book the resource is associated with.
+    long_version : str
+        The long version identifier for the resource.
+    timeseries_name : str
+        The name of the timeseries the resource represents.
+    shape : str
+        The shape of the data (e.g., 'wide', 'long') the resource contains.
+    file_format : str
+        The file format extension (without the period) for the resource file (e.g., 'csv', 'csv.gz').
+
+    Returns
+    -------
+    str
+        The constructed filename in the format 'book_name_long_version_timeseries_name_shape.file_format'.
+    """
+    filename_tuple = (book_name, long_version, timeseries_name, shape)
+    filename = "_".join(filename_tuple)
+    fname = f"{filename}.{file_format}"
+    return fname

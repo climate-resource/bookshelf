@@ -55,6 +55,7 @@ sphinx-copybutton = "^0.5.2"
 
 [tool.poetry.group.stubs.dependencies]
 boto3-stubs = {version="*", extras=["essential"]}
+pandas-stubs = "^2.1.4.231227"
 types-appdirs = "*"
 types-requests = "*"
 types-pyyaml = "^6.0.12.12"

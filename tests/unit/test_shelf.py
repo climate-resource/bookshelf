@@ -130,7 +130,10 @@ def test_publish(shelf, remote_bookshelf, monkeypatch, caplog, example_data):
         .grants[1]["Permission"]
         == "READ"
     )
-    conn.Object(bucket, "/this/prefix/new-package/v1.1.1_e001/example.csv").load()
+
+    conn.Object(
+        bucket, "/this/prefix/new-package/v1.1.1_e001/new-package_v1.1.1_e001_example_long.csv.gz"
+    ).load()
 
     volume_meta = get_meta(conn, bucket, "new-package")
     assert len(volume_meta["versions"]) == 1

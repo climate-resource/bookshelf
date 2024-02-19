@@ -207,7 +207,6 @@ def run_notebook(
     # Attempt to load the book from the output directory
     shelf = BookShelf(path=output_directory)
     book = shelf.load(short_name, metadata.version, edition=metadata.edition)
-
     logger.info(f"Notebook run successfully with hash: {book.hash()}")
     return book
 

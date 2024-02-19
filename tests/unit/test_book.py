@@ -33,34 +33,44 @@ def test_create_local(local_bookshelf):
 def test_add_timeseries(local_bookshelf, example_data):
     book = LocalBook.create_new("test", "v1.1.0", local_bookshelf=local_bookshelf)
     book.add_timeseries("test", example_data)
-    assert len(book.as_datapackage().resources) == 1
+    assert len(book.as_datapackage().resources) == 2
 
-    expected_fname = local_bookshelf / "test" / "v1.1.0_e001" / "test.csv"
+    expected_fname = local_bookshelf / "test" / "v1.1.0_e001" / "test_v1.1.0_e001_test_wide.csv.gz"
     assert expected_fname.exists()
 
     res = book.as_datapackage().resources[0]
-    assert res.name == "test"
-    assert res.descriptor["format"] == "CSV"
-    assert res.descriptor["filename"] == "test.csv"
+    assert res.name == "test_wide"
+    assert res.descriptor["timeseries_name"] == "test"
+    assert res.descriptor["shape"] == "wide"
+    assert res.descriptor["format"] == "csv.gz"
+    assert res.descriptor["filename"] == "test_v1.1.0_e001_test_wide.csv.gz"
+    assert res.descriptor["hash"] == pooch.hashes.file_hash(expected_fname)
+
+    expected_fname = local_bookshelf / "test" / "v1.1.0_e001" / "test_v1.1.0_e001_test_long.csv.gz"
+    assert expected_fname.exists()
+
+    res = book.as_datapackage().resources[1]
+    assert res.name == "test_long"
+    assert res.descriptor["timeseries_name"] == "test"
+    assert res.descriptor["shape"] == "long"
+    assert res.descriptor["format"] == "csv.gz"
+    assert res.descriptor["filename"] == "test_v1.1.0_e001_test_long.csv.gz"
     assert res.descriptor["hash"] == pooch.hashes.file_hash(expected_fname)
 
 
 def test_timeseries(example_data):
     book = LocalBook.create_new("test", "v1.1.0")
     book.add_timeseries("test", example_data)
-
     scmdata.testing.assert_scmdf_almost_equal(example_data, book.timeseries("test"))
 
-    with pytest.raises(ValueError, match="Unknown timeseries 'other'"):
+    with pytest.raises(ValueError, match="Unknown timeseries 'other_wide'"):
         book.timeseries("other")
 
 
 def test_timeseries_remote(example_data, remote_bookshelf):
     book = BookShelf().load("test", "v1.0.0")
-
     scmdata.testing.assert_scmdf_almost_equal(example_data, book.timeseries("leakage_rates_low"))
-
-    with pytest.raises(ValueError, match="Unknown timeseries 'other'"):
+    with pytest.raises(ValueError, match="Unknown timeseries 'other_wide'"):
         book.timeseries("other")
 
 
@@ -70,7 +80,6 @@ def test_metadata():
         "v1.0.0",
         local_bookshelf=os.path.join(TEST_DATA_DIR, DATA_FORMAT_VERSION),
     )
-
     package = book.as_datapackage()
 
     assert isinstance(package, datapackage.Package)
@@ -84,6 +93,7 @@ def test_metadata():
 
 def test_metadata_missing():
     book = LocalBook("example", "v1.0.0")
+
     with pytest.raises(FileNotFoundError):
         book.metadata()
 
