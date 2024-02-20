@@ -6,6 +6,7 @@ import pandas as pd
 import pooch.hashes
 import pytest
 import scmdata.testing
+from pandas.testing import assert_frame_equal
 
 from bookshelf.book import LocalBook
 from bookshelf.constants import DATA_FORMAT_VERSION, TEST_DATA_DIR
@@ -72,6 +73,15 @@ def test_timeseries(example_data):
 
     with pytest.raises(ValueError, match="Unknown timeseries 'other_wide'"):
         book.timeseries("other")
+
+
+def test_get_long_format_data(example_data, example_long_format_data):
+    book = LocalBook.create_new("test", "v1.1.0")
+    book.add_timeseries("test", example_data)
+    assert_frame_equal(example_long_format_data, book.get_long_format_data("test"))
+
+    with pytest.raises(ValueError, match="Unknown timeseries 'other_long'"):
+        book.get_long_format_data("other")
 
 
 def test_timeseries_remote(example_data, remote_bookshelf):
