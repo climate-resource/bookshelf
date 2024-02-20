@@ -5,6 +5,7 @@ A Book represents a single versioned dataset. A dataset can contain multiple res
 each of which are loaded independently.
 """
 import glob
+import hashlib
 import json
 import os.path
 import pathlib
@@ -293,11 +294,14 @@ class LocalBook(_Book):
             file_format=compression_info["format"],
         )
 
-        pd.DataFrame(data.timeseries().sort_index()).to_csv(  # type: ignore
+        timeseries_data = pd.DataFrame(data.timeseries().sort_index())
+
+        timeseries_data.to_csv(  # type: ignore
             path_or_buf=self.local_fname(fname),
             compression=compression_info["compression"],
         )
         resource_hash = pooch.hashes.file_hash(self.local_fname(fname))
+        content_hash = hashlib.sha256(timeseries_data.to_csv().encode()).hexdigest()
         metadata.add_resource(
             {
                 "name": name,
@@ -306,6 +310,7 @@ class LocalBook(_Book):
                 "format": compression_info["format"],
                 "filename": fname,
                 "hash": resource_hash,
+                "content_hash": content_hash,
             }
         )
         metadata.save(self.local_fname(DATAPACKAGE_FILENAME))
@@ -388,6 +393,7 @@ class LocalBook(_Book):
             compression=compression_info["compression"],
         )
         resource_hash = pooch.hashes.file_hash(self.local_fname(fname))
+        content_hash = hashlib.sha256(data_melt.to_csv().encode()).hexdigest()
         metadata.add_resource(
             {
                 "name": name,
@@ -396,6 +402,7 @@ class LocalBook(_Book):
                 "format": compression_info["format"],
                 "filename": fname,
                 "hash": resource_hash,
+                "content_hash": content_hash,
             }
         )
         metadata.save(self.local_fname(DATAPACKAGE_FILENAME))
