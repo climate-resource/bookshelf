@@ -56,11 +56,27 @@ versions:
           hash: md5:5d1fe818e7d373920cfca899fe48f7e5
       author: Gütschow, Johannes; Pflüger, Mika
       time_domain: [ 1750, 2021 ]
+  - version: v2.5_beta5
+    private: true
+    dataset:
+      files:
+        - url: file://data/Guetschow_2023_confidential-PRIMAP-hist_v2.5_beta5_no_rounding_28-Sep-2023.csv.zst
+          hash: md5:b2c4cd20333db7c6831a3717d3e75f5a
+      author: Gütschow, Johannes; Pflüger, Mika
+      time_domain: [ 1750, 2022 ]
   - version: v2.5
     private: false
     dataset:
       files:
         - url: doi:10.5281/zenodo.10006301/Guetschow_et_al_2023b-PRIMAP-hist_v2.5_final_no_rounding_15-Oct-2023.csv
           hash: md5:e4ddeeb06d9cff9c7e16fc320797d2f1
+      author: Gütschow, Johannes; Pflüger, Mika
+      time_domain: [ 1750, 2022 ]
+  - version: v2.5_beta5
+    private: true
+    dataset:
+      files:
+        - url: file://primap-hist/Guetschow_2024_confidential-PRIMAP-hist_v2.5.1_beta1_no_rounding_23-Jan-2024.csv
+          hash: md5:6d25ab4fce425f007ced710971f0b075
       author: Gütschow, Johannes; Pflüger, Mika
       time_domain: [ 1750, 2022 ]
