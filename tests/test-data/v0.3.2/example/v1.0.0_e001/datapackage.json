@@ -1,0 +1,18 @@
+{
+  "name": "example",
+  "version": "v1.0.0",
+  "private": false,
+  "edition": 1,
+    "resources": [
+        {
+            "name": "leakage_rates_low_wide",
+            "timeseries_name":"leakage_rates_low",
+            "shape": "wide",
+            "format": "csv",
+            "filename": "test_v1.0.0_e001_leakage_rates_low_wide.csv",
+            "hash": "b1c6712a571d4efbea0c181448644d6872f82c79e1581a83e6eb383bf5cda0a6",
+            "profile": "data-resource"
+        }
+    ],
+    "profile": "data-package"
+}
