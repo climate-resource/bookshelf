@@ -48,11 +48,6 @@ def find_notebooks():
 
 
 notebooks = find_notebooks()
-lst = []
-for notebook in notebooks:
-    if notebook[1] == "rcmip-emissions":
-        lst.append(notebook)
-notebooks = lst
 
 
 @pytest.fixture()
@@ -535,10 +530,16 @@ def run_notebook_and_check_results(notebook, version, notebook_dir, output_direc
                 f"({target_book.edition} != {existing_book.edition})"
             )
 
-        # if existing_book.hash() != target_book.hash():
-        #     raise ValueError(
-        #         "Hash of calculated book doesn't match the remote bookshelf "
-        #         f"({target_book.hash()} != {existing_book.hash()})"
-        #     )
+        for i in range(len(target_book.metadata()["resources"])):
+            if (
+                target_book.metadata()["resources"][i]["content_hash"]
+                != existing_book.metadata()["resources"][i]["content_hash"]
+            ):
+                raise ValueError(
+                    "Hash of calculated book doesn't match the remote bookshelf "
+                    f"({target_book.metadata()['resources'][i]['content_hash']}"
+                    + "!= {existing_book.metadata()['resources'][i]['content_hash']})"
+                )
+
     else:
         logger.info("Matching book version does not exist on remote bookshelf")
