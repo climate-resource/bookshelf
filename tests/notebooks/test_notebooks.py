@@ -538,7 +538,7 @@ def run_notebook_and_check_results(notebook, version, notebook_dir, output_direc
                 raise ValueError(
                     "Hash of calculated book doesn't match the remote bookshelf "
                     f"({target_book.metadata()['resources'][i]['content_hash']}"
-                    + "!= {existing_book.metadata()['resources'][i]['content_hash']})"
+                    + f" != {existing_book.metadata()['resources'][i]['content_hash']})"
                 )
 
     else:
