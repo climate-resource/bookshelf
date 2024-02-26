@@ -14,6 +14,7 @@ to keep our repository slim and make it easier to track changes.
 :maxdepth: 1
 notebooks/basic-demo.py
 create_a_new_volume.md
+find_all_books.md
 analysis_with_a_book.md
 ```
 
