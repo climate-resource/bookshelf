@@ -1,4 +1,4 @@
-# Finding the available books
+## Finding the available books
 
 The `bookshelf` library hosts a multitude of volumes, each with various
 versions or books. Below is a guide to discovering all available books.

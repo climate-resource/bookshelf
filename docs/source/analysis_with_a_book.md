@@ -1,4 +1,4 @@
-# Book data analysis example
+## Book data analysis example
 
 ### Loading a dataset
 

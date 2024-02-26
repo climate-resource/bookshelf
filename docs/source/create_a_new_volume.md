@@ -1,4 +1,4 @@
-# Creating a new volume
+## Creating a new volume
 
 ### Initial setup
 
