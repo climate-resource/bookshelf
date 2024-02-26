@@ -1,6 +1,6 @@
-## Book data analysis example
+# Book data analysis example
 
-### Loading a dataset
+## Loading a dataset
 
 Begin by initializing a `BookShelf` object. Specify the desired volume and version to
 retrieve the corresponding book:
@@ -26,7 +26,7 @@ data_wide = book.timeseries('book_of_interest')
 data_long = book.get_long_format_data('book_of_interest')
 ```
 
-### Filtering data
+## Filtering data
 
 For data in wide format, use the `filter` method from [ScmData](https://scmdata.readthedocs.io/en/latest/notebooks/scmrun.html#operations-with-scalars)
 to refine the dataset based on specific metadata criteria:
@@ -38,7 +38,7 @@ data_wide.filter(variable="Emissions|CO2|MAGICC AFOLU")
 For long format data, employ `pandas` functionality to apply necessary filters.
 
 
-### Plotting
+## Plotting
 
 Visualize your data using built-in plotting functions from[ScmData](https://scmdata.readthedocs.io/en/latest/notebooks/plotting-with-seaborn.html).
 For instance, to generate a line plot based on filtered metadata:

@@ -1,13 +1,13 @@
-## Creating a new volume
+# Creating a new volume
 
-### Initial setup
+## Initial setup
 
 Begin by creating a new folder within the `notebooks` directory. Name this folder after the volume
 you wish to create. Copy `simple.py` and `simple.yaml` from the `examples/simple` directory into your
 new folder, renaming them to `{volume}.py` and `{volume}.yaml`, respectively. These files will serve
 as templates to kickstart your volume creation process.
 
-### Metadata storage
+## Metadata storage
 
 Updating the `{volume}.yaml` with the volume's metadata, this may include:
 
@@ -19,7 +19,7 @@ Updating the `{volume}.yaml` with the volume's metadata, this may include:
 - detailed version information
 - etc.
 
-### Logging configuration
+## Logging configuration
 
 Set up the basic configuration for logging:
 
@@ -29,7 +29,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 ```
 
-### Metadata loading
+## Metadata loading
 
 Load and verify the volume's metadata
 
@@ -40,7 +40,7 @@ metadata = load_nb_metadata("volume/volume")
 metadata.dict()
 ```
 
-### Data loading and transformation
+## Data loading and transformation
 
 Load the data intended for storage in the volume. This data may be sourced locally,
 scraped from the web, or downloaded from a server. For data downloads, we recommend
@@ -49,7 +49,7 @@ using `pooch` to ensure integrity through hash verification.
 Once the data is loaded, perform any necessary manipulations to prepare it for storage.
 Convert the data to an `scmdata.ScmRun` object if it isn't already in this format.
 
-### Local book creation
+## Local book creation
 
 Initialize a local book instance using the prepared metadata:
 
@@ -62,7 +62,7 @@ local_bookshelf = tempfile.mkdtemp()
 book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 ```
 
-### Resource creation
+## Resource creation
 
 Add a new `Resource` to the Book utilizing the `scmdata.ScmRun` object. This process involves copying
 the timeseries data into a local file, then calculating the hash of the file's contents to ensure data

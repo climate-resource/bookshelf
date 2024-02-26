@@ -1,9 +1,9 @@
-## Finding the available books
+# Finding the available books
 
 The `bookshelf` library hosts a multitude of volumes, each with various
 versions or books. Below is a guide to discovering all available books.
 
-### Finding all available volumes and versions
+## Finding all available volumes and versions
 
 To enumerate all volumes along with their versions, begin by identifying
 the root directory where the notebooks generating these books are located,
