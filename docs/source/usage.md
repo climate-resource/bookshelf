@@ -13,6 +13,8 @@ to keep our repository slim and make it easier to track changes.
 :caption: Contents
 :maxdepth: 1
 notebooks/basic-demo.py
+create_a_new_volume.md
+analysis_with_a_book.md
 ```
 
 ## Notebook execution info
