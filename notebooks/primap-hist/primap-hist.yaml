@@ -80,3 +80,11 @@ versions:
           hash: md5:6d25ab4fce425f007ced710971f0b075
       author: Gütschow, Johannes; Pflüger, Mika
       time_domain: [ 1750, 2022 ]
+  - version: v2.5.1
+    private: true
+    dataset:
+      files:
+        - url: file://primap-hist/data/Guetschow_et_al_2024-PRIMAP-hist_v2.5.1_final_no_rounding_27-Feb-2024.csv
+          hash: md5:5060d8af9afe3bc4d1d4cede13449dee
+      author: Gütschow, Johannes; Pflüger, Mika
+      time_domain: [ 1750, 2022 ]
