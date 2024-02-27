@@ -56,7 +56,7 @@ books_info
 # ## Finding all available books of a specific volume
 #
 # Should your interest lie in a particular volume, and you wish to explore all its available books,
-# the `list_versions`` function provided by `BookShelf`` offers a straightforward solution.
+# the `list_versions` function provided by `BookShelf` offers a straightforward solution.
 
 # %%
 from bookshelf import BookShelf

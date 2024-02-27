@@ -23,6 +23,9 @@
 # retrieve the corresponding book:
 
 # %%
+import warnings
+
+warnings.filterwarnings("ignore", category=FutureWarning)
 from matplotlib.pyplot import figure
 
 from bookshelf import BookShelf
@@ -59,7 +62,7 @@ data_wide.filter(variable="Emissions|CO2|MAGICC AFOLU")
 # %% [markdown]
 # ## Plotting
 #
-# Visualize your data using built-in plotting functions from[ScmData](https://scmdata.readthedocs.io/en/latest/notebooks/plotting-with-seaborn.html).
+# Visualize your data using built-in plotting functions from [ScmData](https://scmdata.readthedocs.io/en/latest/notebooks/plotting-with-seaborn.html).
 # For instance, to generate a line plot based on filtered metadata:
 
 # %%
