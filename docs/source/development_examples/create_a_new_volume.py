@@ -28,13 +28,17 @@ transformation, and finally, local book creation and resource addition.
 # Begin by creating a new folder within the `notebooks` directory. Name this
 # folder after the volume you wish to create. Copy `simple.py` and `simple.yaml`
 # from the `examples/simple` directory into your new folder, renaming them to
-# `{volume}.py` and `{volume}.yaml`, respectively. These files will serve
-# as templates to kickstart your volume creation process.
+# `{example_volume}.py` and `{example_volume}.yaml`, respectively. These files will serve
+# as templates to kickstart your volume creation process. Alternative, you can derive
+# from [jupyter notebook](https://docs.jupyter.org/en/latest/start/index.html) like
+# `{example_volume}.ipynb`. But as ipython notebook is gitignored, you need to save using
+# [jupytext](https://jupytext.readthedocs.io/en/latest/) to convert it into python script
+# as this can keep our repository slim and make it easier to track changes.
 
 # %% [markdown]
 # ## Metadata storage
 #
-# Updating the `{volume}.yaml` with the volume's metadata, this may include:
+# Updating the `{example_volume}.yaml` with the volume's metadata, this may include:
 #
 # - name of the volume
 # - edition
@@ -47,7 +51,7 @@ transformation, and finally, local book creation and resource addition.
 # %% [markdown]
 # ## Logging configuration
 #
-# Set up the basic configuration for logging:
+# Load the pacakges and set up the basic configuration for logging:
 
 # %%
 import logging

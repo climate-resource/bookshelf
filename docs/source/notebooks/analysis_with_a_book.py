@@ -39,8 +39,8 @@ book = shelf.load(volume, version)
 # %% [markdown]
 # Once the book is loaded, access specific timeseries data in a wide format by using the
 # `timeseries` function and specifying the book name. This data will be returned as an
-# scmdata.ScmRun object. Alternatively, use the `get_long_format_data` function to obtain
-# timeseries data in a long format, which returns a pd.DataFrame object:
+# `scmdata.ScmRun` object. Alternatively, use the `get_long_format_data` function to obtain
+# timeseries data in a long format, which returns a `pd.DataFrame` object:
 
 # %%
 data_wide = book.timeseries("complete")
@@ -62,7 +62,8 @@ data_wide.filter(variable="Emissions|CO2|MAGICC AFOLU")
 # %% [markdown]
 # ## Plotting
 #
-# Visualize your data using built-in plotting functions from [ScmData](https://scmdata.readthedocs.io/en/latest/notebooks/plotting-with-seaborn.html).
+# For wide format data, visualize your data using built-in plotting functions from
+# [ScmData](https://scmdata.readthedocs.io/en/latest/notebooks/plotting-with-seaborn.html).
 # For instance, to generate a line plot based on filtered metadata:
 
 # %%

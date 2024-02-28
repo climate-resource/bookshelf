@@ -24,7 +24,8 @@
 # To enumerate all volumes along with their versions, begin by identifying
 # the root directory where the notebooks generating these books are located,
 # accessible via the `NOTEBOOK_DIRECTORY`. Subsequently, leverage the
-# `get_available_versions` function to ascertain all versions for each volume.
+# `get_available_versions` function to ascertain all versions for each volume
+# from local directory.
 
 
 # %%
@@ -49,14 +50,15 @@ books_info
 
 # %% [markdown]
 #
-# This method provides a comprehensive list of all available volumes along with their versions,
-# facilitating easy access and management of the books within the bookshelf.
+# This method provides a comprehensive list of all available volumes along with their versions
+# from local directory, facilitating easy access and management of the books within the bookshelf.
 
 # %% [markdown]
 # ## Finding all available books of a specific volume
 #
-# Should your interest lie in a particular volume, and you wish to explore all its available books,
-# the `list_versions` function provided by `BookShelf` offers a straightforward solution.
+# Should your interest lie in a particular volume, and you wish to explore all its available books
+# in remote bookshelf, the `list_versions` function provided by `BookShelf` offers a
+# straightforward solution.
 
 # %%
 from bookshelf import BookShelf
