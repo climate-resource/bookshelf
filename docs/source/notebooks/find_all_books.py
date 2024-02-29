@@ -21,32 +21,28 @@
 # %% [markdown]
 # ## Finding all available volumes and versions
 #
-# To enumerate all volumes along with their versions, begin by identifying
-# the root directory where the notebooks generating these books are located,
-# accessible via the `NOTEBOOK_DIRECTORY`. Subsequently, leverage the
-# `get_available_versions` function to ascertain all versions for each volume
-# from local directory.
+# To enumerate all volumes along with their versions, you can leverage the
+# `find_notebooks` function in `test_notebooks`. But This function would not
+# be available if you install bookshelf via pypl
 
 
 # %%
-import os
-from glob import glob
+import sys
 
-from bookshelf.notebook import (
-    get_available_versions,
-    get_notebook_directory,
-)
+from bookshelf.constants import ROOT_DIR
 
-NOTEBOOK_DIRECTORY = get_notebook_directory()
-notebooks = glob(os.path.join(NOTEBOOK_DIRECTORY, "**", "*.py"), recursive=True)
+DIR = ROOT_DIR + "/tests/notebooks"
+sys.path.insert(1, DIR)
+import test_notebooks
 
-books_info = []
-for nb in notebooks:
-    versions = get_available_versions(nb.replace(".py", ".yaml"), include_private=False)
-    notebook_name = os.path.basename(nb)[:-3]
-    books_info.extend((nb, notebook_name, v) for v in versions)
+books_info = test_notebooks.find_notebooks()
 
-books_info
+books_info_dict = dict()
+for path, volume, version in books_info:
+    books_info_dict.setdefault(volume, []).append(version)
+
+books_info_dict
+
 
 # %% [markdown]
 #

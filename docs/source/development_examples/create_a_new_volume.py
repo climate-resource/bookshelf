@@ -12,13 +12,6 @@
 #     name: python3
 # ---
 
-"""
-Outlines the process for creating a new volume within the bookshelf system.
-
-Includes steps for initial setup, metadata storage, logging configuration, data loading,
-transformation, and finally, local book creation and resource addition.
-"""
-
 # %% [markdown]
 # # Creating a new volume
 
@@ -122,3 +115,5 @@ book.metadata()
 # The metadata outlined above is available for clients to download and use for fetching
 # the `Book`'s`Resources`. Upon deployment, the Book becomes immutable, meaning any
 # modifications to its metadata or data necessitate the release of a new Book version.
+# It is important to note that the steps provided herein pertain to the process of
+# constructing a volume locally. This process does not cover the publication of the volume.
