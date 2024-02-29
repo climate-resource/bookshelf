@@ -519,18 +519,17 @@ def run_notebook_and_check_results(notebook, version, notebook_dir, output_direc
             )
 
         unique_files = []
-        for i in range(len(target_book.metadata()["resources"])):
-            if (
-                target_book.metadata()["resources"][i]["content_hash"]
-                != existing_book.metadata()["resources"][i]["content_hash"]
-            ):
+        target_resources = target_book.metadata()["resources"]
+        existing_resources = existing_book.metadata()["resources"]
+        for i, target_resource in enumerate(target_resources):
+            print(target_resource["content_hash"])
+            if target_resource["content_hash"] != existing_resources[i]["content_hash"]:
                 raise ValueError(
                     "Hash of calculated file content doesn't match the remote bookshelf "
-                    f"({target_book.metadata()['resources'][i]['content_hash']}"
-                    + f" != {existing_book.metadata()['resources'][i]['content_hash']})"
+                    f"({target_resource['content_hash']}" + f" != {existing_resources[i]['content_hash']})"
                 )
 
-            name = target_book.metadata()["resources"][i]["timeseries_name"]
+            name = target_resource["timeseries_name"]
             if name not in unique_files:
                 unique_files.append(name)
                 data = target_book.timeseries(name)
