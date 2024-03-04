@@ -522,7 +522,6 @@ def run_notebook_and_check_results(notebook, version, notebook_dir, output_direc
         target_resources = target_book.metadata()["resources"]
         existing_resources = existing_book.metadata()["resources"]
         for i, target_resource in enumerate(target_resources):
-            print(target_resource["content_hash"])
             if target_resource["content_hash"] != existing_resources[i]["content_hash"]:
                 raise ValueError(
                     "Hash of calculated file content doesn't match the remote bookshelf "
