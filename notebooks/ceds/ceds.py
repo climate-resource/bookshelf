@@ -208,9 +208,11 @@ ceds_agg_sectors_final.get_unique_meta("sector_short")
 ceds_agg_sectors_final
 
 # %%
-book.add_timeseries("by_sector_ipcc", ceds_by_sector)
-book.add_timeseries("by_sector_intermediate", ceds_agg_sectors_intermediate)
-book.add_timeseries("by_sector_final", ceds_agg_sectors_final)
+# CEDS has *very* precise numbers. This can cause rounding errors if we don't preround these values
+# This rounding does not necessarily loose any information.
+book.add_timeseries("by_sector_ipcc", ceds_by_sector.round(8))
+book.add_timeseries("by_sector_intermediate", ceds_agg_sectors_intermediate.round(8))
+book.add_timeseries("by_sector_final", ceds_agg_sectors_final.round(8))
 
 # %% [markdown]
 # # Checks

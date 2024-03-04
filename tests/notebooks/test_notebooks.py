@@ -504,18 +504,6 @@ def run_notebook_and_check_results(notebook, version, notebook_dir, output_direc
             version=version,
         )
         nb_metadata = load_nb_metadata(notebook, version, notebook_dir)
-        files_names = [i["timeseries_name"] for i in target_book.metadata()["resources"]]
-        files_names = list(set(files_names))
-        for name in files_names:
-            data = target_book.timeseries(name)
-            verification = verify_data_dictionary(data, nb_metadata)
-
-            if verification:
-                is_valid, error_message = verification.is_valid()
-                if not is_valid:
-                    pytest.xfail(error_message)
-            else:
-                logger.warning(f"{notebook} does not contain data dictionary")
 
     except UnknownBook:
         logger.info("Book has not been pushed yet")
@@ -530,10 +518,27 @@ def run_notebook_and_check_results(notebook, version, notebook_dir, output_direc
                 f"({target_book.edition} != {existing_book.edition})"
             )
 
-        if existing_book.hash() != target_book.hash():
-            raise ValueError(
-                "Hash of calculated book doesn't match the remote bookshelf "
-                f"({target_book.hash()} != {existing_book.hash()})"
-            )
+        unique_files = []
+        target_resources = target_book.metadata()["resources"]
+        existing_resources = existing_book.metadata()["resources"]
+        for i, target_resource in enumerate(target_resources):
+            if target_resource["content_hash"] != existing_resources[i]["content_hash"]:
+                raise ValueError(
+                    "Hash of calculated file content doesn't match the remote bookshelf "
+                    f"({target_resource['content_hash']}" + f" != {existing_resources[i]['content_hash']})"
+                )
+
+            name = target_resource["timeseries_name"]
+            if name not in unique_files:
+                unique_files.append(name)
+                data = target_book.timeseries(name)
+                verification = verify_data_dictionary(data, nb_metadata)
+                if verification:
+                    is_valid, error_message = verification.is_valid()
+                    if not is_valid:
+                        pytest.xfail(error_message)
+                else:
+                    logger.warning(f"{notebook} does not contain data dictionary")
+
     else:
         logger.info("Matching book version does not exist on remote bookshelf")

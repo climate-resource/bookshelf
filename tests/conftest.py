@@ -42,7 +42,7 @@ def example_data():
         scmdata.ScmRun(
             os.path.join(
                 TEST_DATA_DIR,
-                "v0.3.1",
+                "v0.3.2",
                 "example",
                 "v1.0.0_e001",
                 "test_v1.0.0_e001_leakage_rates_low_wide.csv",
@@ -58,9 +58,24 @@ def example_long_format_data():
     return pd.read_csv(
         os.path.join(
             TEST_DATA_DIR,
-            "v0.3.1",
+            "v0.3.2",
             "example",
             "v1.0.0_e001",
             "test_v1.0.0_e001_leakage_rates_low_long.csv",
         )
+    )
+
+
+@pytest.fixture()
+def example_unsorted_data():
+    return scmdata.ScmRun(
+        scmdata.ScmRun(
+            os.path.join(
+                TEST_DATA_DIR,
+                "v0.3.2",
+                "example",
+                "v1.0.0_e001",
+                "test_v1.0.0_e001_leakage_rates_low_wide_unsorted.csv",
+            )
+        ).timeseries()
     )

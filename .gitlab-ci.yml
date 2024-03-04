@@ -98,6 +98,8 @@ test:python 3.11:pytest:
 test:python 3.12:notebooks:
   image: python:3.12
   stage: test
+  rules:
+    - if: $CI_COMMIT_REF_NAME == "main"
   cache:
     key:
       files:
@@ -108,6 +110,7 @@ test:python 3.12:notebooks:
   script:
     - poetry install --no-interaction --all-extras
     - poetry run pytest -r a -v -n 2 tests/notebooks
+  timeout: 3 hours
 
 test:bundle:
   stage: test

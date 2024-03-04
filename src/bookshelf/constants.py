@@ -3,7 +3,7 @@ Constants
 """
 import os
 
-DATA_FORMAT_VERSION = "v0.3.1"
+DATA_FORMAT_VERSION = "v0.3.2"
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 DATA_DIR = os.path.join(ROOT_DIR, "data")
