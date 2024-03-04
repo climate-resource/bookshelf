@@ -71,6 +71,7 @@ towncrier = "^23.6.0"
 liccheck = "^0.9.1"
 jupyter = "^1.0.0"
 matplotlib = "^3.8.3"
+seaborn = "^0.12.2"
 
 [tool.poetry.group.notebooks.dependencies]
 notebook = "^7.0.7"
