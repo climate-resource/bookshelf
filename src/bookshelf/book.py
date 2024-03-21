@@ -383,8 +383,9 @@ class LocalBook(_Book):
         )
 
         var_lst = list(data.meta.columns)
+        sort_lst = [*var_lst, "year"]
         data_df = pd.DataFrame(data.timeseries().sort_index().reset_index())
-        data_melt = chunked_melt(data_df, var_lst, "year", "values")
+        data_melt = chunked_melt(data_df, var_lst, "year", "values").sort_values(by=sort_lst)
         data_melt.to_csv(  # type: ignore
             path_or_buf=self.local_fname(fname),
             sep=",",
