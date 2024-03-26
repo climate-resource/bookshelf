@@ -164,3 +164,5 @@ book.add_timeseries("cat", CAT_df_ScmRun)
 
 # %%
 book.metadata()
+
+# %%
