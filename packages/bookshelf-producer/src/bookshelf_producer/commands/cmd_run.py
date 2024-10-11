@@ -5,7 +5,7 @@ import logging
 
 import click
 
-from bookshelf.notebook import get_available_versions, run_notebook
+from bookshelf_producer.notebook import get_available_versions, run_notebook
 
 logger = logging.getLogger(__name__)
 

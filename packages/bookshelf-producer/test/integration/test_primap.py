@@ -3,7 +3,7 @@ import os
 import pytest
 
 from bookshelf import LocalBook
-from bookshelf.notebook import run_notebook
+from bookshelf_producer.notebook import run_notebook
 
 
 @pytest.fixture

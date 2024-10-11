@@ -33,21 +33,33 @@ help:  ## print short description of each target
 
 .PHONY: checks
 checks:  ## run all the linting checks of the codebase
-	@echo "=== pre-commit ==="; poetry run pre-commit run --all-files || echo "--- pre-commit failed ---" >&2; \
-		echo "=== mypy ==="; MYPYPATH=stubs poetry run mypy src || echo "--- mypy failed ---" >&2; \
+	@echo "=== pre-commit ==="; uv run pre-commit run --all-files || echo "--- pre-commit failed ---" >&2; \
+		echo "=== mypy ==="; MYPYPATH=stubs uv run mypy src || echo "--- mypy failed ---" >&2; \
 		echo "======"
 
 .PHONY: ruff-fixes
 ruff-fixes:  ## fix the code using ruff
     # format before and after checking so that the formatted stuff is checked and
     # the fixed stuff is formatted
-	poetry run ruff format $(FILES_TO_FORMAT)
-	poetry run ruff $(FILES_TO_FORMAT) --fix
-	poetry run ruff format $(FILES_TO_FORMAT)
+	uv run ruff format $(FILES_TO_FORMAT)
+	uv run ruff $(FILES_TO_FORMAT) --fix
+	uv run ruff format $(FILES_TO_FORMAT)
+
+.PHONY: test-producer
+test-producer:  ## run the tests for the producer package
+	uv run --package bookshelf_producer \
+		pytest packages/bookshelf-producer \
+		-r a -v --doctest-modules --cov=packages/bookshelf_producer
+
+.PHONY: test-core
+test-core:  ## run the tests for the core package
+	uv run \
+		pytest src tests \
+		-r a -v --doctest-modules --cov=src
 
 .PHONY: test
-test:  ## run the tests
-	poetry run pytest src tests -r a -v --doctest-modules --cov=src
+test: test-core test-producer  ## run the tests
+
 
 # Note on code coverage and testing:
 # You must specify cov=src as otherwise funny things happen when doctests are
@@ -61,24 +73,21 @@ test:  ## run the tests
 
 .PHONY: docs
 docs:  ## build the docs
-	poetry run sphinx-build -T -b html docs/source docs/build/html
+	uv run sphinx-build -T -b html docs/source docs/build/html
 
 .PHONY: changelog-draft
 changelog-draft:  ## compile a draft of the next changelog
-	poetry run towncrier build --draft
+	uv run towncrier build --draft
 
 .PHONY: licence-check
 licence-check:  ## Check that licences of the dependencies are suitable
 	# Will likely fail on Windows, but Makefiles are in general not Windows
 	# compatible so we're not too worried
-	poetry export --without=tests --without=docs --without=dev > $(TEMP_FILE)
-	poetry run liccheck -r $(TEMP_FILE) -R licence-check.txt
+	uv export --without=tests --without=docs --without=dev > $(TEMP_FILE)
+	uv run liccheck -r $(TEMP_FILE) -R licence-check.txt
 	rm -f $(TEMP_FILE)
 
 .PHONY: virtual-environment
 virtual-environment:  ## update virtual environment, create a new one if it doesn't already exist
-	poetry lock
-	# Put virtual environments in the project
-	poetry config virtualenvs.in-project true
-	poetry install --all-extras
-	poetry run pre-commit install
+	uv sync
+	uv run pre-commit install

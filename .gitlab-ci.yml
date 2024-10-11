@@ -17,16 +17,14 @@ variables:
 cache:
   key:
     files:
-      - poetry.lock
+      - uv.lock
     prefix: python-3.10-
   paths:
     - .cache
 
 before_script:
   - python -V
-  - pip install poetry
-  - poetry config virtualenvs.create true
-  - poetry config virtualenvs.in-project true
+  - pip install uv
 
 test:linting:
   stage: test

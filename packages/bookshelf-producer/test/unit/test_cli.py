@@ -5,8 +5,8 @@ import tempfile
 import pytest
 from click.testing import CliRunner
 
-from bookshelf.cli import main
 from bookshelf.shelf import BookShelf
+from bookshelf_producer.cli import main
 
 logging.basicConfig()
 
@@ -26,7 +26,7 @@ def test_help():
 
 
 def test_run(mocker):
-    mock_run = mocker.patch("bookshelf.commands.cmd_run.run_notebook", autospec=True)
+    mock_run = mocker.patch("bookshelf_producer.commands.cmd_run.run_notebook", autospec=True)
 
     with tempfile.TemporaryDirectory() as td:
         runner = CliRunner()
@@ -51,7 +51,7 @@ def test_run(mocker):
     ],
 )
 def test_run_multiple(mocker, args):
-    mock_run = mocker.patch("bookshelf.commands.cmd_run.run_notebook", autospec=True)
+    mock_run = mocker.patch("bookshelf_producer.commands.cmd_run.run_notebook", autospec=True)
 
     with tempfile.TemporaryDirectory() as td:
         runner = CliRunner()
@@ -90,7 +90,7 @@ def test_run_multiple(mocker, args):
 
 
 def test_run_failed(mocker, caplog):
-    mock_run = mocker.patch("bookshelf.commands.cmd_run.run_notebook", autospec=True)
+    mock_run = mocker.patch("bookshelf_producer.commands.cmd_run.run_notebook", autospec=True)
     mock_run.side_effect = ValueError("Something went wrong")
     with tempfile.TemporaryDirectory() as td:
         runner = CliRunner()
@@ -102,7 +102,7 @@ def test_run_failed(mocker, caplog):
 
 
 def test_publish(mocker, caplog):
-    mock_run = mocker.patch("bookshelf.commands.cmd_publish.run_notebook", autospec=True)
+    mock_run = mocker.patch("bookshelf_producer.commands.cmd_publish.run_notebook", autospec=True)
     mock_publish = mocker.patch.object(BookShelf, "publish", autospec=True)
 
     caplog.set_level("INFO")
@@ -120,7 +120,7 @@ def test_publish(mocker, caplog):
 
 
 def test_publish_multiple(mocker, caplog):
-    mock_run = mocker.patch("bookshelf.commands.cmd_publish.run_notebook", autospec=True)
+    mock_run = mocker.patch("bookshelf_producer.commands.cmd_publish.run_notebook", autospec=True)
     mock_publish = mocker.patch.object(BookShelf, "publish", autospec=True)
 
     runner = CliRunner()
@@ -133,7 +133,7 @@ def test_publish_multiple(mocker, caplog):
 
 
 def test_publish_failed(mocker, caplog):
-    mock_run = mocker.patch("bookshelf.commands.cmd_publish.run_notebook")
+    mock_run = mocker.patch("bookshelf_producer.commands.cmd_publish.run_notebook")
     mock_run.side_effect = ValueError("Something went wrong")
 
     runner = CliRunner()
@@ -149,4 +149,4 @@ def test_publish_missing():
     result = runner.invoke(main, ["publish", "examples/unknown"])
     assert result.exit_code == 1
 
-    assert result.exc_info[0] == FileNotFoundError
+    assert isinstance(result.exc_info[0], FileNotFoundError)

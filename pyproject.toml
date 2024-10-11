@@ -134,6 +134,11 @@ docstring-code-format = true
     "S101",  # S101 Use of `assert` detected
     "PLR2004" # Magic value used in comparison
 ]
+"conftest.py" = [
+    "D",  # Documentation not needed in tests
+    "S101",  # S101 Use of `assert` detected
+    "PLR2004" # Magic value used in comparison
+]
 "docs/source/notebooks/*" = [
     "D100",  # Missing docstring at the top of file
     "E402",  # Module level import not at top of file
@@ -151,7 +156,7 @@ docstring-code-format = true
 ]
 
 [tool.ruff.isort]
-known-first-party = ["src"]
+known-first-party = ["bookshelf", "bookshelf_producer"]
 
 [tool.ruff.pydocstyle]
 convention = "numpy"

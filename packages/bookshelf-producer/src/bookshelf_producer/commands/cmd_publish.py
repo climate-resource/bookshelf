@@ -1,13 +1,15 @@
 """
 publish CLI command
 """
+
 import logging
 import tempfile
 
 import click
 
-from bookshelf.notebook import get_available_versions, run_notebook
 from bookshelf.shelf import BookShelf
+from bookshelf_producer.actions import publish
+from bookshelf_producer.notebook import get_available_versions, run_notebook
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +63,7 @@ def cli(name: str, version: tuple[str, ...], include_private: bool, force: bool)
                 logger.info(f"Finish building {name}@{book.long_version()}")
 
                 shelf = BookShelf()
-                shelf.publish(book, force=force)
+                publish(shelf, book, force=force)
             except Exception as exc:
                 logger.exception(f"Unable to process {name}@{dataset_version}")
                 raise click.Abort() from exc

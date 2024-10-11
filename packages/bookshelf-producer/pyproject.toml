@@ -1,20 +1,33 @@
 [project]
 name = "bookshelf-producer"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.3.1a0"
+description = "Publishing utilities for bookshelf books"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "click>=8.0.1",
+    "click-log>=0.3.2",
+    "python-dotenv>=1.0.0",
     "bookshelf",
     "seaborn>=0.12.2",
     "papermill>=2.4.0",
-    "jupytext>=1.14.7"
+    "jupytext>=1.14.7",
+    "ipykernel>6.0.0",
+    # TODO: remove PRIMAP-hist script dependency
+    "pycountry"
 ]
+
+[project.scripts]
+bookshelf = "bookshelf_producer.cli:main"
 
 [tool.uv]
 dev-dependencies = [
-    "moto[s3]>=4.1.12"
+    "moto[s3]>=5"
 ]
 
 [tool.uv.sources]
 bookshelf = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
