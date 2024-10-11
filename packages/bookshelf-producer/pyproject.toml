@@ -1,0 +1,20 @@
+[project]
+name = "bookshelf-producer"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "bookshelf",
+    "seaborn>=0.12.2",
+    "papermill>=2.4.0",
+    "jupytext>=1.14.7"
+]
+
+[tool.uv]
+dev-dependencies = [
+    "moto[s3]>=4.1.12"
+]
+
+[tool.uv.sources]
+bookshelf = { workspace = true }
