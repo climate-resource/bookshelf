@@ -1,11 +1,5 @@
+<!--- --8<-- [start:description] -->
 # Bookshelf
-
-<!---
-Can use start-after and end-before directives in docs, see
-https://myst-parser.readthedocs.io/en/latest/syntax/organising_content.html#inserting-other-documents-directly-into-the-current-document
--->
-
-<!--- sec-begin-description -->
 
 `bookshelf` is how Climate Resource reuses datasets across projects
 
@@ -34,11 +28,13 @@ description of the metadata. This datapackage contains the associated `Resources
 their hashes. Each `Resource` is fetched when it is first used and then cached for later use
 
 
-<!--- sec-end-description -->
+<!--- --8<-- [end:description] -->
 
-## Installation
+## Getting Started
 
-<!--- sec-begin-installation -->
+<!--- --8<-- [start:getting-started] -->
+
+### For data consumers
 
 `bookshelf` can be installed via pip:
 
@@ -46,17 +42,77 @@ their hashes. Each `Resource` is fetched when it is first used and then cached f
 pip install bookshelf
 ```
 
+Fetching and using `Books` requires very little setup in order to start playing with
+data.
 
-<!--- sec-end-installation -->
+```python
+>> import bookshelf
+>> shelf = bookshelf.BookShelf()
+# Load the latest version of the MAGICC specific rcmip emissions
+>> book = shelf.load("rcmip-emissions")
+INFO:/home/user/.cache/bookshelf/v0.1.0/rcmip-emissions/volume.json downloaded from https://cr-prod-datasets-bookshelf.s3.us-west-2.amazonaws.com/v0.1.0/rcmip-emissions/volume.json
+# On the first call this will fetch the data from the server and cache locally
+>> book.timeseries("magicc")
+INFO:/home/user/.cache/bookshelf/v0.1.0/rcmip-emissions/v0.0.2/magicc.csv downloaded from https://cr-prod-datasets-bookshelf.s3.us-west-2.amazonaws.com/v0.1.0/rcmip-emissions/v0.0.2/magicc.csv
+<ScmRun (timeseries: 1683, timepoints: 751)>
+Time:
+        Start: 1750-01-01T00:00:00
+        End: 2500-01-01T00:00:00
+Meta:
+                 activity_id mip_era        model region          scenario       unit                    variable
+        0     not_applicable   CMIP5          AIM  World             rcp60   Mt BC/yr                Emissions|BC
+        1     not_applicable   CMIP5          AIM  World             rcp60  Mt CH4/yr               Emissions|CH4
+        2     not_applicable   CMIP5          AIM  World             rcp60   Mt CO/yr                Emissions|CO
+        3     not_applicable   CMIP5          AIM  World             rcp60  Mt CO2/yr               Emissions|CO2
+        4     not_applicable   CMIP5          AIM  World             rcp60  Mt CO2/yr  Emissions|CO2|MAGICC AFOLU
+        ...              ...     ...          ...    ...               ...        ...                         ...
+        1678  not_applicable   CMIP5  unspecified  World  historical-cmip5  Mt NH3/yr               Emissions|NH3
+        1679  not_applicable   CMIP5  unspecified  World  historical-cmip5  Mt NOx/yr               Emissions|NOx
+        1680  not_applicable   CMIP5  unspecified  World  historical-cmip5   Mt OC/yr                Emissions|OC
+        1681  not_applicable   CMIP5  unspecified  World  historical-cmip5  Mt SO2/yr            Emissions|Sulfur
+        1682  not_applicable   CMIP5  unspecified  World  historical-cmip5  Mt VOC/yr               Emissions|VOC
+
+        [1683 rows x 7 columns]
+
+# Subsequent calls use the result from the cache
+>> book.timeseries("magicc")
+```
+
+### For data curators
+
+If you wish to build/modify `Books` some additional dependencies are required. These can
+be installed using:
+
+```bash
+pip install bookshelf-producer
+```
+
+Building and deploying datasets is managed via Jupyter notebooks and a small yaml file that
+contains metadata about the dataset. These notebooks are stored as plain text Python files
+using the [jupytext](https://jupytext.readthedocs.io/en/latest/) plugin for Jupyter.
+See [notebooks/example.py](https://gitlab.com/climate-resource/bookshelf/-/blob/master/notebooks/example.py)
+for an example dataset.
+
+Once the dataset has been developed, it can be deployed to the remote `BookShelf` so that
+other users can consume it.
+
+The dataset can deployed using the `publish` CLI as shown below:
+
+```bash
+bookshelf publish my-dataset
+```
+
+/// admonition | Note
+Publishing to the remote bookshelf requires valid credentials.
+Creating or obtaining these credentials is not covered in this documentation.
+///
 
 ### For developers
-
-<!--- sec-begin-installation-dev -->
 
 For development, we rely on [uv](https://docs.astral.sh/uv) for all our
 dependency management. To get started, you will need to make sure that `uv`
 is installed
-([instructions here](https://docs.astral.sh/uv/getting-started/installation/).
+([instructions here](https://docs.astral.sh/uv/getting-started/installation/)).
 
 This project is a `uv` workspace,
 which means that it contains more than one Python package.
@@ -71,8 +127,6 @@ In order to create your environment, run `make virtual-environment`.
 If there are any issues, the messages from the `Makefile` should guide you
 through. If not, please raise an issue in the [issue tracker][issue_tracker].
 
-For the rest of our developer docs, please see [](development-reference).
-
 [issue_tracker]: https://gitlab.com/climate-resource/bookshelf/bookshelf/issues
 
-<!--- sec-end-installation-dev -->
+<!--- --8<-- [end:getting-started] -->

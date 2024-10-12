@@ -73,7 +73,15 @@ test: test-core test-producer  ## run the tests
 
 .PHONY: docs
 docs:  ## build the docs
-	uv run sphinx-build -T -b html docs/source docs/build/html
+	uv run mkdocs build
+
+.PHONY: docs-strict
+docs-strict: ## build the docs strictly (e.g. raise an error on warnings, this most closely mirrors what we do in the CI)
+	uv run mkdocs build --strict
+
+.PHONY: docs-serve
+docs-serve: ## serve the docs locally
+	uv run mkdocs serve
 
 .PHONY: changelog-draft
 changelog-draft:  ## compile a draft of the next changelog

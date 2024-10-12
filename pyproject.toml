@@ -48,12 +48,17 @@ dev-dependencies = [
     "pandas-stubs>=2.2.3.241009",
     "types-appdirs>=1.4.3.5",
     # Docs
-    "myst-nb>=1.1.2",
-    "sphinx-book-theme>=1.1.3",
-    "sphinx-autodoc-typehints>=1,<=2",
-    "sphinx-autodocgen>=1.3",
-    "jupytext>=1.16.4",
-    "sphinx-copybutton>=0.5.2",
+    "mkdocs>=1.6.0",
+    "mkdocstrings[python]>=0.25.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocs-gen-files>=0.5.0",
+    "mkdocs-section-index>=0.3.9",
+    "mkdocs-literate-nav>=0.6.1",
+    "mkdocs-autorefs>=1.0.1",
+    "mkdocs-jupyter>=0.24.0",
+    "myst-nb>=1.1.1",
+    "jupyterlab>=4.2.0",
+    "jupytext>=1.16.3",
 ]
 
 [tool.uv.workspace]
@@ -62,6 +67,11 @@ members = ["packages/*"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "packages"
+]
 
 [tool.coverage.run]
 source = ["src", "packages"]
@@ -185,7 +195,7 @@ convention = "numpy"
 [tool.towncrier]
 package = "bookshelf"
 package_dir = "src"
-filename = "docs/source/changelog.md"
+filename = "docs/changelog.md"
 directory = "changelog/"
 title_format = "## bookshelf {version} ({project_date})"
 underlines = ["", "", ""]
