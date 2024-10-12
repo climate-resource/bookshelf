@@ -1,6 +1,7 @@
 """
 Bookshelf CLI
 """
+
 import logging
 import os
 from typing import Optional
@@ -12,7 +13,7 @@ import dotenv
 dotenv.load_dotenv()
 
 cmd_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), "commands"))
-logger = logging.getLogger("bookshelf")
+logger = logging.getLogger("bookshelf_producer")
 
 
 class _CLICommands(click.MultiCommand):
@@ -26,7 +27,7 @@ class _CLICommands(click.MultiCommand):
 
     def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
         try:
-            mod = __import__(f"bookshelf.commands.cmd_{cmd_name}", None, None, ["cli"])
+            mod = __import__(f"bookshelf_producer.commands.cmd_{cmd_name}", None, None, ["cli"])
         except ImportError:  # pragma: no cover
             return None
         return mod.cli  # type: ignore

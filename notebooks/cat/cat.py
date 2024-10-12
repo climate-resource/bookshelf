@@ -26,7 +26,7 @@ from scmdata import ScmRun
 
 from bookshelf import LocalBook
 from bookshelf.dataset_structure import print_dataset_structure
-from bookshelf.notebook import load_nb_metadata
+from bookshelf_producer.notebook import load_nb_metadata
 
 # %% [markdown]
 # ## How to download the data

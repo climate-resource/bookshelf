@@ -86,7 +86,7 @@ for the expected format of this file.
 
 You can run a notebook with a specified output directory for local testing:
 ```bash
-poetry run bookshelf run --output /path/to/custom/directory <notebook_name>
+uv run bookshelf run --output /path/to/custom/directory <notebook_name>
 ```
 
 The generated book can then be used directly from the local directory.
@@ -99,6 +99,7 @@ will query the remote bookshelf.
 import bookshelf
 
 shelf = bookshelf.BookShelf("/path/to/custom/directory/{version}")
+edition = 1
 
 new_book = shelf.load("{notebook_name}", version="{version}", edition=edition)
 ```

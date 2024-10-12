@@ -4,10 +4,10 @@ import tempfile
 
 import pytest
 
-import bookshelf.notebook
+import bookshelf_producer.notebook
 from bookshelf.errors import UnknownVersion
-from bookshelf.notebook import load_nb_metadata, run_notebook
 from bookshelf.utils import get_notebook_directory
+from bookshelf_producer.notebook import load_nb_metadata, run_notebook
 
 
 def test_load_nb_metadata():
@@ -125,11 +125,11 @@ def test_run_missing_version():
 @pytest.mark.parametrize("package", ["jupytext", "papermill"])
 def test_missing_deps(package):
     try:
-        setattr(bookshelf.notebook, f"has_{package}", False)
+        setattr(bookshelf_producer.notebook, f"has_{package}", False)
 
         match = re.escape(f"{package} is not installed. Run 'pip install bookshelf[notebooks]'")
         with pytest.raises(ImportError, match=match):
             run_notebook("test")
     finally:
-        bookshelf.notebook.has_papermill = True
-        bookshelf.notebook.has_jupytext = True
+        bookshelf_producer.notebook.has_papermill = True
+        bookshelf_producer.notebook.has_jupytext = True

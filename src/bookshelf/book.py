@@ -4,6 +4,7 @@ Books
 A Book represents a single versioned dataset. A dataset can contain multiple resources
 each of which are loaded independently.
 """
+
 import glob
 import hashlib
 import json
@@ -244,7 +245,9 @@ class LocalBook(_Book):
         file_list = glob.glob(self.local_fname("*"))
         return file_list
 
-    def add_timeseries(self, timeseries_name: str, data: scmdata.ScmRun, compressed: bool = True) -> None:
+    def add_timeseries(
+        self, timeseries_name: str, data: scmdata.ScmRun, compressed: bool = True, write_long: bool = True
+    ) -> None:
         """
         Add two timeseries resource (wide format and long format) to the Book
 
@@ -258,6 +261,8 @@ class LocalBook(_Book):
             Timeseries data to add to the Book
         compressed: bool
             Whether compressed the file or not
+        write_long: bool
+            Whether to write the long format timeseries data or not
         """
         if compressed:
             compression_info = {"format": "csv.gz", "compression": "gzip"}
@@ -265,7 +270,8 @@ class LocalBook(_Book):
             compression_info = {"format": "csv", "compression": "infer"}
 
         self.write_wide_timeseries(data, timeseries_name, compression_info)
-        self.write_long_timeseries(data, timeseries_name, compression_info)
+        if write_long:
+            self.write_long_timeseries(data, timeseries_name, compression_info)
 
     def write_wide_timeseries(
         self, data: scmdata.ScmRun, timeseries_name: str, compression_info: dict[str, str]

@@ -1,4 +1,12 @@
+import pytest
+
 from bookshelf import BookShelf
+
+
+@pytest.fixture(autouse=True)
+def remote_bookshelf():
+    # Disable the remote bookshelf fixture for this test
+    return
 
 
 # Fetches from the remote bookshelf
