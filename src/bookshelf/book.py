@@ -499,7 +499,7 @@ class LocalBook(_Book):
 
         Parameters
         ----------
-        name : str
+        timeseries_name : str
             Name of the volume
 
         Returns

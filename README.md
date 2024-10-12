@@ -109,6 +109,8 @@ Creating or obtaining these credentials is not covered in this documentation.
 
 ### For developers
 
+<!--- --8<-- [start:getting-started-dev] -->
+
 For development, we rely on [uv](https://docs.astral.sh/uv) for all our
 dependency management. To get started, you will need to make sure that `uv`
 is installed
@@ -129,4 +131,5 @@ through. If not, please raise an issue in the [issue tracker][issue_tracker].
 
 [issue_tracker]: https://gitlab.com/climate-resource/bookshelf/bookshelf/issues
 
+<!--- --8<-- [end:getting-started-dev] -->
 <!--- --8<-- [end:getting-started] -->

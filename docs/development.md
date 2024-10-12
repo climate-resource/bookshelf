@@ -1,4 +1,3 @@
-[](){#development-reference}
 # Development
 
 Notes for developers. If you want to get involved, please do!
@@ -32,6 +31,10 @@ Try and keep your merge requests as small as possible
 This makes life much easier for reviewers
 which allows contributions to be accepted at a faster rate.
 
+## Installation
+
+---8<--- "README.md:getting-started-dev"
+
 ## Language
 
 We use British English for our development.
@@ -44,46 +47,98 @@ described in [PEP440](https://peps.python.org/pep-0440/)
 and [Semantic Versioning](https://semver.org/)
 to describe how the version should change
 depending on the updates to the code base.
-Our changelog entries and compiled CHANGELOG
-[TODO: docs explaining our CHANGELOG approach/reference to changelog/README.md]
-allow us to identify where key changes were made.
 
-## Dependency management
+Our commit messages are written using written
+to follow the
+[conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) standard which makes it easy to find the
+commits that matter when traversing through the commit history.
 
-We manage our dependencies using [pixi](https://pixi.sh/).
-This allows us to use conda dependencies within our workflows.
-However, we also need to release packages for PyPI.
-To faciliate this, we use [pdm](https://pdm-project.org/en/latest/).
-This is generally pretty straightforward as the two package managers don't fight each other.
-The key thing to check is that any dependencies which are listed in both
-`project.dependencies` and `tool.pixi.dependencies` should agree.
-This ensures that our conda and PyPI installs will target consistent versions of dependencies.
+/// admonition | Note
+We don't use the commit messages from conventional commits
+to automatically generate the changelog and release documentation.
+///
 
-[](){releasing-reference}
+## The notebooks generating the datasets
+
+The top-level directory `notebooks` contains the notebooks used to produce the `Book`s.
+Each  notebook  corresponds with a single `Volume` (collection of `Book`s with the same
+`name`).
+
+Each notebook also has a corresponding `.yaml` file containing the latest metadata
+for the `Book`. See the `NotebookMetadata` schema(`bookshelf.schema.NotebookMetadata`)
+for the expected format of this file.
+
+### Creating a new `Volume`
+
+* Start by copying `example.py` and `example.yaml` and renaming to the name of
+  the new volume. This provides a simple example to get started.
+* Update `{volume}.yaml` with the correct metadata
+* Update the fetch and processing steps as needed, adding additional `Resource`s
+  to the `Book` as needed.
+* Run the notebook and check the output
+* **TODO** Perform the release procedure to upload the built book to the remote
+  `BookShelf`
+  `bookshelf save {volume}`
+
+### Updating a `Volume`'s version
+
+* Update the `version` attribute in the metadata file
+* Modify other metadata attributes as needed
+* Update the data fetching and processing steps in the notebook
+* Run the notebook and check the output
+* **TODO** Perform the release procedure to upload the built book to the remote
+  `BookShelf`
+
+### Testing a notebook locally
+
+You can run a notebook with a specified output directory for local testing:
+```bash
+uv run bookshelf run --output /path/to/custom/directory <notebook_name>
+```
+
+The generated book can then be used directly from the local directory.
+Note that the path to the custom directory needs to specify the `version` of the
+Book.
+When loading the Book, you must also specify the version and the edition otherwise it
+will query the remote bookshelf.
+
+```python
+import bookshelf
+
+shelf = bookshelf.BookShelf("/path/to/custom/directory/{version}")
+edition = 1
+
+new_book = shelf.load("{notebook_name}", version="{version}", edition=edition)
+```
+When updating an existing Book, remember to increase the version or the edition to make
+sure you load your newly generated data, not the old data.
+
 ## Releasing
 
-Releasing is semi-automated via a CI job.
-The CI job requires the type of version bump
-that will be performed to be manually specified.
-See the pdm-bump docs for the
-[list of available bump rules](https://github.com/carstencodes/pdm-bump#usage).
+Releasing is semi-automated via a CI job. The CI job requires the type of version bump that will be performed to be
+manually specified. See the poetry docs for the [list of available bump rules](https://python-poetry.org/docs/cli/#version).
 
 ### Standard process
 
 The steps required are the following:
 
+1. Bump the version: manually trigger the "bump" stage from the latest commit
+   in main (pipelines are [here](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/pipelines)).
+   A valid "bump_rule" (see https://python-poetry.org/docs/cli/#version)
+   will need to be specified via the "BUMP_RULE" CI
+   variable (see https://docs.gitlab.com/ee/ci/variables/). This will then
+   trigger a release, including publication to PyPI.
 
-1. Bump the version: manually trigger the "bump" workflow from the main branch
-   (see here: [bump workflow](https://github.com/climate-resource/input4mips_validation/actions/workflows/bump.yaml)).
-   A valid "bump_rule" (see [pdm-bump's docs](https://github.com/carstencodes/pdm-bump#usage)) will need to be specified.
-   This will then trigger a draft release.
+1. Download the artefacts from the release job. The `release_notes.md` artefact
+   will be pre-filled with the list of changes included in this release. You find it
+   in the release-bundle zip file at
+   [the artefacts section](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/artifacts). The
+   announcements section should be completed manually to highlight any
+   particularly notable changes or other announcements (or deleted if not
+   relevant for this release).
 
-1. Edit the draft release which has been created
-   (see here:
-   [project releases](https://github.com/climate-resource/input4mips_validation/releases)).
-   Once you are happy with the release (removed placeholders, added key
-   announcements etc.) then hit 'Publish release'. This triggers a release to
-   PyPI (which you can then add to the release if you want).
+1. Once the release notes are filled out, use them to make a
+   [release](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/releases/new).
 
 
 1. That's it, release done, make noise on social media of choice, do whatever
@@ -98,4 +153,4 @@ Our documentation is hosted by
 very grateful. The RtD configuration can be found in the `.readthedocs.yaml`
 file in the root of this repository. The docs are automatically
 deployed at
-[input4mips-validation.readthedocs.io](https://input4mips-validation.readthedocs.io/en/latest/).
+[bookshelf.readthedocs.io](https://bookshelf.readthedocs.io/en/latest/).
