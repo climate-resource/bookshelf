@@ -49,7 +49,7 @@ ruff-fixes:  ## fix the code using ruff
 test-producer:  ## run the tests for the producer package
 	uv run --package bookshelf_producer \
 		pytest packages/bookshelf-producer \
-		-r a -v --doctest-modules --cov=packages/bookshelf_producer/src
+		-r a -v --doctest-modules --cov=packages/bookshelf-producer/src
 
 .PHONY: test-core
 test-core:  ## run the tests for the core package
