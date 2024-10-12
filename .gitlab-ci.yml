@@ -35,7 +35,8 @@ test:linting:
       - ${PRE_COMMIT_HOME}
   script:
     - uv run pre-commit run --all-files
-    - uv run mypy src packages
+    - uv run --package bookshelf mypy src
+    - uv run --package bookshelf-producer  mypy packages/bookshelf-producer
 
 test:docs:
   stage: test
