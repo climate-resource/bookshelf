@@ -113,7 +113,7 @@ test:bundle:
     - uv build
     - uv build --package bookshelf-producer
     - tar -tvf dist/bookshelf-*.tar.gz --wildcards '*bookshelf/py.typed'
-    - tar -tvf dist/packages/bookshelf-producer/bookshelf_producer-*.tar.gz --wildcards '*bookshelf_producer/py.typed'
+    - tar -tvf dist/packages/bookshelf-producer/dist/bookshelf_producer-*.tar.gz --wildcards '*bookshelf_producer/py.typed'
 
 # TODO: The below job is deprecated until we migrate to GH for a new major release
 # This job must be run manually
