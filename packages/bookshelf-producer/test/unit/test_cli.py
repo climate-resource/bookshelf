@@ -5,7 +5,6 @@ import tempfile
 import pytest
 from click.testing import CliRunner
 
-from bookshelf.shelf import BookShelf
 from bookshelf_producer.cli import main
 
 logging.basicConfig()
@@ -103,7 +102,7 @@ def test_run_failed(mocker, caplog):
 
 def test_publish(mocker, caplog):
     mock_run = mocker.patch("bookshelf_producer.commands.cmd_publish.run_notebook", autospec=True)
-    mock_publish = mocker.patch.object(BookShelf, "publish", autospec=True)
+    mock_publish = mocker.patch("bookshelf_producer.commands.cmd_publish.publish", autospec=True)
 
     caplog.set_level("INFO")
 
@@ -121,7 +120,7 @@ def test_publish(mocker, caplog):
 
 def test_publish_multiple(mocker, caplog):
     mock_run = mocker.patch("bookshelf_producer.commands.cmd_publish.run_notebook", autospec=True)
-    mock_publish = mocker.patch.object(BookShelf, "publish", autospec=True)
+    mock_publish = mocker.patch("bookshelf_producer.commands.cmd_publish.publish", autospec=True)
 
     runner = CliRunner()
     result = runner.invoke(main, ["publish", "examples/multiple_versions"])
@@ -149,4 +148,4 @@ def test_publish_missing():
     result = runner.invoke(main, ["publish", "examples/unknown"])
     assert result.exit_code == 1
 
-    assert isinstance(result.exc_info[0], FileNotFoundError)
+    assert result.exc_info[0] is FileNotFoundError

@@ -217,8 +217,8 @@ data_countries.get_unique_meta("region")
 book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 
 # %%
-book.add_timeseries("by_country", data_countries)
-book.add_timeseries("by_region", data_regions)
+book.add_timeseries("by_country", data_countries, write_long=False)
+book.add_timeseries("by_region", data_regions, write_long=False)
 
 # %%
 book.metadata()
