@@ -39,6 +39,8 @@ class VerificationInfo:
             if not value:
                 return f"Data dictionary does not match the data: {attr} is not true"
 
+        return None
+
 
 def get_dataset_dictionary(data: ScmRun) -> dict[str, Iterable[str | float | int]]:
     """
@@ -154,7 +156,7 @@ def verify_data_dictionary(data: ScmRun, notebook_config: NotebookMetadata) -> V
             # Validate that the data type of the column in the data matches its specified type
             # in the data dictionary.
             try:
-                data.meta[variable.name].astype(variable.type)
+                data.meta[variable.name].astype(variable.type)  # type: ignore
             except ValueError:
                 verification_info.col_type_match = False
 

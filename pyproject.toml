@@ -41,6 +41,11 @@ dev-dependencies = [
     "pre-commit>=3.3.1",
     "towncrier>=23.6.0",
     "liccheck>=0.9.1",
+    # Stubs
+    "types-pyyaml>=6.0.12.20240917",
+    "boto3-stubs[essential]>=1.35.39",
+    "types-requests>=2.32.0.20240914",
+    "pandas-stubs>=2.2.3.241009",
 ]
 
 [tool.uv.workspace]
@@ -75,6 +80,14 @@ show_error_context = true
 warn_unreachable = true
 # importing following uses default settings
 follow_imports = "normal"
+exclude = [
+    "build",
+    "dist",
+    "notebooks",
+    "scripts",
+    "stubs",
+    "test",
+]
 
 [[tool.mypy.overrides]]
 module = [

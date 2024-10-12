@@ -53,11 +53,15 @@ pip install bookshelf
 
 <!--- sec-begin-installation-dev -->
 
-For development, we rely on [poetry](https://python-poetry.org) for all our
-dependency management. To get started, you will need to make sure that poetry
+For development, we rely on [uv](https://docs.astral.sh/uv) for all our
+dependency management. To get started, you will need to make sure that `uv`
 is installed
-([instructions here](https://python-poetry.org/docs/#installing-with-the-official-installer),
-we found that pipx and pip worked better to install on a Mac).
+([instructions here](https://docs.astral.sh/uv/getting-started/installation/).
+
+This project is a `uv` workspace,
+which means that it contains more than one Python package.
+`uv` commands will by default target the root `bookshelf` package,
+but if you wish to target another package you can use the `--package` flag.
 
 For all of work, we use our `Makefile`.
 You can read the instructions out and run the commands by hand if you wish,

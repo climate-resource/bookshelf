@@ -34,26 +34,22 @@ test:linting:
     paths:
       - ${PRE_COMMIT_HOME}
   script:
-    - poetry install --no-interaction --all-extras --only "main,tests,stubs,dev"
-    - poetry run pre-commit run --all-files
-    - poetry run mypy src
+    - uv run pre-commit run --all-files
+    - uv run mypy src packages
 
 test:docs:
   stage: test
   script:
-    - poetry install --no-interaction --all-extras --only "main,stubs,docs"
-    - poetry run sphinx-build -W --keep-going -T -b html docs/source docs/build
+    - uv run sphinx-build -W --keep-going -T -b html docs/source docs/build
 
 test:install-no-extras:
   stage: test
   script:
-    - poetry install --no-interaction --only main
-    - poetry run python scripts/test-install.py
+    - uv run --no-dev python scripts/test-install.py
 
 .pytest:
   script:
-    - poetry install --no-interaction --all-extras
-    - poetry run pytest -r a -v src tests --doctest-modules --cov=src --cov-report=term-missing --cov-report=xml:coverage.xml --ignore=tests/notebooks
+    - make test
 
 test:python 3.9:pytest:
   image: python:3.9
@@ -63,7 +59,7 @@ test:python 3.9:pytest:
   cache:
     key:
       files:
-        - poetry.lock
+        - uv.lock
       prefix: python-3.9-
     paths:
       - .cache/pip
@@ -88,110 +84,114 @@ test:python 3.11:pytest:
   cache:
     key:
       files:
-        - poetry.lock
+        - uv.lock
       prefix: python-3.11-
     paths:
       - .cache/pip
 
-test:python 3.12:notebooks:
-  image: python:3.12
-  stage: test
-  rules:
-    - if: $CI_COMMIT_REF_NAME == "main"
-  cache:
-    key:
-      files:
-        - poetry.lock
-      prefix: python-3.12-
-    paths:
-      - .cache/pip
-  script:
-    - poetry install --no-interaction --all-extras
-    - poetry run pytest -r a -v -n 2 tests/notebooks
-  timeout: 3 hours
+# This test is disabled
+# We need to migrate the notebooks out of this repo
+#test:python 3.12:notebooks:
+#  image: python:3.12
+#  stage: test
+#  rules:
+#    - if: $CI_COMMIT_REF_NAME == "main"
+#  cache:
+#    key:
+#      files:
+#        - uv.lock
+#      prefix: python-3.12-
+#    paths:
+#      - .cache/pip
+#  script:
+#    - poetry run pytest -r a -v -n 2 tests/notebooks
+#  timeout: 3 hours
 
 test:bundle:
   stage: test
   script:
-    - poetry build --no-interaction
+    - uv build
+    - uv build --package bookshelf-producer
     - tar -tvf dist/bookshelf-*.tar.gz --wildcards '*bookshelf/py.typed'
+    - tar -tvf dist/packages/bookshelf-producer/bookshelf_producer-*.tar.gz --wildcards '*bookshelf_producer/py.typed'
 
+# TODO: The below job is deprecated until we migrate to GH for a new major release
 # This job must be run manually
 # Defaults to performing a "prepatch" release (determined using "BUMP_RULE" CI variable)
 # Other bump rules can be found at https://python-poetry.org/docs/cli/#version
-bump:version:
-  stage: bump
-  only:
-    variables:
-      - $CI_COMMIT_MESSAGE !~ /^bump:/
-    refs:
-      - main
-  variables:
-    BUMP_RULE: prepatch
-    CI_EMAIL: ci-runner@bookshelf.invalid
-    CI_USERNAME: gitlab-ci
-  when: manual
-  image: python:3.10
-  cache:
-    key:
-      files:
-        - poetry.lock
-      prefix: python-3.10-
-    paths:
-      - .cache
-  script:
-    # SSH setup
-    - which ssh-agent
-    - eval `ssh-agent -s`
-    - chmod 600 ${SSH_PRIVATE_KEY}
-    - ssh-add ${SSH_PRIVATE_KEY}
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
-    - cp "$SSH_KNOWN_HOSTS" ~/.ssh/known_hosts
-    - chmod 644 ~/.ssh/known_hosts
-    # Git setup
-    - git remote set-url origin "git@gitlab.com:${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}.git"
-    - git config --global user.email "${CI_EMAIL}" && git config --global user.name "${CI_USERNAME}"
-    # For some reason you need to basically re-initialise the branch
-    - 'exists=`git show-ref refs/heads/$CI_COMMIT_REF_NAME` && if [ -n "$exists" ]; then git branch -D $CI_COMMIT_REF_NAME; fi'
-    - git checkout -b $CI_COMMIT_REF_NAME
-    # Bump
-    - BASE_VERSION=`poetry version -s`
-    - NEW_VERSION=`poetry version -s $BUMP_RULE`
-    - echo "Bumping version $BASE_VERSION > $NEW_VERSION"
-    - poetry install --no-interaction --only "main,dev"
-    - poetry run pre-commit install
-    - poetry run towncrier build --yes --version v$NEW_VERSION
-    - 'git commit -a -m "bump: version $BASE_VERSION > $NEW_VERSION"'
-    - git tag v$NEW_VERSION
-    # Bump to alpha (so that future commits do not have the same
-    # version as the tagged commit)
-    - BASE_VERSION=`poetry version -s`
-    - NEW_VERSION=`poetry version -s prerelease`
-    - echo "Bumping version $BASE_VERSION > $NEW_VERSION"
-    - 'git commit -a -m "bump(pre-release): version $BASE_VERSION > $NEW_VERSION"'
-    # Push commits and tags
-    - git fetch origin
-    - git push origin $CI_COMMIT_REF_NAME
-    - git push origin --tags
-
-release:pypi:
-  stage: release
-  only:
-    variables:
-      - $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
-  script:
-    # Generate release notes
-    - echo "# Release $CI_COMMIT_TAG" > "release_notes.md"
-    - echo "" >> "release_notes.md"
-    - cat ".gitlab/release_template.md" >> "release_notes.md"
-    - echo "" >> "release_notes.md"
-    - git log $(git describe --tags --abbrev=0 HEAD^)..HEAD --pretty='format:* %h %s' --no-merges | grep -v "bump*" >> "release_notes.md"
-    # Publish to PyPI
-    - poetry config pypi-token.pypi $PYPI_TOKEN
-    - poetry publish --build --no-interaction
-  artifacts:
-    name: "release-bundle $CI_COMMIT_TAG"
-    paths:
-      - dist/
-      - release_notes.md
+#bump:version:
+#  stage: bump
+#  only:
+#    variables:
+#      - $CI_COMMIT_MESSAGE !~ /^bump:/
+#    refs:
+#      - main
+#  variables:
+#    BUMP_RULE: prepatch
+#    CI_EMAIL: ci-runner@bookshelf.invalid
+#    CI_USERNAME: gitlab-ci
+#  when: manual
+#  image: python:3.10
+#  cache:
+#    key:
+#      files:
+#        - poetry.lock
+#      prefix: python-3.10-
+#    paths:
+#      - .cache
+#  script:
+#    # SSH setup
+#    - which ssh-agent
+#    - eval `ssh-agent -s`
+#    - chmod 600 ${SSH_PRIVATE_KEY}
+#    - ssh-add ${SSH_PRIVATE_KEY}
+#    - mkdir -p ~/.ssh
+#    - chmod 700 ~/.ssh
+#    - cp "$SSH_KNOWN_HOSTS" ~/.ssh/known_hosts
+#    - chmod 644 ~/.ssh/known_hosts
+#    # Git setup
+#    - git remote set-url origin "git@gitlab.com:${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}.git"
+#    - git config --global user.email "${CI_EMAIL}" && git config --global user.name "${CI_USERNAME}"
+#    # For some reason you need to basically re-initialise the branch
+#    - 'exists=`git show-ref refs/heads/$CI_COMMIT_REF_NAME` && if [ -n "$exists" ]; then git branch -D $CI_COMMIT_REF_NAME; fi'
+#    - git checkout -b $CI_COMMIT_REF_NAME
+#    # Bump
+#    - BASE_VERSION=`poetry version -s`
+#    - NEW_VERSION=`poetry version -s $BUMP_RULE`
+#    - echo "Bumping version $BASE_VERSION > $NEW_VERSION"
+#    - poetry install --no-interaction --only "main,dev"
+#    - poetry run pre-commit install
+#    - poetry run towncrier build --yes --version v$NEW_VERSION
+#    - 'git commit -a -m "bump: version $BASE_VERSION > $NEW_VERSION"'
+#    - git tag v$NEW_VERSION
+#    # Bump to alpha (so that future commits do not have the same
+#    # version as the tagged commit)
+#    - BASE_VERSION=`poetry version -s`
+#    - NEW_VERSION=`poetry version -s prerelease`
+#    - echo "Bumping version $BASE_VERSION > $NEW_VERSION"
+#    - 'git commit -a -m "bump(pre-release): version $BASE_VERSION > $NEW_VERSION"'
+#    # Push commits and tags
+#    - git fetch origin
+#    - git push origin $CI_COMMIT_REF_NAME
+#    - git push origin --tags
+#
+#release:pypi:
+#  stage: release
+#  only:
+#    variables:
+#      - $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+#  script:
+#    # Generate release notes
+#    - echo "# Release $CI_COMMIT_TAG" > "release_notes.md"
+#    - echo "" >> "release_notes.md"
+#    - cat ".gitlab/release_template.md" >> "release_notes.md"
+#    - echo "" >> "release_notes.md"
+#    - git log $(git describe --tags --abbrev=0 HEAD^)..HEAD --pretty='format:* %h %s' --no-merges | grep -v "bump*" >> "release_notes.md"
+#    # Publish to PyPI
+#    - poetry config pypi-token.pypi $PYPI_TOKEN
+#    - poetry publish --build --no-interaction
+#  artifacts:
+#    name: "release-bundle $CI_COMMIT_TAG"
+#    paths:
+#      - dist/
+#      - release_notes.md

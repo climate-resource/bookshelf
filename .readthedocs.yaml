@@ -2,8 +2,6 @@
 # Read the Docs configuration file
 # See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
 
-# Thank you also https://browniebroke.com/blog/specify-docs-dependency-groups-with-poetry-and-read-the-docs/
-
 # Required
 version: 2
 
