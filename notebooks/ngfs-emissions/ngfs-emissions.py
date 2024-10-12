@@ -31,7 +31,7 @@ import pyam
 import scmdata
 
 from bookshelf import LocalBook
-from bookshelf.notebook import load_nb_metadata
+from bookshelf_producer.notebook import load_nb_metadata
 
 # %%
 pyam.__version__

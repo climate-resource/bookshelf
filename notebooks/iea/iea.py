@@ -24,7 +24,7 @@ import tqdm
 from scmdata import ScmRun
 
 from bookshelf import LocalBook
-from bookshelf.notebook import load_nb_metadata
+from bookshelf_producer.notebook import load_nb_metadata
 
 # %%
 # This cell contains additional parameters that are controlled using papermill

@@ -20,7 +20,7 @@ import tempfile
 import scmdata
 
 from bookshelf import LocalBook
-from bookshelf.notebook import load_nb_metadata
+from bookshelf_producer.notebook import load_nb_metadata
 
 # %%
 logging.basicConfig(level=logging.INFO)

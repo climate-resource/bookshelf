@@ -1,10 +1,12 @@
-[tool.poetry]
+[project]
 name = "bookshelf"
 version = "0.3.1a0"
 description = "A collection of curated climate data sets"
-authors = ["Jared Lewis <jared.lewis@climate-resource.com>"]
 readme = "README.md"
-packages = [{include = "bookshelf", from = "src"}]
+authors = [
+    { name = "Jared Lewis", email = "jared.lewis@climate-resource.com" }
+]
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 4 - Beta",
     "License :: OSI Approved :: MIT License",
@@ -13,77 +15,56 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering",
 ]
+dependencies = [
+    "scmdata>=0.16.1",
+    "pooch",
+    "pydantic<2",
+    "appdirs",
+    "datapackage>=1.15.2",
+    "pyyaml",
+]
 
-[tool.poetry.scripts]
-bookshelf = "bookshelf.cli:main"
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.3.1",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.11.1",
+    "pytest-xdist>=3.3.1",
+    "requests-mock>=1.11.0",
+    "mypy>=1.2.0",
+    "ruff>=0.1.8",
+    "pre-commit>=3.3.1",
+    "towncrier>=23.6.0",
+    "liccheck>=0.9.1",
+    # Stubs
+    "types-pyyaml>=6.0.12.20240917",
+    "boto3-stubs[essential]>=1.35.39",
+    "types-requests>=2.32.0.20240914",
+    "pandas-stubs>=2.2.3.241009",
+    "types-appdirs>=1.4.3.5",
+    # Docs
+    "myst-nb>=1.1.2",
+    "sphinx-book-theme>=1.1.3",
+    "sphinx-autodoc-typehints>=1,<=2",
+    "sphinx-autodocgen>=1.3",
+    "jupytext>=1.16.4",
+    "sphinx-copybutton>=0.5.2",
+]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-click = ">8"
-click-log = "*"
-scmdata = "^0.16.1"
-urllib3 = "<2"
-boto3 = "*"
-pooch = "*"
-pydantic = "^1.10.7"
-appdirs = "*"
-python-dotenv = "*"
-pycountry = "*"
-datapackage = "^1.15.2"
-pyyaml = "*"
-zstandard = "^0.22.0"
-
-[tool.poetry.group.tests.dependencies]
-pytest = "^7.3.1"
-pytest-mock = "^3.11.1"
-pytest-xdist = "^3.3.1"
-requests-mock = "^1.11.0"
-moto = {extras = ["s3"], version = "^4.1.12"}
-
-[tool.poetry.group.docs.dependencies]
-myst-nb = "^0.17.0"
-sphinx-book-theme = "^1.1.0"
-sphinx-autodoc-typehints = "^1.23.0"
-sphinx-autodocgen = "^1.3"
-jupytext = "^1.14.5"
-sphinx-copybutton = "^0.5.2"
-
-[tool.poetry.group.stubs.dependencies]
-boto3-stubs = {version="*", extras=["essential"]}
-pandas-stubs = "^2.1.4.231227"
-types-appdirs = "*"
-types-requests = "*"
-types-pyyaml = "^6.0.12.12"
-
-[tool.poetry.group.dev.dependencies]
-pytest-cov = "^4.0.0"
-coverage = "^7.2.0"
-mypy = "^1.2.0"
-ruff = "^0.1.8"
-pre-commit = "^3.3.1"
-towncrier = "^23.6.0"
-liccheck = "^0.9.1"
-jupyter = "^1.0.0"
-
-[tool.poetry.group.notebooks.dependencies]
-notebook = "^7.0.7"
-matplotlib = "^3.7.1"
-seaborn = "^0.12.2"
-papermill = "^2.4.0"
-jupytext = "^1.14.7"
-jupyter = "^1.0.0"
+[tool.uv.workspace]
+members = ["packages/*"]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.coverage.run]
-source = ["src"]
+source = ["src", "packages"]
 branch = true
 
 [tool.coverage.report]
@@ -107,6 +88,14 @@ show_error_context = true
 warn_unreachable = true
 # importing following uses default settings
 follow_imports = "normal"
+exclude = [
+    "build",
+    "dist",
+    "notebooks",
+    "scripts",
+    "stubs",
+    "tests",
+]
 
 [[tool.mypy.overrides]]
 module = [
@@ -118,6 +107,7 @@ module = [
     "datapackage"
 ]
 ignore_missing_imports = true
+
 
 [tool.jupytext]
 formats = "ipynb,py:percent"
@@ -165,6 +155,11 @@ docstring-code-format = true
     "S101",  # S101 Use of `assert` detected
     "PLR2004" # Magic value used in comparison
 ]
+"conftest.py" = [
+    "D",  # Documentation not needed in tests
+    "S101",  # S101 Use of `assert` detected
+    "PLR2004" # Magic value used in comparison
+]
 "docs/source/notebooks/*" = [
     "D100",  # Missing docstring at the top of file
     "E402",  # Module level import not at top of file
@@ -182,7 +177,7 @@ docstring-code-format = true
 ]
 
 [tool.ruff.isort]
-known-first-party = ["src"]
+known-first-party = ["bookshelf", "bookshelf_producer"]
 
 [tool.ruff.pydocstyle]
 convention = "numpy"
