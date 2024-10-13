@@ -4,7 +4,7 @@ site_url: https://bookshelf.climate-resource.com
 edit_uri: blob/master/docs/
 
 repo_name: climate-resource/bookshelf
-repo_url: https://gitlab.com/climate-resource/bookshelf/bookshelf
+repo_url: https://github.com/climate-resource/bookshelf
 
 theme:
   name: "material"

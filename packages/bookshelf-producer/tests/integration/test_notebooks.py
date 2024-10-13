@@ -20,8 +20,8 @@ logger = logging.getLogger("test-notebooks")
 
 
 if sys.platform.startswith("win"):
-    # https://gitlab.com/climate-resource/bookshelf/bookshelf/-/issues/23
-    pytest.skip("skipping notebook tests on windows, see issue !23", allow_module_level=True)
+    # https://github.com/climate-resource/bookshelf/issues/90
+    pytest.skip("skipping notebook tests on windows, see issue #90", allow_module_level=True)
 
 
 def find_notebooks():

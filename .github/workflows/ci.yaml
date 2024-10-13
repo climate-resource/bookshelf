@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+env:
+  BOOKSHELF_DOWNLOAD_CACHE_LOCATION: /tmp/pooch
+
+jobs:
+  mypy:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    env:
+      MYPYPATH: stubs
+      PRE_COMMIT_HOME: /tmp/.cache/pre-commit
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Cache pre-commit
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.cache/pre-commit
+          key: ${{ runner.os }}-pre-commit
+      - name: mypy
+        run: |
+          uv run --package bookshelf mypy src
+          uv run --package bookshelf-producer mypy packages/bookshelf-producer
+
+  docs:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: docs
+        run: |
+          make docs-strict
+      - name: docs-with-changelog
+        run: |
+          # Check CHANGELOG will build too
+          uv run towncrier build --yes
+          uv run mkdocs build --strict
+          # Just in case, undo the staged changes
+          git restore --staged . && git restore .
+
+  tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ "ubuntu-latest" ]
+        python-version:
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+    runs-on: "${{ matrix.os }}"
+    defaults:
+      run:
+        # This might be needed for Windows
+        # and doesn't seem to affect unix-based systems so we include it.
+        # If you have better proof of whether this is needed or not,
+        # feel free to update.
+        shell: bash
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+      - name: Cache Primes
+        uses: actions/cache@v4
+        with:
+          path: /tmp/pooch
+          key: ${{ runner.os }}-${{ matrix.python-version }}-pooch
+      - name: Run tests
+        run: |
+          uv run pytest src tests -r a -v --doctest-modules --cov=src
+          uv run --package bookshelf_producer pytest packages/bookshelf-producer -r a -v --doctest-modules --cov=packages/bookshelf-producer/src --cov-report=term --cov-append
+          uv run coverage xml
+      - name: Upload coverage reports to Codecov with GitHub Action
+        uses: codecov/codecov-action@v4.2.0
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  imports-without-extras:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ "ubuntu-latest" ]
+        python-version:
+          - "3.10"
+          - "3.11"
+          - "3.12"
+    runs-on: "${{ matrix.os }}"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+      - name: Check importable without extras
+        run: uv run --no-dev python scripts/test-install.py
+
+  check-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Check build
+        run: |
+          uv build --package bookshelf -o dist
+          uv build --package bookshelf-producer -o dist
+          tar -tvf dist/bookshelf-*.tar.gz --wildcards '*bookshelf/py.typed'
+          tar -tvf dist/bookshelf_producer-*.tar.gz --wildcards '*bookshelf_producer/py.typed'

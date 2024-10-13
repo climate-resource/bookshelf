@@ -12,9 +12,7 @@ def primap_book(local_bookshelf: os.PathLike) -> LocalBook:
     yield run_notebook("primap-hist", output_directory=str(local_bookshelf))
 
 
-@pytest.mark.xfail(
-    reason=("scmdata reading bug:" " https://gitlab.com/climate-resource/bookshelf/bookshelf/-/issues/20")
-)
+@pytest.mark.xfail(reason=("scmdata reading bug: https://github.com/climate-resource/bookshelf/issues/87"))
 def test_primap_categories(primap_book, local_bookshelf):
     # Read the PRIMAP results from the local bookshelf
     emissions = primap_book.timeseries("by_country")
