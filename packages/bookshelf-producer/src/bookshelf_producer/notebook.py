@@ -1,6 +1,7 @@
 """
 Functions to run/manage notebooks
 """
+
 import logging
 import os
 import shutil
@@ -68,11 +69,11 @@ def load_nb_metadata(
     """
     Load notebook metadata
 
-    Attempts to search {param}`nb_directory` for a metadata YAML file. This YAML file
+    Attempts to search `nb_directory` for a metadata YAML file. This YAML file
     contains information about the dataset that is being processed. See NotebookMetadata
     for a description of the available options.
 
-    The assumed filename format for versioned data is {name}_{version}.yaml where
+    The assumed filename format for versioned data is `{name}_{version}.yaml` where
     name matches the notebook name and the name as specified in the NotebookMetadata
 
     Parameters
@@ -123,11 +124,11 @@ def run_notebook(
     """
     Run a notebook to generate a new Book
 
-    The jupytext ``.py`` version of the notebook is used.
+    The jupytext `.py` version of the notebook is used.
 
     The template file and configuration is copied to the output directory. The
-    template ``.py`` file is then used to create a notebook which is run using
-    ``papermill``. The ``local_bookshelf`` parameter is also set to the output
+    template `.py` file is then used to create a notebook which is run using
+    `papermill`. The `local_bookshelf` parameter is also set to the output
     directory.
 
     Parameters
@@ -137,11 +138,11 @@ def run_notebook(
     nb_directory : str
         Directory containing the notebooks.
 
-        This defaults to the ``notebooks/`` directory in this project
+        This defaults to the `notebooks/` directory in this project
     output_directory : str
         Where the output directory will be created.
 
-        This defaults to ``data/processing/{name}/{version}``
+        This defaults to `data/processing/{name}/{version}`
     force : bool
         If True, override the existing data in the output directory
     version : str

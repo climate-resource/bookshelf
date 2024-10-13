@@ -9,6 +9,7 @@ repo_url: https://gitlab.com/climate-resource/bookshelf/bookshelf
 nav:
   - Bookshelf: index.md
   - Getting Started: getting_started.md
+  - Configuration: configuration.md
   - How-to guides:
     - how-to-guides/index.md
   - Tutorials: tutorials.md
@@ -82,25 +83,19 @@ plugins:
       enable_inventory: true
       handlers:
         python:
-          paths: [src]
+          paths: [src, packages/bookshelf-producer/src]
           import:
             # Cross-ref helpers (lots included here, remove what you don't want)
             - https://www.attrs.org/en/stable/objects.inv
-            - https://unidata.github.io/cftime/objects.inv
             - https://ipython.readthedocs.io/en/stable/objects.inv
-            - https://loguru.readthedocs.io/en/latest/objects.inv
             - https://matplotlib.org/stable/objects.inv
-            - https://ncdata.readthedocs.io/en/stable/objects.inv
             - https://openscm-units.readthedocs.io/en/stable/objects.inv
             - https://pandas.pydata.org/docs/objects.inv
             - https://pint.readthedocs.io/en/stable/objects.inv
             - https://www.fatiando.org/pooch/latest/objects.inv
             - https://docs.python.org/3/objects.inv
             - https://docs.scipy.org/doc/scipy/objects.inv
-            - https://scitools-iris.readthedocs.io/en/stable/objects.inv
             - https://scmdata.readthedocs.io/en/stable/objects.inv
-            - https://validators.readthedocs.io/en/stable/objects.inv
-            - http://xarray.pydata.org/en/stable/objects.inv
           options:
             docstring_style: numpy
             show_root_heading: true

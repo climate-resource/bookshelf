@@ -1,6 +1,7 @@
 """
 Schema
 """
+
 import os
 from typing import Any, Optional
 
@@ -40,7 +41,8 @@ class VolumeMeta(BaseModel):
 
         Returns
         -------
-        Version string
+        :
+            String containing the latest version of a given volume
         """
         ordered_versions = sorted([v.version for v in self.versions if not v.private])
         if not ordered_versions:
@@ -54,7 +56,8 @@ class VolumeMeta(BaseModel):
 
         Returns
         -------
-        List of matching books sorted by edition
+        :
+            List of matching books sorted by edition
         """
         matching_versions = []
 
@@ -75,9 +78,12 @@ class FileDownloadInfo(BaseModel):
     """
     URL of the file to be downloaded
 
-    This can be any URLs supported by :func:`pooch.download_file`, or a local file if the prefix "file://" is
-    used. With local files, the filename must be a path relative to the notebooks directory. For example,
-    `file://gdp-ndc-tool/13Mar2023a_CR_gdp_results.csv`.
+    This can be any URLs supported by [pooch.retrieve][],
+    or a local file if the prefix "file://" is used.
+
+    With local files,
+    the filename must be a path relative to the notebooks directory.
+    For example, `file://gdp-ndc-tool/13Mar2023a_CR_gdp_results.csv`.
     """
     hash: str
     """
@@ -106,16 +112,18 @@ class Dimension(BaseModel):
     """
     Dimension information
 
-    A dimension describes a feature of the metadata (expressed as a column
-    in the index of an {py:class}`scmdata.ScmRun`). This dimension can optionally be controlled by
-    a controlled vocabulary which limits the possible values.
+    A dimension describes a feature of the metadata
+    (expressed as a column in the index of a [ScmRun][scmdata.run.ScmRun]).
+
+    This dimension can optionally be controlled by a controlled vocabulary
+    which limits the possible values.
     """
 
     name: str
     """
     Name of the metadata dimension
 
-    This is the same as the column in {py:class}`scmdata.ScmRun`
+    This is the same as the column in [ScmRun][scmdata.run.ScmRun]
     """
     description: str
     """
@@ -199,7 +207,7 @@ class NotebookMetadata(BaseModel):
         """
         Long version identifier
 
-        Of the form "{version}_e{edition}" e.g. v1.0.1_e002.
+        Of the form `{version}_e{edition}` e.g. "v1.0.1_e002".
 
         Returns
         -------
@@ -212,15 +220,16 @@ class NotebookMetadata(BaseModel):
         """
         Download a dataset file
 
-        Uses ``pooch`` to manage the downloading, verification and caching of data file.
+        Uses `pooch` to manage the downloading, verification and caching of data file.
         The first call will trigger a download and subsequent calls may use the cached
         file if the previous download succeeded.
 
         Parameters
         ----------
         idx
-            Index of the file to download (0-based). Defaults to the first file if
-            no value is provided
+            Index of the file to download (0-based).
+
+            Defaults to the first file if no value is provided
 
         Returns
         -------
