@@ -17,6 +17,11 @@ on:
           - "pre-release --pre beta"
           - "pre-release --pre release-candidate"
         required: true
+      update_changelog:
+        type: boolean
+        default: true
+        description: If True, the changelog will be updated with the new version
+        required: true
 
 jobs:
   bump_version:
@@ -57,7 +62,9 @@ jobs:
           echo "Bumping to version $NEW_VERSION"
 
           # Build CHANGELOG
-          uv run towncrier build --yes --version v$NEW_VERSION
+          [[ "${{ github.event.inputs.update_changelog }}" == "true" ]] \
+            && uv run towncrier build --yes --version v$NEW_VERSION \
+            || echo "Skipping changelog update"
 
           # Commit, tag and push
           git commit -a -m "bump: version $BASE_VERSION -> $NEW_VERSION"
