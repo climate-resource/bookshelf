@@ -275,7 +275,7 @@ wheels = [
 
 [[package]]
 name = "bookshelf"
-version = "0.3.1b2"
+version = "0.3.1b3"
 source = { editable = "." }
 dependencies = [
     { name = "appdirs" },
@@ -360,7 +360,7 @@ dev = [
 
 [[package]]
 name = "bookshelf-producer"
-version = "0.3.1b2"
+version = "0.3.1b3"
 source = { editable = "packages/bookshelf-producer" }
 dependencies = [
     { name = "bookshelf" },
