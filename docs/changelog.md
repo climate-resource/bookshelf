@@ -19,6 +19,48 @@ of rst and use slightly different categories.
 
 <!-- towncrier release notes start -->
 
+## bookshelf v (2024-10-13)
+
+### Breaking Changes
+
+- The `bookshelf` package has been split into two:
+  * `bookshelf` - the core package for consuming content from the bookshelf
+  * `bookshelf-producer` - the CLI tool for creating and managing books
+
+  This should require no changes for data consumers.
+  This change makes for a cleaner separation between consuming
+  and producing datasets.
+
+  ([#65](https://github.com/climate-resource/bookshelf/pull/65))
+
+### Features
+
+- Added Climate Resource's NDCs dataset to the bookshelf ([#56](https://github.com/climate-resource/bookshelf/pull/56))
+- Add a functions to add long format data and compressed files ([#58](https://github.com/climate-resource/bookshelf/pull/58))
+- Add a functions to get long format data from the book ([#59](https://github.com/climate-resource/bookshelf/pull/59))
+- Added 20240318 version of CAT dataset to the bookshelf ([#64](https://github.com/climate-resource/bookshelf/pull/64))
+
+### Improvements
+
+- When running a notebook, the files were verified through data content hash code rather than file name hash code ([#60](https://github.com/climate-resource/bookshelf/pull/60))
+- Migrated documentation to use [mkdocs](https://www.mkdocs.org/).
+  This allows us to write documentation in only MarkDown,
+  instead of mixing reStructuredText and Markdown. ([#66](https://github.com/climate-resource/bookshelf/pull/66))
+- Migrate to github ([#106](https://github.com/climate-resource/bookshelf/pull/106))
+
+### Bug Fixes
+
+- resolve the issue where the upload and download files have rows in a different order. ([#63](https://github.com/climate-resource/bookshelf/pull/63))
+
+### Improved Documentation
+
+- Add example notebooks to docs ([#61](https://github.com/climate-resource/bookshelf/pull/61))
+
+### Trivial/Internal Changes
+
+- [#65](https://github.com/climate-resource/bookshelf/pull/65)
+
+
 ## bookshelf v0.3.0 (2024-01-31)
 
 

@@ -1,6 +1,6 @@
 [project]
 name = "bookshelf"
-version = "0.3.1a0"
+version = "0.3.1b1"
 description = "A collection of curated climate data sets"
 readme = "README.md"
 authors = [
@@ -27,6 +27,7 @@ dependencies = [
     "appdirs",
     "datapackage>=1.15.2",
     "pyyaml",
+    "pdm-bump>=0.9.8",
 ]
 
 [tool.uv]
