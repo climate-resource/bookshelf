@@ -41,6 +41,7 @@ test:linting:
 test:docs:
   stage: test
   script:
+    - uv sync --package bookshelf-producer
     - make docs-strict
 
 test:install-no-extras:
