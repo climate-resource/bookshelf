@@ -48,7 +48,7 @@ def _load_nb_config(
         metadata_fname = os.path.join(metadata_fname, name.split("/")[-1] + ".yaml")
 
     if not metadata_fname.endswith(".yaml") and not metadata_fname.endswith(".yml"):
-        metadata_fname = metadata_fname + ".yaml"
+        metadata_fname += ".yaml"
 
     if not os.path.exists(metadata_fname):
         raise FileNotFoundError(f"Could not find {metadata_fname}")
@@ -150,7 +150,7 @@ def run_notebook(
 
     Returns
     -------
-    LocalBook
+    :
         The generated book
     """
     if not has_papermill:
@@ -225,6 +225,7 @@ def get_available_versions(name: str, include_private: bool = False) -> tuple[st
 
     Returns
     -------
+    :
         List of versions
     """
     config, _ = _load_nb_config(name)

@@ -21,7 +21,6 @@ import mkdocs_gen_files
 from attrs import define
 
 ROOT_DIR = Path("api")
-PACKAGE_NAME_ROOT = "bookshelf"
 nav = mkdocs_gen_files.Nav()
 
 
@@ -107,7 +106,7 @@ def write_module_page(
 
     write_file = get_write_file(package_full_name)
 
-    nav[package_full_name.split(".")] = write_file.relative_to(ROOT_DIR / PACKAGE_NAME_ROOT).as_posix()
+    nav[package_full_name.split(".")] = write_file.relative_to(ROOT_DIR).as_posix()
 
     with mkdocs_gen_files.open(write_file, "w") as fh:
         fh.write(f"# {package_full_name}\n")
@@ -128,6 +127,8 @@ def write_module_page(
     return PackageInfo(package_full_name, package_name, summary)
 
 
-write_module_page(PACKAGE_NAME_ROOT)
-with mkdocs_gen_files.open(ROOT_DIR / PACKAGE_NAME_ROOT / "NAVIGATION.md", "w") as fh:
+write_module_page("bookshelf")
+write_module_page("bookshelf_producer")
+
+with mkdocs_gen_files.open(ROOT_DIR / "NAVIGATION.md", "w") as fh:
     fh.writelines(nav.build_literate_nav())

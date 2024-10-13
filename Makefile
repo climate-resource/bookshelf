@@ -73,15 +73,15 @@ test: test-core test-producer  ## run the tests
 
 .PHONY: docs
 docs:  ## build the docs
-	uv run mkdocs build
+	uv run --with bookshelf-producer mkdocs build
 
 .PHONY: docs-strict
 docs-strict: ## build the docs strictly (e.g. raise an error on warnings, this most closely mirrors what we do in the CI)
-	uv run mkdocs build --strict
+	uv run --with bookshelf-producer mkdocs build --strict
 
 .PHONY: docs-serve
 docs-serve: ## serve the docs locally
-	uv run mkdocs serve
+	uv run --with bookshelf-producer mkdocs serve
 
 .PHONY: changelog-draft
 changelog-draft:  ## compile a draft of the next changelog

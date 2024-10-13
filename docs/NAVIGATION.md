@@ -13,6 +13,6 @@ See https://oprypin.github.io/mkdocs-literate-nav/
 * [Tutorials](tutorials.md)
 * Further background
     * [Explanation](explanation.md)
-* [API reference](api/bookshelf/)
+* [API reference](api/)
 * [Development](development.md)
 * [Changelog](changelog.md)
