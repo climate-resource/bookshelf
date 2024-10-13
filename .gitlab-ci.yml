@@ -40,10 +40,8 @@ test:linting:
 
 test:docs:
   stage: test
-  # TODO: Remove once migrated to mkdocs
-  allow_failure: true
   script:
-    - uv run sphinx-build -W --keep-going -T -b html docs/source docs/build
+    - make docs-strict
 
 test:install-no-extras:
   stage: test
