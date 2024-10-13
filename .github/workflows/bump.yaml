@@ -36,7 +36,7 @@ jobs:
 
       - name: Install pdm-bump
         run: |
-          uv add pdm-bump
+          uv pip install pdm-bump
 
       - name: Create bump and changelog
         run: |
@@ -63,6 +63,9 @@ jobs:
           git commit -a -m "bump: version $BASE_VERSION -> $NEW_VERSION"
           git tag v$NEW_VERSION
           git push && git push --tags
+
+          # Exit early if the version is a pre-release
+          [[ "$NEW_VERSION" =~ ([abrc]?) ]] && exit 0
 
           # Bump to alpha (so that future commits do not have the same
           # version as the tagged commit)

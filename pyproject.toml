@@ -27,7 +27,6 @@ dependencies = [
     "appdirs",
     "datapackage>=1.15.2",
     "pyyaml",
-    "pdm-bump>=0.9.8",
 ]
 
 [tool.uv]
