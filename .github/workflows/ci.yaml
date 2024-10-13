@@ -21,7 +21,6 @@ jobs:
         uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - name: Cache pre-commit
-        id: cache-primes
         uses: actions/cache@v4
         with:
           path: /tmp/.cache/pre-commit
@@ -81,7 +80,7 @@ jobs:
       - name: Run tests
         run: |
           uv run pytest src tests -r a -v --doctest-modules --cov=src --cov-append --cov-report=xml --cov-report=term
-          uv run --package bookshelf_producer pytest packages/bookshelf-producer -r a -v --doctest-modules --cov=packages/bookshelf-producer/src --cov=src --cov-report=xml  --cov-report=term
+          uv run --package bookshelf_producer pytest packages/bookshelf-producer -r a -v --doctest-modules --cov=packages/bookshelf-producer/src --cov-report=xml  --cov-report=term
       - name: Upload coverage reports to Codecov with GitHub Action
         uses: codecov/codecov-action@v4.2.0
         env:
