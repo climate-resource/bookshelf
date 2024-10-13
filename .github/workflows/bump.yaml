@@ -52,7 +52,8 @@ jobs:
           uv run pdm bump ${{ github.event.inputs.bump_rule }}
           cd ../..
 
-          NEW_VERSION=`sed -ne 's/^version = "\([0-9\.a]*\)"/\1/p' pyproject.toml`
+          # regex supports 1.1.1a1, 1.1.1b1, 1.1.1rc1
+          NEW_VERSION=`sed -ne 's/^version = "\([0-9\.abrc]*\)"/\1/p' pyproject.toml`
           echo "Bumping to version $NEW_VERSION"
 
           # Build CHANGELOG
@@ -65,12 +66,12 @@ jobs:
 
           # Bump to alpha (so that future commits do not have the same
           # version as the tagged commit)
-          BASE_VERSION=`sed -ne 's/^version = "\([0-9\.a]*\)"/\1/p' pyproject.toml`
+          BASE_VERSION=`sed -ne 's/^version = "\([0-9\.abrc]*\)"/\1/p' pyproject.toml`
 
           # Bump to pre-release of next version
           uv run pdm bump pre-release --pre alpha
 
-          NEW_VERSION=`sed -ne 's/^version = "\([0-9\.a]*\)"/\1/p' pyproject.toml`
+          NEW_VERSION=`sed -ne 's/^version = "\([0-9\.abrc]*\)"/\1/p' pyproject.toml`
           echo "Bumping version $BASE_VERSION > $NEW_VERSION"
 
           # Commit and push

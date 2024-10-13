@@ -20,7 +20,7 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Add version to environment
         run: |
-          PROJECT_VERSION=`sed -ne 's/^version = "\([0-9\.a]*\)"/\1/p' pyproject.toml`
+          PROJECT_VERSION=`sed -ne 's/^version = "\([0-9\.abrc]*\)"/\1/p' pyproject.toml`
           echo "PROJECT_VERSION=$PROJECT_VERSION" >> $GITHUB_ENV
       - name: Build package for PyPI
         run: |
