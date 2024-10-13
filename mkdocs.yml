@@ -6,20 +6,6 @@ edit_uri: blob/master/docs/
 repo_name: climate-resource/bookshelf
 repo_url: https://gitlab.com/climate-resource/bookshelf/bookshelf
 
-nav:
-  - Bookshelf: index.md
-  - Getting Started: getting_started.md
-  - Configuration: configuration.md
-  - How-to guides:
-    - how-to-guides/index.md
-  - Tutorials: tutorials.md
-  - Further background:
-    - Explanation: explanation.md
-#  - Command-line interface: cli/index.md
-  - API reference: api/bookshelf/
-  - Development: development.md
-  - Changelog: changelog.md
-
 theme:
   name: "material"
   features:
