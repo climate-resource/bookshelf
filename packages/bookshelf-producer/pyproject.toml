@@ -1,6 +1,6 @@
 [project]
 name = "bookshelf-producer"
-version = "0.3.1b1"
+version = "0.3.1b2"
 description = "Publishing utilities for bookshelf books"
 readme = "README.md"
 requires-python = ">=3.10"

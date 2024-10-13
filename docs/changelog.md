@@ -19,6 +19,11 @@ of rst and use slightly different categories.
 
 <!-- towncrier release notes start -->
 
+## bookshelf v0.3.1b2 (2024-10-13)
+
+No significant changes.
+
+
 ## bookshelf v (2024-10-13)
 
 ### Breaking Changes
