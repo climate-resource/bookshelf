@@ -10,7 +10,7 @@ env:
   BOOKSHELF_DOWNLOAD_CACHE_LOCATION: /tmp/pooch
 
 jobs:
-  mypy:
+  linting:
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     env:
@@ -29,6 +29,8 @@ jobs:
         run: |
           uv run --package bookshelf mypy src
           uv run --package bookshelf-producer mypy packages/bookshelf-producer
+          # Runs ruff, uv lock and various sanity checks
+          uv run pre-commit run --all-files
 
   docs:
     if: ${{ !github.event.pull_request.draft }}
