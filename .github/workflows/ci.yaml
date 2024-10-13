@@ -79,8 +79,9 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.python-version }}-pooch
       - name: Run tests
         run: |
-          uv run pytest src tests -r a -v --doctest-modules --cov=src --cov-append --cov-report=xml --cov-report=term
-          uv run --package bookshelf_producer pytest packages/bookshelf-producer -r a -v --doctest-modules --cov=packages/bookshelf-producer/src --cov-report=xml  --cov-report=term
+          uv run pytest src tests -r a -v --doctest-modules --cov=src
+          uv run --package bookshelf_producer pytest packages/bookshelf-producer -r a -v --doctest-modules --cov=packages/bookshelf-producer/src --cov-report=term --cov-append
+          uv run coverage xml
       - name: Upload coverage reports to Codecov with GitHub Action
         uses: codecov/codecov-action@v4.2.0
         env:
