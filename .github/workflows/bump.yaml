@@ -48,6 +48,9 @@ jobs:
 
           # Bump
           pdm bump ${{ github.event.inputs.bump_rule }}
+          cd packages/bookshelf-producer
+          pdm bump ${{ github.event.inputs.bump_rule }}
+          cd ../..
 
           NEW_VERSION=`sed -ne 's/^version = "\([0-9\.a]*\)"/\1/p' pyproject.toml`
           echo "Bumping to version $NEW_VERSION"
