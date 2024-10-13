@@ -1,3 +1,12 @@
+---
+name: Default
+about: Report an issue or problem
+title: ''
+labels: triage
+assignees: ''
+
+---
+
 ## The problem
 <!--- Useful to breakdown to "As a [persona], I [want to do], so that [reason] -->
 
@@ -10,5 +19,3 @@ We find that describing these as dot points works well.
 
 ## Additional context
 <!--- Add any additional context can go here -->
-
-/label ~Triage

@@ -11,7 +11,7 @@ FILES_TO_FORMAT := src tests notebooks scripts docs/source/conf.py docs/source/n
 
 # some of our sources have to be downloaded from older servers, need
 # a more relaxed openssl config
-OPENSSL_CONF ?= .gitlab/openssl.cnf
+OPENSSL_CONF ?= .github/openssl.cnf
 export OPENSSL_CONF
 
 # A helper script to get short descriptions of each target in the Makefile
