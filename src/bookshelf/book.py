@@ -1,8 +1,7 @@
 """
-Books
+A Book represents a single versioned dataset.
 
-A Book represents a single versioned dataset. A dataset can contain multiple resources
-each of which are loaded independently.
+A dataset can contain multiple resources each of which are loaded independently.
 """
 
 import glob
@@ -46,7 +45,7 @@ class _Book:
         """
         Long version identifier
 
-        Of the form "{version}_e{edition}" e.g. v1.0.1_e002.
+        Of the form `{version}_e{edition}` e.g. "v1.0.1_e002".
 
         Returns
         -------
@@ -140,16 +139,16 @@ class LocalBook(_Book):
     """
     A local instance of a Book
 
-    A Book consists of a metadata file (``datapackage.json``) and one or more ``Resource`` files.
-    For now, these ``Resource's`` are only csv files of timeseries in the IAMC format, but
+    A Book consists of a metadata file (`datapackage.json`) and one or more `Resource` files.
+    For now, these `Resource's` are only csv files of timeseries in the IAMC format, but
     this could be extended in future to handle additional data-types. Resources are fetched from
     the remote bookshelf when first requested and are cached locally for subsequent use.
 
-    The ``Book`` metadata follow the ``datapackage`` specification with some additional metadata
-    specific to this project. That means that each ``Book`` also doubles as a ``datapackage``.
-    Once released by the ``Book`` author, a ``Book`` becomes immutable. If ``Book`` authors
-    wish to update the metadata or data contained within a ``Book`` they must upload a new
-    version of the ``Book``.
+    The `Book` metadata follow the `datapackage` specification with some additional metadata
+    specific to this project. That means that each `Book` also doubles as a `datapackage`.
+    Once released by the `Book` author, a `Book` becomes immutable. If `Book` authors
+    wish to update the metadata or data contained within a `Book` they must upload a new
+    version of the `Book`.
     """
 
     def __init__(
@@ -191,7 +190,7 @@ class LocalBook(_Book):
 
         Returns
         -------
-        str
+        :
             The filename for the file in the local bookshelf
         """
         return os.path.join(self.local_bookshelf, self.name, self.long_version(), fname)
@@ -200,12 +199,12 @@ class LocalBook(_Book):
         """
         Datapackage for the current book
 
-        :mod:`datapackage` is used for handling the metadata. Modifying
+        `datapackage` is used for handling the metadata. Modifying
         the package also modifies the Book.
 
         Returns
         -------
-        :class:`datapackage.Package`
+        `datapackage.Package`
             Metadata about the Book
         """
         if self._metadata is None:
@@ -224,7 +223,7 @@ class LocalBook(_Book):
 
         Returns
         -------
-        dict
+        :
             Metadata about the Book
         """
         return cast(dict[str, Any], self.as_datapackage().descriptor)
@@ -238,7 +237,7 @@ class LocalBook(_Book):
 
         Returns
         -------
-        list of str
+        :
             List of paths of all Book's files, including `datapackage.json` which contains
             the metadata about the Book.
         """
@@ -417,7 +416,12 @@ class LocalBook(_Book):
     @classmethod
     def create_new(cls, name: str, version: Version, edition: Edition = 1, **kwargs: Any) -> "LocalBook":
         """
-        Create a new Book
+        Create a new Book for a given name, version and edition
+
+        Returns
+        -------
+        :
+            An instance of a local book
         """
         book = LocalBook(name, version, edition, **kwargs)
         book._metadata = datapackage.Package(
@@ -442,7 +446,7 @@ class LocalBook(_Book):
 
         Returns
         -------
-        LocalBook
+        :
             An instance of a local book with the datapackage setup
         """
         book = LocalBook(meta.name, version=meta.version, edition=meta.edition, **kwargs)
@@ -473,6 +477,7 @@ class LocalBook(_Book):
 
         Returns
         -------
+        :
             Timeseries data
 
         """
@@ -499,11 +504,12 @@ class LocalBook(_Book):
 
         Parameters
         ----------
-        name : str
+        timeseries_name : str
             Name of the volume
 
         Returns
         -------
+        :
             Timeseries data
 
         """
@@ -537,7 +543,7 @@ def get_resource_key(*, timeseries_name: str, shape: str) -> str:
 
     Returns
     -------
-    str
+    :
         The concatenated key name formed from all the input arguments.
     """
     key_name_tuple = (timeseries_name, shape)
@@ -569,10 +575,10 @@ def get_resource_filename(
 
     Returns
     -------
-    str
-        The constructed filename in the format 'book_name_long_version_timeseries_name_shape.file_format'.
+    :
+        The constructed filename in the format
+        `{book_name}_{long_version}_{timeseries_name}_{shape}.{file_format}`.
     """
     filename_tuple = (book_name, long_version, timeseries_name, shape)
     filename = "_".join(filename_tuple)
-    fname = f"{filename}.{file_format}"
-    return fname
+    return f"{filename}.{file_format}"

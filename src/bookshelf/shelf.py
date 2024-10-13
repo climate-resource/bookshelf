@@ -67,8 +67,9 @@ class BookShelf:
 
     If a Book isn't available locally, it will be queried from the remote bookshelf.
 
-    Books can be fetched using :func:`load` by name. Specific versions of a book can be
-    pinned if needed otherwise the latest version of the book is loaded.
+    Books can be fetched using [load][bookshelf.BookShelf.load] by name.
+    Specific versions of a book can be pinned if needed,
+    otherwise the latest version of the book is loaded.
     """
 
     def __init__(

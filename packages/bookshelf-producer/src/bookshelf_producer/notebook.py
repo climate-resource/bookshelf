@@ -1,6 +1,7 @@
 """
 Functions to run/manage notebooks
 """
+
 import logging
 import os
 import shutil
@@ -47,7 +48,7 @@ def _load_nb_config(
         metadata_fname = os.path.join(metadata_fname, name.split("/")[-1] + ".yaml")
 
     if not metadata_fname.endswith(".yaml") and not metadata_fname.endswith(".yml"):
-        metadata_fname = metadata_fname + ".yaml"
+        metadata_fname += ".yaml"
 
     if not os.path.exists(metadata_fname):
         raise FileNotFoundError(f"Could not find {metadata_fname}")
@@ -68,11 +69,11 @@ def load_nb_metadata(
     """
     Load notebook metadata
 
-    Attempts to search {param}`nb_directory` for a metadata YAML file. This YAML file
+    Attempts to search `nb_directory` for a metadata YAML file. This YAML file
     contains information about the dataset that is being processed. See NotebookMetadata
     for a description of the available options.
 
-    The assumed filename format for versioned data is {name}_{version}.yaml where
+    The assumed filename format for versioned data is `{name}_{version}.yaml` where
     name matches the notebook name and the name as specified in the NotebookMetadata
 
     Parameters
@@ -123,11 +124,11 @@ def run_notebook(
     """
     Run a notebook to generate a new Book
 
-    The jupytext ``.py`` version of the notebook is used.
+    The jupytext `.py` version of the notebook is used.
 
     The template file and configuration is copied to the output directory. The
-    template ``.py`` file is then used to create a notebook which is run using
-    ``papermill``. The ``local_bookshelf`` parameter is also set to the output
+    template `.py` file is then used to create a notebook which is run using
+    `papermill`. The `local_bookshelf` parameter is also set to the output
     directory.
 
     Parameters
@@ -137,11 +138,11 @@ def run_notebook(
     nb_directory : str
         Directory containing the notebooks.
 
-        This defaults to the ``notebooks/`` directory in this project
+        This defaults to the `notebooks/` directory in this project
     output_directory : str
         Where the output directory will be created.
 
-        This defaults to ``data/processing/{name}/{version}``
+        This defaults to `data/processing/{name}/{version}`
     force : bool
         If True, override the existing data in the output directory
     version : str
@@ -149,7 +150,7 @@ def run_notebook(
 
     Returns
     -------
-    LocalBook
+    :
         The generated book
     """
     if not has_papermill:
@@ -224,6 +225,7 @@ def get_available_versions(name: str, include_private: bool = False) -> tuple[st
 
     Returns
     -------
+    :
         List of versions
     """
     config, _ = _load_nb_config(name)
