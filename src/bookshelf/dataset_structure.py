@@ -1,8 +1,4 @@
-"""
-Dataset structure
-
-This module offers some functions to display the structure of a dataset
-"""
+"""Functionality for interacting with and visualising the structure of a dataset."""
 
 from __future__ import annotations
 
@@ -31,6 +27,7 @@ class VerificationInfo:
 
         Returns
         -------
+        :
             A string message indicating the result of the verification if it fails.
             Otherwise None
         """
@@ -57,6 +54,7 @@ def get_dataset_dictionary(data: ScmRun) -> dict[str, Iterable[str | float | int
 
     Returns
     -------
+    :
         A dictionary with column names as keys and lists of unique values in those
         columns as values. The values are extracted from the metadata of the ScmRun object.
     """
@@ -82,6 +80,7 @@ def print_dataset_structure(data: ScmRun) -> None:
 
     Returns
     -------
+    :
         This function does not return anything. It prints the dataset structure
         directly to the console.
     """
@@ -131,9 +130,11 @@ def verify_data_dictionary(data: ScmRun, notebook_config: NotebookMetadata) -> V
 
     Returns
     -------
-    An instance of VerificationInfo that contains the results of the data verification.
-    If the data dictionary is empty, the function returns None,
-    indicating that no verification is necessary.
+    :
+        An instance of VerificationInfo that contains the results of the data verification.
+
+        If the data dictionary is empty, the function returns None,
+        indicating that no verification is necessary.
     """
     # Return None if the notebook's data dictionary is empty, indicating no verification needed.
     if len(notebook_config.data_dictionary) == 0:

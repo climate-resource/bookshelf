@@ -1,6 +1,7 @@
 """
 Bookshelf utilities
 """
+
 import logging
 import os
 import pathlib
@@ -23,16 +24,19 @@ def default_cache_location() -> str:
     r"""
     Determine the default cache location
 
-    By default, local Books are stored in the default cache location unless overridden for
-    a given :class:`bookshelf.BookShelf`. The default cache location is determined using
-    the ``BOOKSHELF_CACHE_LOCATION`` or if that environment variable is not present, it
-    falls back to an operating specific location. This location is determined using
-    `appdirs <https://github.com/ActiveState/appdirs>`__ and may look like the following:
+    By default,
+    local Books are stored in the default cache location unless overridden for a given
+    [`BookShelf`][bookshelf.BookShelf].
+    The default cache location is determined using the
+    [BOOKSHELF_CACHE_LOCATION](/configuration/#bookshelf_cache_location) environment variable
+     or if that is not present, it falls back to an operating specific location.
+     This location is determined using [appdirs](https://github.com/ActiveState/appdirs)
+      and may look like the following:
 
-    * Mac: ``~/Library/Caches/bookshelf``
-    * Unix: ``~/.cache/bookshelf`` or the value of the ``XDG_CACHE_HOME``
+    * Mac: `~/Library/Caches/bookshelf`
+    * Unix: `~/.cache/bookshelf` or the value of the `XDG_CACHE_HOME`
       environment variable, if defined.
-    * Windows: ``C:\Users\<user>\AppData\Local\bookshelf\Cache``
+    * Windows: `C:\Users\<user>\AppData\Local\bookshelf\Cache`
 
     Returns
     -------
@@ -49,7 +53,7 @@ def create_local_cache(path: Union[str, pathlib.Path, None] = None) -> pathlib.P
     """
     Prepare a cache directory
 
-    Creates a writeable directory in a platform-specific way (see pooch.utils.os_cache)
+    Creates a writeable directory in a platform-specific way (see [pooch.os_cache][pooch.os_cache])
 
     Parameters
     ----------
@@ -181,18 +185,19 @@ def get_env_var(
     """
     Get an environment variable value
 
-    If the variable isn't set raise an exception if ``raise_on_missing`` is ``True``
+    If the variable isn't set raise an exception if `raise_on_missing` is `True`
 
     Parameters
     ----------
     name : str
         Environment variable name to check
     add_prefix : bool
-        If ``True``, prefix the environment variable name with  ``bookshelf.constants.ENV_PREFIX``
+        If `True`, prefix the environment variable name with
+        [ENV_PREFIX][bookshelf.constants.ENV_PREFIX]
     raise_on_missing : bool
-        If ``True``, a ValueError is raised
+        If `True`, a ValueError is raised
     default : Any
-        Value to return if the environment variable is missing and ``raise_on_missing`` is ``True``
+        Value to return if the environment variable is missing and `raise_on_missing` is `True`
 
     Returns
     -------
@@ -216,9 +221,10 @@ def get_remote_bookshelf(bookshelf: Optional[str]) -> str:
     """
     Get the remote bookshelf URL
 
-    If no bookshelf is provided, use the ``BOOKSHELF_REMOTE`` environment variable, or,
-    the ``bookshop.constants.DEFAULT_BOOKSHELF`` parameter if the environment variable
-    is not present.
+    If no bookshelf is provided,
+    use the [BOOKSHELF_REMOTE](/configuration/#bookshelf_remote) environment variable, or,
+    the [DEFAULT_BOOKSHELF][bookshelf.constants.DEFAULT_BOOKSHELF] parameter
+    if the environment variable is not present.
 
     Parameters
     ----------
@@ -244,8 +250,8 @@ def get_notebook_directory(nb_dir: Optional[str] = None) -> str:
     The order of lookup is (in increasing precedence):
 
     * default ("/notebooks" in a locally checked out version of the repository)
-    * ``BOOKSHELF_NOTEBOOK_DIRECTORY`` environment variable
-    * ``nb_dir`` parameter
+    * [BOOKSHELF_NOTEBOOK_DIRECTORY](/configuration/#bookshelf_notebook_directory) environment variable
+    * `nb_dir` parameter
 
     Parameters
     ----------
