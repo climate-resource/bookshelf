@@ -92,7 +92,7 @@ pip install bookshelf-producer
 Building and deploying datasets is managed via Jupyter notebooks and a small yaml file that
 contains metadata about the dataset. These notebooks are stored as plain text Python files
 using the [jupytext](https://jupytext.readthedocs.io/en/latest/) plugin for Jupyter.
-See [notebooks/example.py](https://gitlab.com/climate-resource/bookshelf/-/blob/master/notebooks/example.py)
+See [notebooks/example.py](https://github.com/climate-resource/bookshelf/tree/main/notebooks/simple/simple.py)
 for an example dataset.
 
 Once the dataset has been developed, it can be deployed to the remote `BookShelf` so that
@@ -131,7 +131,7 @@ In order to create your environment, run `make virtual-environment`.
 If there are any issues, the messages from the `Makefile` should guide you
 through. If not, please raise an issue in the [issue tracker][issue_tracker].
 
-[issue_tracker]: https://gitlab.com/climate-resource/bookshelf/bookshelf/issues
+[issue_tracker]: https://github.com/climate-resource/bookshelf/issues?q=sort%3Aupdated-desc+is%3Aissue+is%3Aopen
 
 <!--- --8<-- [end:getting-started-dev] -->
 <!--- --8<-- [end:getting-started] -->

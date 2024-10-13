@@ -123,7 +123,7 @@ manually specified. See the poetry docs for the [list of available bump rules](h
 The steps required are the following:
 
 1. Bump the version: manually trigger the "bump" stage from the latest commit
-   in main (pipelines are [here](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/pipelines)).
+   in main (pipelines are [here](https://github.com/climate-resource/bookshelf/-/pipelines)).
    A valid "bump_rule" (see https://python-poetry.org/docs/cli/#version)
    will need to be specified via the "BUMP_RULE" CI
    variable (see https://docs.gitlab.com/ee/ci/variables/). This will then
