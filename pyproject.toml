@@ -59,6 +59,7 @@ dev-dependencies = [
     "myst-nb>=1.1.1",
     "jupyterlab>=4.2.0",
     "jupytext>=1.16.3",
+    "matplotlib>=3.9.2",
 ]
 
 [tool.uv.workspace]
@@ -170,7 +171,7 @@ docstring-code-format = true
     "S101",  # S101 Use of `assert` detected
     "PLR2004" # Magic value used in comparison
 ]
-"docs/source/notebooks/*" = [
+"docs/*" = [
     "D100",  # Missing docstring at the top of file
     "E402",  # Module level import not at top of file
     "S101",  # Use of `assert` detected
