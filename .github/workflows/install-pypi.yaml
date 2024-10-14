@@ -1,6 +1,5 @@
 # Test installation of the latest version from PyPI works.
-# We make sure that we run the tests that apply to the version we installed,
-# rather than the latest tests in main.
+# TODO: Checkout and run tests once we make another release
 name: Test installation PyPI
 
 on:
@@ -23,13 +22,12 @@ jobs:
         install-target: ["bookshelf", "bookshelf-producer"]
     steps:
     - name: Set up Python "${{ matrix.python-version }}"
-      id: setup-python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: "${{ matrix.python-version }}"
     - name: Install
       run: |
-        pip install --upgrade pip wheel uv
+        pip install --upgrade pip wheel
         pip install "${{ matrix.install-target }}"
     - name: Get version non-windows
       if: matrix.os != 'windows-latest'
@@ -52,10 +50,3 @@ jobs:
     - name: Test installation
       run: |
         python scripts/test-install.py
-    - name: Install pytest and other test dependencies
-      run: |
-        uv python install ${{ matrix.python-version }}
-        uv sync --only-dev
-    - name: Run tests
-      run: |
-        .venv/bin/pytest tests -r a -vv -s

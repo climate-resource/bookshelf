@@ -2,11 +2,9 @@ name: Build and deploy dev documentation
 
 on:
   push:
-    branches:
-    - main
+    branches: [main]
   pull_request:
-    branches:
-    - main
+#    branches: [main]
 
 concurrency:
   group: docs-deploy

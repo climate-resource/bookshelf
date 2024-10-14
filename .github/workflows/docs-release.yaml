@@ -2,8 +2,7 @@ name: Build and deploy release documentation
 
 on:
   push:
-    tags:
-      - 'v*'
+    tags: ['v*']
   workflow_dispatch:
 
 concurrency:
