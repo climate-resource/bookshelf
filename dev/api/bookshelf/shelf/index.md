@@ -1,3 +1,0 @@
-# bookshelf.shelf
-
-::: bookshelf.shelf
