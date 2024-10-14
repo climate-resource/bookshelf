@@ -1,0 +1,59 @@
+name: Build and deploy dev documentation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: docs-deploy
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - uses: ./.github/actions/setup
+    - name: Set the version of docs to publish
+      run: uv run python scripts/set-release-version.py
+    - name: Configure Git for GitHub Actions bot
+      run: |
+        git config --local user.name 'github-actions[bot]'
+        git config --local user.email 'github-actions[bot]@users.noreply.github.com'
+    - name: Commit documentation
+      run: uv run mike deploy --update-aliases dev
+      env:
+        GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+    - name: Create archive
+      run: git archive -o site.zip gh-pages
+    - uses: actions/upload-artifact@v4
+      with:
+        name: documentation
+        path: site.zip
+
+  publish:
+    runs-on: ubuntu-latest
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs:
+    - build
+
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: documentation
+    - name: Unpack archive
+      run: python -m zipfile -e site.zip site
+    # Deploying using a gha instead of using gh-pages
+    - uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        publish_dir: site
+        commit_message: ${{ github.event.head_commit.message }}
+        # Write .nojekyll at the root, see:
+        # https://help.github.com/en/github/working-with-github-pages/about-github-pages#static-site-generators
+        enable_jekyll: false
+        # Only deploy if there were changes
+        allow_empty_commit: false

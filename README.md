@@ -3,6 +3,25 @@
 
 `bookshelf` is one way [Climate Resource](https://climate-resource.com) reuses datasets across projects.
 
+**Key info :**
+[![Docs](https://img.shields.io/badge/docs-passing-blue)](https://climate-resource.github.io/bookshelf/)
+[![Main branch: supported Python versions](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fclimate-resource%2Fbookshelf%2Fmain%2Fpyproject.toml)](https://github.com/climate-resource/bookshelf/blob/main/pyproject.toml)
+[![Licence](https://img.shields.io/pypi/l/bookshelf?label=licence)](https://github.com/climate-resource/bookshelf/blob/main/LICENCE)
+
+**PyPI :**
+[![PyPI](https://img.shields.io/pypi/v/bookshelf.svg)](https://pypi.org/project/bookshelf/)
+[![PyPI install](https://github.com/climate-resource/bookshelf/actions/workflows/install-pypi.yaml/badge.svg?branch=main)](https://github.com/climate-resource/bookshelf/actions/workflows/install-pypi.yaml)
+
+
+**Tests :**
+[![CI](https://github.com/climate-resource/bookshelf/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/climate-resource/bookshelf/actions/workflows/ci.yaml)
+[![Coverage](https://codecov.io/gh/climate-resource/bookshelf/branch/main/graph/badge.svg)](https://codecov.io/gh/climate-resource/input4mips_validation)
+
+**Other info :**
+[![Last Commit](https://img.shields.io/github/last-commit/climate-resource/bookshelf.svg)](https://github.com/climate-resource/input4mips_validation/commits/main)
+[![Contributors](https://img.shields.io/github/contributors/climate-resource/bookshelf.svg)](https://github.com/climate-resource/input4mips_validation/graphs/contributors)
+
+
 The `bookshelf` represents a shared collection of curated datasets or `Books`.
 Each `Book` is a preprocessed, versioned dataset including the notebooks used to produce it.
 As the underlying datasets or processing are updated,
@@ -31,6 +50,11 @@ Each `Resource` is fetched when it is first used and then cached for later use.
 
 
 <!--- --8<-- [end:description] -->
+
+Full documentation can be found at:
+[https://climate-resource.github.io/bookshelf](https://climate-resource.github.io/bookshelf/).
+We recommend reading the docs there because the internal documentation links
+don't render correctly on GitHub's viewer.
 
 ## Getting Started
 
