@@ -145,12 +145,3 @@ The steps required are the following:
    else
 
 1. Enjoy the newly available version
-
-## Read the Docs
-
-Our documentation is hosted by
-[Read the Docs (RtD)](https://www.readthedocs.org/), a service for which we are
-very grateful. The RtD configuration can be found in the `.readthedocs.yaml`
-file in the root of this repository. The docs are automatically
-deployed at
-[bookshelf.readthedocs.io](https://bookshelf.readthedocs.io/en/latest/).
