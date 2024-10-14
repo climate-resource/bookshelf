@@ -4,7 +4,7 @@ import pathlib
 import platform
 import re
 
-import appdirs
+import platformdirs
 import pytest
 
 from bookshelf.constants import DATA_FORMAT_VERSION
@@ -32,9 +32,9 @@ def test_local_cache(monkeypatch):
     shelf = BookShelf()
 
     if platform.system() == "Windows":
-        exp = pathlib.Path(appdirs.user_cache_dir()) / "bookshelf" / "Cache" / DATA_FORMAT_VERSION
+        exp = pathlib.Path(platformdirs.user_cache_dir()) / "bookshelf" / "Cache" / DATA_FORMAT_VERSION
     else:
-        exp = pathlib.Path(appdirs.user_cache_dir()) / "bookshelf" / DATA_FORMAT_VERSION
+        exp = pathlib.Path(platformdirs.user_cache_dir()) / "bookshelf" / DATA_FORMAT_VERSION
     assert shelf.path == exp
 
 

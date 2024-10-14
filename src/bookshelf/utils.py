@@ -7,7 +7,7 @@ import os
 import pathlib
 from typing import Any, Optional, Union
 
-import appdirs
+import platformdirs
 import pooch
 
 from bookshelf.constants import (
@@ -30,7 +30,7 @@ def default_cache_location() -> str:
     The default cache location is determined using the
     [BOOKSHELF_CACHE_LOCATION](/configuration/#bookshelf_cache_location) environment variable
      or if that is not present, it falls back to an operating specific location.
-     This location is determined using [appdirs](https://github.com/ActiveState/appdirs)
+     This location is determined using [platformdirs](https://platformdirs.readthedocs.io/en/latest/)
       and may look like the following:
 
     * Mac: `~/Library/Caches/bookshelf`
@@ -45,7 +45,7 @@ def default_cache_location() -> str:
     """
     return os.environ.get(
         "BOOKSHELF_CACHE_LOCATION",
-        appdirs.user_cache_dir("bookshelf", appauthor=False),
+        platformdirs.user_cache_dir("bookshelf", appauthor=False),
     )
 
 

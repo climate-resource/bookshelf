@@ -24,9 +24,9 @@ dependencies = [
     "scmdata>=0.16.1",
     "pooch",
     "pydantic<2",
-    "appdirs",
     "datapackage>=1.15.2",
     "pyyaml",
+    "platformdirs>=4.3.6",
 ]
 
 [tool.uv]
@@ -46,7 +46,6 @@ dev-dependencies = [
     "boto3-stubs[essential]>=1.35.39",
     "types-requests>=2.32.0.20240914",
     "pandas-stubs>=2.2.3.241009",
-    "types-appdirs>=1.4.3.5",
     # Docs
     "mkdocs>=1.6.0",
     "mkdocstrings[python]>=0.25.0",
