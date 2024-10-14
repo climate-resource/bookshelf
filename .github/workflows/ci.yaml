@@ -10,7 +10,7 @@ env:
   BOOKSHELF_DOWNLOAD_CACHE_LOCATION: /tmp/pooch
 
 jobs:
-  mypy:
+  linting:
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     env:
@@ -29,6 +29,8 @@ jobs:
         run: |
           uv run --package bookshelf mypy src
           uv run --package bookshelf-producer mypy packages/bookshelf-producer
+          # Runs ruff, uv lock and various sanity checks
+          uv run pre-commit run --all-files
 
   docs:
     if: ${{ !github.event.pull_request.draft }}
@@ -72,7 +74,7 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
-      - name: Cache Primes
+      - name: Cache pooch
         uses: actions/cache@v4
         with:
           path: /tmp/pooch
