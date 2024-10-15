@@ -1,3 +1,0 @@
-# bookshelf.constants
-
-::: bookshelf.constants

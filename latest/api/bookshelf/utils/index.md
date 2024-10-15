@@ -1,3 +1,0 @@
-# bookshelf.utils
-
-::: bookshelf.utils
