@@ -19,6 +19,22 @@ of rst and use slightly different categories.
 
 <!-- towncrier release notes start -->
 
+## bookshelf v0.3.1b4 (2024-10-15)
+
+### Features
+
+- Deploy documentation automatically via the CI ([#109](https://github.com/climate-resource/bookshelf/pull/109))
+
+### Improvements
+
+- Replaced deprecated dependency `appdirs` with `platformdirs` ([#108](https://github.com/climate-resource/bookshelf/pull/108))
+- Pin bookshelf version for producer ([#110](https://github.com/climate-resource/bookshelf/pull/110))
+
+### Trivial/Internal Changes
+
+- [#107](https://github.com/climate-resource/bookshelf/pull/107)
+
+
 ## bookshelf v0.3.1b3 (2024-10-13)
 
 No significant changes.
