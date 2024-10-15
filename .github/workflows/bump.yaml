@@ -72,7 +72,7 @@ jobs:
           git push && git push --tags
 
           # Exit early if the version is a pre-release
-          [[ "$NEW_VERSION" =~ ([abrc]?) ]] && exit 0
+          [[ "$NEW_VERSION" =~ ([abrc]+) ]] && exit 0
 
           # Bump to alpha (so that future commits do not have the same
           # version as the tagged commit)
