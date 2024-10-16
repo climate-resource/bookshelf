@@ -364,7 +364,7 @@ dev = [
 
 [[package]]
 name = "bookshelf-producer"
-version = "0.4.0"
+version = "0.3.1b5"
 source = { editable = "packages/bookshelf-producer" }
 dependencies = [
     { name = "bookshelf" },
