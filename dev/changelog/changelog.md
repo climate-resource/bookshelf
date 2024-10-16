@@ -19,49 +19,7 @@ of rst and use slightly different categories.
 
 <!-- towncrier release notes start -->
 
-## bookshelf v0.3.1b5 (2024-10-16)
-
-### Improvements
-
-- Removed the primap-hist dataset from the repository.
-
-  This dataset has been migrated to be a standalone dataset at
-  [climate-resource/bookshelf-primap-hist](https://github.com/climate-resource/bookshelf-primap-hist). ([#111](https://github.com/climate-resource/bookshelf/pull/111))
-- Moved the `bookshelf` package to the `packages/` directory to improve the DX when working with the repository.
-  This has no user-facing impact. ([#112](https://github.com/climate-resource/bookshelf/pull/112))
-
-### Trivial/Internal Changes
-
-- [#113](https://github.com/climate-resource/bookshelf/pull/113)
-
-
-## bookshelf v0.3.1b4 (2024-10-15)
-
-### Features
-
-- Deploy documentation automatically via the CI ([#109](https://github.com/climate-resource/bookshelf/pull/109))
-
-### Improvements
-
-- Replaced deprecated dependency `appdirs` with `platformdirs` ([#108](https://github.com/climate-resource/bookshelf/pull/108))
-- Pin bookshelf version for producer ([#110](https://github.com/climate-resource/bookshelf/pull/110))
-
-### Trivial/Internal Changes
-
-- [#107](https://github.com/climate-resource/bookshelf/pull/107)
-
-
-## bookshelf v0.3.1b3 (2024-10-13)
-
-No significant changes.
-
-
-## bookshelf v0.3.1b2 (2024-10-13)
-
-No significant changes.
-
-
-## bookshelf v0.3.1b1 (2024-10-13)
+## bookshelf v0.4 (2024-10-17)
 
 ### Breaking Changes
 
@@ -81,11 +39,21 @@ No significant changes.
 - Add a functions to add long format data and compressed files ([#58](https://github.com/climate-resource/bookshelf/issue/58))
 - Add a functions to get long format data from the book ([#59](https://github.com/climate-resource/bookshelf/issue/59))
 - Added 20240318 version of CAT dataset to the bookshelf ([#64](https://github.com/climate-resource/bookshelf/issue/64))
+- Deploy documentation automatically via the CI ([#109](https://github.com/climate-resource/bookshelf/pull/109))
 
 ### Improvements
 
 - When running a notebook, the files were verified through data content hash code rather than file name hash code ([#60](https://github.com/climate-resource/bookshelf/issue/60))
 - Migrate to github ([#106](https://github.com/climate-resource/bookshelf/pull/106))
+- Removed the primap-hist dataset from the repository.
+
+  This dataset has been migrated to be a standalone dataset at
+  [climate-resource/bookshelf-primap-hist](https://github.com/climate-resource/bookshelf-primap-hist). ([#111](https://github.com/climate-resource/bookshelf/pull/111))
+- Moved the `bookshelf` package to the `packages/` directory to improve the DX when working with the repository.
+  This has no user-facing impact. ([#112](https://github.com/climate-resource/bookshelf/pull/112))
+- Replaced deprecated dependency `appdirs` with `platformdirs` ([#108](https://github.com/climate-resource/bookshelf/pull/108))
+- Pin bookshelf version for producer ([#110](https://github.com/climate-resource/bookshelf/pull/110))
+
 
 ### Bug Fixes
 
@@ -100,6 +68,8 @@ No significant changes.
 
 ### Trivial/Internal Changes
 
+- [#107](https://github.com/climate-resource/bookshelf/pull/107)
+- [#113](https://github.com/climate-resource/bookshelf/pull/113)
 - [#65](https://github.com/climate-resource/bookshelf/pull/65)
 
 
