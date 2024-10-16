@@ -48,7 +48,7 @@ jobs:
           git config --global user.name "$GITHUB_ACTOR"
           git config --global user.email "$CI_COMMIT_EMAIL"
 
-          BASE_VERSION=`sed -ne 's/^version = "\([0-9\.a]*\)"/\1/p' pyproject.toml`
+          BASE_VERSION=`sed -ne 's/^version = "\([0-9\.abrc]*\)"/\1/p' pyproject.toml`
           echo "Bumping from version $BASE_VERSION"
 
           # Bump
@@ -68,6 +68,8 @@ jobs:
             && uv run towncrier build --yes --version v$NEW_VERSION \
             || echo "Skipping changelog update"
 
+          uv lock
+
           # Commit, tag and push
           git commit -a -m "bump: version $BASE_VERSION -> $NEW_VERSION"
           git tag v$NEW_VERSION
@@ -82,6 +84,7 @@ jobs:
 
           # Bump to pre-release of next version
           uv run pdm bump pre-release --pre alpha
+          uv lock
 
           NEW_VERSION=`sed -ne 's/^version = "\([0-9\.abrc]*\)"/\1/p' pyproject.toml`
           echo "Bumping version $BASE_VERSION > $NEW_VERSION"
