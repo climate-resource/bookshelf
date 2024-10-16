@@ -1,7 +1,7 @@
 import os
 
 import pytest
-from pydantic import ValidationError
+from pydantic.v1 import ValidationError
 
 from bookshelf.schema import DatasetMetadata, NotebookMetadata
 from bookshelf.utils import get_notebook_directory

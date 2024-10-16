@@ -5,9 +5,6 @@
 # compatible so we're not too worried
 TEMP_FILE := $(shell mktemp)
 
-# Files that are formatted by Ruff
-FILES_TO_FORMAT := src tests notebooks scripts docs/source/conf.py docs/source/notebooks/*.py
-
 
 # some of our sources have to be downloaded from older servers, need
 # a more relaxed openssl config
@@ -41,9 +38,9 @@ checks:  ## run all the linting checks of the codebase
 ruff-fixes:  ## fix the code using ruff
     # format before and after checking so that the formatted stuff is checked and
     # the fixed stuff is formatted
-	uv run ruff format $(FILES_TO_FORMAT)
-	uv run ruff $(FILES_TO_FORMAT) --fix
-	uv run ruff format $(FILES_TO_FORMAT)
+	uvx ruff@0.6.9 format
+	uvx ruff@0.6.9 check --fix
+	uvx ruff@0.6.9 format
 
 .PHONY: test-producer
 test-producer:  ## run the tests for the producer package
@@ -53,9 +50,9 @@ test-producer:  ## run the tests for the producer package
 
 .PHONY: test-core
 test-core:  ## run the tests for the core package
-	uv run \
-		pytest src tests \
-		-r a -v --doctest-modules --cov=src
+	uv run  --package bookshelf \
+		pytest packages/bookshelf \
+		-r a -v --doctest-modules --cov=packages/bookshelf/src
 
 .PHONY: test
 test: test-core test-producer  ## run the tests
@@ -73,15 +70,15 @@ test: test-core test-producer  ## run the tests
 
 .PHONY: docs
 docs:  ## build the docs
-	uv run --with bookshelf-producer mkdocs build
+	uv run mkdocs build
 
 .PHONY: docs-strict
 docs-strict: ## build the docs strictly (e.g. raise an error on warnings, this most closely mirrors what we do in the CI)
-	uv run --with bookshelf-producer mkdocs build --strict
+	uv run mkdocs build --strict
 
 .PHONY: docs-serve
 docs-serve: ## serve the docs locally
-	uv run --with bookshelf-producer mkdocs serve
+	uv run mkdocs serve
 
 .PHONY: changelog-draft
 changelog-draft:  ## compile a draft of the next changelog

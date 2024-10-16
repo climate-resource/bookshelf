@@ -96,7 +96,7 @@ def get_PBL_countries() -> dict[str, str]:
 # %%
 # Read the raw data from the URL data source, decode and load it as a JSON object
 url = "https://themasites.pbl.nl/o/climate-ndc-policies-tool/data/pledges_data.php"
-x = urllib.request.urlopen(url)
+x = urllib.request.urlopen(url)  # noqa: S310
 raw_data = x.read()
 encoding = x.info().get_content_charset("utf8")
 data = json.loads(raw_data.decode(encoding))
@@ -165,28 +165,28 @@ for k, v in data.items():
 
                 # If data includes bounds, split into low and high
                 if any([isinstance(i, tuple) for i in timeseries_dict.values()]):
-                    low_timerseries_dict = {}
-                    high_timerseries_dict = {}
+                    low_timeseries_dict = {}
+                    high_timeseries_dict = {}
                     for key, value in timeseries_dict.items():
-                        if type(value) == tuple:
+                        if isinstance(value, tuple):
                             if value[0] is None or value[1] is None:
-                                low_timerseries_dict[key] = value[0]
-                                high_timerseries_dict[key] = value[1]
+                                low_timeseries_dict[key] = value[0]
+                                high_timeseries_dict[key] = value[1]
                             elif value[0] <= value[1]:
-                                low_timerseries_dict[key] = value[0]
-                                high_timerseries_dict[key] = value[1]
+                                low_timeseries_dict[key] = value[0]
+                                high_timeseries_dict[key] = value[1]
                             else:
-                                low_timerseries_dict[key] = value[1]
-                                high_timerseries_dict[key] = value[0]
+                                low_timeseries_dict[key] = value[1]
+                                high_timeseries_dict[key] = value[0]
                         else:
-                            low_timerseries_dict[key] = value
+                            low_timeseries_dict[key] = value
 
                     output.append(
                         {
                             **meta_dict,
                             "ambition": "low",
                             **common_meta,
-                            **low_timerseries_dict,
+                            **low_timeseries_dict,
                         }
                     )
                     output.append(
@@ -194,7 +194,7 @@ for k, v in data.items():
                             **meta_dict,
                             "ambition": "high",
                             **common_meta,
-                            **high_timerseries_dict,
+                            **high_timeseries_dict,
                         }
                     )
                 else:

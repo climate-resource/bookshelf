@@ -27,7 +27,7 @@ jobs:
           key: ${{ runner.os }}-pre-commit
       - name: mypy
         run: |
-          uv run --package bookshelf mypy src
+          uv run --package bookshelf mypy packages/bookshelf
           uv run --package bookshelf-producer mypy packages/bookshelf-producer
           # Runs ruff, uv lock and various sanity checks
           uv run pre-commit run --all-files
@@ -81,7 +81,7 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.python-version }}-pooch
       - name: Run tests
         run: |
-          uv run pytest src tests -r a -v --doctest-modules --cov=src
+          uv run --package bookshelf pytest packages/bookshelf -r a -v --doctest-modules --cov=packages/bookshelf/src
           uv run --package bookshelf_producer pytest packages/bookshelf-producer -r a -v --doctest-modules --cov=packages/bookshelf-producer/src --cov-report=term --cov-append
           uv run coverage xml
       - name: Upload coverage reports to Codecov with GitHub Action

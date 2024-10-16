@@ -125,7 +125,7 @@ def prep_df(df, **kwargs):
     df = df[~df["Year"].isna()]
 
     df_wide = (
-        df.melt(  # noqa
+        df.melt(
             id_vars=[
                 "Region, subregion, country or area *",
                 "ISO3 Alpha-code",

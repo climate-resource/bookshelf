@@ -5,7 +5,7 @@ Bookshelf utilities
 import logging
 import os
 import pathlib
-from typing import Any, Optional, Union
+from typing import Any
 
 import platformdirs
 import pooch
@@ -49,7 +49,7 @@ def default_cache_location() -> str:
     )
 
 
-def create_local_cache(path: Union[str, pathlib.Path, None] = None) -> pathlib.Path:
+def create_local_cache(path: str | pathlib.Path | None = None) -> pathlib.Path:
     """
     Prepare a cache directory
 
@@ -79,7 +79,7 @@ def create_local_cache(path: Union[str, pathlib.Path, None] = None) -> pathlib.P
 def download(
     url: str,
     local_fname: pathlib.Path,
-    known_hash: Optional[str] = None,
+    known_hash: str | None = None,
     progressbar: bool = False,
     retry_count: int = 0,
 ) -> None:
@@ -131,8 +131,8 @@ def build_url(bookshelf: str, *paths: str) -> str:
 def fetch_file(
     url: str,
     local_fname: pathlib.Path,
-    known_hash: Optional[str] = None,
-    force: Optional[bool] = False,
+    known_hash: str | None = None,
+    force: bool | None = False,
 ) -> None:
     """
     Fetch a remote file and store it locally
@@ -217,7 +217,7 @@ def get_env_var(
     return os.environ.get(name, default)
 
 
-def get_remote_bookshelf(bookshelf: Optional[str]) -> str:
+def get_remote_bookshelf(bookshelf: str | None) -> str:
     """
     Get the remote bookshelf URL
 
@@ -243,7 +243,7 @@ def get_remote_bookshelf(bookshelf: Optional[str]) -> str:
     return bookshelf
 
 
-def get_notebook_directory(nb_dir: Optional[str] = None) -> str:
+def get_notebook_directory(nb_dir: str | None = None) -> str:
     """
     Get the root location of the notebooks used to generate books
 

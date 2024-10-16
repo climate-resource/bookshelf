@@ -1,6 +1,7 @@
 """
 run CLI command
 """
+
 import logging
 
 import click
@@ -50,5 +51,5 @@ def cli(name: str, output: str, force: bool, version: tuple[str], include_privat
         try:
             run_notebook(name, output_directory=output, force=force, version=dataset_version)
         except Exception as exc:
-            logger.error(f"Failed to run {name}: {exc}")  # noqa
+            logger.error(f"Failed to run {name}: {exc}")
             raise click.Abort() from exc
