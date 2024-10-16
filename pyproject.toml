@@ -103,6 +103,7 @@ formats = "ipynb,py:percent"
 [tool.pytest.ini_options]
 addopts = [
     "--import-mode=importlib",
+    "--ignore=packages/bookshelf/hatch_build.py"
 ]
 
 [tool.towncrier]
