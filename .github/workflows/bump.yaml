@@ -53,7 +53,9 @@ jobs:
 
           # Bump
           uv run pdm bump ${{ github.event.inputs.bump_rule }}
-          cd packages/bookshelf-producer
+          cd packages/bookshelf
+          uv run pdm bump ${{ github.event.inputs.bump_rule }}
+          cd ../bookshelf-producer
           uv run pdm bump ${{ github.event.inputs.bump_rule }}
           cd ../..
 

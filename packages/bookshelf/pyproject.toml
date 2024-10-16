@@ -1,6 +1,6 @@
 [project]
 name = "bookshelf"
-version = "0.3.1b4"
+version = "0.3.1b5"
 description = "A collection of curated climate data sets"
 readme = "README.md"
 authors = [
