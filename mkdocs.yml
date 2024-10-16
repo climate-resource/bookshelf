@@ -138,5 +138,5 @@ markdown_extensions:
 
 watch:
   - README.md
-  # Auto-generate if `src` changes (because this changes API docs)
-  - src
+  # Auto-generate if `packages` changes (because this changes API docs)
+  - packages

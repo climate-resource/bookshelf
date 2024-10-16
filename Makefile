@@ -50,9 +50,9 @@ test-producer:  ## run the tests for the producer package
 
 .PHONY: test-core
 test-core:  ## run the tests for the core package
-	uv run \
-		pytest src tests \
-		-r a -v --doctest-modules --cov=src
+	uv run  --package bookshelf \
+		pytest packages/bookshelf \
+		-r a -v --doctest-modules --cov=packages/bookshelf/src
 
 .PHONY: test
 test: test-core test-producer  ## run the tests
