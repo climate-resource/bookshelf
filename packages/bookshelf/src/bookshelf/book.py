@@ -10,7 +10,7 @@ import json
 import os.path
 import pathlib
 from collections.abc import Iterable
-from typing import Any, Optional, Union, cast
+from typing import Any, cast
 
 import datapackage
 import pandas as pd
@@ -34,7 +34,7 @@ class _Book:
         name: str,
         version: str,
         edition: int,
-        bookshelf: Optional[str] = None,
+        bookshelf: str | None = None,
     ):
         self.name = name
         self.version = version
@@ -59,7 +59,7 @@ class _Book:
         name: str,
         version: Version,
         edition: Edition,
-        fname: Optional[str] = None,
+        fname: str | None = None,
     ) -> Iterable[str]:
         """
         Build the parts needed to unambiguously reference an edition.
@@ -91,7 +91,7 @@ class _Book:
         name: str,
         version: Version,
         edition: Edition,
-        fname: Optional[str] = None,
+        fname: str | None = None,
     ) -> str:
         """
         Build the relative path of the edition
@@ -113,7 +113,7 @@ class _Book:
         """
         return os.path.join(*cls.path_parts(name=name, version=version, edition=edition, fname=fname))
 
-    def url(self, fname: Optional[str] = None) -> str:
+    def url(self, fname: str | None = None) -> str:
         """
         Get the expected URL for the book
 
@@ -156,14 +156,14 @@ class LocalBook(_Book):
         name: str,
         version: str,
         edition: int = 1,
-        local_bookshelf: Union[str, pathlib.Path, None] = None,
+        local_bookshelf: str | pathlib.Path | None = None,
     ):
         super().__init__(name, version, edition)
 
         if local_bookshelf is None:
             local_bookshelf = create_local_cache(local_bookshelf)
         self.local_bookshelf = pathlib.Path(local_bookshelf)
-        self._metadata: Optional[datapackage.Package] = None
+        self._metadata: datapackage.Package | None = None
 
     def hash(self) -> str:
         """

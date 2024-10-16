@@ -5,7 +5,6 @@ A BookShelf is a collection of Books that can be queried and fetched as needed.
 import json
 import logging
 import pathlib
-from typing import Optional, Union
 
 import requests.exceptions
 
@@ -74,8 +73,8 @@ class BookShelf:
 
     def __init__(
         self,
-        path: Union[str, pathlib.Path, None] = None,
-        remote_bookshelf: Optional[str] = None,
+        path: str | pathlib.Path | None = None,
+        remote_bookshelf: str | None = None,
     ):
         if path is None:
             path = create_local_cache(path)
@@ -85,8 +84,8 @@ class BookShelf:
     def load(
         self,
         name: str,
-        version: Optional[Version] = None,
-        edition: Optional[Edition] = None,
+        version: Version | None = None,
+        edition: Edition | None = None,
         force: bool = False,
     ) -> LocalBook:
         """
@@ -148,8 +147,8 @@ class BookShelf:
     def is_available(
         self,
         name: str,
-        version: Optional[Version] = None,
-        edition: Optional[Edition] = None,
+        version: Version | None = None,
+        edition: Edition | None = None,
     ) -> bool:
         """
         Check if a Book is available from the remote bookshelf
@@ -204,8 +203,8 @@ class BookShelf:
     def _resolve_version(
         self,
         name: str,
-        version: Optional[Version] = None,
-        edition: Optional[Edition] = None,
+        version: Version | None = None,
+        edition: Edition | None = None,
     ) -> tuple[Version, Edition]:
         # Update the package metadata
         try:

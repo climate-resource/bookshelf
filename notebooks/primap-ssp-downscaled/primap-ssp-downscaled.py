@@ -173,7 +173,7 @@ def add_gwp_context(run):
     elif variable in ("Emissions|F-Gases", "Emissions|Kyoto GHG"):
         gwp_context = "SARGWP100"
     else:
-        gwp_context = np.NaN
+        gwp_context = np.nan
 
     run["variable"] = variable
     run["gwp_context"] = gwp_context

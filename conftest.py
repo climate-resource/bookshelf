@@ -118,7 +118,6 @@ def remote_bookshelf(requests_mock, monkeypatch):
     `read_data` function, which should be defined to load mock data files (e.g.,
     CSV, JSON) from the local file system.
     """
-
     prefix = f"https://bookshelf.local/{DATA_FORMAT_VERSION}"
     monkeypatch.setenv("BOOKSHELF_REMOTE", prefix)
 
