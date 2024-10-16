@@ -325,7 +325,7 @@ requires-dist = [
     { name = "datapackage", specifier = ">=1.15.2" },
     { name = "platformdirs", specifier = ">=4.3.6" },
     { name = "pooch" },
-    { name = "pydantic", specifier = "<2" },
+    { name = "pydantic", specifier = ">=1.10.17" },
     { name = "pyyaml" },
     { name = "scmdata", specifier = ">=0.16.1" },
 ]

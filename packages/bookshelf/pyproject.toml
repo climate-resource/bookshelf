@@ -23,7 +23,7 @@ classifiers = [
 dependencies = [
     "scmdata>=0.16.1",
     "pooch",
-    "pydantic<2",
+    "pydantic>=1.10.17",
     "datapackage>=1.15.2",
     "pyyaml",
     "platformdirs>=4.3.6",

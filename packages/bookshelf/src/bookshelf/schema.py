@@ -6,7 +6,7 @@ import os
 from typing import Any
 
 import pooch
-from pydantic import BaseModel, Field
+from pydantic.v1 import BaseModel, Field
 
 from bookshelf.utils import get_env_var, get_notebook_directory
 
