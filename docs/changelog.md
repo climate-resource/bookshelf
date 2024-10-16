@@ -61,6 +61,7 @@ of rst and use slightly different categories.
 
 ### Improved Documentation
 
+- Updated the volume creation documentation ([#114](https://github.com/climate-resource/bookshelf/pull/114))
 - Add example notebooks to docs ([#61](https://github.com/climate-resource/bookshelf/issue/61))
 - Migrated documentation to use [mkdocs](https://www.mkdocs.org/).
   This allows us to write documentation in only MarkDown,
