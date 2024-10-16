@@ -13,8 +13,6 @@ dependencies = [
     "papermill>=2.4.0",
     "jupytext>=1.14.7",
     "ipykernel>6.0.0",
-    # TODO: remove PRIMAP-hist script dependency
-    "pycountry>=24.6.1"
 ]
 
 [project.scripts]
