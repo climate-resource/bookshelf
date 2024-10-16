@@ -19,6 +19,22 @@ of rst and use slightly different categories.
 
 <!-- towncrier release notes start -->
 
+## bookshelf v0.3.1b5 (2024-10-16)
+
+### Improvements
+
+- Removed the primap-hist dataset from the repository.
+
+  This dataset has been migrated to be a standalone dataset at
+  [climate-resource/bookshelf-primap-hist](https://github.com/climate-resource/bookshelf-primap-hist). ([#111](https://github.com/climate-resource/bookshelf/pull/111))
+- Moved the `bookshelf` package to the `packages/` directory to improve the DX when working with the repository.
+  This has no user-facing impact. ([#112](https://github.com/climate-resource/bookshelf/pull/112))
+
+### Trivial/Internal Changes
+
+- [#113](https://github.com/climate-resource/bookshelf/pull/113)
+
+
 ## bookshelf v0.3.1b4 (2024-10-15)
 
 ### Features
