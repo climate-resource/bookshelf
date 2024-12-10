@@ -25,3 +25,13 @@ versions:
       time_domain:
         - 1950
         - 2100
+  - version: v2024
+    dataset:
+      url: https://population.un.org/wpp/
+      files:
+        - url: https://population.un.org/wpp/Download/Files/1_Indicator%20(Standard)/EXCEL_FILES/1_General/WPP2024_GEN_F01_DEMOGRAPHIC_INDICATORS_COMPACT.xlsx
+          hash: df73d28e16bf051e1a9c57b31f5a3c489e8d9cc307263a6e71489b49f5008192
+      author: United Nations
+      time_domain:
+        - 1950
+        - 2100
