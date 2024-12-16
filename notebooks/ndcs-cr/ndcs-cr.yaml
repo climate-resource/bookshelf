@@ -1,5 +1,5 @@
 name: ndcs-cr
-edition: 1
+edition: 2
 license: CC-BY
 description:
   Comprehensive quantification of nationally determined contributions (NDCs) for every country
@@ -117,6 +117,13 @@ data_dictionary:
     type: string
     allowed_NA: false
     required_column: true
+    controlled_vocabulary:
+      - value: TP
+        description: Prefer third-party reported data for input data
+      - value: CR
+        description: Prefer country-reported data for input data
+      - value: CR-noOverrides
+        description: Prefer country-reported data for input data and do not correct / override the input data
 versions:
   - version: 2024-10-02-a
     private: true
@@ -164,7 +171,7 @@ versions:
       url: https://www.climate-resource.com/tools/ndcs
       author: Climate Resource
       files:
-        - url: file://ndcs-cr/data/2023-10-10-a_UNFCCC_results.csv.zst
+        - url: file://ndcs-cr/data/2023-10-10-a_CR_results.csv.zst
           hash: md5:46f77f9972962e8864ff23bbb2e356d8
   - version: 2023-03-13-a
     private: true
@@ -172,7 +179,7 @@ versions:
       url: https://www.climate-resource.com/tools/ndcs
       author: Climate Resource
       files:
-        - url: file://ndcs-cr/data/2023-03-13-a_AVIVA_results.csv.zst
+        - url: file://ndcs-cr/data/2023-03-13-a_CR-noOverrides_results.csv.zst
           hash: md5:0c6ca51115c0f6096029d4309240fb3e
-        - url: file://ndcs-cr/data/2023-03-13-a_CR_results.csv.zst
+        - url: file://ndcs-cr/data/2023-03-13-a_TP_results.csv.zst
           hash: md5:49fca13c1acdf3cbe935e60908d1b89b
