@@ -5,7 +5,7 @@ Functions to run/manage notebooks
 import logging
 import os
 import shutil
-from typing import Any, Optional
+from typing import Any
 
 try:
     import jupytext
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 def _load_nb_config(
     name: str,
-    nb_directory: Optional[str] = None,
+    nb_directory: str | None = None,
 ) -> tuple[ConfigSchema, dict[str, Any]]:
     nb_directory = get_notebook_directory(nb_directory)
 
@@ -63,8 +63,8 @@ def _load_nb_config(
 
 def load_nb_metadata(
     name: str,
-    version: Optional[Version] = None,
-    nb_directory: Optional[str] = None,
+    version: Version | None = None,
+    nb_directory: str | None = None,
 ) -> NotebookMetadata:
     """
     Load notebook metadata
@@ -116,10 +116,10 @@ def load_nb_metadata(
 
 def run_notebook(
     name: str,
-    nb_directory: Optional[str] = None,
-    output_directory: Optional[str] = None,
+    nb_directory: str | None = None,
+    output_directory: str | None = None,
     force: bool = False,
-    version: Optional[Version] = None,
+    version: Version | None = None,
 ) -> LocalBook:
     """
     Run a notebook to generate a new Book

@@ -1,10 +1,10 @@
 site_name: Bookshelf
 site_description: Curated set of climate data
-site_url: https://bookshelf.climate-resource.com
+site_url: https://climate-resource.github.io/bookshelf
 edit_uri: blob/master/docs/
 
 repo_name: climate-resource/bookshelf
-repo_url: https://gitlab.com/climate-resource/bookshelf/bookshelf
+repo_url: https://github.com/climate-resource/bookshelf
 
 theme:
   name: "material"
@@ -27,6 +27,12 @@ theme:
       toggle:
         icon: material/brightness-7
         name: Switch to light mode
+
+# Enable versioned doc builds
+# Using {major}.{minor}, latest and dev releases
+extra:
+  version:
+    provider: mike
 
 extra_css:
   - stylesheets/style.css
@@ -90,6 +96,14 @@ plugins:
   - search
   # https://oprypin.github.io/mkdocs-section-index/
   - section-index
+  # https://github.com/byrnereese/mkdocs-minify-plugin
+  - minify:
+      minify_html: true
+      minify_js: true
+      minify_css: true
+  # https://github.com/jimporter/mike
+  - mike:
+      alias_type: copy
 
 markdown_extensions:
   # https://squidfunk.github.io/mkdocs-material/setup/extensions/python-markdown/#attribute-lists
@@ -124,5 +138,5 @@ markdown_extensions:
 
 watch:
   - README.md
-  # Auto-generate if `src` changes (because this changes API docs)
-  - src
+  # Auto-generate if `packages` changes (because this changes API docs)
+  - packages

@@ -1,0 +1,36 @@
+name: Deploy
+
+on:
+  release:
+    types: [published]
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  deploy-pypi:
+    name: Deploy to PyPI
+    # Having an environment for deployment is strongly recommend by PyPI
+    # https://docs.pypi.org/trusted-publishers/adding-a-publisher/#github-actions
+    # You can comment this line out if you don't want it.
+    environment: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      # this permission is mandatory for trusted publishing with PyPI
+      id-token: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - name: Build wheels and sdist
+        run: |
+          uv build --package bookshelf -o dist
+          uv build --package bookshelf-producer -o dist
+      - name: Verify installable
+        run: uv pip install dist/bookshelf-*.whl dist/bookshelf_producer-*.whl
+      - name: Publish to PyPI
+        run: |
+          uv publish

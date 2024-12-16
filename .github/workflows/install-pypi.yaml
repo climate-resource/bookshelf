@@ -1,0 +1,52 @@
+# Test installation of the latest version from PyPI works.
+# TODO: Checkout and run tests once we make another release
+name: Test installation PyPI
+
+on:
+  workflow_dispatch:
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    # This means At 03:00 on every day.
+    # see https://crontab.guru/#0_0_*_*_3
+    - cron:  '0 3 * * *'
+
+jobs:
+  test-pypi-install:
+    name: Test PyPI install ${{ matrix.install-target }} (${{ matrix.python-version }}, ${{ matrix.os }})
+    runs-on: "${{ matrix.os }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        python-version: [ "3.10", "3.11", "3.12"]
+        install-target: ["bookshelf", "bookshelf-producer"]
+    steps:
+    - name: Set up Python "${{ matrix.python-version }}"
+      uses: actions/setup-python@v5
+      with:
+        python-version: "${{ matrix.python-version }}"
+    - name: Install
+      run: |
+        pip install --upgrade pip wheel
+        pip install "${{ matrix.install-target }}"
+    - name: Get version non-windows
+      if: matrix.os != 'windows-latest'
+      run: |
+        INSTALLED_VERSION=`python -c 'import bookshelf; print(f"v{bookshelf.__version__}")'`
+        echo $INSTALLED_VERSION
+        echo "INSTALLED_VERSION=$INSTALLED_VERSION" >> $GITHUB_ENV
+    - name: Get version windows
+      if: matrix.os == 'windows-latest'
+      run: |
+        chcp 65001  # use utf-8
+        python -c 'import bookshelf; f = open("version.txt", "w"); f.write(f"INSTALLED_VERSION=v{bookshelf.__version__}"); f.close()'
+        echo "Showing version.txt"
+        type version.txt
+        type version.txt >> $env:GITHUB_ENV
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ env.INSTALLED_VERSION }}
+    - name: Test installation
+      run: |
+        python scripts/test-install.py

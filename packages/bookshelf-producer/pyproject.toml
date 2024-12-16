@@ -1,6 +1,6 @@
 [project]
 name = "bookshelf-producer"
-version = "0.3.1a0"
+version = "0.4.0"
 description = "Publishing utilities for bookshelf books"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -8,13 +8,11 @@ dependencies = [
     "click>=8.0.1",
     "click-log>=0.3.2",
     "python-dotenv>=1.0.0",
-    "bookshelf",
+    "bookshelf>=0.4.0",
     "seaborn>=0.12.2",
     "papermill>=2.4.0",
     "jupytext>=1.14.7",
     "ipykernel>6.0.0",
-    # TODO: remove PRIMAP-hist script dependency
-    "pycountry"
 ]
 
 [project.scripts]

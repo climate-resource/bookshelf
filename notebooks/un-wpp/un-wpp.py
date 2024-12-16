@@ -41,6 +41,9 @@ metadata.dict()
 # %% tags=["parameters"]
 # This cell contains additional parameters that are controlled using papermill
 local_bookshelf = tempfile.mkdtemp()
+version = "v2024"
+
+# %%
 local_bookshelf
 
 # %%
@@ -125,7 +128,7 @@ def prep_df(df, **kwargs):
     df = df[~df["Year"].isna()]
 
     df_wide = (
-        df.melt(  # noqa
+        df.melt(
             id_vars=[
                 "Region, subregion, country or area *",
                 "ISO3 Alpha-code",
@@ -170,10 +173,8 @@ prepped = prep_df(df_hist, model="World Population Prospects 2022", scenario="Hi
 prepped
 
 # %%
-data_hist = scmdata.ScmRun(prep_df(df_hist, model="World Population Prospects 2022", scenario="Historical"))
-data_proj = scmdata.ScmRun(
-    prep_df(df_proj, model="World Population Prospects 2022", scenario="Medium variant")
-)
+data_hist = scmdata.ScmRun(prep_df(df_hist, model="World Population Prospects", scenario="Historical"))
+data_proj = scmdata.ScmRun(prep_df(df_proj, model="World Population Prospects", scenario="Medium variant"))
 
 
 # %% [markdown]
@@ -189,6 +190,7 @@ data_hist
 # Merge the historical data with the projections to create a single timeseries
 data = scmdata.run_append([data_hist.set_meta("scenario", "Medium variant"), data_proj])
 data["historical_end_year"] = data_hist["year"].iloc[-1]
+data["source"] = f"un-wpp @ {version}"
 data.filter(year=range(2019, 2025)).timeseries()
 
 # %%

@@ -3,6 +3,25 @@
 
 `bookshelf` is one way [Climate Resource](https://climate-resource.com) reuses datasets across projects.
 
+**Key info :**
+[![Docs](https://img.shields.io/badge/docs-passing-blue)](https://climate-resource.github.io/bookshelf/)
+[![Main branch: supported Python versions](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fclimate-resource%2Fbookshelf%2Fmain%2Fpyproject.toml)](https://github.com/climate-resource/bookshelf/blob/main/pyproject.toml)
+[![Licence](https://img.shields.io/pypi/l/bookshelf?label=licence)](https://github.com/climate-resource/bookshelf/blob/main/LICENCE)
+
+**PyPI :**
+[![PyPI](https://img.shields.io/pypi/v/bookshelf.svg)](https://pypi.org/project/bookshelf/)
+[![PyPI install](https://github.com/climate-resource/bookshelf/actions/workflows/install-pypi.yaml/badge.svg?branch=main)](https://github.com/climate-resource/bookshelf/actions/workflows/install-pypi.yaml)
+
+
+**Tests :**
+[![CI](https://github.com/climate-resource/bookshelf/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/climate-resource/bookshelf/actions/workflows/ci.yaml)
+[![Coverage](https://codecov.io/gh/climate-resource/bookshelf/branch/main/graph/badge.svg)](https://codecov.io/gh/climate-resource/input4mips_validation)
+
+**Other info :**
+[![Last Commit](https://img.shields.io/github/last-commit/climate-resource/bookshelf.svg)](https://github.com/climate-resource/input4mips_validation/commits/main)
+[![Contributors](https://img.shields.io/github/contributors/climate-resource/bookshelf.svg)](https://github.com/climate-resource/input4mips_validation/graphs/contributors)
+
+
 The `bookshelf` represents a shared collection of curated datasets or `Books`.
 Each `Book` is a preprocessed, versioned dataset including the notebooks used to produce it.
 As the underlying datasets or processing are updated,
@@ -31,6 +50,11 @@ Each `Resource` is fetched when it is first used and then cached for later use.
 
 
 <!--- --8<-- [end:description] -->
+
+Full documentation can be found at:
+[https://climate-resource.github.io/bookshelf](https://climate-resource.github.io/bookshelf/).
+We recommend reading the docs there because the internal documentation links
+don't render correctly on GitHub's viewer.
 
 ## Getting Started
 
@@ -92,7 +116,7 @@ pip install bookshelf-producer
 Building and deploying datasets is managed via Jupyter notebooks and a small yaml file that
 contains metadata about the dataset. These notebooks are stored as plain text Python files
 using the [jupytext](https://jupytext.readthedocs.io/en/latest/) plugin for Jupyter.
-See [notebooks/example.py](https://gitlab.com/climate-resource/bookshelf/-/blob/master/notebooks/example.py)
+See [notebooks/example.py](https://github.com/climate-resource/bookshelf/tree/main/notebooks/simple/simple.py)
 for an example dataset.
 
 Once the dataset has been developed, it can be deployed to the remote `BookShelf` so that
@@ -131,7 +155,7 @@ In order to create your environment, run `make virtual-environment`.
 If there are any issues, the messages from the `Makefile` should guide you
 through. If not, please raise an issue in the [issue tracker][issue_tracker].
 
-[issue_tracker]: https://gitlab.com/climate-resource/bookshelf/bookshelf/issues
+[issue_tracker]: https://github.com/climate-resource/bookshelf/issues?q=sort%3Aupdated-desc+is%3Aissue+is%3Aopen
 
 <!--- --8<-- [end:getting-started-dev] -->
 <!--- --8<-- [end:getting-started] -->
