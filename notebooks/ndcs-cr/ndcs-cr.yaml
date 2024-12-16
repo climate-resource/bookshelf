@@ -118,6 +118,26 @@ data_dictionary:
     allowed_NA: false
     required_column: true
 versions:
+  - version: 2024-10-02-a
+    private: true
+    dataset:
+      url: https://www.climate-resource.com/tools/ndcs
+      author: Climate Resource
+      files:
+        - url: file://ndcs-cr/data/2024-10-02-a_CR_results.csv.zst
+          hash: md5:b8fdf5ccdd75d9c11737584f003deb8a
+  - version: 2024-02-29-a
+    private: true
+    dataset:
+      url: https://www.climate-resource.com/tools/ndcs
+      author: Climate Resource
+      files:
+        - url: file://ndcs-cr/data/2024-02-29-a_TP_results.csv.zst
+          hash: md5:a3375c780f9de754926880a0df280ba7
+        - url: file://ndcs-cr/data/2024-02-29-a_CR-noOverrides_results.csv.zst
+          hash: md5:d31f4a1e1383f99d438ec30d12833599
+        - url: file://ndcs-cr/data/2024-02-29-a_CR_results.csv.zst
+          hash: md5:7c647edb48b379417c791486ad249804
   - version: 2023-12-05-a
     private: true
     dataset:
