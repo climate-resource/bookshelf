@@ -65,7 +65,10 @@ zf = zipfile.ZipFile(data_fname)
 zf.filelist
 
 # %%
-df = pd.read_csv(zf.open("WDIData.csv"))
+try:
+    df = pd.read_csv(zf.open("WDIData.csv"))
+except KeyError:
+    df = pd.read_csv(zf.open("WDICSV.csv"))
 
 column_rename = {
     "Country Name": "name",
@@ -76,7 +79,6 @@ column_rename = {
 df = df.rename(column_rename, axis=1)
 df["scenario"] = "historical"
 df["model"] = "World Bank"
-df["source"] = f"WDI @ {metadata.version}"
 df["unit"] = ""
 
 bad_cols = df.columns[df.columns.str.startswith("Unnamed")]
@@ -189,6 +191,7 @@ data.filter(variable="GDP|PPP", unit="constant 2017 international $").lineplot(u
 # # Process
 
 # %%
+data["source"] = f"{metadata.name}@{metadata.long_version()}"
 data.get_unique_meta("region")
 
 # %%
@@ -196,7 +199,7 @@ book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 
 # %%
 # Entire dataset (~168 MB uncompressed)
-book.add_timeseries("clean", data)
+book.add_timeseries("clean", data, write_long=False)
 
 # %%
 data.filter(variable="GDP").get_unique_meta("unit")
