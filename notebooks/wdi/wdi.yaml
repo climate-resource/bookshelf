@@ -31,3 +31,15 @@ versions:
       time_domain:
         - 1960
         - 2022
+
+  - version: v33
+    dataset:
+      url: https://datacatalog.worldbank.org/search/dataset/0037712
+      files:
+        - url: http://data.climateresource.com.au/_cache/wdi/v33/WDI_CSV_2024_10_24.zip
+          original_url: http://databank.worldbank.org/data/download/WDI_csv.zip
+          hash: md5:c2e3deddfe74a8ce163f4deea1432b93
+      author: World Bank
+      time_domain:
+        - 1960
+        - 2023
