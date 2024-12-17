@@ -199,7 +199,7 @@ book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 
 # %%
 # Entire dataset (~168 MB uncompressed)
-book.add_timeseries("clean", data)
+book.add_timeseries("clean", data, write_long=False)
 
 # %%
 data.filter(variable="GDP").get_unique_meta("unit")
