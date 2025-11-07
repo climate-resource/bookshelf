@@ -2,7 +2,10 @@ name: imf-weo
 edition: 1
 license: CC BY 4.0
 description: |
-  IMF World Economic Outlook (WEO) Database
+  The World Economic Outlook (WEO) database contains selected macroeconomic data series from the statistical
+  appendix of the World Economic Outlook report, which presents the IMF staff's analysis and projections of
+  economic developments at the global level, in major country groups and in many individual countries. The
+  WEO is released in April and September/October each year.
 metadata:
   author: Jared Lewis
   author_email: jared.lewis@climate-resource.com
