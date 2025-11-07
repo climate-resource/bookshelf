@@ -1,0 +1,52 @@
+name: imf-weo
+edition: 1
+license: CC BY 4.0
+description: |
+  IMF World Economic Outlook (WEO) Database
+metadata:
+  author: Jared Lewis
+  author_email: jared.lewis@climate-resource.com
+data_dictionary:
+  - name: model
+    description: Software/dataset name that the results were sourced from
+    type: string
+    allowed_NA: true
+    required_column: true
+  - name: source
+    description: Name of the dataset
+    type: string
+    allowed_NA: false
+    required_column: true
+  - name: name
+    description: Complete country name
+    type: string
+    allowed_NA: true
+    required_column: true
+  - name: region
+    description: ISO 3166-1 alpha-3 codes (always capitalised)
+    type: string
+    allowed_NA: false
+    required_column: true
+  - name: unit
+    description: Unit of variable
+    type: string
+    allowed_NA: false
+    required_column: true
+  - name: variable
+    description: Name of the quantity being captured/recorded
+    type: string
+    allowed_NA: false
+    required_column: true
+versions:
+  - version: v202410
+    dataset:
+      files:
+        - url: https://www.imf.org/-/media/Files/Publications/WEO/WEO-Database/2024/October/WEOOct2024all.ashx
+          hash: 46d492250b59b92e70668d2e1f4dec74ea60233a086fbe2070a70749b890ad8d
+      author: IMF
+  - version: v202310
+    dataset:
+      files:
+        - url: https://www.imf.org/-/media/Files/Publications/WEO/WEO-Database/2023/WEOOct2023all.ashx
+          hash: f7fe8a123b30cdef7615b6487beff975e5a05d7ddfe50514e077c08de3ea8ae6
+      author: IMF
