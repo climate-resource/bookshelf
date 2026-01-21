@@ -13,6 +13,7 @@ See https://oprypin.github.io/mkdocs-literate-nav/
     * [Create a new volume](how-to-guides/create_a_new_volume.py)
 * [Tutorials](tutorials.md)
 * Further background
+    * [Resource Types](resource-types.md)
     * [Explanation](explanation.md)
 * [API reference](api/)
 * [Development](development.md)
