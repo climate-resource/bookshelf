@@ -360,10 +360,10 @@ def test_dataframe_retrieval(local_bookshelf):
 
 
 def test_dataframe_unknown_resource(local_bookshelf):
-    """Test that retrieving an unknown DataFrame resource raises KeyError."""
+    """Test that retrieving an unknown DataFrame resource raises ValueError."""
     book = LocalBook.create_new("test_unknown", "v1.0.0", local_bookshelf=local_bookshelf)
 
-    with pytest.raises(KeyError, match="Unknown dataframe resource 'dataframe_nonexistent'"):
+    with pytest.raises(ValueError, match="Unknown dataframe 'dataframe_nonexistent'"):
         book.dataframe("nonexistent")
 
 

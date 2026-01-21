@@ -614,16 +614,14 @@ class LocalBook(_Book):
 
         Raises
         ------
-        KeyError
-            If the resource name is not found
         ValueError
-            If the resource exists but is not a DataFrame resource
+            If the resource name is not found or is not a DataFrame resource
         """
         resource_key = get_dataframe_resource_key(dataframe_name=name)
         resource: datapackage.Resource = self.as_datapackage().get_resource(resource_key)
 
         if resource is None:
-            raise KeyError(f"Unknown dataframe resource '{resource_key}'")
+            raise ValueError(f"Unknown dataframe '{resource_key}'")
 
         # Check that this is actually a dataframe resource
         resource_type = resource.descriptor.get("resource_type")

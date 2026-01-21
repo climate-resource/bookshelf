@@ -54,12 +54,12 @@ country_metadata.head()
 # %% [markdown]
 # ## Error Handling
 #
-# If you request a DataFrame that doesn't exist, a `KeyError` is raised:
+# If you request a DataFrame that doesn't exist, a `ValueError` is raised:
 
 # %%
 try:
     book.dataframe("nonexistent")
-except KeyError as e:
+except ValueError as e:
     print(f"Error: {e}")
 
 # %% [markdown]
