@@ -264,9 +264,8 @@ def test_validate_dataframe_structure_rejects_object_with_non_strings():
         validate_dataframe_structure(df)
 
 
-def test_add_dataframe(local_bookshelf):
-    """Test adding a DataFrame resource to a Book."""
-    # Create a test DataFrame
+def test_add_dataframe_zstd(local_bookshelf):
+    """Test adding a DataFrame resource with zstd compression (default)."""
     df = pd.DataFrame(
         {
             "country": ["USA", "China", "India"],
@@ -277,15 +276,56 @@ def test_add_dataframe(local_bookshelf):
         }
     )
 
-    # Create a new book and add the dataframe
-    book = LocalBook.create_new("test_df", "v1.0.0", local_bookshelf=local_bookshelf)
-    book.add_dataframe("country_info", df, compressed=True)
+    book = LocalBook.create_new("test_df_zstd", "v1.0.0", local_bookshelf=local_bookshelf)
+    book.add_dataframe("country_info", df)  # Uses default zstd compression
 
-    # Check that the resource was added to the datapackage
     package = book.as_datapackage()
     assert len(package.resources) == 1
 
-    # Check resource metadata
+    resource = package.resources[0]
+    assert resource.name == "dataframe_country_info"
+    assert resource.descriptor["dataframe_name"] == "country_info"
+    assert resource.descriptor["resource_type"] == "dataframe"
+    assert resource.descriptor["format"] == "parquet.zst"
+    assert resource.descriptor["filename"] == "test_df_zstd_v1.0.0_e001_country_info.parquet.zst"
+    assert resource.descriptor["columns"] == [
+        "country",
+        "region",
+        "population",
+        "gdp_per_capita",
+        "is_developed",
+    ]
+    assert "hash" in resource.descriptor
+    assert "content_hash" in resource.descriptor
+
+    expected_fname = (
+        local_bookshelf / "test_df_zstd" / "v1.0.0_e001" / "test_df_zstd_v1.0.0_e001_country_info.parquet.zst"
+    )
+    assert expected_fname.exists()
+
+    # Verify round-trip
+    retrieved_df = book.dataframe("country_info")
+    pd.testing.assert_frame_equal(retrieved_df, df)
+
+
+def test_add_dataframe_gzip(local_bookshelf):
+    """Test adding a DataFrame resource with gzip compression."""
+    df = pd.DataFrame(
+        {
+            "country": ["USA", "China", "India"],
+            "region": ["North America", "Asia", "Asia"],
+            "population": [331_000_000, 1_412_000_000, 1_380_000_000],
+            "gdp_per_capita": [65_280.0, 10_500.0, 1_900.0],
+            "is_developed": [True, False, False],
+        }
+    )
+
+    book = LocalBook.create_new("test_df", "v1.0.0", local_bookshelf=local_bookshelf)
+    book.add_dataframe("country_info", df, compression="gzip")
+
+    package = book.as_datapackage()
+    assert len(package.resources) == 1
+
     resource = package.resources[0]
     assert resource.name == "dataframe_country_info"
     assert resource.descriptor["dataframe_name"] == "country_info"
@@ -302,7 +342,6 @@ def test_add_dataframe(local_bookshelf):
     assert "hash" in resource.descriptor
     assert "content_hash" in resource.descriptor
 
-    # Check that the file was created
     expected_fname = (
         local_bookshelf / "test_df" / "v1.0.0_e001" / "test_df_v1.0.0_e001_country_info.parquet.gz"
     )
@@ -319,14 +358,12 @@ def test_add_dataframe_uncompressed(local_bookshelf):
     )
 
     book = LocalBook.create_new("test_df_uncompressed", "v2.0.0", local_bookshelf=local_bookshelf)
-    book.add_dataframe("data", df, compressed=False)
+    book.add_dataframe("data", df, compression=None)
 
-    # Check resource metadata
     resource = book.as_datapackage().resources[0]
     assert resource.descriptor["format"] == "parquet"
     assert resource.descriptor["filename"] == "test_df_uncompressed_v2.0.0_e001_data.parquet"
 
-    # Check that the file was created
     expected_fname = (
         local_bookshelf
         / "test_df_uncompressed"
@@ -347,7 +384,7 @@ def test_add_dataframe_with_named_index(local_bookshelf):
     )
 
     book = LocalBook.create_new("test_df_indexed", "v1.0.0", local_bookshelf=local_bookshelf)
-    book.add_dataframe("economics", df, compressed=True)
+    book.add_dataframe("economics", df, compression="gzip")
 
     # Retrieve the dataframe and check that index became a column
     retrieved_df = book.dataframe("economics")
@@ -370,7 +407,7 @@ def test_dataframe_retrieval(local_bookshelf):
     )
 
     book = LocalBook.create_new("test_retrieval", "v1.0.0", local_bookshelf=local_bookshelf)
-    book.add_dataframe("countries", df_original, compressed=True)
+    book.add_dataframe("countries", df_original, compression="gzip")
 
     # Retrieve the dataframe
     df_retrieved = book.dataframe("countries")
@@ -416,7 +453,7 @@ def test_add_dataframe_with_datetime(local_bookshelf):
     )
 
     book = LocalBook.create_new("test_datetime", "v1.0.0", local_bookshelf=local_bookshelf)
-    book.add_dataframe("events", df, compressed=True)
+    book.add_dataframe("events", df, compression="gzip")
 
     # Retrieve and verify
     df_retrieved = book.dataframe("events")

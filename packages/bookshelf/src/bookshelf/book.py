@@ -10,7 +10,7 @@ import json
 import os.path
 import pathlib
 from collections.abc import Iterable
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import datapackage
 import pandas as pd
@@ -528,11 +528,16 @@ class LocalBook(_Book):
         )
         return pd.read_csv(local_fname)
 
-    def add_dataframe(self, name: str, data: pd.DataFrame, compressed: bool = True) -> None:
+    def add_dataframe(
+        self,
+        name: str,
+        data: pd.DataFrame,
+        compression: Literal["zstd", "gzip"] | None = "zstd",
+    ) -> None:
         """
         Add a DataFrame resource to the Book
 
-        Stores the DataFrame in Parquet format with optional gzip compression.
+        Stores the DataFrame in Parquet format with optional compression.
         Updates the Book's metadata with resource information.
 
         Parameters
@@ -541,8 +546,11 @@ class LocalBook(_Book):
             Name of the DataFrame resource
         data : pd.DataFrame
             DataFrame to add to the Book
-        compressed : bool
-            Whether to compress the parquet file with gzip (default: True)
+        compression : {"zstd", "gzip"} or None
+            Compression algorithm to use (default: "zstd").
+            - "zstd": Zstandard compression (faster, smaller files)
+            - "gzip": Gzip compression
+            - None: No compression
 
         Raises
         ------
@@ -552,13 +560,13 @@ class LocalBook(_Book):
         # Validate and prepare the DataFrame
         prepared_df = validate_dataframe_structure(data)
 
-        # Determine file format and compression
-        if compressed:
-            file_format = "parquet.gz"
-            compression: str | None = "gzip"
-        else:
-            file_format = "parquet"
-            compression = None
+        # Determine file format based on compression
+        compression_extensions = {
+            "zstd": "parquet.zst",
+            "gzip": "parquet.gz",
+            None: "parquet",
+        }
+        file_format = compression_extensions[compression]
 
         # Get resource key and filename
         resource_key = get_dataframe_resource_key(dataframe_name=name)
@@ -571,7 +579,7 @@ class LocalBook(_Book):
 
         # Write the parquet file
         local_path = self.local_fname(fname)
-        prepared_df.to_parquet(local_path, compression=compression, index=False)  # type: ignore[arg-type]
+        prepared_df.to_parquet(local_path, compression=compression, index=False)
 
         # Compute hashes
         resource_hash = pooch.hashes.file_hash(local_path)
