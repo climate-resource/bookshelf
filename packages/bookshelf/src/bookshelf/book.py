@@ -10,7 +10,7 @@ import json
 import os.path
 import pathlib
 from collections.abc import Iterable
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import datapackage
 import pandas as pd
@@ -311,6 +311,7 @@ class LocalBook(_Book):
             {
                 "name": name,
                 "timeseries_name": timeseries_name,
+                "resource_type": "timeseries",
                 "shape": shape,
                 "format": compression_info["format"],
                 "filename": fname,
@@ -404,6 +405,7 @@ class LocalBook(_Book):
             {
                 "name": name,
                 "timeseries_name": timeseries_name,
+                "resource_type": "timeseries",
                 "shape": shape,
                 "format": compression_info["format"],
                 "filename": fname,
@@ -526,6 +528,124 @@ class LocalBook(_Book):
         )
         return pd.read_csv(local_fname)
 
+    def add_dataframe(
+        self,
+        name: str,
+        data: pd.DataFrame,
+        compression: Literal["zstd", "gzip"] | None = "zstd",
+    ) -> None:
+        """
+        Add a DataFrame resource to the Book
+
+        Stores the DataFrame in Parquet format with optional compression.
+        Updates the Book's metadata with resource information.
+
+        Parameters
+        ----------
+        name : str
+            Name of the DataFrame resource
+        data : pd.DataFrame
+            DataFrame to add to the Book
+        compression : {"zstd", "gzip"} or None
+            Compression algorithm to use (default: "zstd").
+            - "zstd": Zstandard compression (faster, smaller files)
+            - "gzip": Gzip compression
+            - None: No compression
+
+        Raises
+        ------
+        ValueError
+            If the DataFrame has MultiIndex columns/index or unsupported dtypes
+        """
+        # Validate and prepare the DataFrame
+        prepared_df = validate_dataframe_structure(data)
+
+        # Determine file format based on compression
+        compression_extensions = {
+            "zstd": "parquet.zst",
+            "gzip": "parquet.gz",
+            None: "parquet",
+        }
+        file_format = compression_extensions[compression]
+
+        # Get resource key and filename
+        resource_key = get_dataframe_resource_key(dataframe_name=name)
+        fname = get_dataframe_filename(
+            book_name=self.name,
+            long_version=self.long_version(),
+            dataframe_name=name,
+            file_format=file_format,
+        )
+
+        # Write the parquet file
+        local_path = self.local_fname(fname)
+        prepared_df.to_parquet(local_path, compression=compression, index=False)
+
+        # Compute hashes
+        resource_hash = pooch.hashes.file_hash(local_path)
+        # For content hash, serialize to parquet bytes for consistency
+        content_bytes = prepared_df.to_parquet(compression=None, index=False)
+        content_hash = hashlib.sha256(content_bytes).hexdigest()
+
+        # Add resource to metadata
+        metadata = self.as_datapackage()
+        metadata.add_resource(
+            {
+                "name": resource_key,
+                "dataframe_name": name,
+                "resource_type": "dataframe",
+                "format": file_format,
+                "filename": fname,
+                "hash": resource_hash,
+                "content_hash": content_hash,
+                "columns": list(prepared_df.columns),
+            }
+        )
+        metadata.save(self.local_fname(DATAPACKAGE_FILENAME))
+
+    def dataframe(self, name: str) -> pd.DataFrame:
+        """
+        Get a DataFrame resource
+
+        If the data is not available in the local cache, it is downloaded from the
+        remote BookShelf.
+
+        Parameters
+        ----------
+        name : str
+            Name of the DataFrame resource
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame data
+
+        Raises
+        ------
+        ValueError
+            If the resource name is not found or is not a DataFrame resource
+        """
+        resource_key = get_dataframe_resource_key(dataframe_name=name)
+        resource: datapackage.Resource = self.as_datapackage().get_resource(resource_key)
+
+        if resource is None:
+            raise ValueError(f"Unknown dataframe '{resource_key}'")
+
+        # Check that this is actually a dataframe resource
+        resource_type = resource.descriptor.get("resource_type")
+        if resource_type != "dataframe":
+            raise ValueError(f"Resource '{resource_key}' is not a dataframe resource (type: {resource_type})")
+
+        # Download the file if not cached
+        local_fname = self.local_fname(resource.descriptor["filename"])
+        fetch_file(
+            self.url(resource.descriptor.get("filename")),
+            pathlib.Path(local_fname),
+            known_hash=resource.descriptor.get("hash"),
+        )
+
+        return pd.read_parquet(local_fname)
+
 
 def get_resource_key(*, timeseries_name: str, shape: str) -> str:
     """
@@ -580,5 +700,132 @@ def get_resource_filename(
         `{book_name}_{long_version}_{timeseries_name}_{shape}.{file_format}`.
     """
     filename_tuple = (book_name, long_version, timeseries_name, shape)
+    filename = "_".join(filename_tuple)
+    return f"{filename}.{file_format}"
+
+
+def validate_dataframe_structure(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Validate and prepare a DataFrame for storage as a Book resource.
+
+    Checks that the DataFrame has a flat structure (single-level columns and index)
+    and contains only supported dtypes. Resets the index, preserving named indices
+    as columns.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The DataFrame to validate
+
+    Returns
+    -------
+    pd.DataFrame
+        A copy of the DataFrame with index reset (named index becomes a column)
+
+    Raises
+    ------
+    ValueError
+        If the DataFrame has MultiIndex columns, MultiIndex index, or unsupported dtypes
+    """
+    # Check for MultiIndex columns
+    if isinstance(df.columns, pd.MultiIndex):
+        raise ValueError("DataFrame cannot have MultiIndex columns. Only flat column structure is supported.")
+
+    # Check for MultiIndex index
+    if isinstance(df.index, pd.MultiIndex):
+        raise ValueError("DataFrame cannot have MultiIndex index. Only flat index structure is supported.")
+
+    # Supported dtypes mapping
+    supported_dtype_kinds = {
+        "i": "int",  # signed integer
+        "u": "int",  # unsigned integer
+        "f": "float",  # floating point
+        "b": "bool",  # boolean
+        "O": "object",  # object (will check for strings)
+        "U": "str",  # unicode string
+        "S": "str",  # byte string
+        "M": "datetime",  # datetime
+        "m": "timedelta",  # timedelta (added as it's commonly used with datetime)
+    }
+
+    # Check column dtypes
+    unsupported_cols = []
+    for col in df.columns:
+        dtype_kind = df[col].dtype.kind
+        if dtype_kind not in supported_dtype_kinds:
+            unsupported_cols.append((col, str(df[col].dtype)))
+        elif dtype_kind == "O":
+            # For object dtype, verify it's actually strings
+            # Sample first non-null value to check type
+            sample = df[col].dropna()
+            if len(sample) > 0:
+                first_val = sample.iloc[0]
+                if not isinstance(first_val, str):
+                    unsupported_cols.append((col, f"object ({type(first_val).__name__})"))
+
+    if unsupported_cols:
+        col_details = ", ".join([f"'{col}' ({dtype})" for col, dtype in unsupported_cols])
+        raise ValueError(
+            f"DataFrame contains unsupported dtypes: {col_details}. "
+            f"Supported types are: int, float, str, bool, datetime, timedelta."
+        )
+
+    # Reset index, preserving named index as column
+    # If index has a name, it becomes a column; unnamed index is dropped
+    if df.index.name is not None:
+        result = df.reset_index()
+    else:
+        result = df.reset_index(drop=True)
+
+    return result
+
+
+def get_dataframe_resource_key(*, dataframe_name: str) -> str:
+    """
+    Construct a resource key name for a DataFrame resource.
+
+    Unlike timeseries resources which include shape (wide/long), DataFrame resources
+    use the "dataframe_" prefix followed by the dataframe name.
+
+    Parameters
+    ----------
+    dataframe_name : str
+        The name of the DataFrame resource.
+
+    Returns
+    -------
+    str
+        The resource key name in the format "dataframe_{dataframe_name}".
+    """
+    return f"dataframe_{dataframe_name}"
+
+
+def get_dataframe_filename(
+    *, book_name: str, long_version: str, dataframe_name: str, file_format: str
+) -> str:
+    """
+    Generate a DataFrame resource filename using specified attributes and file format.
+
+    This function constructs a filename by concatenating given book attributes with underscores
+    and appending the specified file format.
+
+    Parameters
+    ----------
+    book_name : str
+        The name of the book the resource is associated with.
+    long_version : str
+        The long version identifier for the resource.
+    dataframe_name : str
+        The name of the DataFrame resource.
+    file_format : str
+        The file format extension (without the period) for the resource file (e.g., 'parquet', 'parquet.gz').
+
+    Returns
+    -------
+    str
+        The constructed filename in the format
+        `{book_name}_{long_version}_{dataframe_name}.{file_format}`.
+    """
+    filename_tuple = (book_name, long_version, dataframe_name)
     filename = "_".join(filename_tuple)
     return f"{filename}.{file_format}"

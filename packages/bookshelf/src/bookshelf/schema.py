@@ -3,7 +3,7 @@ Schema
 """
 
 import os
-from typing import Any
+from typing import Any, Literal
 
 import pooch
 from pydantic.v1 import BaseModel, Field
@@ -12,6 +12,7 @@ from bookshelf.utils import get_env_var, get_notebook_directory
 
 Version = str
 Edition = int
+ResourceType = Literal["timeseries", "dataframe"]
 
 
 class BookVersion(BaseModel):

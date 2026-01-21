@@ -8,6 +8,7 @@ We'll go over how to solve common tasks.
 ## Data consumers
 
 * ["Example analysis"](analysis_with_a_book)
+* ["Working with DataFrames"](working_with_dataframes)
 * ["Find all available books"](find_all_books)
 
 ## Data producers
