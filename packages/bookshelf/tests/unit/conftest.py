@@ -51,6 +51,7 @@ def remote_bookshelf(requests_mock, monkeypatch):
 
             self.register("test", "v1.0.0", 1)
             self.register("test", "v1.1.0", 1)
+            self.register_with_dataframe("example_with_dataframe", "v1.0.0", 1)
 
         def register(self, name, version, edition, private=False):
             if name not in self.meta:
@@ -81,6 +82,45 @@ def remote_bookshelf(requests_mock, monkeypatch):
             requests_mock.get(
                 f"{url_prefix}/{name}_v1.0.0_e001_leakage_rates_low_wide.csv",
                 text=read_data("v0.3.1/example/v1.0.0_e001/test_v1.0.0_e001_leakage_rates_low_wide.csv"),
+            )
+
+        def register_with_dataframe(self, name, version, edition, private=False):
+            """Register a book that contains DataFrame resources."""
+            if name not in self.meta:
+                self.meta[name] = {
+                    "name": name,
+                    "license": "MIT",
+                    "versions": [],
+                }
+
+            url_prefix = f"{prefix}/{name}/{version}_e{edition:03}"
+            self.meta[name]["versions"].append(
+                {
+                    "version": version,
+                    "edition": edition,
+                    "hash": "",
+                    "url": url_prefix,
+                    "private": private,
+                }
+            )
+            requests_mock.get(
+                f"{prefix}/{name}/volume.json",
+                json=read_json(f"v0.3.2/{name}/volume.json"),
+            )
+            requests_mock.get(
+                f"{url_prefix}/datapackage.json",
+                json=read_json(f"v0.3.2/{name}/{version}_e{edition:03}/datapackage.json"),
+            )
+            # Register the parquet file
+            parquet_filename = f"{name}_{version}_e{edition:03}_country_metadata.parquet.gz"
+            parquet_path = os.path.join(
+                TEST_DATA_DIR, f"v0.3.2/{name}/{version}_e{edition:03}/{parquet_filename}"
+            )
+            with open(parquet_path, "rb") as f:
+                parquet_content = f.read()
+            requests_mock.get(
+                f"{url_prefix}/{parquet_filename}",
+                content=parquet_content,
             )
 
     bs = MockRemoteBookshelf()

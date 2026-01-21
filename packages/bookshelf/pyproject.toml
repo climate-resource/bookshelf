@@ -27,6 +27,7 @@ dependencies = [
     "datapackage>=1.15.2",
     "pyyaml",
     "platformdirs>=4.3.6",
+    "pyarrow",
 ]
 
 [tool.uv]

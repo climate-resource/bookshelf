@@ -1,0 +1,13 @@
+{
+  "name": "example_with_dataframe",
+  "license": "MIT",
+  "versions": [
+    {
+      "version": "v1.0.0",
+      "edition": 1,
+      "hash": "",
+      "private": false,
+      "url": "https://test.local/package/v1.0/example_with_dataframe/v1.0.0_e001"
+    }
+  ]
+}

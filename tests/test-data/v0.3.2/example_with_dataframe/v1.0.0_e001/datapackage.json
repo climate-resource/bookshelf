@@ -1,0 +1,19 @@
+{
+  "name": "example_with_dataframe",
+  "version": "v1.0.0",
+  "private": false,
+  "edition": 1,
+  "resources": [
+    {
+      "name": "dataframe_country_metadata",
+      "dataframe_name": "country_metadata",
+      "resource_type": "dataframe",
+      "format": "parquet.gz",
+      "filename": "example_with_dataframe_v1.0.0_e001_country_metadata.parquet.gz",
+      "hash": "5ec939c654095f64a46d7787a0b14b65446090aedb13c43088937e708a632a5c",
+      "content_hash": "1f96088b0efec79abc524153bf7b41482cb1c7bab9533b9f795f0c989077a7ec",
+      "columns": ["iso_code", "name", "region", "population", "gdp_per_capita"]
+    }
+  ],
+  "profile": "data-package"
+}
