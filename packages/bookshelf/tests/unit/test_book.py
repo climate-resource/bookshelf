@@ -244,6 +244,26 @@ def test_validate_dataframe_structure_rejects_unsupported_dtypes():
         validate_dataframe_structure(df)
 
 
+def test_validate_dataframe_structure_rejects_object_with_non_strings():
+    """Test validate_dataframe_structure rejects object dtype columns containing non-string values."""
+    # Create DataFrame with object column containing lists (not strings)
+    df = pd.DataFrame(
+        {
+            "name": ["USA", "China", "India"],
+            "tags": [["large", "developed"], ["large"], ["developing"]],  # Lists, not strings
+        }
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"DataFrame contains unsupported dtypes.*'tags'.*object \(list\).*"
+            r"Supported types are: int, float, str, bool, datetime, timedelta"
+        ),
+    ):
+        validate_dataframe_structure(df)
+
+
 def test_add_dataframe(local_bookshelf):
     """Test adding a DataFrame resource to a Book."""
     # Create a test DataFrame

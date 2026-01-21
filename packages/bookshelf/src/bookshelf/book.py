@@ -752,7 +752,7 @@ def validate_dataframe_structure(df: pd.DataFrame) -> pd.DataFrame:
             sample = df[col].dropna()
             if len(sample) > 0:
                 first_val = sample.iloc[0]
-                if not isinstance(first_val, str | type(None)):
+                if not isinstance(first_val, str):
                     unsupported_cols.append((col, f"object ({type(first_val).__name__})"))
 
     if unsupported_cols:
