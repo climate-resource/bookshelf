@@ -8,6 +8,7 @@ See https://oprypin.github.io/mkdocs-literate-nav/
 * [Configuration](configuration.md)
 * [How-to guides](how-to-guides/index.md)
     * [Analysis](how-to-guides/analysis_with_a_book.py)
+    * [Working with DataFrames](how-to-guides/working_with_dataframes.py)
     * [Find all books](how-to-guides/find_all_books.py)
     * [Create a new volume](how-to-guides/create_a_new_volume.py)
 * [Tutorials](tutorials.md)
