@@ -22,7 +22,7 @@ from bookshelf.api.schemas import (
     VolumeListResponse,
 )
 
-# Base URL for tests (without /api suffix - client adds it)
+# Base URL for tests
 TEST_BASE_URL = "https://test.example.com"
 
 
@@ -181,7 +181,7 @@ class TestListVolumes:
     @respx.mock
     def test_list_volumes_success(self, api_client, mock_volume_list_response):
         """Should list volumes successfully."""
-        route = respx.get(f"{TEST_BASE_URL}/api/volumes").mock(
+        route = respx.get(f"{TEST_BASE_URL}/volumes").mock(
             return_value=httpx.Response(200, json=mock_volume_list_response)
         )
 
@@ -197,7 +197,7 @@ class TestListVolumes:
     @respx.mock
     def test_list_volumes_with_pagination(self, api_client, mock_volume_list_response):
         """Should support pagination parameters."""
-        route = respx.get(f"{TEST_BASE_URL}/api/volumes").mock(
+        route = respx.get(f"{TEST_BASE_URL}/volumes").mock(
             return_value=httpx.Response(200, json=mock_volume_list_response)
         )
 
@@ -212,7 +212,7 @@ class TestListVolumes:
     @respx.mock
     def test_list_volumes_401_raises_auth_error(self, api_client):
         """Should raise AuthenticationError on 401."""
-        respx.get(f"{TEST_BASE_URL}/api/volumes").mock(
+        respx.get(f"{TEST_BASE_URL}/volumes").mock(
             return_value=httpx.Response(401, json={"detail": "Invalid token"})
         )
 
@@ -222,7 +222,7 @@ class TestListVolumes:
     @respx.mock
     def test_list_volumes_500_raises_server_error(self, api_client):
         """Should raise ServerError on 500."""
-        respx.get(f"{TEST_BASE_URL}/api/volumes").mock(
+        respx.get(f"{TEST_BASE_URL}/volumes").mock(
             return_value=httpx.Response(500, json={"detail": "Internal server error"})
         )
 
@@ -236,7 +236,7 @@ class TestGetVolume:
     @respx.mock
     def test_get_volume_success(self, api_client, mock_volume_detail_response):
         """Should get volume details successfully."""
-        route = respx.get(f"{TEST_BASE_URL}/api/volumes/test-volume").mock(
+        route = respx.get(f"{TEST_BASE_URL}/volumes/test-volume").mock(
             return_value=httpx.Response(200, json=mock_volume_detail_response)
         )
 
@@ -250,7 +250,7 @@ class TestGetVolume:
     @respx.mock
     def test_get_volume_404_raises_not_found(self, api_client):
         """Should raise NotFoundError on 404."""
-        respx.get(f"{TEST_BASE_URL}/api/volumes/missing").mock(
+        respx.get(f"{TEST_BASE_URL}/volumes/missing").mock(
             return_value=httpx.Response(404, json={"detail": "Volume not found"})
         )
 
@@ -264,7 +264,7 @@ class TestListBooks:
     @respx.mock
     def test_list_books_success(self, api_client, mock_book_list_response):
         """Should list books successfully."""
-        route = respx.get(f"{TEST_BASE_URL}/api/volumes/test-volume/books").mock(
+        route = respx.get(f"{TEST_BASE_URL}/volumes/test-volume/books").mock(
             return_value=httpx.Response(200, json=mock_book_list_response)
         )
 
@@ -278,7 +278,7 @@ class TestListBooks:
     @respx.mock
     def test_list_books_with_filters(self, api_client, mock_book_list_response):
         """Should support status and version filters."""
-        route = respx.get(f"{TEST_BASE_URL}/api/volumes/test-volume/books").mock(
+        route = respx.get(f"{TEST_BASE_URL}/volumes/test-volume/books").mock(
             return_value=httpx.Response(200, json=mock_book_list_response)
         )
 
@@ -300,7 +300,7 @@ class TestListBooks:
     @respx.mock
     def test_list_books_with_pagination(self, api_client, mock_book_list_response):
         """Should support pagination."""
-        route = respx.get(f"{TEST_BASE_URL}/api/volumes/test-volume/books").mock(
+        route = respx.get(f"{TEST_BASE_URL}/volumes/test-volume/books").mock(
             return_value=httpx.Response(200, json=mock_book_list_response)
         )
 
@@ -318,7 +318,7 @@ class TestGetBook:
     @respx.mock
     def test_get_book_with_edition(self, api_client, mock_book_detail_response):
         """Should get book with specific edition."""
-        route = respx.get(f"{TEST_BASE_URL}/api/volumes/test-volume/books/v1.0.0").mock(
+        route = respx.get(f"{TEST_BASE_URL}/volumes/test-volume/books/v1.0.0").mock(
             return_value=httpx.Response(200, json=mock_book_detail_response)
         )
 
@@ -335,7 +335,7 @@ class TestGetBook:
     @respx.mock
     def test_get_book_latest_edition(self, api_client, mock_book_detail_response):
         """Should get latest edition when not specified."""
-        route = respx.get(f"{TEST_BASE_URL}/api/volumes/test-volume/books/v1.0.0").mock(
+        route = respx.get(f"{TEST_BASE_URL}/volumes/test-volume/books/v1.0.0").mock(
             return_value=httpx.Response(200, json=mock_book_detail_response)
         )
 
@@ -347,7 +347,7 @@ class TestGetBook:
     @respx.mock
     def test_get_book_404_raises_not_found(self, api_client):
         """Should raise NotFoundError on 404."""
-        respx.get(f"{TEST_BASE_URL}/api/volumes/test-volume/books/v99.0.0").mock(
+        respx.get(f"{TEST_BASE_URL}/volumes/test-volume/books/v99.0.0").mock(
             return_value=httpx.Response(404, json={"detail": "Book not found"})
         )
 
@@ -361,7 +361,7 @@ class TestErrorHandling:
     @respx.mock
     def test_401_unauthorized(self, api_client):
         """Should handle 401 Unauthorized."""
-        respx.get(f"{TEST_BASE_URL}/api/volumes").mock(
+        respx.get(f"{TEST_BASE_URL}/volumes").mock(
             return_value=httpx.Response(401, json={"detail": "Token expired"})
         )
 
@@ -371,7 +371,7 @@ class TestErrorHandling:
     @respx.mock
     def test_403_forbidden(self, api_client):
         """Should handle 403 Forbidden."""
-        respx.get(f"{TEST_BASE_URL}/api/volumes/private-volume").mock(
+        respx.get(f"{TEST_BASE_URL}/volumes/private-volume").mock(
             return_value=httpx.Response(403, json={"detail": "Access denied"})
         )
 
@@ -381,7 +381,7 @@ class TestErrorHandling:
     @respx.mock
     def test_404_not_found(self, api_client):
         """Should handle 404 Not Found."""
-        respx.get(f"{TEST_BASE_URL}/api/volumes/missing").mock(
+        respx.get(f"{TEST_BASE_URL}/volumes/missing").mock(
             return_value=httpx.Response(404, json={"detail": "Resource not found"})
         )
 
@@ -391,7 +391,7 @@ class TestErrorHandling:
     @respx.mock
     def test_429_rate_limit(self, api_client):
         """Should handle 429 Rate Limit."""
-        respx.get(f"{TEST_BASE_URL}/api/volumes").mock(
+        respx.get(f"{TEST_BASE_URL}/volumes").mock(
             return_value=httpx.Response(429, json={"detail": "Rate limit exceeded"})
         )
 
@@ -401,7 +401,7 @@ class TestErrorHandling:
     @respx.mock
     def test_500_internal_error(self, api_client):
         """Should handle 500 Internal Server Error."""
-        respx.get(f"{TEST_BASE_URL}/api/volumes").mock(
+        respx.get(f"{TEST_BASE_URL}/volumes").mock(
             return_value=httpx.Response(500, json={"detail": "Internal error"})
         )
 
@@ -417,7 +417,7 @@ class TestAuthenticate:
         """Should authenticate and set token."""
         client = BookshelfAPIClient(base_url=TEST_BASE_URL)
 
-        route = respx.post(f"{TEST_BASE_URL}/api/auth/token").mock(
+        route = respx.post(f"{TEST_BASE_URL}/auth/token").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -440,7 +440,7 @@ class TestAuthenticate:
         """Should raise AuthenticationError on invalid credentials."""
         client = BookshelfAPIClient(base_url=TEST_BASE_URL)
 
-        respx.post(f"{TEST_BASE_URL}/api/auth/token").mock(
+        respx.post(f"{TEST_BASE_URL}/auth/token").mock(
             return_value=httpx.Response(401, json={"detail": "Invalid credentials"})
         )
 
@@ -454,7 +454,7 @@ class TestContextManager:
     @respx.mock
     def test_can_use_as_context_manager(self):
         """Should support context manager protocol."""
-        route = respx.get(f"{TEST_BASE_URL}/api/volumes").mock(
+        route = respx.get(f"{TEST_BASE_URL}/volumes").mock(
             return_value=httpx.Response(
                 200,
                 json={

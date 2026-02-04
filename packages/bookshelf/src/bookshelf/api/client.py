@@ -102,7 +102,7 @@ class BookshelfAPIClient:
             AuthenticationError: If credentials are invalid
         """
         response = self._client.post(
-            f"{self.base_url}/api/auth/token",
+            f"{self.base_url}/auth/token",
             data={
                 "username": username,
                 "password": password,
@@ -134,7 +134,7 @@ class BookshelfAPIClient:
             Paginated list of volumes
         """
         response = self._client.get(
-            f"{self.base_url}/api/volumes",
+            f"{self.base_url}/volumes",
             params={"limit": limit, "offset": offset},
             headers=self._headers(),
         )
@@ -159,7 +159,7 @@ class BookshelfAPIClient:
             NotFoundError: If volume does not exist
         """
         response = self._client.get(
-            f"{self.base_url}/api/volumes/{name}",
+            f"{self.base_url}/volumes/{name}",
             headers=self._headers(),
         )
 
@@ -202,7 +202,7 @@ class BookshelfAPIClient:
             params["status"] = status.value
 
         response = self._client.get(
-            f"{self.base_url}/api/volumes/{volume_name}/books",
+            f"{self.base_url}/volumes/{volume_name}/books",
             params=params,
             headers=self._headers(),
         )
@@ -238,7 +238,7 @@ class BookshelfAPIClient:
             params["edition"] = edition
 
         response = self._client.get(
-            f"{self.base_url}/api/volumes/{volume_name}/books/{version}",
+            f"{self.base_url}/volumes/{volume_name}/books/{version}",
             params=params,
             headers=self._headers(),
         )

@@ -62,7 +62,7 @@ class TestLoginCommand:
         """Should successfully login and save credentials."""
         monkeypatch.setenv("BOOKSHELF_API_URL", "https://test.example.com")
 
-        respx.post("https://test.example.com/api/auth/token").mock(
+        respx.post("https://test.example.com/auth/token").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -90,7 +90,7 @@ class TestLoginCommand:
         """Should handle invalid credentials."""
         monkeypatch.setenv("BOOKSHELF_API_URL", "https://test.example.com")
 
-        respx.post("https://test.example.com/api/auth/token").mock(
+        respx.post("https://test.example.com/auth/token").mock(
             return_value=httpx.Response(
                 401,
                 json={"detail": "Invalid username or password"},
@@ -110,7 +110,7 @@ class TestLoginCommand:
         """Should handle network errors during login."""
         monkeypatch.setenv("BOOKSHELF_API_URL", "https://test.example.com")
 
-        respx.post("https://test.example.com/api/auth/token").mock(
+        respx.post("https://test.example.com/auth/token").mock(
             side_effect=httpx.ConnectError("Connection failed")
         )
 
@@ -166,7 +166,7 @@ class TestVolumesListCommand:
     @respx.mock
     def test_volumes_list_success(self, runner, api_env):
         """Should list volumes successfully (public access)."""
-        respx.get("https://test.example.com/api/volumes").mock(
+        respx.get("https://test.example.com/volumes").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -199,7 +199,7 @@ class TestVolumesListCommand:
     @respx.mock
     def test_volumes_list_empty(self, runner, api_env):
         """Should handle empty volume list."""
-        respx.get("https://test.example.com/api/volumes").mock(
+        respx.get("https://test.example.com/volumes").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -223,7 +223,7 @@ class TestVolumesShowCommand:
     @respx.mock
     def test_volumes_show_success(self, runner, api_env):
         """Should show volume details successfully (public access)."""
-        respx.get("https://test.example.com/api/volumes/climate-data").mock(
+        respx.get("https://test.example.com/volumes/climate-data").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -265,7 +265,7 @@ class TestVolumesShowCommand:
     @respx.mock
     def test_volumes_show_not_found(self, runner, api_env):
         """Should handle volume not found."""
-        respx.get("https://test.example.com/api/volumes/missing").mock(
+        respx.get("https://test.example.com/volumes/missing").mock(
             return_value=httpx.Response(404, json={"detail": "Volume not found"})
         )
 
@@ -280,7 +280,7 @@ class TestBooksListCommand:
     @respx.mock
     def test_books_list_success(self, runner, api_env):
         """Should list books successfully (public access)."""
-        respx.get("https://test.example.com/api/volumes/climate-data/books").mock(
+        respx.get("https://test.example.com/volumes/climate-data/books").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -316,7 +316,7 @@ class TestBooksShowCommand:
     @respx.mock
     def test_books_show_success(self, runner, api_env):
         """Should show book details successfully (public access)."""
-        respx.get("https://test.example.com/api/volumes/climate-data/books/v1.0.0").mock(
+        respx.get("https://test.example.com/volumes/climate-data/books/v1.0.0").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -354,7 +354,7 @@ class TestBooksShowCommand:
     @respx.mock
     def test_books_show_with_edition(self, runner, api_env):
         """Should show specific edition."""
-        route = respx.get("https://test.example.com/api/volumes/climate-data/books/v1.0.0").mock(
+        route = respx.get("https://test.example.com/volumes/climate-data/books/v1.0.0").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -387,7 +387,7 @@ class TestBooksShowCommand:
     @respx.mock
     def test_books_show_not_found(self, runner, api_env):
         """Should handle book not found."""
-        respx.get("https://test.example.com/api/volumes/climate-data/books/v99.0.0").mock(
+        respx.get("https://test.example.com/volumes/climate-data/books/v99.0.0").mock(
             return_value=httpx.Response(404, json={"detail": "Book not found"})
         )
 

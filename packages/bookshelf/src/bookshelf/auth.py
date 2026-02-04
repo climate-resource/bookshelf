@@ -208,4 +208,4 @@ def get_api_url() -> str:
         return creds["api_url"]
 
     # Default URL
-    return "https://bookshelf.climate-resource.com/api"
+    return "https://api.staging.climateresource.com.au/bookshelf/v1"
