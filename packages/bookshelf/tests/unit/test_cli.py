@@ -31,6 +31,12 @@ def mock_credentials_path(tmp_path, monkeypatch):
 
 
 @pytest.fixture
+def api_env(monkeypatch):
+    """Set up API environment (unauthenticated, for public access)."""
+    monkeypatch.setenv("BOOKSHELF_API_URL", "https://test.example.com")
+
+
+@pytest.fixture
 def authenticated_env(mock_credentials_path, monkeypatch):
     """Set up authenticated environment."""
     import json
@@ -158,8 +164,8 @@ class TestVolumesListCommand:
     """Tests for the volumes list command."""
 
     @respx.mock
-    def test_volumes_list_success(self, runner, authenticated_env):
-        """Should list volumes successfully."""
+    def test_volumes_list_success(self, runner, api_env):
+        """Should list volumes successfully (public access)."""
         respx.get("https://test.example.com/api/volumes").mock(
             return_value=httpx.Response(
                 200,
@@ -191,7 +197,7 @@ class TestVolumesListCommand:
         assert "climate-data" in result.output
 
     @respx.mock
-    def test_volumes_list_empty(self, runner, authenticated_env):
+    def test_volumes_list_empty(self, runner, api_env):
         """Should handle empty volume list."""
         respx.get("https://test.example.com/api/volumes").mock(
             return_value=httpx.Response(
@@ -210,20 +216,13 @@ class TestVolumesListCommand:
 
         assert result.exit_code == 0
 
-    def test_volumes_list_not_authenticated(self, runner, mock_credentials_path):
-        """Should require authentication."""
-        result = runner.invoke(main, ["volumes", "list"])
-
-        assert result.exit_code != 0
-        assert "not" in result.output.lower() and "log" in result.output.lower()
-
 
 class TestVolumesShowCommand:
     """Tests for the volumes show command."""
 
     @respx.mock
-    def test_volumes_show_success(self, runner, authenticated_env):
-        """Should show volume details successfully."""
+    def test_volumes_show_success(self, runner, api_env):
+        """Should show volume details successfully (public access)."""
         respx.get("https://test.example.com/api/volumes/climate-data").mock(
             return_value=httpx.Response(
                 200,
@@ -264,7 +263,7 @@ class TestVolumesShowCommand:
         assert "climate-data" in result.output
 
     @respx.mock
-    def test_volumes_show_not_found(self, runner, authenticated_env):
+    def test_volumes_show_not_found(self, runner, api_env):
         """Should handle volume not found."""
         respx.get("https://test.example.com/api/volumes/missing").mock(
             return_value=httpx.Response(404, json={"detail": "Volume not found"})
@@ -274,19 +273,13 @@ class TestVolumesShowCommand:
 
         assert result.exit_code != 0
 
-    def test_volumes_show_not_authenticated(self, runner, mock_credentials_path):
-        """Should require authentication."""
-        result = runner.invoke(main, ["volumes", "show", "climate-data"])
-
-        assert result.exit_code != 0
-
 
 class TestBooksListCommand:
     """Tests for the books list command."""
 
     @respx.mock
-    def test_books_list_success(self, runner, authenticated_env):
-        """Should list books successfully."""
+    def test_books_list_success(self, runner, api_env):
+        """Should list books successfully (public access)."""
         respx.get("https://test.example.com/api/volumes/climate-data/books").mock(
             return_value=httpx.Response(
                 200,
@@ -316,19 +309,13 @@ class TestBooksListCommand:
         assert result.exit_code == 0
         assert "v1.0.0" in result.output
 
-    def test_books_list_not_authenticated(self, runner, mock_credentials_path):
-        """Should require authentication."""
-        result = runner.invoke(main, ["books", "list", "climate-data"])
-
-        assert result.exit_code != 0
-
 
 class TestBooksShowCommand:
     """Tests for the books show command."""
 
     @respx.mock
-    def test_books_show_success(self, runner, authenticated_env):
-        """Should show book details successfully."""
+    def test_books_show_success(self, runner, api_env):
+        """Should show book details successfully (public access)."""
         respx.get("https://test.example.com/api/volumes/climate-data/books/v1.0.0").mock(
             return_value=httpx.Response(
                 200,
@@ -365,7 +352,7 @@ class TestBooksShowCommand:
         assert "v1.0.0" in result.output
 
     @respx.mock
-    def test_books_show_with_edition(self, runner, authenticated_env):
+    def test_books_show_with_edition(self, runner, api_env):
         """Should show specific edition."""
         route = respx.get("https://test.example.com/api/volumes/climate-data/books/v1.0.0").mock(
             return_value=httpx.Response(
@@ -398,19 +385,13 @@ class TestBooksShowCommand:
         assert "edition=2" in str(request.url)
 
     @respx.mock
-    def test_books_show_not_found(self, runner, authenticated_env):
+    def test_books_show_not_found(self, runner, api_env):
         """Should handle book not found."""
         respx.get("https://test.example.com/api/volumes/climate-data/books/v99.0.0").mock(
             return_value=httpx.Response(404, json={"detail": "Book not found"})
         )
 
         result = runner.invoke(main, ["books", "show", "climate-data", "v99.0.0"])
-
-        assert result.exit_code != 0
-
-    def test_books_show_not_authenticated(self, runner, mock_credentials_path):
-        """Should require authentication."""
-        result = runner.invoke(main, ["books", "show", "climate-data", "v1.0.0"])
 
         assert result.exit_code != 0
 

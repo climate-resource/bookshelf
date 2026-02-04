@@ -6,7 +6,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from bookshelf.api.client import BookshelfAPIClient
-from bookshelf.api.errors import APIError, AuthenticationError, NotFoundError
+from bookshelf.api.errors import APIError, NotFoundError
 from bookshelf.api.schemas import BookResponse, BookStatus
 from bookshelf.auth import get_api_url, get_token
 
@@ -30,14 +30,10 @@ def _format_size(size_bytes: int) -> str:
         return f"{size_bytes / _GB:.2f} GB"
 
 
-def get_authenticated_client() -> BookshelfAPIClient:
-    """Get an authenticated API client or raise an error."""
-    token = get_token()
-    if not token:
-        console.print("[red]✗[/red] Not authenticated. Please run 'bookshelf-client auth login' first.")
-        raise click.Abort()
-
+def get_api_client() -> BookshelfAPIClient:
+    """Get an API client, with token if available."""
     api_url = get_api_url()
+    token = get_token()  # May be None for public access
     return BookshelfAPIClient(base_url=api_url, token=token)
 
 
@@ -68,7 +64,7 @@ def list_books(  # noqa: PLR0913
 ) -> None:
     """List books in a volume."""
     try:
-        client = get_authenticated_client()
+        client = get_api_client()
 
         # Convert status string to enum if provided
         status_enum = None
@@ -131,10 +127,6 @@ def list_books(  # noqa: PLR0913
 
     except NotFoundError:
         console.print(f"[red]✗[/red] Volume '{volume}' not found.")
-        raise click.Abort()
-    except AuthenticationError as e:
-        console.print(f"[red]✗[/red] Authentication failed: {e.message}")
-        console.print("[dim]Your token may have expired. Try 'bookshelf-client auth login'[/dim]")
         raise click.Abort()
     except APIError as e:
         console.print(f"[red]✗[/red] API error: {e.message}")
@@ -238,7 +230,7 @@ def _display_book_metadata(book: BookResponse) -> None:
 def show_book(volume: str, version: str, edition: int | None) -> None:
     """Show detailed information about a book."""
     try:
-        client = get_authenticated_client()
+        client = get_api_client()
 
         edition_str = f"edition {edition}" if edition else "latest edition"
         with console.status(f"[cyan]Fetching book '{volume}' {version} ({edition_str})...[/cyan]"):
@@ -252,10 +244,6 @@ def show_book(volume: str, version: str, edition: int | None) -> None:
     except NotFoundError:
         edition_str = f" edition {edition}" if edition else ""
         console.print(f"[red]✗[/red] Book '{volume}' version '{version}'{edition_str} not found.")
-        raise click.Abort()
-    except AuthenticationError as e:
-        console.print(f"[red]✗[/red] Authentication failed: {e.message}")
-        console.print("[dim]Your token may have expired. Try 'bookshelf-client auth login'[/dim]")
         raise click.Abort()
     except APIError as e:
         console.print(f"[red]✗[/red] API error: {e.message}")

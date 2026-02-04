@@ -6,7 +6,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from bookshelf.api.client import BookshelfAPIClient
-from bookshelf.api.errors import APIError, AuthenticationError, NotFoundError
+from bookshelf.api.errors import APIError, NotFoundError
 from bookshelf.auth import get_api_url, get_token
 
 console = Console()
@@ -29,14 +29,10 @@ def _format_size(size_bytes: int) -> str:
         return f"{size_bytes / _GB:.2f} GB"
 
 
-def get_authenticated_client() -> BookshelfAPIClient:
-    """Get an authenticated API client or raise an error."""
-    token = get_token()
-    if not token:
-        console.print("[red]✗[/red] Not authenticated. Please run 'bookshelf-client auth login' first.")
-        raise click.Abort()
-
+def get_api_client() -> BookshelfAPIClient:
+    """Get an API client, with token if available."""
     api_url = get_api_url()
+    token = get_token()  # May be None for public access
     return BookshelfAPIClient(base_url=api_url, token=token)
 
 
@@ -52,7 +48,7 @@ def volumes_group() -> None:
 def list_volumes(limit: int, offset: int) -> None:
     """List all available volumes."""
     try:
-        client = get_authenticated_client()
+        client = get_api_client()
 
         with console.status("[cyan]Fetching volumes...[/cyan]"):
             response = client.list_volumes(limit=limit, offset=offset)
@@ -92,10 +88,6 @@ def list_volumes(limit: int, offset: int) -> None:
             console.print(f"\n[dim]Showing {start}-{end} of {response.total} volumes[/dim]")
             console.print(f"[dim]Use --offset {offset + limit} to see more[/dim]")
 
-    except AuthenticationError as e:
-        console.print(f"[red]✗[/red] Authentication failed: {e.message}")
-        console.print("[dim]Your token may have expired. Try 'bookshelf-client auth login'[/dim]")
-        raise click.Abort()
     except APIError as e:
         console.print(f"[red]✗[/red] API error: {e.message}")
         raise click.Abort()
@@ -106,10 +98,10 @@ def list_volumes(limit: int, offset: int) -> None:
 
 @volumes_group.command(name="show")
 @click.argument("name")
-def show_volume(name: str) -> None:  # noqa: PLR0915
+def show_volume(name: str) -> None:
     """Show detailed information about a volume."""
     try:
-        client = get_authenticated_client()
+        client = get_api_client()
 
         with console.status(f"[cyan]Fetching volume '{name}'...[/cyan]"):
             volume = client.get_volume(name)
@@ -170,10 +162,6 @@ def show_volume(name: str) -> None:  # noqa: PLR0915
 
     except NotFoundError:
         console.print(f"[red]✗[/red] Volume '{name}' not found.")
-        raise click.Abort()
-    except AuthenticationError as e:
-        console.print(f"[red]✗[/red] Authentication failed: {e.message}")
-        console.print("[dim]Your token may have expired. Try 'bookshelf-client auth login'[/dim]")
         raise click.Abort()
     except APIError as e:
         console.print(f"[red]✗[/red] API error: {e.message}")
