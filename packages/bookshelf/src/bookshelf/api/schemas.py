@@ -1,6 +1,6 @@
 """Pydantic schemas for API request/response validation.
 
-Uses pydantic v1 syntax to match existing bookshelf codebase.
+Pydantic v2 schemas for API request/response validation.
 """
 
 from datetime import datetime
@@ -41,7 +41,7 @@ class TokenResponse(BaseModel):
     """OAuth2 token response."""
 
     access_token: str
-    token_type: str = "bearer"
+    token_type: str = "bearer"  # noqa: S105
     expires_in: int = Field(..., description="Token lifetime in seconds")
     refresh_token: str | None = Field(None, description="Refresh token for obtaining new access tokens")
 
@@ -79,6 +79,13 @@ class ResourceSummary(BaseModel):
     type: str
     format: str
     size_bytes: int
+    # Extended fields for direct resource access (Phase 1)
+    download_url: str | None = None
+    hash: str | None = None
+    filename: str | None = None
+    timeseries_name: str | None = None
+    shape: str | None = None
+    content_hash: str | None = None
 
 
 class BookResponse(BaseModel):
