@@ -228,6 +228,7 @@ def authorization_code_flow(
             "code_challenge": code_challenge,
             "code_challenge_method": "S256",
             "state": state,
+            "provider": "authkit",
         }
     )
     auth_url = f"{workos_url}/user_management/authorize?{auth_params}"
