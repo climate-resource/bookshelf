@@ -18,11 +18,6 @@ dependencies = [
 [project.scripts]
 bookshelf = "bookshelf_producer.cli:main"
 
-[tool.uv]
-dev-dependencies = [
-    "moto[s3]>=5"
-]
-
 [tool.uv.sources]
 bookshelf = { workspace = true }
 

@@ -44,7 +44,7 @@ jobs:
         type version.txt
         type version.txt >> $env:GITHUB_ENV
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         ref: ${{ env.INSTALLED_VERSION }}
     - name: Test installation

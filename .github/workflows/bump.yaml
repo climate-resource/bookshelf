@@ -32,7 +32,7 @@ jobs:
       CI_COMMIT_EMAIL: "ci-runner@bookshelf.invalid"
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: "${{ secrets.PERSONAL_ACCESS_TOKEN }}"

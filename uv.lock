@@ -395,11 +395,6 @@ dependencies = [
     { name = "seaborn" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "moto", extra = ["s3"] },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "bookshelf", editable = "packages/bookshelf" },
@@ -411,9 +406,6 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "seaborn", specifier = ">=0.12.2" },
 ]
-
-[package.metadata.requires-dev]
-dev = [{ name = "moto", extras = ["s3"], specifier = ">=5" }]
 
 [[package]]
 name = "bookshelf-root"
@@ -441,6 +433,7 @@ dev = [
     { name = "mkdocs-minify-plugin" },
     { name = "mkdocs-section-index" },
     { name = "mkdocstrings", extra = ["python"] },
+    { name = "moto", extra = ["s3"] },
     { name = "mypy" },
     { name = "myst-nb" },
     { name = "pandas-stubs" },
@@ -478,6 +471,7 @@ dev = [
     { name = "mkdocs-minify-plugin", specifier = ">=0.8.0" },
     { name = "mkdocs-section-index", specifier = ">=0.3.9" },
     { name = "mkdocstrings", extras = ["python"], specifier = ">=0.25.0" },
+    { name = "moto", extras = ["s3"], specifier = ">=5" },
     { name = "mypy", specifier = ">=1.2.0" },
     { name = "myst-nb", specifier = ">=1.1.1" },
     { name = "pandas-stubs", specifier = ">=2.2.3.241009" },

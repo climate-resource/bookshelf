@@ -4,10 +4,10 @@ description: "setup Python and uv with caches"
 runs:
   using: "composite"
   steps:
-    - name: Install uv
-      uses: astral-sh/setup-uv@v3
+    - name: Setup uv
+      uses: astral-sh/setup-uv@v6
       with:
-        version: "0.4.20"
+        version: "0.9.30"
         enable-cache: true
     - name: Install the project
       shell: bash
