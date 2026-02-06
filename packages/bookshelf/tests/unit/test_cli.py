@@ -1,5 +1,6 @@
 """Unit tests for the Bookshelf CLI."""
 
+import json
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -8,6 +9,7 @@ import respx
 from click.testing import CliRunner
 
 from bookshelf.cli import main
+from bookshelf.oauth import OAuthError
 
 
 @pytest.fixture
@@ -39,8 +41,6 @@ def api_env(monkeypatch):
 @pytest.fixture
 def authenticated_env(mock_credentials_path, monkeypatch):
     """Set up authenticated environment."""
-    import json
-
     credentials = {
         "access_token": "test_token_123",
         "token_type": "bearer",
@@ -57,26 +57,25 @@ def authenticated_env(mock_credentials_path, monkeypatch):
 class TestLoginCommand:
     """Tests for the login command."""
 
-    @respx.mock
     def test_login_success(self, runner, mock_credentials_path, monkeypatch):
-        """Should successfully login and save credentials."""
+        """Should successfully login via OAuth and save credentials."""
         monkeypatch.setenv("BOOKSHELF_API_URL", "https://test.example.com")
 
-        respx.post("https://test.example.com/auth/token").mock(
-            return_value=httpx.Response(
-                200,
-                json={
-                    "access_token": "new_token_123",
-                    "token_type": "bearer",
-                    "expires_in": 3600,
-                },
-            )
+        # Mock the OAuth authorization_code_flow to return tokens
+        mock_token_data = {
+            "access_token": "new_token_123",
+            "token_type": "bearer",
+            "expires_in": 3600,
+            "refresh_token": "refresh_123",
+        }
+        monkeypatch.setattr(
+            "bookshelf.oauth.authorization_code_flow",
+            lambda api_url="": mock_token_data,
         )
 
         result = runner.invoke(
             main,
             ["auth", "login"],
-            input="testuser\ntestpassword\n",
         )
 
         assert result.exit_code == 0
@@ -85,39 +84,40 @@ class TestLoginCommand:
         # Verify credentials were saved
         assert mock_credentials_path.exists()
 
-    @respx.mock
     def test_login_invalid_credentials(self, runner, monkeypatch):
-        """Should handle invalid credentials."""
+        """Should handle OAuth authentication failure."""
         monkeypatch.setenv("BOOKSHELF_API_URL", "https://test.example.com")
 
-        respx.post("https://test.example.com/auth/token").mock(
-            return_value=httpx.Response(
-                401,
-                json={"detail": "Invalid username or password"},
-            )
+        def mock_auth_flow(api_url=""):
+            raise OAuthError("Authorization failed")
+
+        monkeypatch.setattr(
+            "bookshelf.oauth.authorization_code_flow",
+            mock_auth_flow,
         )
 
         result = runner.invoke(
             main,
             ["auth", "login"],
-            input="baduser\nbadpassword\n",
         )
 
         assert result.exit_code != 0
 
-    @respx.mock
     def test_login_network_error(self, runner, monkeypatch):
-        """Should handle network errors during login."""
+        """Should handle network errors during OAuth login."""
         monkeypatch.setenv("BOOKSHELF_API_URL", "https://test.example.com")
 
-        respx.post("https://test.example.com/auth/token").mock(
-            side_effect=httpx.ConnectError("Connection failed")
+        def mock_auth_flow(api_url=""):
+            raise httpx.ConnectError("Connection failed")
+
+        monkeypatch.setattr(
+            "bookshelf.oauth.authorization_code_flow",
+            mock_auth_flow,
         )
 
         result = runner.invoke(
             main,
             ["auth", "login"],
-            input="testuser\ntestpassword\n",
         )
 
         assert result.exit_code != 0
