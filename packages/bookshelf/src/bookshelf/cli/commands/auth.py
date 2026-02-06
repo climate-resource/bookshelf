@@ -6,8 +6,6 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from bookshelf.api.client import BookshelfAPIClient
-from bookshelf.api.errors import AuthenticationError
 from bookshelf.auth import (
     clear_credentials,
     get_api_url,
@@ -27,54 +25,104 @@ def auth_group() -> None:
 
 
 @auth_group.command(name="login")
-@click.option("--username", prompt=True, help="Username or email")
-@click.option("--password", prompt=True, hide_input=True, help="Password")
+@click.option(
+    "--device-code",
+    is_flag=True,
+    default=False,
+    help="Use device code flow (for headless/SSH environments)",
+)
 @click.option(
     "--api-url",
     envvar="BOOKSHELF_API_URL",
-    help="API base URL (default: from environment or https://bookshelf.climate-resource.com/api)",
+    help="API base URL (default: from environment or stored credentials)",
 )
-def login(username: str, password: str, api_url: str | None) -> None:
-    """Login to the bookshelf API and store credentials."""
+def login(device_code: bool, api_url: str | None) -> None:
+    """Login to the bookshelf API via WorkOS OAuth."""
+    from bookshelf.oauth import (
+        OAuthError,
+        authorization_code_flow,
+        poll_device_flow,
+        start_device_flow,
+    )
+
     # Use provided URL or fall back to default
     base_url = api_url or get_api_url()
 
-    console.print(f"[cyan]Authenticating with {base_url}...[/cyan]")
-
     try:
-        # Create API client and authenticate
-        client = BookshelfAPIClient(base_url=base_url)
-        token_response = client.authenticate(username, password)
-
-        # Save credentials
-        save_credentials(
-            access_token=token_response.access_token,
-            token_type=token_response.token_type,
-            expires_in=token_response.expires_in,
-            api_url=base_url,
-        )
-
-        console.print("[green]✓[/green] Login successful!")
-        console.print(f"[dim]Token expires in {token_response.expires_in} seconds[/dim]")
-        console.print(f"[dim]Credentials saved to {get_credentials_path()}[/dim]")
-
-    except AuthenticationError as e:
-        console.print(f"[red]✗[/red] Authentication failed: {e.message}")
+        if device_code:
+            _login_device_code(base_url, start_device_flow, poll_device_flow)
+        else:
+            _login_pkce(base_url, authorization_code_flow)
+    except OAuthError as e:
+        console.print(f"[red]x[/red] Authentication failed: {e}")
         raise click.Abort()
     except Exception as e:
-        console.print(f"[red]✗[/red] Login failed: {e!s}")
+        console.print(f"[red]x[/red] Login failed: {e!s}")
         raise click.Abort()
+
+
+def _login_pkce(base_url: str, auth_flow: object) -> None:
+    """Run PKCE browser-based login."""
+    from bookshelf.oauth import authorization_code_flow as _auth_code_flow
+
+    console.print("[cyan]Opening browser for authentication...[/cyan]")
+    console.print("[dim]If the browser doesn't open, use --device-code instead.[/dim]")
+
+    token_data = _auth_code_flow(api_url=base_url)
+
+    _save_and_report(token_data, base_url)
+
+
+def _login_device_code(base_url: str, start_fn: object, poll_fn: object) -> None:
+    """Run device code login flow."""
+    from bookshelf.oauth import poll_device_flow as _poll
+    from bookshelf.oauth import start_device_flow as _start
+
+    console.print("[cyan]Starting device code authentication...[/cyan]")
+
+    device_flow = _start(api_url=base_url)
+
+    # Display the code prominently
+    console.print()
+    console.print(f"[bold]Your code: [yellow]{device_flow.user_code}[/yellow][/bold]")
+    console.print()
+    uri = device_flow.verification_uri_complete
+    console.print(f"Visit: [link={uri}]{uri}[/link]")
+    console.print()
+
+    with console.status("[cyan]Waiting for authorization...[/cyan]"):
+        token_data = _poll(device_flow, api_url=base_url)
+
+    _save_and_report(token_data, base_url)
+
+
+def _save_and_report(token_data: dict, base_url: str) -> None:  # type: ignore[type-arg]
+    """Save token data and print success message."""
+    save_credentials(
+        access_token=token_data["access_token"],
+        token_type=token_data.get("token_type", "bearer"),
+        expires_in=token_data.get("expires_in"),
+        api_url=base_url,
+        refresh_token=token_data.get("refresh_token"),
+    )
+
+    console.print("[green]v[/green] Login successful!")
+    if token_data.get("expires_in"):
+        console.print(f"[dim]Token expires in {token_data['expires_in']} seconds[/dim]")
+    if token_data.get("refresh_token"):
+        console.print("[dim]Refresh token stored for automatic renewal[/dim]")
+    console.print(f"[dim]Credentials saved to {get_credentials_path()}[/dim]")
 
 
 @auth_group.command(name="logout")
 def logout() -> None:
     """Clear stored credentials."""
     if not is_authenticated():
-        console.print("[yellow]⚠[/yellow] Not currently logged in.")
+        console.print("[yellow]![/yellow] Not currently logged in.")
         return
 
     clear_credentials()
-    console.print("[green]✓[/green] Logged out successfully.")
+    console.print("[green]v[/green] Logged out successfully.")
     console.print(f"[dim]Credentials removed from {get_credentials_path()}[/dim]")
 
 
@@ -110,6 +158,12 @@ def status() -> None:
                     table.add_row("Token Expires", "[red]EXPIRED[/red]")
             else:
                 table.add_row("Token Expires", "Never")
+
+            # Show refresh token availability
+            if creds["refresh_token"]:
+                table.add_row("Refresh Token", "[green]Available[/green]")
+            else:
+                table.add_row("Refresh Token", "[yellow]Not available[/yellow]")
 
             table.add_row("Credentials File", str(get_credentials_path()))
         else:

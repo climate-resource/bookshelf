@@ -21,6 +21,7 @@ class Credentials(TypedDict):
     token_type: str
     expires_at: datetime | None
     api_url: str
+    refresh_token: str | None
 
 
 def get_credentials_path() -> Path:
@@ -62,7 +63,16 @@ def load_credentials() -> Credentials | None:
             expires_at = datetime.fromisoformat(data["expires_at"])
             # Check if expired
             if expires_at <= datetime.now(timezone.utc):
-                # Clear expired credentials
+                # Try to refresh if we have a refresh token
+                refresh_token = data.get("refresh_token")
+                if refresh_token:
+                    refreshed = _try_refresh(
+                        refresh_token,
+                        api_url=data.get("api_url", ""),
+                    )
+                    if refreshed:
+                        return refreshed
+                # Clear expired credentials if refresh failed or unavailable
                 clear_credentials()
                 return None
             data["expires_at"] = expires_at
@@ -79,6 +89,7 @@ def load_credentials() -> Credentials | None:
             token_type=data["token_type"],
             expires_at=data["expires_at"],
             api_url=data["api_url"],
+            refresh_token=data.get("refresh_token"),
         )
 
     except (json.JSONDecodeError, KeyError, ValueError, OSError):
@@ -91,6 +102,7 @@ def save_credentials(
     token_type: str = "bearer",  # noqa: S107
     expires_in: int | None = None,
     api_url: str | None = None,
+    refresh_token: str | None = None,
 ) -> None:
     """
     Save credentials to disk.
@@ -108,6 +120,8 @@ def save_credentials(
         Token expiry in seconds from now (default: None for no expiry)
     api_url : str | None, optional
         API base URL (default: None, uses get_api_url() default)
+    refresh_token : str | None, optional
+        Refresh token for obtaining new access tokens (default: None)
     """
     creds_path = get_credentials_path()
 
@@ -121,6 +135,7 @@ def save_credentials(
         "token_type": token_type,
         "expires_at": expires_at.isoformat() if expires_at else None,
         "api_url": api_url or get_api_url(),
+        "refresh_token": refresh_token,
     }
 
     # Write credentials
@@ -167,6 +182,7 @@ def get_token() -> str | None:
     Get current access token if valid, else None.
 
     Checks environment variable override first, then stored credentials.
+    Proactively refreshes the token if it expires within 5 minutes.
 
     Returns
     -------
@@ -181,9 +197,55 @@ def get_token() -> str | None:
     # Try stored credentials
     creds = load_credentials()
     if creds:
+        # Proactive refresh: if token expires within 5 minutes, refresh now
+        if (
+            creds["expires_at"] is not None
+            and creds["refresh_token"] is not None
+            and creds["expires_at"] <= datetime.now(timezone.utc) + timedelta(minutes=5)
+        ):
+            refreshed = _try_refresh(
+                creds["refresh_token"],
+                api_url=creds["api_url"],
+            )
+            if refreshed:
+                return refreshed["access_token"]
         return creds["access_token"]
 
     return None
+
+
+def _try_refresh(refresh_token: str, api_url: str = "") -> Credentials | None:
+    """
+    Attempt to refresh credentials using a refresh token.
+
+    Lazily imports from oauth module to avoid circular dependencies.
+
+    Parameters
+    ----------
+    refresh_token : str
+        The refresh token to use
+    api_url : str, optional
+        API base URL for client ID selection
+
+    Returns
+    -------
+    Credentials | None
+        New credentials if refresh succeeded, None otherwise
+    """
+    try:
+        from bookshelf.oauth import refresh_access_token
+
+        token_data = refresh_access_token(refresh_token, api_url=api_url)
+        save_credentials(
+            access_token=token_data["access_token"],
+            token_type=token_data.get("token_type", "bearer"),
+            expires_in=token_data.get("expires_in"),
+            api_url=api_url or get_api_url(),
+            refresh_token=token_data.get("refresh_token"),
+        )
+        return load_credentials()
+    except Exception:
+        return None
 
 
 def get_api_url() -> str:

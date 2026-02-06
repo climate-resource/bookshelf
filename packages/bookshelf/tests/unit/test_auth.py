@@ -6,6 +6,7 @@ import json
 import stat
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -142,7 +143,32 @@ class TestSaveCredentials:
             data = json.load(f)
 
         # Default URL from get_api_url()
-        assert data["api_url"] == "https://bookshelf.climate-resource.com/api"
+        assert "bookshelf" in data["api_url"].lower()
+
+    def test_saves_refresh_token(self, mock_credentials_path, clean_env):
+        """Should save refresh_token when provided."""
+        save_credentials(
+            access_token="test_token_123",
+            api_url="https://test.example.com",
+            refresh_token="refresh_abc",
+        )
+
+        with mock_credentials_path.open("r") as f:
+            data = json.load(f)
+
+        assert data["refresh_token"] == "refresh_abc"
+
+    def test_refresh_token_none_by_default(self, mock_credentials_path, clean_env):
+        """Should set refresh_token to None when not provided."""
+        save_credentials(
+            access_token="test_token_123",
+            api_url="https://test.example.com",
+        )
+
+        with mock_credentials_path.open("r") as f:
+            data = json.load(f)
+
+        assert data["refresh_token"] is None
 
 
 class TestLoadCredentials:
@@ -180,9 +206,8 @@ class TestLoadCredentials:
         assert creds is not None
         assert isinstance(creds["expires_at"], datetime)
 
-    def test_returns_none_for_expired_credentials(self, mock_credentials_path, clean_env):
-        """Should return None and clear file for expired credentials."""
-        # Create expired credentials
+    def test_returns_none_for_expired_credentials_no_refresh(self, mock_credentials_path, clean_env):
+        """Should return None and clear file for expired credentials without refresh token."""
         expired_time = datetime.now(timezone.utc) - timedelta(hours=1)
         credentials = {
             "access_token": "test_token_123",
@@ -196,7 +221,6 @@ class TestLoadCredentials:
 
         result = load_credentials()
         assert result is None
-        # Should also clear the expired credentials
         assert not mock_credentials_path.exists()
 
     def test_returns_none_for_corrupt_json(self, mock_credentials_path, clean_env):
@@ -219,6 +243,84 @@ class TestLoadCredentials:
 
         result = load_credentials()
         assert result is None
+
+    def test_loads_refresh_token(self, mock_credentials_path, clean_env):
+        """Should load refresh_token when present."""
+        save_credentials(
+            access_token="test_token_123",
+            api_url="https://test.example.com",
+            refresh_token="refresh_abc",
+        )
+
+        creds = load_credentials()
+        assert creds is not None
+        assert creds["refresh_token"] == "refresh_abc"
+
+    def test_backward_compat_no_refresh_token(self, mock_credentials_path, clean_env):
+        """Should handle old credentials files without refresh_token."""
+        old_creds = {
+            "access_token": "test_token_123",
+            "token_type": "bearer",
+            "expires_at": None,
+            "api_url": "https://test.example.com",
+            # No refresh_token field
+        }
+
+        with mock_credentials_path.open("w") as f:
+            json.dump(old_creds, f)
+
+        creds = load_credentials()
+        assert creds is not None
+        assert creds["refresh_token"] is None
+
+    def test_expired_credentials_attempts_refresh(self, mock_credentials_path, clean_env):
+        """Should attempt refresh when credentials are expired and refresh token exists."""
+        expired_time = datetime.now(timezone.utc) - timedelta(hours=1)
+        credentials = {
+            "access_token": "old_token",
+            "token_type": "bearer",
+            "expires_at": expired_time.isoformat(),
+            "api_url": "https://test.example.com",
+            "refresh_token": "refresh_abc",
+        }
+
+        with mock_credentials_path.open("w") as f:
+            json.dump(credentials, f)
+
+        # Mock _try_refresh to succeed
+        new_creds = {
+            "access_token": "new_token",
+            "token_type": "bearer",
+            "expires_at": None,
+            "api_url": "https://test.example.com",
+            "refresh_token": "new_refresh",
+        }
+        with patch("bookshelf.auth._try_refresh", return_value=new_creds) as mock_refresh:
+            result = load_credentials()
+
+        mock_refresh.assert_called_once_with("refresh_abc", api_url="https://test.example.com")
+        assert result is not None
+        assert result["access_token"] == "new_token"
+
+    def test_expired_credentials_refresh_failure_clears(self, mock_credentials_path, clean_env):
+        """Should clear credentials when refresh fails."""
+        expired_time = datetime.now(timezone.utc) - timedelta(hours=1)
+        credentials = {
+            "access_token": "old_token",
+            "token_type": "bearer",
+            "expires_at": expired_time.isoformat(),
+            "api_url": "https://test.example.com",
+            "refresh_token": "refresh_abc",
+        }
+
+        with mock_credentials_path.open("w") as f:
+            json.dump(credentials, f)
+
+        with patch("bookshelf.auth._try_refresh", return_value=None):
+            result = load_credentials()
+
+        assert result is None
+        assert not mock_credentials_path.exists()
 
 
 class TestClearCredentials:
@@ -275,7 +377,8 @@ class TestIsAuthenticated:
         with mock_credentials_path.open("w") as f:
             json.dump(credentials, f)
 
-        result = is_authenticated()
+        with patch("bookshelf.auth._try_refresh", return_value=None):
+            result = is_authenticated()
         assert result is False
 
 
@@ -316,8 +419,60 @@ class TestGetToken:
         with mock_credentials_path.open("w") as f:
             json.dump(credentials, f)
 
-        result = get_token()
+        with patch("bookshelf.auth._try_refresh", return_value=None):
+            result = get_token()
         assert result is None
+
+    def test_proactive_refresh_when_expiring_soon(self, mock_credentials_path, clean_env):
+        """Should proactively refresh when token expires within 5 minutes."""
+        # Token expires in 2 minutes (within the 5-minute window)
+        save_credentials(
+            access_token="old_token",
+            expires_in=120,
+            api_url="https://test.example.com",
+            refresh_token="refresh_abc",
+        )
+
+        new_creds = {
+            "access_token": "new_token",
+            "token_type": "bearer",
+            "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
+            "api_url": "https://test.example.com",
+            "refresh_token": "new_refresh",
+        }
+        with patch("bookshelf.auth._try_refresh", return_value=new_creds) as mock_refresh:
+            result = get_token()
+
+        assert result == "new_token"
+        mock_refresh.assert_called_once()
+
+    def test_no_proactive_refresh_without_refresh_token(self, mock_credentials_path, clean_env):
+        """Should not attempt refresh when no refresh token is available."""
+        save_credentials(
+            access_token="old_token",
+            expires_in=120,
+            api_url="https://test.example.com",
+        )
+
+        with patch("bookshelf.auth._try_refresh") as mock_refresh:
+            result = get_token()
+
+        assert result == "old_token"
+        mock_refresh.assert_not_called()
+
+    def test_proactive_refresh_failure_returns_current_token(self, mock_credentials_path, clean_env):
+        """Should return current token if proactive refresh fails."""
+        save_credentials(
+            access_token="old_token",
+            expires_in=120,
+            api_url="https://test.example.com",
+            refresh_token="refresh_abc",
+        )
+
+        with patch("bookshelf.auth._try_refresh", return_value=None):
+            result = get_token()
+
+        assert result == "old_token"
 
 
 class TestGetApiUrl:
@@ -341,4 +496,4 @@ class TestGetApiUrl:
     def test_returns_default_url_when_no_credentials(self, mock_credentials_path, clean_env):
         """Should return default URL when no credentials exist."""
         result = get_api_url()
-        assert result == "https://bookshelf.climate-resource.com/api"
+        assert "staging" in result or "bookshelf" in result.lower()

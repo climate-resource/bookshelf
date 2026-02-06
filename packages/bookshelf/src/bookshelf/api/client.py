@@ -1,7 +1,8 @@
 """HTTP client for bookshelf-platform API."""
 
+from collections.abc import Callable
 from http import HTTPStatus
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
@@ -10,7 +11,6 @@ from bookshelf.api.schemas import (
     BookListResponse,
     BookResponse,
     BookStatus,
-    TokenResponse,
     VolumeDetailResponse,
     VolumeListResponse,
 )
@@ -20,13 +20,15 @@ class BookshelfAPIClient:
     """Synchronous HTTP client for bookshelf-platform API.
 
     Handles authentication, request formatting, and error handling.
+    Supports automatic token refresh on 401 responses via an optional callback.
     """
 
     def __init__(
         self,
         base_url: str,
-        token: Optional[str] = None,
+        token: str | None = None,
         timeout: float = 30.0,
+        on_token_refresh: Callable[[], str | None] | None = None,
     ):
         """Initialize API client.
 
@@ -34,10 +36,14 @@ class BookshelfAPIClient:
             base_url: Base URL of the API (e.g., "https://api.bookshelf.example.com")
             token: Optional bearer token for authentication
             timeout: Request timeout in seconds
+            on_token_refresh: Optional callback that attempts to refresh the token.
+                Should return a new access token string, or None if refresh fails.
+                Called automatically on 401 responses.
         """
         self.base_url = base_url.rstrip("/")
         self.token = token
         self.timeout = timeout
+        self._on_token_refresh = on_token_refresh
         self._client = httpx.Client(timeout=timeout)
 
     def __enter__(self) -> "BookshelfAPIClient":
@@ -86,37 +92,58 @@ class BookshelfAPIClient:
         else:
             raise APIError(detail, status_code=response.status_code)
 
-    def authenticate(self, username: str, password: str) -> TokenResponse:
-        """Authenticate and obtain access token.
+    def _request(
+        self,
+        method: str,
+        path: str,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        """Make an HTTP request with automatic 401 retry via token refresh.
+
+        On a 401 response, if an ``on_token_refresh`` callback is configured,
+        it will be called to obtain a new token and the request retried once.
 
         Args:
-            username: Username or email
-            password: Password
+            method: HTTP method (GET, POST, etc.)
+            path: URL path relative to base_url
+            **kwargs: Additional arguments passed to httpx.Client.request()
 
         Returns
         -------
-            TokenResponse containing access token and metadata
+            httpx.Response on success
 
         Raises
         ------
-            AuthenticationError: If credentials are invalid
+            AuthenticationError: If 401 and refresh fails or is unavailable
+            NotFoundError: For 404 responses
+            ServerError: For 5xx responses
+            APIError: For other error responses
         """
-        response = self._client.post(
-            f"{self.base_url}/auth/token",
-            data={
-                "username": username,
-                "password": password,
-                "grant_type": "password",
-            },
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
+        url = f"{self.base_url}{path}"
+        kwargs.setdefault("headers", self._headers())
 
-        if not response.is_success:
-            self._handle_error(response)
+        response = self._client.request(method, url, **kwargs)
 
-        token_data = TokenResponse(**response.json())
-        self.token = token_data.access_token
-        return token_data
+        if response.is_success:
+            return response
+
+        # On 401, try refreshing the token once
+        if response.status_code == HTTPStatus.UNAUTHORIZED and self._on_token_refresh is not None:
+            new_token = self._on_token_refresh()
+            if new_token:
+                self.token = new_token
+                # Update Authorization header for retry
+                kwargs["headers"] = self._headers()
+                retry_response = self._client.request(method, url, **kwargs)
+                if retry_response.is_success:
+                    return retry_response
+                # If retry also fails, raise from the retry response
+                self._handle_error(retry_response)
+
+        self._handle_error(response)
+
+        # _handle_error always raises, but this satisfies the type checker
+        raise APIError("Unexpected error")  # pragma: no cover
 
     def list_volumes(
         self,
@@ -133,15 +160,11 @@ class BookshelfAPIClient:
         -------
             Paginated list of volumes
         """
-        response = self._client.get(
-            f"{self.base_url}/volumes",
+        response = self._request(
+            "GET",
+            "/volumes",
             params={"limit": limit, "offset": offset},
-            headers=self._headers(),
         )
-
-        if not response.is_success:
-            self._handle_error(response)
-
         return VolumeListResponse(**response.json())
 
     def get_volume(self, name: str) -> VolumeDetailResponse:
@@ -158,21 +181,14 @@ class BookshelfAPIClient:
         ------
             NotFoundError: If volume does not exist
         """
-        response = self._client.get(
-            f"{self.base_url}/volumes/{name}",
-            headers=self._headers(),
-        )
-
-        if not response.is_success:
-            self._handle_error(response)
-
+        response = self._request("GET", f"/volumes/{name}")
         return VolumeDetailResponse(**response.json())
 
     def list_books(  # noqa: PLR0913
         self,
         volume_name: str,
-        version: Optional[str] = None,
-        status: Optional[BookStatus] = None,
+        version: str | None = None,
+        status: BookStatus | None = None,
         latest_only: bool = False,
         limit: int = 100,
         offset: int = 0,
@@ -201,22 +217,18 @@ class BookshelfAPIClient:
         if status:
             params["status"] = status.value
 
-        response = self._client.get(
-            f"{self.base_url}/volumes/{volume_name}/books",
+        response = self._request(
+            "GET",
+            f"/volumes/{volume_name}/books",
             params=params,
-            headers=self._headers(),
         )
-
-        if not response.is_success:
-            self._handle_error(response)
-
         return BookListResponse(**response.json())
 
     def get_book(
         self,
         volume_name: str,
         version: str,
-        edition: Optional[int] = None,
+        edition: int | None = None,
     ) -> BookResponse:
         """Get book by version.
 
@@ -237,13 +249,9 @@ class BookshelfAPIClient:
         if edition is not None:
             params["edition"] = edition
 
-        response = self._client.get(
-            f"{self.base_url}/volumes/{volume_name}/books/{version}",
+        response = self._request(
+            "GET",
+            f"/volumes/{volume_name}/books/{version}",
             params=params,
-            headers=self._headers(),
         )
-
-        if not response.is_success:
-            self._handle_error(response)
-
         return BookResponse(**response.json())

@@ -5,7 +5,7 @@ Uses pydantic v1 syntax to match existing bookshelf codebase.
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -43,6 +43,7 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     expires_in: int = Field(..., description="Token lifetime in seconds")
+    refresh_token: str | None = Field(None, description="Refresh token for obtaining new access tokens")
 
 
 # Pagination
@@ -65,8 +66,8 @@ class DataDictionaryEntry(BaseModel):
 
     name: str = Field(..., description="Column/field name")
     type: str = Field(..., description="Data type (e.g., 'string', 'float', 'datetime')")
-    description: Optional[str] = Field(None, description="Field description")
-    unit: Optional[str] = Field(None, description="Unit of measurement")
+    description: str | None = Field(None, description="Field description")
+    unit: str | None = Field(None, description="Unit of measurement")
     required: bool = Field(True, description="Whether field is required")
 
 
@@ -87,15 +88,15 @@ class BookResponse(BaseModel):
     volume_id: str
     version: str
     edition: int
-    description: Optional[str]
+    description: str | None
     status: BookStatus
     private: bool
     metadata: dict[str, Any]
     data_dictionary: list[DataDictionaryEntry]
-    hash: Optional[str]
+    hash: str | None
     created_at: datetime
     updated_at: datetime
-    published_at: Optional[datetime]
+    published_at: datetime | None
     resources: list[ResourceSummary] = Field(default_factory=list)
 
     @property
@@ -113,7 +114,7 @@ class BookListItem(BaseModel):
     status: BookStatus
     private: bool
     created_at: datetime
-    published_at: Optional[datetime]
+    published_at: datetime | None
     resource_count: int = 0
 
 
@@ -133,7 +134,7 @@ class VolumeResponse(BaseModel):
 
     id: str
     name: str
-    description: Optional[str]
+    description: str | None
     license: str
     metadata: dict[str, Any]
     created_at: datetime
@@ -145,12 +146,12 @@ class VolumeListItem(BaseModel):
 
     id: str
     name: str
-    description: Optional[str]
+    description: str | None
     license: str
     created_at: datetime
     updated_at: datetime
-    latest_version: Optional[str] = Field(None, description="Most recent version string")
-    latest_edition: Optional[int] = Field(None, description="Highest edition for latest_version")
+    latest_version: str | None = Field(None, description="Most recent version string")
+    latest_edition: int | None = Field(None, description="Highest edition for latest_version")
     resource_types: list[str] = Field(default_factory=list, description="Unique resource types")
 
 
@@ -160,7 +161,7 @@ class EditionInfo(BaseModel):
     edition: int
     status: str
     created_at: datetime
-    published_at: Optional[datetime]
+    published_at: datetime | None
 
 
 class VersionInfo(BaseModel):

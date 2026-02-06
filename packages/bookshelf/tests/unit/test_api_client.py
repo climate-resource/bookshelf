@@ -17,7 +17,6 @@ from bookshelf.api.schemas import (
     BookListResponse,
     BookResponse,
     BookStatus,
-    TokenResponse,
     VolumeDetailResponse,
     VolumeListResponse,
 )
@@ -173,6 +172,12 @@ class TestBookshelfAPIClientInit:
         headers = client._headers()
         assert "Authorization" in headers
         assert headers["Authorization"] == "Bearer test_token_123"
+
+    def test_init_with_on_token_refresh(self):
+        """Should accept on_token_refresh callback."""
+        callback = lambda: "new_token"  # noqa: E731
+        client = BookshelfAPIClient(base_url=TEST_BASE_URL, token="old_token", on_token_refresh=callback)
+        assert client._on_token_refresh is callback
 
 
 class TestListVolumes:
@@ -409,43 +414,93 @@ class TestErrorHandling:
             api_client.list_volumes()
 
 
-class TestAuthenticate:
-    """Tests for authenticate method."""
+class TestTokenRefreshRetry:
+    """Tests for automatic 401 retry with token refresh."""
 
     @respx.mock
-    def test_authenticate_success(self):
-        """Should authenticate and set token."""
-        client = BookshelfAPIClient(base_url=TEST_BASE_URL)
+    def test_401_retry_with_refresh_callback(self, mock_volume_list_response):
+        """Should retry request after refreshing token on 401."""
+        refresh_called = False
 
-        route = respx.post(f"{TEST_BASE_URL}/auth/token").mock(
-            return_value=httpx.Response(
-                200,
-                json={
-                    "access_token": "new_token_456",
-                    "token_type": "bearer",
-                    "expires_in": 3600,
-                },
-            )
+        def mock_refresh():
+            nonlocal refresh_called
+            refresh_called = True
+            return "new_token_456"
+
+        client = BookshelfAPIClient(
+            base_url=TEST_BASE_URL,
+            token="expired_token",
+            on_token_refresh=mock_refresh,
         )
 
-        result = client.authenticate(username="test", password="secret")
+        route = respx.get(f"{TEST_BASE_URL}/volumes").mock(
+            side_effect=[
+                httpx.Response(401, json={"detail": "Token expired"}),
+                httpx.Response(200, json=mock_volume_list_response),
+            ]
+        )
 
-        assert route.called
-        assert isinstance(result, TokenResponse)
-        assert result.access_token == "new_token_456"
+        result = client.list_volumes()
+
+        assert refresh_called
         assert client.token == "new_token_456"
+        assert isinstance(result, VolumeListResponse)
+        assert route.call_count == 2
 
     @respx.mock
-    def test_authenticate_failure(self):
-        """Should raise AuthenticationError on invalid credentials."""
-        client = BookshelfAPIClient(base_url=TEST_BASE_URL)
-
-        respx.post(f"{TEST_BASE_URL}/auth/token").mock(
-            return_value=httpx.Response(401, json={"detail": "Invalid credentials"})
+    def test_401_no_retry_without_callback(self):
+        """Should not retry when no refresh callback is configured."""
+        client = BookshelfAPIClient(
+            base_url=TEST_BASE_URL,
+            token="expired_token",
         )
 
-        with pytest.raises(AuthenticationError, match="Invalid credentials"):
-            client.authenticate(username="test", password="wrong")
+        respx.get(f"{TEST_BASE_URL}/volumes").mock(
+            return_value=httpx.Response(401, json={"detail": "Token expired"})
+        )
+
+        with pytest.raises(AuthenticationError, match="Token expired"):
+            client.list_volumes()
+
+    @respx.mock
+    def test_401_no_infinite_retry(self, mock_volume_list_response):
+        """Should not retry infinitely if refresh returns token but API still rejects."""
+
+        def mock_refresh():
+            return "still_bad_token"
+
+        client = BookshelfAPIClient(
+            base_url=TEST_BASE_URL,
+            token="expired_token",
+            on_token_refresh=mock_refresh,
+        )
+
+        respx.get(f"{TEST_BASE_URL}/volumes").mock(
+            return_value=httpx.Response(401, json={"detail": "Token expired"})
+        )
+
+        with pytest.raises(AuthenticationError, match="Token expired"):
+            client.list_volumes()
+
+    @respx.mock
+    def test_401_refresh_returns_none(self):
+        """Should raise AuthenticationError when refresh callback returns None."""
+
+        def mock_refresh():
+            return None
+
+        client = BookshelfAPIClient(
+            base_url=TEST_BASE_URL,
+            token="expired_token",
+            on_token_refresh=mock_refresh,
+        )
+
+        respx.get(f"{TEST_BASE_URL}/volumes").mock(
+            return_value=httpx.Response(401, json={"detail": "Token expired"})
+        )
+
+        with pytest.raises(AuthenticationError, match="Token expired"):
+            client.list_volumes()
 
 
 class TestContextManager:
