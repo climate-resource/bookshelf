@@ -111,7 +111,7 @@ logging.basicConfig(level=logging.INFO)
 
 # %%
 metadata = load_nb_metadata("example_volume/example_volume")
-metadata.dict()
+metadata.model_dump()
 
 # %% [markdown]
 # ### Data loading and transformation

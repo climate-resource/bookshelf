@@ -26,12 +26,12 @@ repos:
         language: fail
         files: "\\.rej$"
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: 'v0.1.8'
+    rev: 'v0.15.0'
     hooks:
-      - id: ruff
+      - id: ruff-check
         args: [ --fix, --exit-non-zero-on-fix ]
       - id: ruff-format
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: '0.4.20'
+    rev: '0.9.30'
     hooks:
       - id: uv-lock

@@ -6,7 +6,7 @@ import os
 from typing import Any
 
 import pooch
-from pydantic.v1 import BaseModel, Field
+from pydantic import BaseModel, Field
 
 from bookshelf.utils import get_env_var, get_notebook_directory
 
@@ -156,8 +156,8 @@ class DatasetMetadata(BaseModel):
     A dataset may consist of multiple files (:class:`FileDownloadInfo`)
     """
 
-    url: str | None
-    doi: str | None
+    url: str | None = None
+    doi: str | None = None
     files: list[FileDownloadInfo] = Field(default_factory=list)
     author: str
 
@@ -182,7 +182,7 @@ class NotebookMetadata(BaseModel):
     name: str
     version: Version
     edition: Edition
-    description: str | None
+    description: str | None = None
     license: str
     source_file: str
     private: bool
@@ -268,7 +268,7 @@ class ConfigSchema(BaseModel):
 
     name: str
     edition: Edition
-    description: str | None
+    description: str | None = None
     license: str
     source_file: str
     metadata: dict[str, Any]  # TODO: type this

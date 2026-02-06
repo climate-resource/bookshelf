@@ -49,7 +49,7 @@ metadata = load_nb_metadata(
     version=version,
     nb_directory=nb_directory,
 )
-metadata.dict()
+metadata.model_dump()
 
 
 # %% [markdown]

@@ -39,7 +39,7 @@ logging.basicConfig(level=logging.INFO)
 
 # %%
 metadata = load_nb_metadata("examples/simple")
-metadata.dict()
+metadata.model_dump()
 
 # %% tags=["parameters"]
 # This cell contains additional parameters that are controlled using papermill
@@ -63,7 +63,7 @@ data.head()
 
 
 # %%
-metadata_dict = metadata.dict()
+metadata_dict = metadata.model_dump()
 metadata_dict["data_dictionary"]
 
 # %%

@@ -30,7 +30,7 @@ version = "v202310"
 
 # %%
 metadata = load_nb_metadata("imf-weo", version=version)
-metadata.dict()
+metadata.model_dump()
 
 
 # %%

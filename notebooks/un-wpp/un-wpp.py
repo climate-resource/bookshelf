@@ -36,7 +36,7 @@ logging.basicConfig(level=logging.INFO)
 
 # %%
 metadata = load_nb_metadata("un-wpp")
-metadata.dict()
+metadata.model_dump()
 
 # %% tags=["parameters"]
 # This cell contains additional parameters that are controlled using papermill
@@ -112,12 +112,12 @@ value_cols = [
     "Mortality before Age 60, both sexes (deaths under age 60 per 1,000 live births)",
     "Male Mortality before Age 60 (deaths under age 60 per 1,000 male live births)",
     "Female Mortality before Age 60 (deaths under age 60 per 1,000 female live births)",
-    ("Mortality between Age 15 and 50, both sexes (deaths under age 50 per 1,000" " alive at age 15)"),
-    ("Male Mortality between Age 15 and 50 (deaths under age 50 per 1,000 males" " alive at age 15)"),
-    ("Female Mortality between Age 15 and 50 (deaths under age 50 per 1,000 females" " alive at age 15)"),
-    ("Mortality between Age 15 and 60, both sexes (deaths under age 60 per 1,000" " alive at age 15)"),
-    ("Male Mortality between Age 15 and 60 (deaths under age 60 per 1,000 males" " alive at age 15)"),
-    ("Female Mortality between Age 15 and 60 (deaths under age 60 per 1,000 females" " alive at age 15)"),
+    ("Mortality between Age 15 and 50, both sexes (deaths under age 50 per 1,000 alive at age 15)"),
+    ("Male Mortality between Age 15 and 50 (deaths under age 50 per 1,000 males alive at age 15)"),
+    ("Female Mortality between Age 15 and 50 (deaths under age 50 per 1,000 females alive at age 15)"),
+    ("Mortality between Age 15 and 60, both sexes (deaths under age 60 per 1,000 alive at age 15)"),
+    ("Male Mortality between Age 15 and 60 (deaths under age 60 per 1,000 males alive at age 15)"),
+    ("Female Mortality between Age 15 and 60 (deaths under age 60 per 1,000 females alive at age 15)"),
     "Net Number of Migrants (thousands)",
     "Net Migration Rate (per 1,000 population)",
 ]
@@ -162,8 +162,8 @@ def prep_df(df, **kwargs):
 
     df_wide["region"] = df_wide["region"].str.replace("WORLD", "World")
 
-    for k in kwargs:
-        df_wide[k] = kwargs[k]
+    for k, v in kwargs.items():
+        df_wide[k] = v
 
     return df_wide.reset_index(drop=True)
 
@@ -207,7 +207,7 @@ for t in available_types:
         data_subset["region"] = data_subset["ISO3 Alpha-code"]
 
     book.add_timeseries(
-        f'by_{t.replace(" ", "_").replace("/", "_").lower()}',
+        f"by_{t.replace(' ', '_').replace('/', '_').lower()}",
         data_subset.drop_meta("ISO3 Alpha-code"),
     )
 

@@ -46,7 +46,7 @@ version = "v2016_07_26"
 
 # %%
 metadata = load_nb_metadata("ceds", version=version)
-metadata.dict()
+metadata.model_dump()
 
 # %%
 book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)

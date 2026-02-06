@@ -32,7 +32,7 @@ local_bookshelf = tempfile.mkdtemp()
 
 # %%
 metadata = load_nb_metadata("ndcs-pbl")
-metadata.dict()
+metadata.model_dump()
 
 
 # %%

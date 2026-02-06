@@ -54,7 +54,7 @@ def _update_volume_meta(book: LocalBook, remote_bookshelf: str) -> str:
         )
     )
     with open(meta_fname, "w") as file_handle:
-        file_handle.write(volume_meta.json())
+        file_handle.write(volume_meta.model_dump_json())
 
     return meta_fname
 

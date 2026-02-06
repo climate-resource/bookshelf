@@ -41,7 +41,7 @@ local_bookshelf = tempfile.mkdtemp()
 
 # %%
 metadata = load_nb_metadata("cat")
-metadata.dict()
+metadata.model_dump()
 
 # %%
 NOTEBOOK_DIR = pathlib.Path().resolve()

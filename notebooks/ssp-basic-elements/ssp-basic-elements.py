@@ -35,7 +35,7 @@ logging.basicConfig(level="INFO")
 
 # %%
 metadata = load_nb_metadata("ssp-basic-elements")
-metadata.dict()
+metadata.model_dump()
 
 # %% tags=["parameters"]
 local_bookshelf = tempfile.mkdtemp()
