@@ -4,12 +4,15 @@ A BookShelf is a collection of Books that can be queried and fetched as needed.
 
 import json
 import logging
+import os
 import pathlib
+import re
 
 from bookshelf.backends.protocol import BookshelfBackend
 from bookshelf.backends.s3 import S3Backend
 from bookshelf.book import LocalBook
-from bookshelf.errors import UnknownBook, UnknownEdition, UnknownVersion
+from bookshelf.constants import DEFAULT_BACKEND
+from bookshelf.errors import OfflineError, UnknownBook, UnknownEdition, UnknownVersion
 from bookshelf.schema import Edition, Version, VolumeMeta
 from bookshelf.utils import (
     build_url,
@@ -82,9 +85,21 @@ class BookShelf:
         self.path = pathlib.Path(path)
         self.remote_bookshelf = get_remote_bookshelf(remote_bookshelf)
 
-        # If backend explicitly provided, use it. Otherwise default to S3.
+        # If backend explicitly provided, use it. Otherwise check env var.
         if backend is not None:
             self._backend = backend
+        elif os.environ.get("BOOKSHELF_BACKEND", DEFAULT_BACKEND).lower() == "api":
+            from bookshelf.api.client import BookshelfAPIClient  # noqa: PLC0415
+            from bookshelf.auth import get_api_url, get_token  # noqa: PLC0415
+            from bookshelf.backends.api import APIBackend  # noqa: PLC0415
+
+            self._backend = APIBackend(
+                client=BookshelfAPIClient(
+                    base_url=get_api_url(),
+                    token=get_token(),
+                ),
+                local_cache=self.path,
+            )
         else:
             self._backend = S3Backend(
                 remote_bookshelf=self.remote_bookshelf,
@@ -103,6 +118,8 @@ class BookShelf:
 
         If the book's metadata does not exist locally or an unknown version is requested
         the remote bookshelf is queried, otherwise the local metadata is used.
+
+        When the backend is unreachable, falls back to cached data if available.
 
         Parameters
         ----------
@@ -125,6 +142,8 @@ class BookShelf:
             The requested version is not available for the selected volume
         UnknownBook
             An invalid volume is requested
+        OfflineError
+            Network is unavailable and no cached data exists
 
         Returns
         -------
@@ -132,11 +151,30 @@ class BookShelf:
             A book from which the resources can be accessed
         """
         if version is None or edition is None or force:
-            version, edition = self._backend.resolve_version(name, version, edition)
+            try:
+                version, edition = self._backend.resolve_version(name, version, edition)
+            except (ConnectionError, OSError) as exc:
+                if force:
+                    raise
+                return self._offline_fallback(name, version, edition, exc)
+
         metadata_fragment = LocalBook.relative_path(name, version, edition, "datapackage.json")
         metadata_fname = self.path / metadata_fragment
         if not metadata_fname.exists() or force:
-            self._backend.fetch_datapackage(name, version, edition, metadata_fname)
+            try:
+                self._backend.fetch_datapackage(name, version, edition, metadata_fname)
+            except (ConnectionError, OSError) as exc:
+                if force:
+                    raise
+                if metadata_fname.exists():
+                    logger.warning(
+                        "Network unavailable, using cached metadata for %s %s (edition %s)",
+                        name,
+                        version,
+                        edition,
+                    )
+                    return LocalBook(name, version, edition, local_bookshelf=self.path)
+                raise OfflineError(name, version) from exc
 
         if not metadata_fname.exists():
             raise AssertionError()
@@ -232,3 +270,81 @@ class BookShelf:
             List of available books
         """
         return self._backend.list_volumes()
+
+    def _offline_fallback(
+        self,
+        name: str,
+        version: Version | None,
+        edition: Edition | None,
+        exc: Exception,
+    ) -> LocalBook:
+        """
+        Attempt to return cached data when the backend is unreachable.
+
+        Parameters
+        ----------
+        name
+            Volume name
+        version
+            Requested version (may be None)
+        edition
+            Requested edition (may be None)
+        exc
+            The original connection error
+
+        Raises
+        ------
+        OfflineError
+            If no suitable cached data exists
+        """
+        # If version+edition were provided, check that specific cache entry
+        if version is not None and edition is not None:
+            if self.is_cached(name, version, edition):
+                logger.warning(
+                    "Network unavailable, using cached version of %s %s (edition %s)",
+                    name,
+                    version,
+                    edition,
+                )
+                return self._load_from_cache(name, version, edition)
+
+        # Fall back to any cached version
+        cached = self._find_cached_versions(name)
+        if cached:
+            latest_version, latest_edition = cached[-1]
+            logger.warning(
+                "Network unavailable, falling back to cached %s %s (edition %s)",
+                name,
+                latest_version,
+                latest_edition,
+            )
+            return self._load_from_cache(name, latest_version, latest_edition)
+
+        raise OfflineError(name, version) from exc
+
+    def _load_from_cache(self, name: str, version: Version, edition: Edition) -> LocalBook:
+        """Load a book directly from the local cache without network calls."""
+        return LocalBook(name, version, edition, local_bookshelf=self.path)
+
+    def _find_cached_versions(self, name: str) -> list[tuple[Version, Edition]]:
+        """
+        Scan the local cache for cached versions of a volume.
+
+        Returns a sorted list of (version, edition) tuples.
+        """
+        volume_dir = self.path / name
+        if not volume_dir.is_dir():
+            return []
+
+        # Pattern: {version}_e{edition:03}
+        version_edition_re = re.compile(r"^(.+)_e(\d{3})$")
+        results: list[tuple[str, int]] = []
+
+        for entry in sorted(volume_dir.iterdir()):
+            if not entry.is_dir():
+                continue
+            match = version_edition_re.match(entry.name)
+            if match and (entry / "datapackage.json").exists():
+                results.append((match.group(1), int(match.group(2))))
+
+        return results
