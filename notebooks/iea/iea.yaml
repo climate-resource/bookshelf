@@ -13,7 +13,7 @@ data_dictionary:
     allowed_NA: true
     required_column: true
     controlled_vocabulary:
-      - value: 1
+      - value: "1"
         description: Energy emissions
   - name: conditionality
     description: Conditionality of a pathway
