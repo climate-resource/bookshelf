@@ -6,8 +6,8 @@ import json
 import logging
 import pathlib
 
-import requests.exceptions
-
+from bookshelf.backends.protocol import BookshelfBackend
+from bookshelf.backends.s3 import S3Backend
 from bookshelf.book import LocalBook
 from bookshelf.errors import UnknownBook, UnknownEdition, UnknownVersion
 from bookshelf.schema import Edition, Version, VolumeMeta
@@ -75,11 +75,21 @@ class BookShelf:
         self,
         path: str | pathlib.Path | None = None,
         remote_bookshelf: str | None = None,
+        backend: BookshelfBackend | None = None,
     ):
         if path is None:
             path = create_local_cache(path)
         self.path = pathlib.Path(path)
         self.remote_bookshelf = get_remote_bookshelf(remote_bookshelf)
+
+        # If backend explicitly provided, use it. Otherwise default to S3.
+        if backend is not None:
+            self._backend = backend
+        else:
+            self._backend = S3Backend(
+                remote_bookshelf=self.remote_bookshelf,
+                local_cache=self.path,
+            )
 
     def load(
         self,
@@ -122,23 +132,11 @@ class BookShelf:
             A book from which the resources can be accessed
         """
         if version is None or edition is None or force:
-            version, edition = self._resolve_version(name, version, edition)
+            version, edition = self._backend.resolve_version(name, version, edition)
         metadata_fragment = LocalBook.relative_path(name, version, edition, "datapackage.json")
         metadata_fname = self.path / metadata_fragment
-        if not metadata_fname.exists():
-            try:
-                url = build_url(
-                    self.remote_bookshelf,
-                    *LocalBook.path_parts(name, version, edition, "datapackage.json"),
-                )
-                fetch_file(
-                    url,
-                    local_fname=metadata_fname,
-                    known_hash=None,
-                    force=force,
-                )
-            except requests.exceptions.HTTPError as http_error:
-                raise UnknownVersion(name, version) from http_error
+        if not metadata_fname.exists() or force:
+            self._backend.fetch_datapackage(name, version, edition, metadata_fname)
 
         if not metadata_fname.exists():
             raise AssertionError()
@@ -206,26 +204,7 @@ class BookShelf:
         version: Version | None = None,
         edition: Edition | None = None,
     ) -> tuple[Version, Edition]:
-        # Update the package metadata
-        try:
-            meta = fetch_volume_meta(name, self.remote_bookshelf, self.path)
-        except requests.exceptions.HTTPError as http_error:
-            raise UnknownBook(f"No metadata for {name!r}") from http_error
-
-        if version is None:
-            version = meta.get_latest_version()
-
-        # Verify that the version exists
-        matching_version_books = meta.get_version(version)
-        if not matching_version_books:
-            raise UnknownVersion(name, version)
-
-        # Find edition
-        if edition is None:
-            edition = matching_version_books[-1].edition
-        if edition not in [b.edition for b in matching_version_books]:
-            raise UnknownEdition(name, version, edition)
-        return version, edition
+        return self._backend.resolve_version(name, version, edition)
 
     def list_versions(self, name: str) -> list[str]:
         """
@@ -241,12 +220,7 @@ class BookShelf:
         list of str
             List of available versions
         """
-        try:
-            meta = fetch_volume_meta(name, self.remote_bookshelf, self.path)
-        except requests.exceptions.HTTPError as http_error:
-            raise UnknownBook(f"No metadata for {name!r}") from http_error
-
-        return [version.version for version in meta.versions if not version.private]
+        return self._backend.list_versions(name)
 
     def list_books(self) -> list[str]:
         """
@@ -257,4 +231,4 @@ class BookShelf:
         list of str
             List of available books
         """
-        raise NotImplementedError
+        return self._backend.list_volumes()

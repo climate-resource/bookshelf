@@ -487,8 +487,10 @@ class LocalBook(_Book):
         if resource is None:
             raise ValueError(f"Unknown timeseries '{key_name}'")
         local_fname = self.local_fname(resource.descriptor["filename"])
+        # Prefer download_url from descriptor (set by APIBackend) over S3 URL construction
+        url = resource.descriptor.get("download_url") or self.url(resource.descriptor.get("filename"))
         fetch_file(
-            self.url(resource.descriptor.get("filename")),
+            url,
             pathlib.Path(local_fname),
             known_hash=resource.descriptor.get("hash"),
         )
@@ -519,8 +521,10 @@ class LocalBook(_Book):
         if resource is None:
             raise ValueError(f"Unknown timeseries '{key_name}'")
         local_fname = self.local_fname(resource.descriptor["filename"])
+        # Prefer download_url from descriptor (set by APIBackend) over S3 URL construction
+        url = resource.descriptor.get("download_url") or self.url(resource.descriptor.get("filename"))
         fetch_file(
-            self.url(resource.descriptor.get("filename")),
+            url,
             pathlib.Path(local_fname),
             known_hash=resource.descriptor.get("hash"),
         )
