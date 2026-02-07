@@ -165,7 +165,7 @@ def fetch_file(
         if pooch.hashes.hash_matches(local_fname, known_hash):
             return
         raise ValueError(
-            f"Hash for existing file {local_fname} does not match the expected " f"value {known_hash}"
+            f"Hash for existing file {local_fname} does not match the expected value {known_hash}"
         )
 
     if force or not local_fname.exists():
