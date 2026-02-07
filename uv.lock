@@ -290,14 +290,11 @@ name = "bookshelf"
 version = "0.4.0"
 source = { editable = "packages/bookshelf" }
 dependencies = [
-    { name = "click" },
     { name = "datapackage" },
-    { name = "httpx" },
     { name = "platformdirs" },
     { name = "pooch" },
     { name = "pydantic" },
     { name = "pyyaml" },
-    { name = "rich" },
     { name = "scmdata" },
 ]
 
@@ -336,14 +333,11 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "click", specifier = ">=8.0.0" },
     { name = "datapackage", specifier = ">=1.15.2" },
-    { name = "httpx", specifier = ">=0.25.0" },
     { name = "platformdirs", specifier = ">=4.3.6" },
     { name = "pooch" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pyyaml" },
-    { name = "rich", specifier = ">=13.0.0" },
     { name = "scmdata", specifier = ">=0.16.1" },
 ]
 
@@ -3774,19 +3768,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/da/88/f270de456dd7d11dcc808abfa291ecdd3f45ff44e3b549ffa01b126464d0/rfc3986_validator-0.1.1.tar.gz", hash = "sha256:3d44bde7921b3b9ec3ae4e3adca370438eccebc676456449b145d533b240d055", size = 6760, upload-time = "2019-10-28T16:00:19.144Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9e/51/17023c0f8f1869d8806b979a2bffa3f861f26a3f1a66b094288323fba52f/rfc3986_validator-0.1.1-py2.py3-none-any.whl", hash = "sha256:2f235c432ef459970b4306369336b9d5dbdda31b510ca1e327636e01f528bfa9", size = 4242, upload-time = "2019-10-28T16:00:13.976Z" },
-]
-
-[[package]]
-name = "rich"
-version = "14.3.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "markdown-it-py" },
-    { name = "pygments" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/74/99/a4cab2acbb884f80e558b0771e97e21e939c5dfb460f488d19df485e8298/rich-14.3.2.tar.gz", hash = "sha256:e712f11c1a562a11843306f5ed999475f09ac31ffb64281f73ab29ffdda8b3b8", size = 230143, upload-time = "2026-02-01T16:20:47.908Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ef/45/615f5babd880b4bd7d405cc0dc348234c5ffb6ed1ea33e152ede08b2072d/rich-14.3.2-py3-none-any.whl", hash = "sha256:08e67c3e90884651da3239ea668222d19bea7b589149d8014a21c633420dbb69", size = 309963, upload-time = "2026-02-01T16:20:46.078Z" },
 ]
 
 [[package]]
