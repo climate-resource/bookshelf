@@ -21,6 +21,11 @@ bookshelf = "bookshelf_producer.cli:main"
 [tool.uv.sources]
 bookshelf = { workspace = true }
 
+[dependency-groups]
+dev = [
+    "moto[s3]>=5",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

@@ -389,6 +389,11 @@ dependencies = [
     { name = "seaborn" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "moto", extra = ["s3"] },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "bookshelf", editable = "packages/bookshelf" },
@@ -400,6 +405,9 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "seaborn", specifier = ">=0.12.2" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "moto", extras = ["s3"], specifier = ">=5" }]
 
 [[package]]
 name = "bookshelf-root"
