@@ -47,10 +47,10 @@ def test_load_missing(shelf, remote_bookshelf):
 
 def test_load_missing_version(shelf, remote_bookshelf):
     remote_bookshelf.mocker.get(f"/{DATA_FORMAT_VERSION}/test/v1.1.1/datapackage.json", status_code=404)
-    with pytest.raises(UnknownVersion, match="Could not find test@v1.1.1"):
+    with pytest.raises(UnknownVersion, match=r"Could not find test@v1.1.1"):
         shelf.load("test", "v1.1.1")
 
-    with pytest.raises(UnknownVersion, match="Could not find test@v1.1.1"):
+    with pytest.raises(UnknownVersion, match=r"Could not find test@v1.1.1"):
         shelf.load("test", "v1.1.1", force=True)
 
 

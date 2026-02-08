@@ -45,7 +45,7 @@ def _load_nb_config(
 
     # If a directory is provided assume that the config is similarly named
     if os.path.isdir(metadata_fname):
-        metadata_fname = os.path.join(metadata_fname, name.split("/")[-1] + ".yaml")
+        metadata_fname = os.path.join(metadata_fname, name.rsplit("/", maxsplit=1)[-1] + ".yaml")
 
     if not metadata_fname.endswith(".yaml") and not metadata_fname.endswith(".yml"):
         metadata_fname += ".yaml"
@@ -111,7 +111,7 @@ def load_nb_metadata(
     if selected_version is None:
         raise UnknownVersion(config.name, version)
 
-    return NotebookMetadata(**raw_data, **selected_version.dict())
+    return NotebookMetadata(**raw_data, **selected_version.model_dump())
 
 
 def run_notebook(
@@ -158,7 +158,7 @@ def run_notebook(
     if not has_jupytext:
         raise ImportError("jupytext is not installed. Run 'pip install bookshelf[notebooks]'")
 
-    short_name = name.split("/")[-1]
+    short_name = name.rsplit("/", maxsplit=1)[-1]
 
     # Verify metadata
     metadata = load_nb_metadata(name, version=version, nb_directory=nb_directory)
@@ -170,7 +170,7 @@ def run_notebook(
     logger.info(f"Loaded metadata from {metadata.source_file}")
     if metadata.name != short_name:  # pragma: no cover
         raise ValueError(
-            "name in metadata does not match the name of the notebook " f"({metadata.name} != {name}"
+            f"name in metadata does not match the name of the notebook ({metadata.name} != {short_name})"
         )
     logger.info(f"Processing {metadata.long_name()}")
 
@@ -189,7 +189,7 @@ def run_notebook(
     shutil.copyfile(nb_fname, os.path.join(output_directory, f"{short_name}.py"))
     logger.info(f"Copying metadata to {output_directory}")
     with open(os.path.join(output_directory, f"{short_name}.yaml"), "w") as fh:
-        yaml.safe_dump(metadata.dict(), fh)
+        yaml.safe_dump(metadata.model_dump(), fh)
 
     # Template and run notebook
     output_nb_fname = os.path.join(output_directory, f"{short_name}.ipynb")

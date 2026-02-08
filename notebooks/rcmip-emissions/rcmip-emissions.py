@@ -30,7 +30,7 @@ logging.basicConfig(level="INFO")
 
 # %%
 metadata = load_nb_metadata("rcmip-emissions")
-metadata.dict()
+metadata.model_dump()
 
 # %% tags=["parameters"]
 local_bookshelf = tempfile.mkdtemp()

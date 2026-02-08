@@ -32,7 +32,7 @@ local_bookshelf = tempfile.mkdtemp()
 
 # %%
 metadata = load_nb_metadata("iea")
-metadata.dict()
+metadata.model_dump()
 
 # %%
 iso3_url = "https://api.iea.org/ndc/list/iso3"

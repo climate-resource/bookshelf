@@ -1,7 +1,7 @@
 import os
 
 import pytest
-from pydantic.v1 import ValidationError
+from pydantic import ValidationError
 
 from bookshelf.schema import DatasetMetadata, NotebookMetadata
 from bookshelf.utils import get_notebook_directory
@@ -121,9 +121,9 @@ def test_notebook_metadata_invalid_data_dictionary():
 
     error = exc_info.value
 
-    assert any(
-        "description" in e["loc"] for e in error.errors()
-    ), "ValidationError should be for missing 'description'"
+    assert any("description" in e["loc"] for e in error.errors()), (
+        "ValidationError should be for missing 'description'"
+    )
 
 
 @pytest.mark.parametrize("idx", (None, 0, -1))

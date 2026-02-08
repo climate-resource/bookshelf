@@ -42,7 +42,7 @@ version = "v23"
 
 # %%
 metadata = load_nb_metadata("wdi", version=version)
-metadata.dict()
+metadata.model_dump()
 
 # %%
 local_bookshelf

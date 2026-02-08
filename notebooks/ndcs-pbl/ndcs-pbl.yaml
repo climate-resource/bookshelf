@@ -29,7 +29,7 @@ data_dictionary:
     controlled_vocabulary:
       - value: M.0.EL
         description: National total emission excluding LULUCF
-      - value: 0
+      - value: "0"
         description: Total emissions
   - name: conditionality
     description: Denotes the conditionality of a pathway

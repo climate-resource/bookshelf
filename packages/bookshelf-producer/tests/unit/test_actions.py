@@ -146,7 +146,7 @@ def test_publish_existing(shelf, remote_bookshelf):
 
     with pytest.raises(
         UploadError,
-        match=re.escape("Edition value has not been increased (remote: v1.0.0_e001, local:" " v1.0.0_e001)"),
+        match=re.escape("Edition value has not been increased (remote: v1.0.0_e001, local: v1.0.0_e001)"),
     ):
         publish(shelf, book, force=False)
 
@@ -169,7 +169,7 @@ def test_publish_extra_file(shelf, remote_bookshelf):
     book = LocalBook.create_new("new-package", "v1.0.0")
     open(book.local_fname("extra_file.txt"), "w").close()
 
-    with pytest.raises(UploadError, match="Non-resource file extra_file.txt found in book"):
+    with pytest.raises(UploadError, match=r"Non-resource file extra_file.txt found in book"):
         publish(shelf, book)
 
 

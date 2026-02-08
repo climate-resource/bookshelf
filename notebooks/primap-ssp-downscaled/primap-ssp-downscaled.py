@@ -50,7 +50,7 @@ logging.basicConfig(level=logging.INFO)
 
 # %%
 metadata = load_nb_metadata("primap-ssp-downscaled")
-metadata.dict()
+metadata.model_dump()
 
 # %% tags=["parameters"]
 # This cell contains additional parameters that are controlled using papermill
