@@ -27,7 +27,14 @@ dependencies = [
     "datapackage>=1.15.2",
     "pyyaml",
     "platformdirs>=4.3.6",
+    "httpx>=0.25.0",
+    "click>=8.0.0",
+    "rich>=13.0.0",
 ]
+
+[project.scripts]
+bookshelf-client = "bookshelf.cli:main"
+bsc = "bookshelf.cli:main"
 
 [dependency-groups]
 dev = [
