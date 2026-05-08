@@ -19,6 +19,13 @@ of rst and use slightly different categories.
 
 <!-- towncrier release notes start -->
 
+## bookshelf v0.4.1 (2026-05-08)
+
+### Trivial/Internal Changes
+
+- [#117](https://github.com/climate-resource/bookshelf/pull/117), [#126](https://github.com/climate-resource/bookshelf/pull/126)
+
+
 ## bookshelf v0.4 (2024-10-17)
 
 ### Breaking Changes
