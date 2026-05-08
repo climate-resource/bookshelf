@@ -411,7 +411,7 @@ dev = [{ name = "moto", extras = ["s3"], specifier = ">=5" }]
 
 [[package]]
 name = "bookshelf-root"
-version = "0.4.1"
+version = "0.4.2a1"
 source = { virtual = "." }
 dependencies = [
     { name = "bookshelf" },
