@@ -5,17 +5,16 @@ on:
     inputs:
       bump_rule:
         type: choice
-        description: How to bump the project's version (see https://github.com/carstencodes/pdm-bump#usage)
+        description: How to bump the project's version (passed to `uv version --bump`)
         options:
-          - no-pre-release
-          # no micro because we always sit on a pre-release in main,
-          # so we would always use no-pre-release instead of micro
-          # - micro
+          - stable
+          # no patch because we always sit on a pre-release in main,
+          # so we would always use stable instead of patch
           - minor
           - major
-          - "pre-release --pre alpha"
-          - "pre-release --pre beta"
-          - "pre-release --pre release-candidate"
+          - alpha
+          - beta
+          - rc
         required: true
       update_changelog:
         type: boolean
@@ -39,28 +38,23 @@ jobs:
 
       - uses: ./.github/actions/setup
 
-      - name: Install pdm-bump
-        run: |
-          uv pip install pdm-bump
-
       - name: Create bump and changelog
         run: |
           git config --global user.name "$GITHUB_ACTOR"
           git config --global user.email "$CI_COMMIT_EMAIL"
 
-          BASE_VERSION=`sed -ne 's/^version = "\([0-9\.abrc]*\)"/\1/p' pyproject.toml`
+          BUMP_RULE="${{ github.event.inputs.bump_rule }}"
+
+          BASE_VERSION=$(uv version --short)
           echo "Bumping from version $BASE_VERSION"
 
-          # Bump
-          uv run pdm bump ${{ github.event.inputs.bump_rule }}
-          cd packages/bookshelf
-          uv run pdm bump ${{ github.event.inputs.bump_rule }}
-          cd ../bookshelf-producer
-          uv run pdm bump ${{ github.event.inputs.bump_rule }}
-          cd ../..
+          # Bump root project, then mirror the resulting version to each
+          # workspace package so they stay in lock-step.
+          uv version --frozen --bump "$BUMP_RULE"
+          NEW_VERSION=$(uv version --short)
+          uv version --frozen --package bookshelf "$NEW_VERSION"
+          uv version --frozen --package bookshelf-producer "$NEW_VERSION"
 
-          # regex supports 1.1.1a1, 1.1.1b1, 1.1.1rc1
-          NEW_VERSION=`sed -ne 's/^version = "\([0-9\.abrc]*\)"/\1/p' pyproject.toml`
           echo "Bumping to version $NEW_VERSION"
 
           # Build CHANGELOG
@@ -80,13 +74,15 @@ jobs:
 
           # Bump to alpha (so that future commits do not have the same
           # version as the tagged commit)
-          BASE_VERSION=`sed -ne 's/^version = "\([0-9\.abrc]*\)"/\1/p' pyproject.toml`
+          BASE_VERSION=$NEW_VERSION
 
           # Bump to pre-release of next version
-          uv run pdm bump pre-release --pre alpha
+          uv version --frozen --bump patch --bump alpha
+          NEW_VERSION=$(uv version --short)
+          uv version --frozen --package bookshelf "$NEW_VERSION"
+          uv version --frozen --package bookshelf-producer "$NEW_VERSION"
           uv lock
 
-          NEW_VERSION=`sed -ne 's/^version = "\([0-9\.abrc]*\)"/\1/p' pyproject.toml`
           echo "Bumping version $BASE_VERSION > $NEW_VERSION"
 
           # Commit and push
