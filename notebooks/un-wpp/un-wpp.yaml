@@ -19,7 +19,7 @@ versions:
     dataset:
       url: https://population.un.org/wpp/
       files:
-        - url: https://population.un.org/wpp/Download/Files/1_Indicators%20(Standard)/EXCEL_FILES/1_General/WPP2022_GEN_F01_DEMOGRAPHIC_INDICATORS_COMPACT_REV1.xlsx
+        - url: https://population.un.org/wpp/assets/Excel%20Files/1_Indicators%20(Standard)/EXCEL_FILES/1_General/WPP2022_GEN_F01_DEMOGRAPHIC_INDICATORS_COMPACT_REV1.xlsx
           hash: e8cef388f9f4d16acb5c82bb007d25b2280cc6c78214faa7c8c6962d6d54d43d
       author: United Nations
       time_domain:
@@ -29,7 +29,7 @@ versions:
     dataset:
       url: https://population.un.org/wpp/
       files:
-        - url: https://population.un.org/wpp/Download/Files/1_Indicator%20(Standard)/EXCEL_FILES/1_General/WPP2024_GEN_F01_DEMOGRAPHIC_INDICATORS_COMPACT.xlsx
+        - url: https://population.un.org/wpp/assets/Excel%20Files/1_Indicator%20(Standard)/EXCEL_FILES/1_General/WPP2024_GEN_F01_DEMOGRAPHIC_INDICATORS_COMPACT.xlsx
           hash: df73d28e16bf051e1a9c57b31f5a3c489e8d9cc307263a6e71489b49f5008192
       author: United Nations
       time_domain:
