@@ -169,7 +169,7 @@ variable_map = {
     "SF6 gas emissions": "Emissions|HFCs|SF6",
     "Total greenhouse gas emissions": "Emissions|GHG",
     # variables in v129 (and v"33")
-    "Carbon dioxide (co2) emissions (total) excluding lulucf": "Emissions|CO2|M.0.EL",
+    "Carbon dioxide (co2) emissions (total) excluding lulucf": "Emissions|CO2|Total excl. LULUCF",
     "Carbon dioxide (co2) emissions from agriculture": "Emissions|CO2|Agriculture",
     "Carbon dioxide (co2) emissions from building (energy)": "Emissions|CO2|Energy|Buildings",
     "Carbon dioxide (co2) emissions from fugitive emissions (energy)": (
@@ -190,7 +190,7 @@ variable_map = {
         "Emissions|CO2|LULUCF|Total Excluding Non-Tropical Fires"
     ),
     "F-gases emissions from industrial processes": "Emissions|F-Gases|Industrial Processes",
-    "Methane (ch4) emissions (total) excluding lulucf": "Emissions|CH4|M.0.EL",
+    "Methane (ch4) emissions (total) excluding lulucf": "Emissions|CH4|Total excl. LULUCF",
     "Methane (ch4) emissions from agriculture": "Emissions|CH4|Agriculture",
     "Methane (ch4) emissions from building (energy)": "Emissions|CH4|Energy|Building",
     "Methane (ch4) emissions from fugitive emissions (energy)": "Emissions|CH4|Energy|Fugitive Emissions",
@@ -201,7 +201,7 @@ variable_map = {
     "Methane (ch4) emissions from power industry (energy)": "Emissions|CH4|Energy|Power Industry",
     "Methane (ch4) emissions from transport (energy)": "Emissions|CH4|Energy|Transport",
     "Methane (ch4) emissions from waste": "Emissions|CH4|Waste",
-    "Nitrous oxide (n2o) emissions (total) excluding lulucf": "Emissions|N2O|M.0.EL",
+    "Nitrous oxide (n2o) emissions (total) excluding lulucf": "Emissions|N2O|Total excl. LULUCF",
     "Nitrous oxide (n2o) emissions from agriculture": "Emissions|N2O|Agriculture",
     "Nitrous oxide (n2o) emissions from building (energy)": "Emissions|N2O|Energy|Building",
     "Nitrous oxide (n2o) emissions from fugitive emissions (energy)": (
@@ -214,8 +214,8 @@ variable_map = {
     "Nitrous oxide (n2o) emissions from power industry (energy)": "Emissions|N2O|Energy|Power Industry",
     "Nitrous oxide (n2o) emissions from transport (energy)": "Emissions|N2O|Energy|Transport",
     "Nitrous oxide (n2o) emissions from waste": "Emissions|N2O|Waste",
-    "Total greenhouse gas emissions excluding lulucf": "Emissions|Total GHG|M.0.EL",
-    "Total greenhouse gas emissions including lulucf": "Emissions|Total GHG",
+    "Total greenhouse gas emissions excluding lulucf": "Emissions|GHG|Total excl. LULUCF",
+    "Total greenhouse gas emissions including lulucf": "Emissions|GHG",
 }
 
 for old, new in variable_map.items():

@@ -1,5 +1,5 @@
 name: wdi
-edition: 3
+edition: 4
 license: CC-BY
 description: |
   The World Development Indicators (WDI) is the primary World Bank collection of development indicators,
@@ -37,8 +37,7 @@ versions:
     dataset:
       url: https://datacatalog.worldbank.org/search/dataset/0037712
       files:
-        - url: http://data.climateresource.com.au/_cache/wdi/v33/WDI_CSV_2024_10_24.zip
-          original_url: https://datacatalogfiles.worldbank.org/ddh-published/0037712/DR0095335/WDI_CSV_2024_10_24.zip
+        - url: https://datacatalogfiles.worldbank.org/ddh-published/0037712/DR0095335/WDI_CSV_2024_10_24.zip
           hash: md5:c2e3deddfe74a8ce163f4deea1432b93
       author: World Bank
       time_domain:
@@ -50,7 +49,6 @@ versions:
       url: https://datacatalog.worldbank.org/search/dataset/0037712/world-development-indicators
       files:
         - url: https://datacatalogfiles.worldbank.org/ddh-published/0037712/DR0095335/WDI_CSV_2026_06_30.zip
-          cache_url: http://data.climateresource.com.au/_cache/wdi/v129/WDI_CSV_2026_06_30.zip
           hash: md5:05639d8acf08beab39dea79b8edf18e9
       author: World Bank
       time_domain:
