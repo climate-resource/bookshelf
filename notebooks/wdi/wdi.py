@@ -79,6 +79,7 @@ column_rename = {
 df = df.rename(column_rename, axis=1)
 df["scenario"] = "historical"
 df["model"] = "World Bank"
+df["source"] = f"WDI @ {metadata.version}"
 df["unit"] = ""
 
 bad_cols = df.columns[df.columns.str.startswith("Unnamed")]
@@ -115,7 +116,7 @@ data = data.groupby("variable").apply(get_units)
 # ## Emissions cleaning
 
 # %%
-print(data.filter(variable_code="EN.*").meta[["variable", "unit"]].drop_duplicates().to_string())
+print(data.filter(variable="*Gdp*").meta[["variable", "unit"]].drop_duplicates().to_string())
 
 # %%
 # Check units
@@ -126,7 +127,7 @@ print(data.meta[data.meta.unit.str.contains("kt")][["variable", "unit"]].drop_du
 data["unit"] = data["unit"].replace("thousand metric tons of CO2 equivalent", "kt CO2/yr")
 data["unit"] = data["unit"].replace("kt of CO2 equivalent", "kt CO2/yr")
 data["unit"] = data["unit"].replace("Mt of CO2 equivalent", "Mt CO2/yr")
-# Check above shows that only emissions ts use "kt" as units
+# Check above shows that only emissions ts use "kt" as units; not relevant for current data
 data["unit"] = data["unit"].replace("^kt$", "kt CO2/yr", regex=True)
 # remove confusing % change timeseries that can easily be reproduced from the remaining data
 data = data.filter(unit="% change from *", keep=False)
@@ -263,8 +264,7 @@ data.filter(variable="GDP").get_unique_meta("unit")
 # Smaller subset of data that is typically used for analysis
 subset = scmdata.run_append(
     [
-        data.filter(variable="GDP|PPP"),
-        data.filter(variable="GDP"),
+        data.filter(variable="GDP*"),
         data.filter(variable="Gini Index"),
         data.filter(variable="Emissions|*"),
         data.filter(variable="Population|Total"),
