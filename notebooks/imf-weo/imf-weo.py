@@ -26,7 +26,7 @@ from bookshelf_producer.notebook import load_nb_metadata
 # %% tags=["parameters"]
 # This cell contains additional parameters that are controlled using papermill
 local_bookshelf = tempfile.mkdtemp()
-version = "v202310"
+version = "v202603"
 
 # %%
 metadata = load_nb_metadata("imf-weo", version=version)
