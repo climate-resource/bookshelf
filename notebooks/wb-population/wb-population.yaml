@@ -2,7 +2,7 @@ name: wb-population
 edition: 1
 license: CC-BY-4.0
 description: |
-  This database presents population and other demographic estimates and projections from 
+  This database presents population and other demographic estimates and projections from
   1960 to 2050, covering more than 200 economies. It includes population data by various
   age groups, sex, urban/rural; fertility data; mortality data; and migration data.
 metadata:
@@ -11,7 +11,7 @@ metadata:
 versions:
   - version: v10
     dataset:
-      url: https://datacatalog.worldbank.org/search/dataset/0037655/Population%20Estimates%20and%20Projections?version=10
+      url: https://datacatalog.worldbank.org/search/dataset/0037655/population-estimates-and-projections?version=10
       files:
         - url: http://data.climateresource.com.au/_cache/wb-population/v10/Population-Estimates_CSV.zip
           original_url: https://databank.worldbank.org/data/download/Population-Estimates_CSV.zip
@@ -20,3 +20,14 @@ versions:
       time_domain:
         - 1959
         - 2049
+  - version: v23
+    dataset:
+      url: https://datacatalog.worldbank.org/search/dataset/0037655/population-estimates-and-projections?version=23
+      files:
+        - url: http://data.climateresource.com.au/_cache/wb-population/v23/Population-Estimates_CSV.zip
+          original_url: https://databank.worldbank.org/data/download/Population-Estimates_CSV.zip
+          hash: 001e08e74198d56c102fbbc5dbee41ede045a451ea25db66dc56268bd5950f48
+      author: World Bank
+      time_domain:
+        - 1960
+        - 2050

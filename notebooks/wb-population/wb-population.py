@@ -27,7 +27,7 @@ import pandas as pd
 import scmdata
 
 from bookshelf import LocalBook
-from bookshelf.notebook import load_nb_metadata
+from bookshelf_producer.notebook import load_nb_metadata
 
 # %% [markdown]
 # # Initialise
@@ -35,16 +35,17 @@ from bookshelf.notebook import load_nb_metadata
 # %%
 logging.basicConfig(level=logging.INFO)
 
-# %%
-metadata = load_nb_metadata("wb-population")
-metadata.dict()
-
 # %% tags=["parameters"]
 # This cell contains additional parameters that are controlled using papermill
 local_bookshelf = tempfile.mkdtemp()
+version = "v23"
 
 # %%
 local_bookshelf
+
+# %%
+metadata = load_nb_metadata("wb-population", version=version)
+metadata.model_dump()
 
 # %% [markdown]
 # # Fetch
@@ -64,7 +65,10 @@ zf = zipfile.ZipFile(data_fname)
 zf.filelist
 
 # %%
-df = pd.read_csv(zf.open("Population-EstimatesData.csv"))
+try:
+    df = pd.read_csv(zf.open("Population-EstimatesCSV.csv"))
+except KeyError:
+    df = pd.read_csv(zf.open("Population-EstimatesData.csv"))
 
 column_rename = {
     "Country Name": "name",
@@ -77,14 +81,18 @@ df["scenario"] = "historical"
 df["model"] = "World Bank"
 df["source"] = f"wb-population @ {metadata.version}"
 df["unit"] = ""
-del df["Unnamed: 95"]
+unnamed_columns = df.columns[df.columns.str.contains("Unnamed: ")]
+df = df.drop(unnamed_columns, axis=1)
+
+# %%
+df.columns
 
 # %%
 data = scmdata.ScmRun(df)
 data.head()
 
 # %%
-unit_regex = re.compile(r"\s\((.*)\)")
+unit_regex = re.compile(r"\s\(([^()]*)\)$")
 
 
 def get_units(run):
@@ -96,9 +104,7 @@ def get_units(run):
         run["unit"] = unit
         variable = re.sub(unit_regex, "", variable)
     toks = variable.split(", ")
-    variable = "|".join(
-        [t.capitalize() if not t[0].isupper() else t for t in toks]
-    ).rstrip("|")
+    variable = "|".join([t.capitalize() if not t[0].isupper() else t for t in toks]).rstrip("|")
     run["variable"] = variable
 
     return run
@@ -114,6 +120,7 @@ data.get_unique_meta("variable")
 # %%
 data.filter(variable="Population|*").meta[["variable", "unit"]].drop_duplicates()
 
+# %%
 pop = data.filter(variable="Population|*")
 pop["unit"] = "thousands"
 pop = pop / 1000
@@ -125,7 +132,7 @@ pop = data.filter(variable="Population|*").timeseries()
 # # Process
 
 # %%
-data.get_unique_meta("region")
+print(data.meta[["variable", "unit"]].drop_duplicates().to_string())
 
 # %%
 book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
@@ -136,9 +143,12 @@ book.add_timeseries("clean", data)
 
 
 # %% [markdown]
-# Below the `Book`'s metadata is shown. This contains all of the metadata about the `Book` and the associated `Resources`.
+# Below the `Book`'s metadata is shown. This contains all of the metadata about the `Book` and the
+# associated `Resources`.
 #
-# This is the metadata that clients download and can be used to fetch the `Book`'s `Resources`. Once deployed this `Book` becomes immutable. Any changes to the metadata or data requires releasing a new version of a `Book`.
+# This is the metadata that clients download and can be used to fetch the `Book`'s `Resources`. Once
+# deployed this `Book` becomes immutable. Any changes to the metadata or data requires releasing a
+# new version of a `Book`.
 
 # %%
 book.metadata()
@@ -146,6 +156,7 @@ book.metadata()
 # %% [markdown]
 # That is all.
 #
-# This notebook is not responsible for uploading the book to the `BookShelf`. See docs for how to upload `Books` to the `BookShelf`
+# This notebook is not responsible for uploading the book to the `BookShelf`. See docs for how to
+# upload `Books` to the `BookShelf`
 
 # %%
