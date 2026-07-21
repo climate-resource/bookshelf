@@ -77,7 +77,7 @@ column_rename = {
     "Indicator Code": "variable_code",
 }
 df = df.rename(column_rename, axis=1)
-df["scenario"] = "historical"
+df["scenario"] = "projection"
 df["model"] = "World Bank"
 df["source"] = f"wb-population @ {metadata.version}"
 df["unit"] = ""
@@ -118,14 +118,18 @@ data.get_unique_meta("variable")
 
 
 # %%
-data.filter(variable="Population|*").meta[["variable", "unit"]].drop_duplicates()
+data.filter(variable="Population|*").filter(unit="%*", keep=False).meta[
+    ["variable", "unit"]
+].drop_duplicates()
 
 # %%
-pop = data.filter(variable="Population|*")
+pop = data.filter(variable="Population|*").filter(unit="%*", keep=False)
 pop["unit"] = "thousands"
 pop = pop / 1000
 
-data = scmdata.run_append([pop, data.filter(variable="Population|*", keep=False)])
+data = scmdata.run_append(
+    [pop, data.filter(variable="Population|*", keep=False), data.filter(variable="Population|*", unit="%*")]
+)
 pop = data.filter(variable="Population|*").timeseries()
 
 # %% [markdown]
