@@ -79,6 +79,7 @@ column_rename = {
 df = df.rename(column_rename, axis=1)
 df["scenario"] = "historical"
 df["model"] = "World Bank"
+df["source"] = f"WDI @ {metadata.version}"
 df["unit"] = ""
 
 bad_cols = df.columns[df.columns.str.startswith("Unnamed")]
@@ -127,7 +128,7 @@ data["unit"] = data["unit"].replace("thousand metric tons of CO2 equivalent", "k
 data["unit"] = data["unit"].replace("kt of CO2 equivalent", "kt CO2/yr")
 data["unit"] = data["unit"].replace("Mt of CO2 equivalent", "Mt CO2/yr")
 # Check above shows that only emissions ts use "kt" as units
-data["unit"] = data["unit"].replace("^kt$", "kt CO2/yr", regex=True)
+data["unit"] = data["unit"].str.replace("^kt$", "kt CO2/yr", regex=True)
 
 # %%
 # Rename variables
@@ -208,8 +209,7 @@ data.filter(variable="GDP").get_unique_meta("unit")
 # Smaller subset of data that is typically used for analysis
 subset = scmdata.run_append(
     [
-        data.filter(variable="GDP|PPP"),
-        data.filter(variable="GDP"),
+        data.filter(variable="GDP*"),
         data.filter(variable="Emissions|*"),
         data.filter(variable="Population|Total"),
     ]
