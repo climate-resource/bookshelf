@@ -12,6 +12,10 @@ dependencies = [
     "bookshelf-producer",
 ]
 
+[tool.uv]
+exclude-newer = "7 days"
+exclude-newer-package = { ndcs = false, ndc-quantification = false, ndc-temperature-assessment = false, ndc-tool-api = false, ndc-api-v2 = false, ndc-release = false }
+
 [dependency-groups]
 dev = [
     "pytest>=7.3.1",
