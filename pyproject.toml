@@ -1,40 +1,192 @@
-[build-system]
-requires = [
-    "setuptools>=41.2",
-    "setuptools_scm[toml]>=1.15",
-    "wheel>=0.31.0",
+[project]
+name = "bookshelf-root"
+version = "0.4.3a1"
+description = "A collection of curated climate data sets"
+readme = "README.md"
+authors = [
+    { name = "Jared Lewis", email = "jared.lewis@climate-resource.com" }
 ]
-build-backend = "setuptools.build_meta"
+requires-python = ">=3.10"
+dependencies = [
+    "bookshelf",
+    "bookshelf-producer",
+]
 
-[tool.setuptools_scm]
+[dependency-groups]
+dev = [
+    "pytest>=7.3.1",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.11.1",
+    "pytest-xdist>=3.3.1",
+    "requests-mock>=1.11.0",
+    "mypy>=1.2.0",
+    "pre-commit>=3.3.1",
+    "towncrier>=23.6.0",
+    "liccheck>=0.9.1",
+    # Stubs
+    "types-pyyaml>=6.0.12.20240917",
+    "boto3-stubs[essential]>=1.35.39",
+    "types-requests>=2.32.0.20240914",
+    "pandas-stubs>=2.2.3.241009",
+    # Docs
+    "mkdocs>=1.6.0",
+    "mkdocstrings[python]>=0.25.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocs-gen-files>=0.5.0",
+    "mkdocs-section-index>=0.3.9",
+    "mkdocs-literate-nav>=0.6.1",
+    "mkdocs-autorefs>=1.0.1",
+    "mkdocs-jupyter>=0.24.0",
+    "myst-nb>=1.1.1",
+    "jupyterlab>=4.2.0",
+    "jupytext>=1.16.3",
+    "matplotlib>=3.9.2",
+    "mike>=2.1.3",
+    "mkdocs-minify-plugin>=0.8.0",
+    # bookshelf-producer test deps
+    "moto[s3]>=5",
+]
 
-[tool.black]
-line-length = 88
-target-version = ['py39']
+[tool.uv.workspace]
+members = ["packages/*"]
 
+[tool.uv.sources]
+bookshelf = { workspace = true }
+bookshelf-producer = { workspace = true }
+
+[tool.coverage.run]
+source = ["src", "packages"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 90
+skip_empty = true
+show_missing = true
+# Regexes for lines to exclude from consideration in addition to the defaults
+exclude_also = [
+    # Don't complain about missing type checking code:
+    "if TYPE_CHECKING",
+]
+
+[tool.mypy]
+strict = true
+# prevent unimported libraries silently being treated as Any
+#disallow_any_unimported = true
+# show error codes on failure with context
+show_error_codes = true
+show_error_context = true
+# warn if code can't be reached
+warn_unreachable = true
+# importing following uses default settings
+follow_imports = "normal"
+exclude = [
+    "build",
+    "dist",
+    "notebooks",
+    "scripts",
+    "stubs",
+    "tests",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "scmdata",
+    "pooch",
+    "jupytext",
+    "papermill",
+    "click_log",
+    "datapackage"
+]
+ignore_missing_imports = true
+
+[tool.jupytext]
+formats = "ipynb,py:percent"
 
 [tool.pytest.ini_options]
-testpaths = "tests"
-filterwarnings = [
-    "ignore::DeprecationWarning",
+addopts = [
+    "--import-mode=importlib",
+    "--ignore=packages/bookshelf/hatch_build.py"
 ]
 
-[tool.pylint.messages_control]
-disable = [
-    "logging-fstring-interpolation",
-    "too-few-public-methods",
-    "unspecified-encoding"
+[tool.towncrier]
+package = "bookshelf"
+package_dir = "src"
+filename = "docs/changelog.md"
+directory = "changelog/"
+title_format = "## bookshelf {version} ({project_date})"
+underlines = ["", "", ""]
+issue_format = "[#{issue}](https://github.com/climate-resource/bookshelf/pull/{issue})"
+
+  [[tool.towncrier.type]]
+  directory = "breaking"
+  name = "Breaking Changes"
+  showcontent = true
+
+  [[tool.towncrier.type]]
+  directory = "deprecation"
+  name = "Deprecations"
+  showcontent = true
+
+  [[tool.towncrier.type]]
+  directory = "feature"
+  name = "Features"
+  showcontent = true
+
+  [[tool.towncrier.type]]
+  directory = "improvement"
+  name = "Improvements"
+  showcontent = true
+
+  [[tool.towncrier.type]]
+  directory = "fix"
+  name = "Bug Fixes"
+  showcontent = true
+
+  [[tool.towncrier.type]]
+  directory = "docs"
+  name = "Improved Documentation"
+  showcontent = true
+
+  [[tool.towncrier.type]]
+  directory = "trivial"
+  name = "Trivial/Internal Changes"
+  showcontent = false
+
+[tool.liccheck]
+authorized_licenses = [
+    "bsd",
+    "bsd license",
+    "BSD 3-Clause",
+    "CC0",
+    "apache",
+    "apache 2.0",
+    "apache software",
+    "apache software license",
+    "Apache License, Version 2.0",
+    "Historical Permission Notice and Disclaimer (HPND)",
+    "isc license",
+    "isc license (iscl)",
+    "gnu lgpl",
+    "lgpl with exceptions or zpl",
+    "LGPLv2+",
+    "GNU Lesser General Public License v2 (LGPLv2)",
+    "GNU Lesser General Public License v2 or later (LGPLv2+)",
+    "mit",
+    "mit license",
+    "Mozilla Public License 2.0 (MPL 2.0)",
+    "python software foundation",
+    "python software foundation license",
+    "zpl 2.1",
 ]
-
-[tool.bumpver]
-current_version = "0.2.1"
-version_pattern = "MAJOR.MINOR.PATCH[PYTAGNUM]"
-commit_message = "release {old_version} -> {new_version}"
-commit = true
-tag = true
-push = true
-
-[tool.bumpver.file_patterns]
-"pyproject.toml" = [
-    'current_version = "{version}"',
+# This starting list is relatively conservative. Depending on the project, it
+# may make sense to move some of these into the authorized list
+unauthorized_licenses = [
+    "agpl",
+    "gnu agpl",
+    "gpl v3",
+    "gplv3",
+    "gpl v2",
+    "gplv2",
+    "gpl v1",
+    "gplv1",
 ]

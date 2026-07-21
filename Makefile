@@ -1,94 +1,98 @@
+# Makefile to help automate key steps
+
 .DEFAULT_GOAL := help
+# Will likely fail on Windows, but Makefiles are in general not Windows
+# compatible so we're not too worried
+TEMP_FILE := $(shell mktemp)
 
-VENV_DIR ?= venv
 
-TESTS_DIR=./tests
-NOTEBOOKS_DIR=./notebooks
+# some of our sources have to be downloaded from older servers, need
+# a more relaxed openssl config
+OPENSSL_CONF ?= .github/openssl.cnf
+export OPENSSL_CONF
 
+# A helper script to get short descriptions of each target in the Makefile
 define PRINT_HELP_PYSCRIPT
 import re, sys
 
 for line in sys.stdin:
-	match = re.match(r'^([a-zA-Z_-]+):.*?## (.*)$$', line)
+	match = re.match(r'^([\$$\(\)a-zA-Z_-]+):.*?## (.*)$$', line)
 	if match:
 		target, help = match.groups()
-		print("%-20s %s" % (target, help))
+		print("%-30s %s" % (target, help))
 endef
 export PRINT_HELP_PYSCRIPT
 
+
 .PHONY: help
-help:
-	@python -c "$$PRINT_HELP_PYSCRIPT" < $(MAKEFILE_LIST)
+help:  ## print short description of each target
+	@python3 -c "$$PRINT_HELP_PYSCRIPT" < $(MAKEFILE_LIST)
 
-checks: $(VENV_DIR)  ## run all the checks
-	@echo "=== bandit ==="; $(VENV_DIR)/bin/bandit -r src || echo "--- bandit failed ---" >&2; \
-``		echo "\n\n=== black ==="; $(VENV_DIR)/bin/black --check src tests setup.py || echo "--- black failed ---" >&2; \
-		echo "\n\n=== flake8 ==="; $(VENV_DIR)/bin/flake8 src tests setup.py || echo "--- flake8 failed ---" >&2; \
-		echo "\n\n=== isort ==="; $(VENV_DIR)/bin/isort --check-only --quiet src tests setup.py || echo "--- isort failed ---" >&2; \
-		echo "\n\n=== mypy ==="; $(VENV_DIR)/bin/mypy --install-types --non-interactive src || echo "--- mypy failed ---" >&2; \
-		echo "\n\n=== pydocstyle ==="; $(VENV_DIR)/bin/pydocstyle src || echo "--- pydocstyle failed ---" >&2; \
-		echo "\n\n=== pylint ==="; $(VENV_DIR)/bin/pylint --fail-under=9.5 src || echo "--- pylint failed ---" >&2; \
-		echo "\n\n=== tests ==="; $(VENV_DIR)/bin/pytest tests -r a --cov=bookshelf --cov-report=term-missing \
-			&& $(VENV_DIR)/bin/coverage report --fail-under=95 || echo "--- tests failed ---" >&2; \
-		echo
+.PHONY: checks
+checks:  ## run all the linting checks of the codebase
+	@echo "=== pre-commit ==="; uv run pre-commit run --all-files || echo "--- pre-commit failed ---" >&2; \
+		echo "=== mypy ==="; MYPYPATH=stubs uv run mypy src || echo "--- mypy failed ---" >&2; \
+		echo "======"
 
-.PHONY: format
-format:  ## re-format files
-	make isort
-	make black
+.PHONY: ruff-fixes
+ruff-fixes:  ## fix the code using ruff
+    # format before and after checking so that the formatted stuff is checked and
+    # the fixed stuff is formatted
+	uvx ruff@0.6.9 format
+	uvx ruff@0.6.9 check --fix
+	uvx ruff@0.6.9 format
 
-.PHONY: black
-black: $(VENV_DIR)  ## apply black formatter to source and tests
-	@status=$$(git status --porcelain src tests docs scripts); \
-	if test "x$${status}" = x; then \
-		$(VENV_DIR)/bin/black setup.py src tests docs/conf.py; \
-	else \
-		echo Not trying any formatting. Working directory is dirty ... >&2; \
-	fi;
+.PHONY: test-producer
+test-producer:  ## run the tests for the producer package
+	uv run --package bookshelf_producer \
+		pytest packages/bookshelf-producer \
+		-r a -v --doctest-modules --cov=packages/bookshelf-producer/src
 
-.PHONY: isort
-isort: $(VENV_DIR)  ## format the code
-	@status=$$(git status --porcelain src tests); \
-	if test "x$${status}" = x; then \
-		$(VENV_DIR)/bin/isort src tests setup.py; \
-	else \
-		echo Not trying any formatting. Working directory is dirty ... >&2; \
-	fi;
-
+.PHONY: test-core
+test-core:  ## run the tests for the core package
+	uv run  --package bookshelf \
+		pytest packages/bookshelf \
+		-r a -v --doctest-modules --cov=packages/bookshelf/src
 
 .PHONY: test
-test:  $(VENV_DIR) ## run the full testsuite
-	$(VENV_DIR)/bin/pytest tests --cov bookshelf -rfsxEX --cov-report term-missing --ignore tests/notebooks
+test: test-core test-producer  ## run the tests
 
-.PHONY: test-notebooks
-test-notebooks:  $(VENV_DIR) ## run the full testsuite
-	$(VENV_DIR)/bin/pytest tests/notebooks --log-cli-level INFO
 
-.PHONY: test-full
-test-full:  test test-notebooks
+# Note on code coverage and testing:
+# You must specify cov=src as otherwise funny things happen when doctests are
+# involved.
+# If you want to debug what is going on with coverage, we have found
+# that adding COVERAGE_DEBUG=trace to the front of the below command
+# can be very helpful as it shows you if coverage is tracking the coverage
+# of all of the expected files or not.
+# We are sure that the coverage maintainers would appreciate a PR that improves
+# the coverage handling when there are doctests and a `src` layout like ours.
 
+.PHONY: docs
+docs:  ## build the docs
+	uv run mkdocs build
+
+.PHONY: docs-strict
+docs-strict: ## build the docs strictly (e.g. raise an error on warnings, this most closely mirrors what we do in the CI)
+	uv run mkdocs build --strict
+
+.PHONY: docs-serve
+docs-serve: ## serve the docs locally
+	uv run mkdocs serve
+
+.PHONY: changelog-draft
+changelog-draft:  ## compile a draft of the next changelog
+	uv run towncrier build --draft
+
+.PHONY: licence-check
+licence-check:  ## Check that licences of the dependencies are suitable
+	# Will likely fail on Windows, but Makefiles are in general not Windows
+	# compatible so we're not too worried
+	uv export --without=tests --without=docs --without=dev > $(TEMP_FILE)
+	uv run liccheck -r $(TEMP_FILE) -R licence-check.txt
+	rm -f $(TEMP_FILE)
 
 .PHONY: virtual-environment
-virtual-environment: $(VENV_DIR) ## update venv, create a new venv if it doesn't exist
-
-$(VENV_DIR): setup.py setup.cfg pyproject.toml
-	[ -d $(VENV_DIR) ] || python3 -m venv $(VENV_DIR)
-
-	$(VENV_DIR)/bin/pip install --upgrade pip wheel
-	$(VENV_DIR)/bin/pip install -e .[dev]
-	#$(VENV_DIR)/bin/jupyter nbextension enable --py widgetsnbextension
-
-	touch $(VENV_DIR)
-
-
-.PHONY: build
-build:
-	rm -r dist
-	python -m build
-
-
-.PHONY: deploy
-deploy: build
-	@echo
-	@echo "Run the following command to complete the upload:"
-	@echo "twine upload --verbose dist/*"
+virtual-environment:  ## update virtual environment, create a new one if it doesn't already exist
+	uv sync
+	uv run pre-commit install

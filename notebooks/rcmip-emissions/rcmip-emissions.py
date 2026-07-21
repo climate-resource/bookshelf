@@ -20,7 +20,7 @@ import tempfile
 import scmdata
 
 from bookshelf import LocalBook
-from bookshelf.notebook import load_nb_metadata
+from bookshelf_producer.notebook import load_nb_metadata
 
 # %% [markdown]
 # #  Initialise
@@ -30,7 +30,7 @@ logging.basicConfig(level="INFO")
 
 # %%
 metadata = load_nb_metadata("rcmip-emissions")
-metadata.dict()
+metadata.model_dump()
 
 # %% tags=["parameters"]
 local_bookshelf = tempfile.mkdtemp()

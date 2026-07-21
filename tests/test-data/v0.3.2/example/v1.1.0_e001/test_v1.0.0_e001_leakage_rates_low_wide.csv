@@ -1,0 +1,80 @@
+model,product,region,scenario,sector,source,unit,variable,2020-01-01
+,CH4,World,,Aviation,"Soler (2020), Role of E-fuels in European Transport Sytem - literature Review https://www.concawe.eu/wp-content/uploads/Rpt_19-14.pdf",,Leakage Rate|CH4|Aviation,0.0
+,CH4,World,,Aviation,,,Leakage Rate|H2|Aviation,0.0
+,CH4,World,,Aviation,,,Leakage Rate|NH3|Aviation,0.0
+,CH4,World,,Aviation,,,Leakage Rate|Synthetic Fuels|Aviation,0.0
+,CH4,World,,Maritime Transport,Tank to Wheel slip from email exchange with De Vries (May 2022) and Lindstad (2020) http://dx.doi.org/10.3390/su12218793 and Pavlenko (2020) https://theicct.org/sites/default/files/publications/Climate_implications_LNG_marinefuel_01282020.pdfDrawing on studies rather than IPCC defaults as conversino to LNG for maritime has been relatively receent ,%,Leakage Rate|CH4|Maritime Transport,3.13
+,CH4,World,,Maritime Transport,,,Leakage Rate|NH3|Maritime Transport,0.0
+,CH4,World,,Maritime Transport,,,Leakage Rate|Synthetic Fuels|Maritime Transport,0.0
+,CH4,World,,Road Transport,Mottschall et al (2020) https://theicct.org/sites/default/files/publications/LNG-in-trucks_May2020.pdf,% of fuel (LNG) consumption,Leakage Rate|CH4|Road Transport,6.35
+,CH4,World,,Road Transport,,,Leakage Rate|H2|Road Transport,0.0
+,CH4,World,,Road Transport,,,Leakage Rate|NH3|Road Transport,0.0
+,CH4,World,,Road Transport,,,Leakage Rate|Synthetic Fuels|Road Transport,0.0
+,CH4,World,,Stationary energy,https://www.ipcc-nggip.iges.or.jp/public/2006gl/pdf/2_Volume2/V2_2_Ch2_Stationary_Combustion.pdf,%,Leakage Rate|CH4|Stationary energy,0.63
+,CH4,World,,Stationary energy,,,Leakage Rate|H2|Stationary energy,0.0
+,CH4,World,,Stationary energy,,,Leakage Rate|NH3|Stationary energy,0.0
+,CH4,World,,Stationary energy,,,Leakage Rate|Synthetic Fuels|Stationary energy,0.0
+,H2,World,,Aviation,"Frazer-Nash Consulting (2022) https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/1067137/fugitive-hydrogen-emissions-future-hydrogen-economy.pdf, and https://www.nrel.gov/docs/fy14osti/60528.pdf, Osman et al (2021) https://doi.org/10.1007/s10311-021-01322-8, and Atilhan et al (2021), and Al Ghafri et al (2022) https://doi.org/10.3390/en15031149 ",% H2 component of fuel,Leakage Rate|CH4|Aviation,3.64
+,H2,World,,Aviation,"Frazer-Nash Consulting (2022) https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/1067137/fugitive-hydrogen-emissions-future-hydrogen-economy.pdf, and https://www.nrel.gov/docs/fy14osti/60528.pdf, Osman et al (2021) https://doi.org/10.1007/s10311-021-01322-8, and Atilhan et al (2021), and Al Ghafri et al (2022) https://doi.org/10.3390/en15031149 ",% H2 component of fuel,Leakage Rate|NH3|Aviation,3.64
+,H2,World,,Aviation,"Frazer-Nash Consulting (2022) https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/1067137/fugitive-hydrogen-emissions-future-hydrogen-economy.pdf, and https://www.nrel.gov/docs/fy14osti/60528.pdf, Osman et al (2021) https://doi.org/10.1007/s10311-021-01322-8, and Atilhan et al (2021), and Al Ghafri et al (2022) https://doi.org/10.3390/en15031149 ",% of H2 ,Leakage Rate|H2|Aviation,3.94
+,H2,World,,Aviation,"https://www.nrel.gov/docs/fy14osti/60528.pdf, Osman et al (2021) https://doi.org/10.1007/s10311-021-01322-8, and Atilhan et al (2021), and Al Ghafri et al (2022) https://doi.org/10.3390/en15031149 and Frazer-Nash Consulting (2022) https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/1067137/fugitive-hydrogen-emissions-future-hydrogen-economy.pdf",% H2 component of fuel,Leakage Rate|Synthetic Fuels|Aviation,3.64
+,H2,World,,Maritime Transport,"Frazer-Nash Consulting (2022) https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/1067137/fugitive-hydrogen-emissions-future-hydrogen-economy.pdf, and https://www.nrel.gov/docs/fy14osti/60528.pdf, Osman et al (2021) https://doi.org/10.1007/s10311-021-01322-8, and Atilhan et al (2021), and Al Ghafri et al (2022) https://doi.org/10.3390/en15031149 ",% H2 component of fuel,Leakage Rate|CH4|Maritime Transport,3.64
+,H2,World,,Maritime Transport,"Frazer-Nash Consulting (2022) https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/1067137/fugitive-hydrogen-emissions-future-hydrogen-economy.pdf, and https://www.nrel.gov/docs/fy14osti/60528.pdf, Osman et al (2021) https://doi.org/10.1007/s10311-021-01322-8, and Atilhan et al (2021), and Al Ghafri et al (2022) https://doi.org/10.3390/en15031149 ",% H2 component of fuel,Leakage Rate|NH3|Maritime Transport,3.64
+,H2,World,,Maritime Transport,"Frazer-Nash Consulting (2022) https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/1067137/fugitive-hydrogen-emissions-future-hydrogen-economy.pdf, and https://www.nrel.gov/docs/fy14osti/60528.pdf, Osman et al (2021) https://doi.org/10.1007/s10311-021-01322-8, and Atilhan et al (2021), and Al Ghafri et al (2022) https://doi.org/10.3390/en15031149 ",% of H2 ,Leakage Rate|H2|Maritime Transport,3.94
+,H2,World,,Maritime Transport,"https://www.nrel.gov/docs/fy14osti/60528.pdf, Osman et al (2021) https://doi.org/10.1007/s10311-021-01322-8, and Atilhan et al (2021), and Al Ghafri et al (2022) https://doi.org/10.3390/en15031149 and Frazer-Nash Consulting (2022) https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/1067137/fugitive-hydrogen-emissions-future-hydrogen-economy.pdf",% H2 component of fuel,Leakage Rate|Synthetic Fuels|Maritime Transport,3.64
+,H2,World,,Road Transport,"Frazer-Nash Consulting (2022) https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/1067137/fugitive-hydrogen-emissions-future-hydrogen-economy.pdf, and https://www.nrel.gov/docs/fy14osti/60528.pdf, Osman et al (2021) https://doi.org/10.1007/s10311-021-01322-8, and Atilhan et al (2021), and Al Ghafri et al (2022) https://doi.org/10.3390/en15031149 ",% H2 component of fuel,Leakage Rate|CH4|Road Transport,3.64
+,H2,World,,Road Transport,"Frazer-Nash Consulting (2022) https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/1067137/fugitive-hydrogen-emissions-future-hydrogen-economy.pdf, and https://www.nrel.gov/docs/fy14osti/60528.pdf, Osman et al (2021) https://doi.org/10.1007/s10311-021-01322-8, and Atilhan et al (2021), and Al Ghafri et al (2022) https://doi.org/10.3390/en15031149 ",% H2 component of fuel,Leakage Rate|NH3|Road Transport,3.64
+,H2,World,,Road Transport,"Frazer-Nash Consulting (2022) https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/1067137/fugitive-hydrogen-emissions-future-hydrogen-economy.pdf, and https://www.nrel.gov/docs/fy14osti/60528.pdf, Osman et al (2021) https://doi.org/10.1007/s10311-021-01322-8, and Atilhan et al (2021), and Al Ghafri et al (2022) https://doi.org/10.3390/en15031149 ",% of H2 ,Leakage Rate|H2|Road Transport,5.25
+,H2,World,,Road Transport,"https://www.nrel.gov/docs/fy14osti/60528.pdf, Osman et al (2021) https://doi.org/10.1007/s10311-021-01322-8, and Atilhan et al (2021), and Al Ghafri et al (2022) https://doi.org/10.3390/en15031149 and Frazer-Nash Consulting (2022) https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/1067137/fugitive-hydrogen-emissions-future-hydrogen-economy.pdf",% H2 component of fuel,Leakage Rate|Synthetic Fuels|Road Transport,3.64
+,H2,World,,Stationary energy,"Frazer-Nash Consulting (2022) https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/1067137/fugitive-hydrogen-emissions-future-hydrogen-economy.pdf, and https://www.nrel.gov/docs/fy14osti/60528.pdf, Osman et al (2021) https://doi.org/10.1007/s10311-021-01322-8, and Atilhan et al (2021), and Al Ghafri et al (2022) https://doi.org/10.3390/en15031149 ",% H2 component of fuel,Leakage Rate|CH4|Stationary energy,3.64
+,H2,World,,Stationary energy,"Frazer-Nash Consulting (2022) https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/1067137/fugitive-hydrogen-emissions-future-hydrogen-economy.pdf, and https://www.nrel.gov/docs/fy14osti/60528.pdf, Osman et al (2021) https://doi.org/10.1007/s10311-021-01322-8, and Atilhan et al (2021), and Al Ghafri et al (2022) https://doi.org/10.3390/en15031149 ",% H2 component of fuel,Leakage Rate|NH3|Stationary energy,3.64
+,H2,World,,Stationary energy,"Frazer-Nash Consulting (2022) https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/1067137/fugitive-hydrogen-emissions-future-hydrogen-economy.pdf, and https://www.nrel.gov/docs/fy14osti/60528.pdf, Osman et al (2021) https://doi.org/10.1007/s10311-021-01322-8, and Atilhan et al (2021), and Al Ghafri et al (2022) https://doi.org/10.3390/en15031149 ",% of H2 ,Leakage Rate|H2|Stationary energy,3.65
+,H2,World,,Stationary energy,"https://www.nrel.gov/docs/fy14osti/60528.pdf, Osman et al (2021) https://doi.org/10.1007/s10311-021-01322-8, and Atilhan et al (2021), and Al Ghafri et al (2022) https://doi.org/10.3390/en15031149 and Frazer-Nash Consulting (2022) https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/1067137/fugitive-hydrogen-emissions-future-hydrogen-economy.pdf",% H2 component of fuel,Leakage Rate|Synthetic Fuels|Stationary energy,3.64
+,N2O,World,,Aviation,,,Leakage Rate|CH4|Aviation,0.0
+,N2O,World,,Aviation,,,Leakage Rate|H2|Aviation,0.0
+,N2O,World,,Aviation,,,Leakage Rate|NH3|Aviation,0.0
+,N2O,World,,Aviation,,,Leakage Rate|Synthetic Fuels|Aviation,0.0
+,N2O,World,,Maritime Transport,,,Leakage Rate|CH4|Maritime Transport,0.0
+,N2O,World,,Maritime Transport,,,Leakage Rate|H2|Maritime Transport,0.0
+,N2O,World,,Maritime Transport,,,Leakage Rate|NH3|Maritime Transport,0.0
+,N2O,World,,Maritime Transport,,,Leakage Rate|Synthetic Fuels|Maritime Transport,0.0
+,N2O,World,,Road Transport,,,Leakage Rate|CH4|Road Transport,0.0
+,N2O,World,,Road Transport,,,Leakage Rate|H2|Road Transport,0.0
+,N2O,World,,Road Transport,,,Leakage Rate|NH3|Road Transport,0.0
+,N2O,World,,Road Transport,,,Leakage Rate|Synthetic Fuels|Road Transport,0.0
+,N2O,World,,Stationary energy,,,Leakage Rate|CH4|Stationary energy,0.0
+,N2O,World,,Stationary energy,,,Leakage Rate|H2|Stationary energy,0.0
+,N2O,World,,Stationary energy,,,Leakage Rate|NH3|Stationary energy,0.0
+,N2O,World,,Stationary energy,,,Leakage Rate|Synthetic Fuels|Stationary energy,0.0
+,NH3,World,,Aviation,De Vries (2019) https://repository.tudelft.nl/islandora/object/uuid:be8cbe0a-28ec-4bd9-8ad0-648de04649b8?collection=education,% NH3 used,Leakage Rate|NH3|Aviation,0.0
+,NH3,World,,Aviation,,,Leakage Rate|CH4|Aviation,0.0
+,NH3,World,,Aviation,,,Leakage Rate|H2|Aviation,0.0
+,NH3,World,,Aviation,,,Leakage Rate|Synthetic Fuels|Aviation,0.0
+,NH3,World,,Maritime Transport,De Vries (2019) https://repository.tudelft.nl/islandora/object/uuid:be8cbe0a-28ec-4bd9-8ad0-648de04649b8?collection=education,% NH3 used,Leakage Rate|NH3|Maritime Transport,2.5
+,NH3,World,,Maritime Transport,,,Leakage Rate|CH4|Maritime Transport,0.0
+,NH3,World,,Maritime Transport,,,Leakage Rate|H2|Maritime Transport,0.0
+,NH3,World,,Maritime Transport,,,Leakage Rate|Synthetic Fuels|Maritime Transport,0.0
+,NH3,World,,Road Transport,Mounaim-Rouselle (2019) https://doi.org/10.3389/fmech.2020.00070,% NH3 used,Leakage Rate|NH3|Road Transport,0.0
+,NH3,World,,Road Transport,,,Leakage Rate|CH4|Road Transport,0.0
+,NH3,World,,Road Transport,,,Leakage Rate|H2|Road Transport,0.0
+,NH3,World,,Road Transport,,,Leakage Rate|Synthetic Fuels|Road Transport,0.0
+,NH3,World,,Stationary energy,,% NH3 used,Leakage Rate|NH3|Stationary energy,0.0
+,NH3,World,,Stationary energy,,,Leakage Rate|CH4|Stationary energy,0.0
+,NH3,World,,Stationary energy,,,Leakage Rate|H2|Stationary energy,0.0
+,NH3,World,,Stationary energy,,,Leakage Rate|Synthetic Fuels|Stationary energy,0.0
+,NOx,World,,Aviation,,,Leakage Rate|CH4|Aviation,0.0
+,NOx,World,,Aviation,,,Leakage Rate|H2|Aviation,0.0
+,NOx,World,,Aviation,,,Leakage Rate|NH3|Aviation,0.0
+,NOx,World,,Aviation,,,Leakage Rate|Synthetic Fuels|Aviation,0.0
+,NOx,World,,Maritime Transport,,,Leakage Rate|CH4|Maritime Transport,0.0
+,NOx,World,,Maritime Transport,,,Leakage Rate|H2|Maritime Transport,0.0
+,NOx,World,,Maritime Transport,,,Leakage Rate|NH3|Maritime Transport,0.0
+,NOx,World,,Maritime Transport,,,Leakage Rate|Synthetic Fuels|Maritime Transport,0.0
+,NOx,World,,Road Transport,,,Leakage Rate|CH4|Road Transport,0.0
+,NOx,World,,Road Transport,,,Leakage Rate|H2|Road Transport,0.0
+,NOx,World,,Road Transport,,,Leakage Rate|NH3|Road Transport,0.0
+,NOx,World,,Road Transport,,,Leakage Rate|Synthetic Fuels|Road Transport,0.0
+,NOx,World,,Stationary energy,,,Leakage Rate|CH4|Stationary energy,0.0
+,NOx,World,,Stationary energy,,,Leakage Rate|H2|Stationary energy,0.0
+,NOx,World,,Stationary energy,,,Leakage Rate|NH3|Stationary energy,0.0
+,NOx,World,,Stationary energy,,,Leakage Rate|Synthetic Fuels|Stationary energy,0.0

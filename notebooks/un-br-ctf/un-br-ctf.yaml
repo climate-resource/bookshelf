@@ -1,0 +1,15 @@
+name: un-br-ctf
+edition: 2
+license: not specified
+description: Dataset compiled by the UNFCCC secretariat based on the Biennial Reports Common Tabular Format (BR-CTF) submissions received officially from Annex I Parties to the Convention
+metadata:
+  author: Mika Pflüger
+  author_email: mika.pflueger@climate-resource.com
+
+versions:
+  - version: 2023-08
+    dataset:
+      files:
+        - url: https://www4.unfccc.int/sites/br-di/_layouts/UN.FCCC.BR.CTF.DI.Handlers/GetSources.ashx
+          hash: 53063a26ffd49df633db4d1464e93dc65481f0a8a453e661fa2862f2eeba80ee
+      author: UNFCCC secretariat

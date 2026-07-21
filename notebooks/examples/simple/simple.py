@@ -25,10 +25,11 @@
 import logging
 import tempfile
 
+import pandas as pd
 import scmdata
 
 from bookshelf import LocalBook
-from bookshelf.notebook import load_nb_metadata
+from bookshelf_producer.notebook import load_nb_metadata
 
 # %% [markdown]
 # # Initialise
@@ -38,7 +39,7 @@ logging.basicConfig(level=logging.INFO)
 
 # %%
 metadata = load_nb_metadata("examples/simple")
-metadata.dict()
+metadata.model_dump()
 
 # %% tags=["parameters"]
 # This cell contains additional parameters that are controlled using papermill
@@ -60,6 +61,23 @@ data_fname = metadata.download_file()
 data = scmdata.ScmRun(data_fname, lowercase_cols=True)
 data.head()
 
+
+# %%
+metadata_dict = metadata.model_dump()
+metadata_dict["data_dictionary"]
+
+# %%
+structure = []
+for column in data.meta_attributes:
+    dimension = {}
+    dimension["name"] = column
+    dimension["type"] = data[column].dtypes
+    structure.append(dimension)
+pd.DataFrame(data.timeseries().reset_index()).dtypes
+
+# %%
+
+
 # %% [markdown]
 # # Process
 
@@ -67,24 +85,27 @@ data.head()
 data.get_unique_meta("variable")
 
 # %%
-rf = data.filter(
-    variable=["Radiative Forcing|Anthropogenic", "Radiative Forcing|Natural"]
-)
+rf = data.filter(variable=["Radiative Forcing|Anthropogenic", "Radiative Forcing|Natural"])
 rf
 
 # %%
 book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 
 # %% [markdown]
-# Create a new `Resource` in the `Book` using the RF `scmdata.ScmRun` object. This function copies the timeseries to a local file and calculate the hash of this file. This hash can be used to check if the files have been modified.
+# Create a new `Resource` in the `Book` using the RF `scmdata.ScmRun` object. This function copies the
+# timeseries to a local file and calculate the hash of this file. This hash can be used to check if the
+# files have been modified.
 
 # %%
 book.add_timeseries("rf", rf)
 
 # %% [markdown]
-# Below the `Book`'s metadata is shown. This contains all of the metadata about the `Book` and the associated `Resources`.
+# Below the `Book`'s metadata is shown. This contains all of the metadata about the `Book` and the
+# associated `Resources`.
 #
-# This is the metadata that clients download and can be used to fetch the `Book`'s `Resources`. Once deployed this `Book` becomes immutable. Any changes to the metadata or data requires releasing a new version of a `Book`.
+# This is the metadata that clients download and can be used to fetch the `Book`'s `Resources`. Once
+# deployed this `Book` becomes immutable. Any changes to the metadata or data requires releasing a
+# new version of a `Book`.
 
 # %%
 book.metadata()
@@ -92,6 +113,7 @@ book.metadata()
 # %% [markdown]
 # That is all.
 #
-# This notebook is not responsible for uploading the book to the `BookShelf`. See docs for how to upload `Books` to the `BookShelf`
+# This notebook is not responsible for uploading the book to the `BookShelf`. See docs for how to upload
+# `Books` to the `BookShelf`
 
 # %%

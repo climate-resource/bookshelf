@@ -1,0 +1,20 @@
+{
+  "name": "example",
+  "license": "MIT",
+  "versions": [
+    {
+      "version": "v1.0.0",
+      "edition": 1,
+      "hash": "",
+      "private": false,
+      "url": "https://test.local/package/v1.0/example/v1.0.0_e001"
+    },
+    {
+      "version": "v1.1.0",
+      "edition": 1,
+      "hash": "",
+      "private": false,
+      "url": "https://test.local/package/v1.0/example/v1.1.0_e001"
+    }
+  ]
+}

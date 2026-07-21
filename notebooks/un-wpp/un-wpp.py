@@ -26,7 +26,7 @@ import pandas as pd
 import scmdata
 
 from bookshelf import LocalBook
-from bookshelf.notebook import load_nb_metadata
+from bookshelf_producer.notebook import load_nb_metadata
 
 # %% [markdown]
 # # Initialise
@@ -36,17 +36,18 @@ logging.basicConfig(level=logging.INFO)
 
 # %%
 metadata = load_nb_metadata("un-wpp")
-metadata.dict()
+metadata.model_dump()
 
 # %% tags=["parameters"]
 # This cell contains additional parameters that are controlled using papermill
 local_bookshelf = tempfile.mkdtemp()
+version = "v2024"
+
+# %%
 local_bookshelf
 
 # %%
-book = LocalBook.create_new(
-    metadata.name, version=metadata.version, local_bookshelf=local_bookshelf
-)
+book = LocalBook.create_new(metadata.name, version=metadata.version, local_bookshelf=local_bookshelf)
 
 # %% [markdown]
 # # Fetch
@@ -111,12 +112,12 @@ value_cols = [
     "Mortality before Age 60, both sexes (deaths under age 60 per 1,000 live births)",
     "Male Mortality before Age 60 (deaths under age 60 per 1,000 male live births)",
     "Female Mortality before Age 60 (deaths under age 60 per 1,000 female live births)",
-    "Mortality between Age 15 and 50, both sexes (deaths under age 50 per 1,000 alive at age 15)",
-    "Male Mortality between Age 15 and 50 (deaths under age 50 per 1,000 males alive at age 15)",
-    "Female Mortality between Age 15 and 50 (deaths under age 50 per 1,000 females alive at age 15)",
-    "Mortality between Age 15 and 60, both sexes (deaths under age 60 per 1,000 alive at age 15)",
-    "Male Mortality between Age 15 and 60 (deaths under age 60 per 1,000 males alive at age 15)",
-    "Female Mortality between Age 15 and 60 (deaths under age 60 per 1,000 females alive at age 15)",
+    ("Mortality between Age 15 and 50, both sexes (deaths under age 50 per 1,000 alive at age 15)"),
+    ("Male Mortality between Age 15 and 50 (deaths under age 50 per 1,000 males alive at age 15)"),
+    ("Female Mortality between Age 15 and 50 (deaths under age 50 per 1,000 females alive at age 15)"),
+    ("Mortality between Age 15 and 60, both sexes (deaths under age 60 per 1,000 alive at age 15)"),
+    ("Male Mortality between Age 15 and 60 (deaths under age 60 per 1,000 males alive at age 15)"),
+    ("Female Mortality between Age 15 and 60 (deaths under age 60 per 1,000 females alive at age 15)"),
     "Net Number of Migrants (thousands)",
     "Net Migration Rate (per 1,000 population)",
 ]
@@ -161,25 +162,19 @@ def prep_df(df, **kwargs):
 
     df_wide["region"] = df_wide["region"].str.replace("WORLD", "World")
 
-    for k in kwargs:
-        df_wide[k] = kwargs[k]
+    for k, v in kwargs.items():
+        df_wide[k] = v
 
     return df_wide.reset_index(drop=True)
 
 
-prepped = prep_df(
-    df_hist, model="World Population Prospects 2022", scenario="Historical"
-)
+prepped = prep_df(df_hist, model="World Population Prospects 2022", scenario="Historical")
 
 prepped
 
 # %%
-data_hist = scmdata.ScmRun(
-    prep_df(df_hist, model="World Population Prospects 2022", scenario="Historical")
-)
-data_proj = scmdata.ScmRun(
-    prep_df(df_proj, model="World Population Prospects 2022", scenario="Medium variant")
-)
+data_hist = scmdata.ScmRun(prep_df(df_hist, model="World Population Prospects", scenario="Historical"))
+data_proj = scmdata.ScmRun(prep_df(df_proj, model="World Population Prospects", scenario="Medium variant"))
 
 
 # %% [markdown]
@@ -195,6 +190,7 @@ data_hist
 # Merge the historical data with the projections to create a single timeseries
 data = scmdata.run_append([data_hist.set_meta("scenario", "Medium variant"), data_proj])
 data["historical_end_year"] = data_hist["year"].iloc[-1]
+data["source"] = f"un-wpp @ {version}"
 data.filter(year=range(2019, 2025)).timeseries()
 
 # %%
@@ -211,7 +207,7 @@ for t in available_types:
         data_subset["region"] = data_subset["ISO3 Alpha-code"]
 
     book.add_timeseries(
-        f'by_{t.replace(" ", "_").replace("/", "_").lower()}',
+        f"by_{t.replace(' ', '_').replace('/', '_').lower()}",
         data_subset.drop_meta("ISO3 Alpha-code"),
     )
 
@@ -221,6 +217,7 @@ book.metadata()
 # %% [markdown]
 # That is all.
 #
-# This notebook is not responsible for uploading the book to the `BookShelf`. See docs for how to upload `Books` to the `BookShelf`
+# This notebook is not responsible for uploading the book to the `BookShelf`. See docs for how to upload
+# `Books` to the `BookShelf`
 
 # %%

@@ -1,0 +1,88 @@
+name: cat
+edition: 1
+license: Unknown
+description:
+  Comprehensive set of historical and projected greenhouse gas emissions for every country
+metadata:
+  author: Yini Lai
+  author_email: yini.lai@climate-resource.com
+data_dictionary:
+  - name: Sector/Type
+    description: Indication about the minimum or maximum estimation of a specific category
+    type: string
+    allowed_NA: true
+    required_column: true
+  - name: category
+    description: Category of emissions
+    type: string
+    allowed_NA: true
+    required_column: true
+    controlled_vocabulary:
+      - value: M.0.EL
+        description: National total emission excluding LULUCF
+      - value: M.LULUCF
+        description: Land Use, Land Use Change, and Forestry
+  - name: ghg_metric
+    description: Global warming potentials used to calculate CO2-equivalent emissions
+    type: string
+    allowed_NA: true
+    required_column: true
+  - name: model
+    description: Software/dataset name that the results were sourced from
+    type: string
+    allowed_NA: true
+    required_column: true
+  - name: model_version
+    description: Version of the data
+    type: string
+    allowed_NA: true
+    required_column: true
+  - name: name
+    description: Complete country name
+    type: string
+    allowed_NA: true
+    required_column: true
+  - name: region
+    description: Identifier for the geographic region that the timeseries applies to. Common region identifiers include  ISO 3166-1 alpha-3 codes (always capitalised)
+    type: string
+    allowed_NA: false
+    required_column: true
+  - name: scenario
+    description: Scenarios of the data
+    type: string
+    allowed_NA: true
+    required_column: true
+  - name: source
+    description: Name of the dataset
+    type: string
+    allowed_NA: false
+    required_column: true
+  - name: source_version
+    description: Identifier for the dataset (of the form `v{date}`)
+    type: string
+    allowed_NA: false
+    required_column: true
+  - name: unit
+    description: Unit of variable
+    type: string
+    allowed_NA: false
+    required_column: true
+  - name: variable
+    description: Name of the quantity being captured/recorded
+    type: string
+    allowed_NA: false
+    required_column: true
+    controlled_vocabulary:
+      - value: Emissions|Total GHG
+        description: Total greenhouse gas emissions. This can be refered to either total emissions include LULUCF or exclude LULUCF. Refers to category for the details
+versions:
+  - version: v20231005
+    private: true
+    dataset:
+      url: https://climateactiontracker.org/
+      author: CAT
+  - version: v20240318
+    private: true
+    dataset:
+      url: https://climateactiontracker.org/
+      author: CAT

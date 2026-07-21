@@ -1,0 +1,16 @@
+name: "Setup Python and uv"
+description: "setup Python and uv with caches"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup uv
+      uses: astral-sh/setup-uv@v6
+      with:
+        version: "0.9.30"
+        enable-cache: true
+    - name: Install the project
+      shell: bash
+      run: |
+        uv sync --all-extras --dev --locked
+        uv sync --all-extras --dev --locked --package bookshelf-producer

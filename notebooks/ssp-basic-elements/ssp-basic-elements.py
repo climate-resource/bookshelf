@@ -25,7 +25,7 @@ import tempfile
 import scmdata
 
 from bookshelf import LocalBook
-from bookshelf.notebook import load_nb_metadata
+from bookshelf_producer.notebook import load_nb_metadata
 
 # %% [markdown]
 # #  Initialise
@@ -35,7 +35,7 @@ logging.basicConfig(level="INFO")
 
 # %%
 metadata = load_nb_metadata("ssp-basic-elements")
-metadata.dict()
+metadata.model_dump()
 
 # %% tags=["parameters"]
 local_bookshelf = tempfile.mkdtemp()
@@ -87,12 +87,8 @@ def clean_scenario(s):
     return s[:4]
 
 
-basic_elements_country["scenario"] = basic_elements_country["scenario"].apply(
-    clean_scenario
-)
-basic_elements_regions["scenario"] = basic_elements_regions["scenario"].apply(
-    clean_scenario
-)
+basic_elements_country["scenario"] = basic_elements_country["scenario"].apply(clean_scenario)
+basic_elements_regions["scenario"] = basic_elements_regions["scenario"].apply(clean_scenario)
 
 # %%
 basic_elements_regions.meta[["scenario", "model"]].drop_duplicates()

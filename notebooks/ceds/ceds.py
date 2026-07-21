@@ -31,7 +31,7 @@ import pycountry
 import scmdata
 
 from bookshelf import LocalBook
-from bookshelf.notebook import load_nb_metadata
+from bookshelf_producer.notebook import load_nb_metadata
 
 # %% [markdown]
 # #  Initialise
@@ -46,7 +46,7 @@ version = "v2016_07_26"
 
 # %%
 metadata = load_nb_metadata("ceds", version=version)
-metadata.dict()
+metadata.model_dump()
 
 # %%
 book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
@@ -58,9 +58,7 @@ book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 ceds_fname = metadata.download_file()
 ceds_data = zipfile.ZipFile(ceds_fname)
 ceds_archive_fnames = [
-    "./" + info.filename
-    for info in ceds_data.filelist
-    if "country_fuel" not in info.filename
+    "./" + info.filename for info in ceds_data.filelist if "country_fuel" not in info.filename
 ]
 ceds_archive_fnames
 
@@ -123,9 +121,7 @@ def read_CEDS_format(fname: str) -> scmdata.ScmRun:
 ceds_by_country = []
 
 for species in ceds_species:
-    ceds_by_country.append(
-        read_CEDS_format(f"{species}_CEDS_emissions_by_country_*.csv")
-    )
+    ceds_by_country.append(read_CEDS_format(f"{species}_CEDS_emissions_by_country_*.csv"))
 ceds_by_country = scmdata.run_append(ceds_by_country)
 
 # %%
@@ -152,9 +148,7 @@ book.add_timeseries("by_country", ceds_by_country)
 ceds_by_sector = []
 
 for species in ceds_species:
-    ceds_by_sector.append(
-        read_CEDS_format(f"{species}_CEDS_emissions_by_sector_country_*.csv")
-    )
+    ceds_by_sector.append(read_CEDS_format(f"{species}_CEDS_emissions_by_sector_country_*.csv"))
 ceds_by_sector = scmdata.run_append(ceds_by_sector)
 ceds_by_sector.get_unique_meta("region")
 
@@ -178,16 +172,12 @@ ceds_sector_mapping
 
 # %%
 def process_aggregate_sector(sector_column: str, sector: str):
-    target_sector_info = ceds_sector_mapping[
-        ceds_sector_mapping[sector_column] == sector
-    ]
+    target_sector_info = ceds_sector_mapping[ceds_sector_mapping[sector_column] == sector]
     ceds_sector_aggregate = ceds_by_sector.filter(
         sector=target_sector_info.CEDS_working_sector.to_list(), log_if_empty=False
-    ).process_over(("sector"), "sum")
+    ).process_over("sector", "sum")
     ceds_sector_aggregate["sector"] = sector
-    ceds_sector_aggregate["sector_short"] = target_sector_info[
-        sector_column + "_short"
-    ].unique()[0]
+    ceds_sector_aggregate["sector_short"] = target_sector_info[sector_column + "_short"].unique()[0]
     return scmdata.ScmRun(ceds_sector_aggregate)
 
 
@@ -218,9 +208,11 @@ ceds_agg_sectors_final.get_unique_meta("sector_short")
 ceds_agg_sectors_final
 
 # %%
-book.add_timeseries("by_sector_ipcc", ceds_by_sector)
-book.add_timeseries("by_sector_intermediate", ceds_agg_sectors_intermediate)
-book.add_timeseries("by_sector_final", ceds_agg_sectors_final)
+# CEDS has *very* precise numbers. This can cause rounding errors if we don't preround these values
+# This rounding does not necessarily loose any information.
+book.add_timeseries("by_sector_ipcc", ceds_by_sector.round(8))
+book.add_timeseries("by_sector_intermediate", ceds_agg_sectors_intermediate.round(8))
+book.add_timeseries("by_sector_final", ceds_agg_sectors_final.round(8))
 
 # %% [markdown]
 # # Checks

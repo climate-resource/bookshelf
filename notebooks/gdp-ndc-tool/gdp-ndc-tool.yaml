@@ -1,0 +1,43 @@
+name: gdp-ndc-tool
+edition: 1
+license: not specified
+description: GDP results from the Excel NDC Tool version 13Mar23a_CR - legacy use only
+metadata:
+  author: Mika Pflüger
+  author_email: mika.pflueger@climate-resource.com
+data_dictionary:
+  - name: model
+    description: Name of the dataset. This should be the same of a given dataset
+    type: string
+    allowed_NA: false
+    required_column: true
+  - name: region
+    description: Identifier for the geographic region that the timeseries applies to. Common region identifiers include  ISO 3166-1 alpha-3 codes (always capitalised)
+    type: string
+    allowed_NA: true
+    required_column: true
+  - name: scenario
+    description: Configuration used to define the historical emissions.
+    type: string
+    allowed_NA: true
+    required_column: true
+  - name: unit
+    description: Unit of the timeseries
+    type: string
+    allowed_NA: false
+    required_column: true
+  - name: variable
+    description: Name of the variable
+    type: string
+    allowed_NA: false
+    required_column: true
+    controlled_vocabulary:
+      - value: GDP
+        description: Gross Domestic Products in constant dollar terms.
+versions:
+  - version: 2023-10
+    dataset:
+      files:
+        - url: file://gdp-ndc-tool/13Mar2023a_CR_gdp_results.csv
+          hash: 716b7abd675273cc499646cb007d218779250590a68915421c7c3fbfab90aa51
+      author: Climate Resource

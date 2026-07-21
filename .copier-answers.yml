@@ -1,0 +1,14 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: v0.5.0
+_src_path: gl:climate-resource/copier-core-python-repository
+email: jared.lewis@climate-resource.com
+initial_setup: true
+name: Jared Lewis
+notebook_dependencies: false
+pandas_doctests: true
+plot_dependencies: false
+project_description_short: A collection of curated climate data sets
+project_name_human: bookshelf
+project_name_pip: bookshelf
+project_name_python: bookshelf
+project_url: https://github.com/climate-resource/bookshelf
