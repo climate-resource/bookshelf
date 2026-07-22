@@ -70,28 +70,29 @@ for the expected format of this file.
 
 ### Creating a new `Volume`
 
-* Start by copying `example.py` and `example.yaml` and renaming to the name of
+- Start by copying `example.py` and `example.yaml` and renaming to the name of
   the new volume. This provides a simple example to get started.
-* Update `{volume}.yaml` with the correct metadata
-* Update the fetch and processing steps as needed, adding additional `Resource`s
+- Update `{volume}.yaml` with the correct metadata
+- Update the fetch and processing steps as needed, adding additional `Resource`s
   to the `Book` as needed.
-* Run the notebook and check the output
-* **TODO** Perform the release procedure to upload the built book to the remote
+- Run the notebook and check the output
+- **TODO** Perform the release procedure to upload the built book to the remote
   `BookShelf`
-  `bookshelf save {volume}`
+  `bookshelf publish {volume}`
 
 ### Updating a `Volume`'s version
 
-* Update the `version` attribute in the metadata file
-* Modify other metadata attributes as needed
-* Update the data fetching and processing steps in the notebook
-* Run the notebook and check the output
-* **TODO** Perform the release procedure to upload the built book to the remote
+- Update the `version` attribute in the metadata file
+- Modify other metadata attributes as needed
+- Update the data fetching and processing steps in the notebook
+- Run the notebook and check the output
+- **TODO** Perform the release procedure to upload the built book to the remote
   `BookShelf`
 
 ### Testing a notebook locally
 
 You can run a notebook with a specified output directory for local testing:
+
 ```bash
 uv run bookshelf run --output /path/to/custom/directory <notebook_name>
 ```
@@ -110,6 +111,7 @@ edition = 1
 
 new_book = shelf.load("{notebook_name}", version="{version}", edition=edition)
 ```
+
 When updating an existing Book, remember to increase the version or the edition to make
 sure you load your newly generated data, not the old data.
 
@@ -124,9 +126,9 @@ The steps required are the following:
 
 1. Bump the version: manually trigger the "bump" stage from the latest commit
    in main (pipelines are [here](https://github.com/climate-resource/bookshelf/-/pipelines)).
-   A valid "bump_rule" (see https://python-poetry.org/docs/cli/#version)
+   A valid "bump_rule" (see <https://python-poetry.org/docs/cli/#version>)
    will need to be specified via the "BUMP_RULE" CI
-   variable (see https://docs.gitlab.com/ee/ci/variables/). This will then
+   variable (see <https://docs.gitlab.com/ee/ci/variables/>). This will then
    trigger a release, including publication to PyPI.
 
 1. Download the artefacts from the release job. The `release_notes.md` artefact
@@ -139,7 +141,6 @@ The steps required are the following:
 
 1. Once the release notes are filled out, use them to make a
    [release](https://gitlab.com/climate-resource/bookshelf/bookshelf/-/releases/new).
-
 
 1. That's it, release done, make noise on social media of choice, do whatever
    else
