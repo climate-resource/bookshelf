@@ -117,6 +117,7 @@ def read_imf_weo(df, end_year=2050) -> scmdata.ScmRun:
     weo_data = weo_data.drop(["WEO Country Code"], axis=1, errors="ignore")
     weo_data["model"] = "IMF WEO"
     weo_data["scenario"] = ""
+    weo_data["source"] = f"IMF WEO @ {metadata.version}"
 
     def clean_data(d):
         if d.dtype == object:
