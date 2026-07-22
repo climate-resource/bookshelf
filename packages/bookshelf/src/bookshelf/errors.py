@@ -36,6 +36,21 @@ class UnknownEdition(UnknownVersion):
         return f"Could not find {self.name}@{self.version} ed.{self.version}"
 
 
+class OfflineError(Exception):
+    """
+    Raised when the network is unavailable and no cached data exists.
+    """
+
+    def __init__(self, name: str, version: str | None = None):
+        self.name = name
+        self.version = version
+        if version:
+            msg = f"Cannot fetch '{name}' version {version}: network unavailable and not cached locally."
+        else:
+            msg = f"Cannot fetch '{name}': network unavailable and no cached version found."
+        super().__init__(msg)
+
+
 class UploadError(ValueError):
     """
     Could not upload a book to the remote bookshelf

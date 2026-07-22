@@ -22,3 +22,6 @@ DEFAULT_BOOKSHELF = f"https://cr-prod-datasets-bookshelf.s3.us-west-2.amazonaws.
 """Default URL for the remote bookshelf"""
 ENV_PREFIX = "BOOKSHELF_"
 """Prefix for environment variables"""
+
+DEFAULT_BACKEND = "s3"
+"""Default backend type: "s3" or "api" """
