@@ -12,7 +12,6 @@
 [![PyPI](https://img.shields.io/pypi/v/bookshelf.svg)](https://pypi.org/project/bookshelf/)
 [![PyPI install](https://github.com/climate-resource/bookshelf/actions/workflows/install-pypi.yaml/badge.svg?branch=main)](https://github.com/climate-resource/bookshelf/actions/workflows/install-pypi.yaml)
 
-
 **Tests :**
 [![CI](https://github.com/climate-resource/bookshelf/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/climate-resource/bookshelf/actions/workflows/ci.yaml)
 [![Coverage](https://codecov.io/gh/climate-resource/bookshelf/branch/main/graph/badge.svg)](https://codecov.io/gh/climate-resource/input4mips_validation)
@@ -20,7 +19,6 @@
 **Other info :**
 [![Last Commit](https://img.shields.io/github/last-commit/climate-resource/bookshelf.svg)](https://github.com/climate-resource/input4mips_validation/commits/main)
 [![Contributors](https://img.shields.io/github/contributors/climate-resource/bookshelf.svg)](https://github.com/climate-resource/input4mips_validation/graphs/contributors)
-
 
 The `bookshelf` represents a shared collection of curated datasets or `Books`.
 Each `Book` is a preprocessed, versioned dataset including the notebooks used to produce it.
@@ -47,7 +45,6 @@ Each Book consists of a [datapackage](https://specs.frictionlessdata.io/data-pac
 description of the metadata.
 This datapackage contains the associated `Resources` and their hashes.
 Each `Resource` is fetched when it is first used and then cached for later use.
-
 
 <!--- --8<-- [end:description] -->
 
@@ -113,6 +110,11 @@ be installed using:
 pip install bookshelf-producer
 ```
 
+/// admonition | Note
+`bookshelf-producer` is frozen and will be retired
+once every feedstock has migrated to the Bookshelf Platform SDK.
+///
+
 Building and deploying datasets is managed via Jupyter notebooks and a small yaml file that
 contains metadata about the dataset. These notebooks are stored as plain text Python files
 using the [jupytext](https://jupytext.readthedocs.io/en/latest/) plugin for Jupyter.
@@ -125,7 +127,7 @@ other users can consume it.
 The dataset can deployed using the `publish` CLI as shown below:
 
 ```bash
-bookshelf publish my-dataset
+bookshelf-producer publish my-dataset
 ```
 
 /// admonition | Note
