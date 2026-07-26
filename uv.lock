@@ -9,7 +9,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-07-19T05:33:38.904328221Z"
+exclude-newer = "2026-07-19T05:33:46.914595073Z"
 exclude-newer-span = "P7D"
 
 [options.exclude-newer-package]
@@ -299,7 +299,7 @@ wheels = [
 
 [[package]]
 name = "bookshelf"
-version = "0.4.3"
+version = "0.4.4a1"
 source = { editable = "packages/bookshelf" }
 dependencies = [
     { name = "datapackage" },
@@ -388,7 +388,7 @@ dev = [
 
 [[package]]
 name = "bookshelf-producer"
-version = "0.4.3"
+version = "0.4.4a1"
 source = { editable = "packages/bookshelf-producer" }
 dependencies = [
     { name = "bookshelf" },
@@ -423,7 +423,7 @@ dev = [{ name = "moto", extras = ["s3"], specifier = ">=5" }]
 
 [[package]]
 name = "bookshelf-root"
-version = "0.4.3"
+version = "0.4.4a1"
 source = { virtual = "." }
 dependencies = [
     { name = "bookshelf" },
