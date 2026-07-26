@@ -70,7 +70,6 @@ and no timestamps.
 from __future__ import annotations
 
 import hashlib
-import json
 import re
 from pathlib import Path
 from typing import Any, Literal
@@ -79,7 +78,7 @@ from uuid import UUID
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from bookshelf._core.hashing import canonical_json_bytes
+from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
 from bookshelf.publisher.lock import _dump_sorted_yaml
 
 BUNDLE_SCHEMA_VERSION = "1.0"
@@ -172,16 +171,14 @@ def synthesise_pointer_hash(
     so the two never diverge.
     """
     locations = [(_EXTERNAL_SHELF, external_uri)]
-    seed = json.dumps(
+    seed = canonical_json_bytes(
         {
             "type": type_,
             "logical_key": logical_key or "",
             "locations": locations,
-        },
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-    return f"sha256:{hashlib.sha256(seed).hexdigest()}"
+        }
+    )
+    return sha256_hex(seed)
 
 
 class BundleResource(BaseModel):
@@ -579,7 +576,7 @@ class Bundle:
         because the hash comes from the shared serialiser.
         The check is defence in depth against a forged hash.
         """
-        expected = "sha256:" + hashlib.sha256(data).hexdigest()
+        expected = sha256_hex(data)
         if hash_ != expected:
             raise ValueError(f"hash {hash_!r} does not match bytes (expected {expected!r})")
         self.resources_dir.mkdir(parents=True, exist_ok=True)
