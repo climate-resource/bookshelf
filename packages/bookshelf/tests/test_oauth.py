@@ -12,8 +12,9 @@ from bookshelf._core import oauth as _oauth
 def no_sleep(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     """Capture poll sleeps instead of actually sleeping.
 
-    Also sets a test-scoped BOOKSHELF_WORKOS_CLIENT_ID so that flows called without an
-    explicit staging URL do not hit the fail-loud production guard.
+    Also sets a test-scoped BOOKSHELF_WORKOS_CLIENT_ID.
+    Flows called without an explicit staging URL
+    therefore do not hit the fail-loud production guard.
     """
     sleeps: list[float] = []
     monkeypatch.setattr(_oauth.time, "sleep", lambda s: sleeps.append(s))

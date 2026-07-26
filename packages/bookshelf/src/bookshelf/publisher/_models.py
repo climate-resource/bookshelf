@@ -43,10 +43,14 @@ class RegisterResourceItem(BaseModel):
     external_uri: str | None = None
     locations: list[LocationInput] = Field(default_factory=list)
     dedupe: bool = True
-    """When ``True`` (default) the server aliases to an existing resource sharing the
-    content hash.
-    Set ``False`` for per-book entry resources (outputs, notebooks) so
-    each edition owns a distinct resource row even when the bytes are identical."""
+    """When ``True`` by default,
+    the server aliases to an existing resource
+    that shares the content hash.
+    Set ``False`` for per-book entry resources,
+    including outputs and notebooks.
+    Each edition then owns a distinct resource row,
+    even when the bytes are identical.
+    """
 
 
 class Author(BaseModel):

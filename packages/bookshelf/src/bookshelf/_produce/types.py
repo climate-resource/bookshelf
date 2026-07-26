@@ -29,9 +29,11 @@ class Used:
 class RegisterItem:
     """One managed object to materialise as part of an activity batch.
 
-    With the default ``dedupe=True``, byte-identical objects owned by the same
-    organisation collapse to one canonical resource even when their logical
-    keys differ. The first resource's logical key remains canonical.
+    With the default ``dedupe=True``,
+    byte-identical objects owned by the same organisation
+    collapse to one canonical resource,
+    even when their logical keys differ.
+    The first resource's logical key remains canonical.
     """
 
     obj: object

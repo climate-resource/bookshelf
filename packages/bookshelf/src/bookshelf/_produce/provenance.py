@@ -12,9 +12,10 @@ from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
 def derive_code_ref() -> str:
     """Return ``<remote-url>@<sha>[+dirty]`` for the current git checkout.
 
-    Raises :class:`~bookshelf._core.errors.BookshelfError` when the
-    working directory is not inside a git repository, or when git is not
-    available: the caller must pass ``code_ref=`` explicitly in that case.
+    Raises :class:`~bookshelf._core.errors.BookshelfError`
+    when the working directory is not inside a git repository
+    or when git is unavailable.
+    The caller must pass ``code_ref=`` explicitly in that case.
     """
     try:
         remote = subprocess.run(

@@ -311,8 +311,8 @@ def prepare_notebook_items(
 ) -> tuple[list[RegisterResourceItem], list[Path]]:
     """Build :class:`RegisterResourceItem` objects for the two notebook artifacts.
 
-    Returns a ``(items, paths)`` pair where ``items[i]`` corresponds to
-    ``paths[i]``.
+    Returns a ``(items, paths)`` pair.
+    Each ``items[i]`` corresponds to ``paths[i]``.
     The caller passes ``items`` to ``bs.register_outputs()``
     and later calls ``bs.attach_entry()`` for each.
 

@@ -167,8 +167,9 @@ def load_credentials(api_url: str | None = None) -> StoredCredentials | None:
     """Load the active credential record, or ``None`` when missing or corrupt.
 
     With ``api_url``, the active record for that deployment.
-    Without, the active record for the default deployment (the last one
-    logged in to or switched to).
+    Without one,
+    the active record is from the default deployment.
+    This is the last deployment logged in to or switched to.
     Expired credentials are returned as stored,
     the credential provider decides whether they can still be refreshed.
     """

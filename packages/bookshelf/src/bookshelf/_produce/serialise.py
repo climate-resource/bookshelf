@@ -60,11 +60,12 @@ class SerialisedObject(NamedTuple):
 def serialise(obj: Any, *, type: str) -> SerialisedObject:
     """Materialise ``obj`` into ``(bytes, hash, content_type, format)`` for upload.
 
-    ``obj`` is a ``DataFrame`` (polars or pandas), raw ``bytes``, or a
-    :class:`~pathlib.Path`.
-    For a parquet ``type`` (``timeseries`` / ``tabular``) a ``DataFrame`` is
-    encoded to deterministic parquet, ``bytes`` / ``Path`` inputs pass through
-    unchanged for every type.
+    ``obj`` is a polars or pandas ``DataFrame``,
+    raw ``bytes``,
+    or a :class:`~pathlib.Path`.
+    For a parquet ``type`` such as ``timeseries`` or ``tabular``,
+    a ``DataFrame`` is encoded to deterministic parquet.
+    ``bytes`` and ``Path`` inputs pass through unchanged for every type.
     The hash is the canonical ``sha256:<hex>`` of the resulting bytes.
     """
     data, content_type, format = _materialise(obj, type=type)
@@ -95,9 +96,10 @@ def _materialise(obj: Any, *, type: str) -> tuple[bytes, str, str | None]:
 def _format_from_suffix(name: str) -> str | None:
     """Infer a declared storage format from a filename suffix, or None.
 
-    Managed uploads land at content-addressed keys with no suffix, so the
-    source filename is the only place the format survives. Only formats the
-    server's query engine can scan are claimed. Anything else stays None.
+    Managed uploads land at content-addressed keys with no suffix.
+    The source filename is therefore the only place the format survives.
+    Only formats that the server's query engine can scan are claimed.
+    Anything else stays None.
     """
     lowered = name.lower()
     if lowered.endswith((".parquet", ".pq")):
