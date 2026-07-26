@@ -123,7 +123,8 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
       - name: Run SDK tests
         run: |
-          uv run --python ${{ matrix.python-version }} --package bookshelf --all-extras \
+          uv run --python ${{ matrix.python-version }} --locked \
+            --package bookshelf --all-extras \
             pytest packages/bookshelf -r a -v
 
   sdk-generated-models:
