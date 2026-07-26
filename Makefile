@@ -52,7 +52,7 @@ test-producer:  ## run the tests for the producer package
 test-core:  ## run the tests for the core package
 	uv run  --package bookshelf \
 		pytest packages/bookshelf \
-		-r a -v --doctest-modules --cov=packages/bookshelf/src
+		-r a -v --doctest-modules
 
 .PHONY: test
 test: test-core test-producer  ## run the tests

@@ -1,8 +1,16 @@
 [project]
 name = "bookshelf"
-version = "0.2.1.dev1"
-description = "Async Python client for the Bookshelf Platform API"
+version = "1.0.0"
+description = "Python SDK for the Bookshelf data platform"
+readme = "README.md"
 requires-python = ">=3.12"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
 dependencies = [
     "httpx>=0.27",
     "keyring>=25",
@@ -16,7 +24,11 @@ dependencies = [
 bookshelf = "bookshelf._cli:main"
 
 [project.optional-dependencies]
-dataframes = ["polars>=1.0", "pandas>=2.2", "pyarrow>=16"]
+dataframes = [
+    "polars==1.40.1",
+    "pandas==3.0.0",
+    "pyarrow==23.0.0",
+]
 scmrun = ["scmdata>=0.18"]
 publish = [
     "papermill>=2.5",
@@ -32,14 +44,9 @@ test = [
     "types-PyYAML>=6.0",
     "keyring>=25",
     "typer>=0.12",
-    "bookshelf-api",
-    "aiosqlite>=0.20",
-    "pandas>=2.2",
-    "pyarrow>=16",
+    "pandas==3.0.0",
+    "pyarrow==23.0.0",
 ]
-
-[tool.uv.sources]
-bookshelf-api = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
@@ -56,14 +63,31 @@ asyncio_default_fixture_loop_scope = "function"
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-extend = "../../pyproject.toml"
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "C4",
+    "UP",
+    "ARG",
+    "SIM",
+]
+ignore = [
+    "E501",
+    "B008",
+    "B905",
+]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["ARG001", "ARG002"]
 "__init__.py" = ["F401"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["bookshelf", "bookshelf_api"]
+known-first-party = ["bookshelf"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -86,13 +110,14 @@ module = [
     "pandas.*",
     "ipykernel.*",
     "jupyter_client.*",
+    "pyarrow",
     "pyarrow.*",
 ]
 ignore_missing_imports = true
 
 [dependency-groups]
 dev = [
-    "mypy>=1.13.0",
+    "mypy==1.19.1",
     "pandas-stubs>=2.2",
 ]
 codegen = [

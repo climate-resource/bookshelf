@@ -27,12 +27,12 @@ def wheel(tmp_path_factory: pytest.TempPathFactory) -> Path:
         capture_output=True,
         text=True,
     )
-    wheels = list(output.glob("bookshelf-0.2.1.dev1-*.whl"))
+    wheels = list(output.glob("bookshelf-1.0.0-*.whl"))
     assert len(wheels) == 1
     return wheels[0]
 
 
-def test_wheel_metadata_uses_unpublished_distribution_identity(wheel: Path) -> None:
+def test_wheel_metadata_uses_public_distribution_identity(wheel: Path) -> None:
     with ZipFile(wheel) as archive:
         names = set(archive.namelist())
         metadata_name = next(name for name in names if name.endswith(".dist-info/METADATA"))
@@ -43,7 +43,7 @@ def test_wheel_metadata_uses_unpublished_distribution_identity(wheel: Path) -> N
         entry_points = archive.read(entry_points_name).decode()
 
     assert metadata["Name"] == "bookshelf"
-    assert metadata["Version"] == "0.2.1.dev1"
+    assert metadata["Version"] == "1.0.0"
     assert any(
         requirement.startswith("pyyaml>=6.0") for requirement in metadata.get_all("Requires-Dist")
     )

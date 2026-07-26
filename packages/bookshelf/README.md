@@ -1,39 +1,45 @@
----
-Status: accepted
-Last updated: 2026-07-22
----
+# Bookshelf Python SDK
 
-# Python SDK (unpublished transition)
+The `bookshelf` package is the official Python SDK for the Bookshelf data platform.
+It provides synchronous and asynchronous facades for consuming published data,
+producing managed resources,
+and running record and replay publishing workflows.
+It also includes the `bookshelf` command line interface for authentication,
+discovery,
+and local cache management.
 
-This directory builds the local, **unpublished** `bookshelf==0.2.1.dev1` distribution.
-It ships one import package, `bookshelf`, holding the generated Pydantic model foundation,
-the unified facade, and the publisher.
+Version 1 replaces the legacy Bookshelf consumer library.
+Applications that still depend on the V1 library must pin `bookshelf<1`.
 
-The proof-of-concept `bookshelf_client` package and its CLI are gone.
-Its record and replay logic lives on in `bookshelf.publisher`,
-and a replacement CLI is being designed separately on top of the SDK.
+## Installation
 
-This directory does not publish the distribution or replace the public V1 `bookshelf` package.
-Issue #284 must resolve the public version, V1 migration, repository move, and final distribution
-split before publication.
-
-## Local installation
-
-From the repository root, install the workspace package and its extras with the lock file enforced:
+Install the SDK from PyPI:
 
 ```bash
-uv sync --locked --all-packages --all-extras
+uv add bookshelf
 ```
 
-A locally built wheel can also be installed directly for testing:
+Install optional integrations as needed:
 
 ```bash
-uv build --project clients/python --out-dir /tmp/bookshelf-sdk-dist
-uv pip install /tmp/bookshelf-sdk-dist/bookshelf-0.2.1.dev1-*.whl
+uv add "bookshelf[dataframes,scmrun,publish]"
 ```
 
-Do not use `uv add bookshelf` as a substitute: that name currently resolves to the public V1 product,
-not this unpublished scaffold.
+The SDK requires Python 3.12 or newer.
+
+For local development,
+install the workspace package and all extras with the lock file enforced:
+
+```bash
+uv sync --locked --package bookshelf --all-extras
+```
+
+A local wheel can also be built and installed directly:
+
+```bash
+uv build --project packages/bookshelf --out-dir /tmp/bookshelf-sdk-dist
+uv pip install /tmp/bookshelf-sdk-dist/bookshelf-1.0.0-*.whl
+```
 
 ## Consuming published data
 
@@ -139,18 +145,15 @@ assert models is private_models
 `OPENAPI_VERSION` is copied from the vendored contract's `info.version`.
 It is not the distribution version and does not assert an ordered minimum server version.
 
-Exporting the backend contract and generating models are deliberately separate operations:
-
-```bash
-make openapi-schema
-make generate-python-client
-```
+The API contract is vendored at `packages/bookshelf/openapi.json`.
+Refresh that snapshot explicitly when the platform contract changes,
+then regenerate and review the model diff in the same change.
 
 The exact generation command is caller-independent and locked:
 
 ```bash
-uv run --project clients/python --locked --group codegen \
-  python clients/python/scripts/generate_models.py
+uv run --project packages/bookshelf --locked --group codegen \
+  python packages/bookshelf/scripts/generate_models.py
 ```
 
 The driver validates a complete temporary tree before promotion.
@@ -230,9 +233,10 @@ Notebooks can construct a client plainly and never close it.
 ## Testing
 
 ```bash
-cd clients/python
-uv run --locked pytest --cov=bookshelf
+cd packages/bookshelf
+uv run --locked --all-extras pytest
 ```
 
-The test suite spins up the FastAPI backend in-process via
-`httpx.ASGITransport`, so no external services are required.
+The public test suite uses local transports and fixtures.
+Backend contract tests live with the private platform,
+where the unpublished backend package is available.
