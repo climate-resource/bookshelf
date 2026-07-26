@@ -84,9 +84,11 @@ from bookshelf.publisher.lock import _dump_sorted_yaml
 
 BUNDLE_SCHEMA_VERSION = "1.0"
 
-# The major this reader models. A newer *minor* is additive and loads (the models
-# ignore unknown fields), but a newer *major* signals a breaking change, so
-# reading it under v1 semantics would drop fields that carry new meaning.
+# The major this reader models.
+# A newer *minor* is additive and loads
+# because the models ignore unknown fields.
+# A newer *major* signals a breaking change.
+# Reading it under v1 semantics would drop fields that carry new meaning.
 _SUPPORTED_SCHEMA_MAJOR = int(BUNDLE_SCHEMA_VERSION.split(".", 1)[0])
 
 MANIFEST_NAME = "manifest.lock"
@@ -331,16 +333,18 @@ class BundleManifest(BaseModel):
     exactly as it did before the extension landed.
     """
 
-    # Tolerant of added fields: later slices extend the manifest, and an older
-    # reader must still load a newer bundle.
+    # Tolerant of added fields:
+    # later slices extend the manifest,
+    # and an older reader must still load a newer bundle.
     model_config = ConfigDict(extra="ignore")
 
     schema_version: str = BUNDLE_SCHEMA_VERSION
     activity: BundleActivity | None = None
     book: BundleBook | None = None
     resources: list[BundleResource] = Field(default_factory=list)
-    # TODO(#210 follow-up): capture the pyarrow version in the manifest header so
-    # replay can flag a writer-version mismatch that would break byte parity.
+    # TODO(#210 follow-up):
+    # capture the pyarrow version in the manifest header,
+    # so replay can flag a writer-version mismatch that would break byte parity.
 
 
 def _check_schema_major(raw: dict[str, Any]) -> None:

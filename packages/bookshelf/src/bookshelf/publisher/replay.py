@@ -138,8 +138,11 @@ def replay_bundle_sync(
     """Replay a recorded bundle through a synchronous Bookshelf client.
 
     This is the synchronous counterpart to :func:`replay_bundle`.
-    It accepts the same path or loaded bundle forms and preserves the same
-    identifiers, lineage, draft-resume, and publication behaviour.
+    It accepts the same path or loaded bundle forms.
+    It preserves the same identifiers,
+    lineage,
+    draft-resume,
+    and publication behaviour.
     """
     recorded = Bundle.read(bundle) if isinstance(bundle, Path) else bundle
     manifest = recorded.manifest
