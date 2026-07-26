@@ -106,9 +106,10 @@ _SHA256_RE = re.compile(r"^sha256:([0-9a-f]{64})$")
 def _sha256_hex(hash_: str) -> str:
     """Return the 64-char hex digest of a canonical ``sha256:<hex>`` hash.
 
-    Raises :class:`ValueError` for anything that is not exactly
-    ``sha256:`` + 64 lowercase hex chars, so the result is always safe to use
-    as a filesystem path component.
+    Raises :class:`ValueError`
+    unless the value is exactly ``sha256:``
+    followed by 64 lowercase hex characters.
+    The result is therefore safe to use as a filesystem path component.
     """
     match = _SHA256_RE.match(hash_)
     if match is None:
@@ -182,21 +183,27 @@ def synthesise_pointer_hash(
 class BundleResource(BaseModel):
     """One resource recorded in the bundle manifest.
 
-    Pre-edition: ``hash`` is the canonical ``sha256:<hex>`` and drives the
-    replay registration's idempotency.  ``kind`` is the **explicit** discriminator
-    between the two variants:
+    ``hash`` is the canonical pre-edition ``sha256:<hex>`` value.
+    It drives replay registration idempotency.
+    ``kind`` is the **explicit** discriminator between two variants:
 
-    - ``"managed"``: the platform re-hosts the bytes, ``hash`` is the digest of
-      the bytes stored at ``resources/<hex>.<ext>`` and ``size`` is their length.
-      When produced inside an activity, ``generated`` marks it as an activity
-      output and ``used`` carries the input references for its lineage edges.
-    - ``"pointer"``: an external pointer (``register_external``), ``external_uri``
-      is the target the platform must not re-host, there is no byte file, and
-      ``size`` is omitted.
+    - ``"managed"``:
+      the platform re-hosts the bytes.
+      ``hash`` is the digest of the bytes at ``resources/<hex>.<ext>``.
+      ``size`` is their length.
+      For an activity output,
+      ``generated`` marks the output
+      and ``used`` carries its lineage input references.
+    - ``"pointer"``:
+      an external pointer created with ``register_external``.
+      ``external_uri`` is the target that the platform must not re-host.
+      There is no byte file,
+      and ``size`` is omitted.
 
-    ``extra="ignore"`` keeps the *per-resource* record forward-compatible too:
-    the book-framing slice adds fields like ``name_in_book`` per entry, and an
-    older reader must still load them by dropping what it does not model.
+    ``extra="ignore"`` keeps each resource record forward-compatible.
+    A later book-framing slice can add fields such as ``name_in_book``.
+    An older reader still loads that record
+    by dropping fields it does not model.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -220,13 +227,16 @@ class BundleResource(BaseModel):
 class BundleActivity(BaseModel):
     """The activity envelope recorded in the bundle manifest.
 
-    Mirrors the wire :class:`~bookshelf.publisher._models.ActivityCreate` (minus its
-    build-level ``used``, which is recorded per resource): the client-minted
-    ``activity_id`` plus the descriptive fields.  Replay creates the activity
-    under this exact ``activity_id``, so re-replay finds it already present and
-    mints no duplicate provenance edges (idempotent on ``activity_id``).
+    Mirrors the wire :class:`~bookshelf.publisher._models.ActivityCreate`,
+    minus build-level ``used`` references,
+    which are recorded per resource.
+    It contains the client-minted ``activity_id``
+    and the descriptive fields.
+    Replay creates the activity under this exact ``activity_id``.
+    A repeated replay therefore finds the activity already present
+    and mints no duplicate provenance edges.
 
-    ``extra="ignore"`` keeps the envelope tolerant of fields a later client adds.
+    ``extra="ignore"`` tolerates fields added by a later client.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -242,13 +252,16 @@ class BundleActivity(BaseModel):
 class BundleBookEntry(BaseModel):
     """One ``name_in_book -> resource`` membership row in the book framing.
 
-    ``tracking_id`` references a resource recorded in the same manifest (managed
-    or pointer), ``name_in_book`` is the stable name the resource takes inside the
-    book.  The pair feeds the bundle-hash seal (sorted ``[name_in_book,
-    sha256_hex]`` members), so it is the unit replay attaches and the unit the
-    idempotency key is computed over.
+    ``tracking_id`` references a managed resource or pointer
+    recorded in the same manifest.
+    ``name_in_book`` is the stable name
+    that the resource takes inside the book.
+    This pair feeds the bundle-hash seal
+    as a sorted ``[name_in_book, sha256_hex]`` member.
+    It is both the unit replay attaches
+    and the unit used to compute the idempotency key.
 
-    ``extra="ignore"`` keeps the row tolerant of fields a later client adds.
+    ``extra="ignore"`` tolerates fields added by a later client.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -260,17 +273,27 @@ class BundleBookEntry(BaseModel):
 class BundleBook(BaseModel):
     """The book framing recorded in the bundle manifest (pre-edition).
 
-    Mirrors the ``create_draft_book -> attach_entry* -> publish`` arc the producer
-    expressed: ``volume`` / ``version`` / ``visibility`` / ``license`` frame the
-    draft, ``entries`` carry the ``name_in_book -> resource`` membership, and
-    ``published`` records whether replay should publish the draft (vs. leave it a
-    draft).  ``authors`` is recorded for provenance only: the draft API carries
-    no authors field and the seal excludes them, so replay never sends them.
+    Mirrors the producer's
+    ``create_draft_book -> attach_entry* -> publish`` arc.
+    ``volume``,
+    ``version``,
+    ``visibility``,
+    and ``license`` frame the draft.
+    ``entries`` carries the ``name_in_book -> resource`` membership.
+    ``published`` records whether replay should publish the draft
+    or leave it as a draft.
+    ``authors`` is recorded for provenance only.
+    The draft API has no authors field,
+    and the seal excludes authors,
+    so replay never sends them.
 
-    It is **pre-edition** (no ``edition`` field): the server assigns the edition
-    at replay (ADR 0006), and replay keys the draft on the content bundle hash
-    computed from this framing, so two replays of the same bundle converge on one
-    edition.  ``extra="ignore"`` keeps it tolerant of fields a later client adds.
+    The framing is **pre-edition**
+    and has no ``edition`` field.
+    The server assigns the edition during replay under ADR 0006.
+    Replay keys the draft on the content bundle hash
+    computed from this framing.
+    Two replays of the same bundle therefore converge on one edition.
+    ``extra="ignore"`` tolerates fields added by a later client.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -290,16 +313,22 @@ class BundleBook(BaseModel):
 class BundleManifest(BaseModel):
     """The bundle's ``manifest.lock`` document.
 
-    Carries the schema version, the optional ``activity`` envelope, the optional
-    ``book`` framing, and the managed ``resources``.  ``model_config`` uses
-    ``extra="ignore"`` so a manifest written by a later *minor* still loads here,
-    silently dropping fields this version does not model (the
-    forward-compatibility contract for the tracer).  A newer *major* is refused
-    by :meth:`Bundle.read` before validation rather than reinterpreted here.
+    Carries the schema version,
+    the optional ``activity`` envelope,
+    the optional ``book`` framing,
+    and the managed ``resources``.
+    ``model_config`` uses ``extra="ignore"``.
+    A manifest written by a later minor version therefore still loads,
+    while fields this version does not model are dropped.
+    This is the tracer's forward-compatibility contract.
+    :meth:`Bundle.read` refuses a newer major before validation
+    instead of reinterpreting it here.
 
-    ``activity`` is ``None`` for a managed-only bundle and ``book`` is ``None``
-    for a resources-only bundle, so each extension is additive: a bundle without
-    them loads and replays exactly as it did before the extension landed.
+    ``activity`` is ``None`` for a managed-only bundle.
+    ``book`` is ``None`` for a resources-only bundle.
+    Each extension is therefore additive.
+    A bundle without them loads and replays
+    exactly as it did before the extension landed.
     """
 
     # Tolerant of added fields: later slices extend the manifest, and an older
@@ -317,10 +346,13 @@ class BundleManifest(BaseModel):
 def _check_schema_major(raw: dict[str, Any]) -> None:
     """Refuse a manifest whose major schema version this reader cannot model.
 
-    A newer minor is forward-compatible: the models ignore unknown fields, so an
-    additive change still loads. A newer major signals a breaking change, so
-    loading it under the current semantics could silently drop fields that carry
-    new meaning. Raise rather than misinterpret the bundle.
+    A newer minor is forward-compatible.
+    The models ignore unknown fields,
+    so an additive change still loads.
+    A newer major signals a breaking change.
+    Loading it under the current semantics
+    could silently drop fields that carry new meaning.
+    Raise rather than misinterpret the bundle.
     """
     version = raw.get("schema_version", BUNDLE_SCHEMA_VERSION)
     if not isinstance(version, str):
@@ -339,10 +371,12 @@ def _check_schema_major(raw: dict[str, Any]) -> None:
 def resource_filename(hash_: str, type_: str) -> str:
     """Return the content-addressed byte-file name for ``hash_`` of ``type_``.
 
-    Validates ``hash_`` is a canonical ``sha256:<hex>`` (raising
-    :class:`ValueError` otherwise), then uses the bare 64-hex digest plus a
-    type-derived extension: so ``resources/`` is keyed purely on content and a
-    crafted hash cannot escape the directory.
+    Validates that ``hash_`` is a canonical ``sha256:<hex>``.
+    Raises :class:`ValueError` otherwise.
+    The result uses the bare 64-character digest
+    plus a type-derived extension.
+    ``resources/`` is therefore keyed purely on content,
+    and a crafted hash cannot escape the directory.
     """
     hex_digest = _sha256_hex(hash_)
     extension = "parquet" if type_ in _PARQUET_TYPES else "bin"
@@ -352,26 +386,36 @@ def resource_filename(hash_: str, type_: str) -> str:
 def compute_book_bundle_hash(manifest: BundleManifest) -> str:
     """Return the content bundle hash for the manifest's book framing.
 
-    This is the client-side mirror of the backend ``_compute_bundle_hash`` seal
-    and **must** stay byte-identical to it: it is the draft idempotency key, so
-    any drift makes replay mint a fresh edition (or fail the publish
-    recompute-assert).  The canonicalisation is, over one canonical JSON document
-    (sorted keys, ``(",", ":")`` separators) via the shared
-    :func:`~bookshelf._core.hashing.canonical_json_bytes`:
+    This mirrors the backend ``_compute_bundle_hash`` seal
+    and **must** stay byte-identical to it.
+    The seal is the draft idempotency key.
+    Any drift makes replay mint a fresh edition
+    or fail the publish recompute assertion.
+    Canonicalisation uses one canonical JSON document,
+    sorted keys,
+    ``(",", ":")`` separators,
+    and :func:`~bookshelf._core.hashing.canonical_json_bytes`:
 
-    - ``license``: the book's SPDX license (``None`` when unset), and
-    - ``members``: the **sorted** list of ``[name_in_book, sha256_hex]`` pairs,
-      where ``sha256_hex`` is the validated 64-char lowercase hex of each member
-      resource's canonical ``sha256:<hex>`` hash, and
+    - ``license``:
+      the book's SPDX license,
+      or ``None`` when unset.
+    - ``members``:
+      the **sorted** list of ``[name_in_book, sha256_hex]`` pairs.
+      ``sha256_hex`` is the validated 64-character lowercase digest
+      of each member resource's canonical ``sha256:<hex>`` hash.
     - ``visibility``: the book's three-tier visibility value.
 
-    Each entry's resource is resolved from the manifest by ``tracking_id``.  The
-    digest is the 64-char lowercase hex (no ``sha256:`` prefix), matching the
-    backend's ``hexdigest()`` and the ``bundle_hash`` wire field.
+    Each entry's resource is resolved from the manifest by ``tracking_id``.
+    The digest is the 64-character lowercase value
+    without the ``sha256:`` prefix.
+    This matches the backend's ``hexdigest()``
+    and the ``bundle_hash`` wire field.
 
-    Raises :class:`ValueError` if the manifest has no book framing, an entry
-    references a resource not recorded here, or a member resource carries no
-    canonical sha256 hash (the seal would be ambiguous).
+    Raises :class:`ValueError`
+    if the manifest has no book framing,
+    an entry references an unrecorded resource,
+    or a member resource has no canonical SHA256 hash.
+    Any of those states would make the seal ambiguous.
     """
     if manifest.book is None:
         raise ValueError("manifest has no book framing to hash")
@@ -404,9 +448,11 @@ def compute_book_bundle_hash(manifest: BundleManifest) -> str:
 class Bundle:
     """A bundle directory on disk: the manifest plus ``resources/`` bytes.
 
-    Construct one over a (possibly empty) directory, :meth:`add_resource` writes
-    a content-addressed byte file and appends a manifest record, :meth:`write`
-    flushes the manifest, and :meth:`read` loads an existing bundle.
+    Construct one over a possibly empty directory.
+    :meth:`add_resource` writes a content-addressed byte file
+    and appends a manifest record.
+    :meth:`write` flushes the manifest.
+    :meth:`read` loads an existing bundle.
     """
 
     def __init__(self, root: Path, manifest: BundleManifest | None = None) -> None:
@@ -426,9 +472,11 @@ class Bundle:
     def set_activity(self, activity: BundleActivity) -> None:
         """Record the activity envelope on the manifest (first call wins).
 
-        Recording a second envelope that differs in any field is a programming
-        error because a bundle is one build, so a mismatch raises :class:`ValueError`.
-        re-recording the *identical* envelope is a no-op.
+        A bundle represents one build.
+        Recording a second envelope that differs in any field
+        is therefore a programming error
+        and raises :class:`ValueError`.
+        Recording the *identical* envelope again is a no-op.
         """
         if self.manifest.activity is not None:
             if self.manifest.activity != activity:
@@ -439,10 +487,13 @@ class Bundle:
     def set_book(self, book: BundleBook) -> None:
         """Record the book framing on the manifest (one book per bundle).
 
-        A bundle records a single book's draft/attach/publish arc, so a second
-        ``set_book`` raises :class:`ValueError`.  Entries are appended later with
-        :meth:`add_book_entry`, and :meth:`mark_book_published` flips the publish
-        flag: both mutate the framing recorded here.
+        A bundle records one book's draft,
+        attach,
+        and publish arc.
+        A second ``set_book`` therefore raises :class:`ValueError`.
+        :meth:`add_book_entry` appends entries later.
+        :meth:`mark_book_published` flips the publish flag.
+        Both mutate the framing recorded here.
         """
         if self.manifest.book is not None:
             raise ValueError("bundle already has a book recorded")
@@ -451,12 +502,16 @@ class Bundle:
     def add_book_entry(self, *, name_in_book: str, tracking_id: UUID) -> BundleBookEntry:
         """Append a ``name_in_book -> resource`` entry to the recorded book.
 
-        ``tracking_id`` must reference a resource already recorded in this
-        manifest, so the bundle stays self-contained and the bundle hash can
-        always be computed from the membership.  ``name_in_book`` must be unique
-        within the book (the backend enforces the same), so a duplicate raises
-        :class:`ValueError` here rather than failing at replay.  Raises
-        :class:`ValueError` if no book has been drafted yet.
+        ``tracking_id`` must reference a resource
+        already recorded in this manifest.
+        The bundle therefore stays self-contained,
+        and its membership always determines the bundle hash.
+        ``name_in_book`` must be unique within the book.
+        The backend enforces the same constraint.
+        A duplicate raises :class:`ValueError` here
+        instead of failing during replay.
+        The method also raises :class:`ValueError`
+        if no book has been drafted.
         """
         if self.manifest.book is None:
             raise ValueError("cannot attach a book entry before the book is drafted")
@@ -499,21 +554,24 @@ class Bundle:
     ) -> BundleResource:
         """Write ``data`` to ``resources/<hex>`` and append a manifest record.
 
-        The byte file is named from ``hash_`` (content-addressed), so recording
-        the same bytes twice is a no-op write.  Returns the appended
-        :class:`BundleResource`.
+        The byte file is named from the content-addressed ``hash_``.
+        Recording the same bytes twice is therefore a no-op write.
+        Returns the appended :class:`BundleResource`.
 
-        ``generated`` and ``used`` carry the resource's lineage when it was
-        produced inside an activity: ``generated`` marks it as an activity
-        output, and ``used`` records the input references verbatim.  Both default
-        to the no-lineage case, so a plain managed registration records as
-        before.
+        ``generated`` and ``used`` carry lineage
+        when the resource was produced inside an activity.
+        ``generated`` marks it as an activity output.
+        ``used`` records the input references verbatim.
+        Both default to the no-lineage case,
+        so a plain managed registration retains its earlier shape.
 
-        ``hash_`` must be the canonical ``sha256:<hex>`` of ``data``: the digest
-        is recomputed and verified before any write (raising :class:`ValueError`
-        on a mismatch), so the content-addressed name always matches the bytes.
-        In the happy path this already holds: the hash comes from the shared
-        serialiser: but the check is defence-in-depth against a forged hash.
+        ``hash_`` must be the canonical ``sha256:<hex>`` of ``data``.
+        The digest is recomputed and verified before any write.
+        A mismatch raises :class:`ValueError`.
+        The content-addressed name therefore always matches the bytes.
+        The happy path already has this property
+        because the hash comes from the shared serialiser.
+        The check is defence in depth against a forged hash.
         """
         expected = "sha256:" + hashlib.sha256(data).hexdigest()
         if hash_ != expected:
@@ -556,12 +614,14 @@ class Bundle:
     ) -> BundleResource:
         """Append a ``kind="pointer"`` manifest record: write **no** bytes.
 
-        An external pointer is a resource the platform must not re-host, so there
-        is no content-addressed byte file, the record carries the ``external_uri``
-        and the canonical ``hash`` replay re-registers under.  ``hash_`` is
-        validated as a canonical ``sha256:<hex>`` (the same shape a managed hash
-        takes), raising :class:`ValueError` otherwise.  Returns the appended
-        :class:`BundleResource`.
+        The platform must not re-host an external pointer.
+        There is therefore no content-addressed byte file.
+        The record carries ``external_uri``
+        and the canonical ``hash`` used by replay.
+        ``hash_`` is validated as a canonical ``sha256:<hex>``,
+        which is the same shape as a managed hash.
+        Invalid values raise :class:`ValueError`.
+        Returns the appended :class:`BundleResource`.
         """
         _sha256_hex(hash_)  # validate canonical shape. Pointers carry no byte file
         record = BundleResource(
@@ -584,9 +644,10 @@ class Bundle:
     def resource_bytes(self, record: BundleResource) -> bytes:
         """Read back the recorded bytes for ``record`` from ``resources/``.
 
-        Routes through :func:`resource_filename`, so a non-canonical ``hash`` in
-        a crafted manifest raises :class:`ValueError` rather than reading a
-        traversed path outside ``resources/``.
+        Routes through :func:`resource_filename`.
+        A non-canonical ``hash`` in a crafted manifest
+        therefore raises :class:`ValueError`
+        instead of reading a traversed path outside ``resources/``.
         """
         byte_path = self.resources_dir / resource_filename(record.hash, record.type)
         return byte_path.read_bytes()
@@ -600,11 +661,12 @@ class Bundle:
     def read(cls, root: Path) -> Bundle:
         """Load an existing bundle directory.
 
-        Within the supported major, the manifest is parsed tolerantly
-        (``extra="ignore"``) so a bundle written by a later *minor* still loads,
-        keeping only the fields this schema models.  A newer *major* is refused
-        (:class:`ValueError`) rather than reinterpreted under the current
-        semantics.
+        Within the supported major,
+        the manifest is parsed tolerantly with ``extra="ignore"``.
+        A bundle written by a later minor therefore still loads
+        and keeps only the fields this schema models.
+        A newer major raises :class:`ValueError`
+        instead of being reinterpreted under the current semantics.
         """
         raw: dict[str, Any] = yaml.safe_load((root / MANIFEST_NAME).read_bytes()) or {}
         _check_schema_major(raw)
