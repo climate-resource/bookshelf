@@ -76,8 +76,10 @@ def serialise(obj: Any, *, type: str) -> SerialisedObject:
 def _materialise(obj: Any, *, type: str) -> tuple[bytes, str, str | None]:
     """Return ``(bytes, content_type, format)`` for ``obj`` under resource ``type``."""
     if isinstance(obj, bytes):
-        # Already serialised: store verbatim regardless of type. The format
-        # is unknowable from bytes alone, so it is not claimed.
+        # Already serialised:
+        # store verbatim regardless of type.
+        # The format is unknowable from bytes alone,
+        # so it is not claimed.
         return obj, _content_type_for(type), None
     if isinstance(obj, Path):
         return obj.read_bytes(), _content_type_for(type), _format_from_suffix(obj.name)

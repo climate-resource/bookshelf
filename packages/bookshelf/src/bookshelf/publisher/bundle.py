@@ -99,8 +99,9 @@ RESOURCES_DIRNAME = "resources"
 _PARQUET_TYPES = frozenset({"timeseries", "tabular"})
 
 # A canonical resource hash is ``sha256:`` + exactly 64 lowercase hex chars.
-# Validating against this before deriving a byte-file name keeps the path
-# component a clean digest with no ``:``, ``/``, or ``.`` characters.
+# Validate against this before deriving a byte-file name.
+# The path component then remains a clean digest
+# with no ``:``, ``/``, or ``.`` characters.
 # A crafted manifest hash therefore cannot traverse out of ``resources/``.
 _SHA256_RE = re.compile(r"^sha256:([0-9a-f]{64})$")
 
@@ -147,8 +148,9 @@ class BundleUsedRef(BaseModel):
         return self
 
 
-# The shelf slug the backend funnels an ``external_uri`` through before it
-# synthesises a hash (``LocationInput(shelf="external", path=external_uri)``).
+# The shelf slug through which the backend funnels an ``external_uri``
+# before synthesising a hash:
+# ``LocationInput(shelf="external", path=external_uri)``.
 _EXTERNAL_SHELF = "external"
 
 

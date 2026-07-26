@@ -35,8 +35,10 @@ CLAIM_GRANT = "urn:workos:agent-auth:grant-type:claim"
 
 _AGENT_PLATFORM = "bookshelf-cli"
 
-# Test seams: polling waits, the poll clock, and the moment the ceremony
-# instructions are out.
+# Test seams:
+# polling waits,
+# the poll clock,
+# and the moment the ceremony instructions are out.
 _sleep = time.sleep
 _monotonic = time.monotonic
 

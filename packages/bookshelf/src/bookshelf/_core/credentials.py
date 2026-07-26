@@ -131,7 +131,8 @@ def _read_store() -> dict[str, Any]:
 def _write_store(store: dict[str, Any]) -> None:
     creds_path = credentials_path()
     creds_path.parent.mkdir(parents=True, exist_ok=True)
-    # Created 0600 up front: a chmod after the write would leave a window
+    # Created 0600 up front.
+    # A chmod after the write would leave a window
     # where the secrets are world readable.
     fd = os.open(creds_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, stat.S_IRUSR | stat.S_IWUSR)
     with os.fdopen(fd, "w") as f:
@@ -300,8 +301,9 @@ def clear_credentials(api_url: str | None = None, kind: str | None = None) -> No
     With ``api_url`` only that deployment's records are removed,
     narrowed further to one identity kind when ``kind`` is given.
     """
-    # Fixed keychain names written by the old single-slot store,
-    # deleted so stale secrets do not linger after a full logout.
+    # Fixed keychain names written by the old single-slot store.
+    # Delete them,
+    # so stale secrets do not linger after a full logout.
     if api_url is None:
         _keychain_delete("access_token")
         _keychain_delete("refresh_token")

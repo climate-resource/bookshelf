@@ -22,8 +22,10 @@ from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx
 
-# Public WorkOS client IDs (safe to hardcode for PKCE/device-code apps).
-# Production ID is not bundled: it must be supplied via BOOKSHELF_WORKOS_CLIENT_ID.
+# Public WorkOS client IDs are safe to hardcode
+# for PKCE and device-code apps.
+# The production ID is not bundled.
+# It must be supplied via BOOKSHELF_WORKOS_CLIENT_ID.
 _CLIENT_IDS: dict[str, str | None] = {
     "staging": "client_01KABZE0E62YS9H7BMV6YZGMD1",
     "production": None,
@@ -42,8 +44,10 @@ _AUTH_CODE_TIMEOUT = 120  # seconds to wait for the browser redirect
 _DEVICE_CODE_TIMEOUT = 300  # seconds to wait for device-code approval
 
 
-# Self-contained HTML for the loopback callback page shown after the browser redirect.
-# No external assets: the page must render offline.
+# Self-contained HTML for the loopback callback page
+# shown after the browser redirect.
+# No external assets are used,
+# because the page must render offline.
 def _render_callback_page(*, success: bool, detail: str = "") -> bytes:
     accent = "#28c9c4" if success else "#f69f18"
     glyph = "&#10003;" if success else "&#33;"  # check / bang

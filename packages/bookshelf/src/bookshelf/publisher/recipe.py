@@ -34,8 +34,8 @@ def _validate_sha256(value: str) -> str:
     return value
 
 
-# Recipe authors reuse the volume ``Author`` model, so the fields and the
-# ``extra="forbid"`` contract stay identical.
+# Recipe authors reuse the volume ``Author`` model.
+# The fields and ``extra="forbid"`` contract therefore stay identical.
 RecipeAuthor = Author
 
 

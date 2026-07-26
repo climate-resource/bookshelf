@@ -231,7 +231,8 @@ class TestExecuteNotebook:
         nbconvert_mod.HTMLExporter = mock_exporter_cls  # type: ignore[attr-defined]
         monkeypatch.setitem(sys.modules, "nbconvert", nbconvert_mod)
 
-        # Stub nbconvert.preprocessors (imported by execute_notebook for type annotation).
+        # Stub nbconvert.preprocessors.
+        # execute_notebook imports it for a type annotation.
         preprocessors_mod = ModuleType("nbconvert.preprocessors")
         preprocessors_mod.ExecutePreprocessor = MagicMock()  # type: ignore[attr-defined]
         monkeypatch.setitem(sys.modules, "nbconvert.preprocessors", preprocessors_mod)

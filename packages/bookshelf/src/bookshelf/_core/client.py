@@ -66,7 +66,8 @@ class BookshelfClient:
         self._sync: httpx.Client | None = None
         self._async: httpx.AsyncClient | None = None
         # One lock guards both lazy transports.
-        # AsyncClient construction is synchronous code, so the async surface can share it.
+        # AsyncClient construction is synchronous code.
+        # The async surface can therefore share it.
         self._init_lock = threading.Lock()
 
     @property

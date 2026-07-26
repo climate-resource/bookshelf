@@ -105,9 +105,11 @@ class TreeValidator:
     def __call__(self, tree: Path, *, boundary: str = "tree-validation") -> None:
         if not tree.is_dir():
             raise GenerationError(f"{tree} is not a directory")
-        # Runtime imports may leave ignored bytecode caches in an otherwise valid
-        # committed tree. They are never authoritative generated output and are
-        # discarded with the old live tree after a successful promotion.
+        # Runtime imports may leave ignored bytecode caches
+        # in an otherwise valid committed tree.
+        # They are never authoritative generated output.
+        # They are discarded with the old live tree
+        # after a successful promotion.
         entries = [
             path for path in tree.rglob("*") if "__pycache__" not in path.relative_to(tree).parts
         ]
@@ -374,9 +376,11 @@ def _promote(
         validator(LIVE_TREE, boundary="post-promotion-live")
         hook("after_post_promotion_validation")
     except Exception as exc:
-        # A fault injected immediately after a rename observes the new filesystem
-        # state before the assignment following `_rename` can run. Classify the
-        # paths themselves so both sides of each rename boundary are recoverable.
+        # A fault injected immediately after a rename
+        # observes the new filesystem state
+        # before the assignment following `_rename` can run.
+        # Classify the paths themselves,
+        # so both sides of each rename boundary are recoverable.
         moved_live = moved_live or backup.exists()
         candidate_is_live = candidate_is_live or (LIVE_TREE.exists() and not temporary.exists())
         if moved_live:

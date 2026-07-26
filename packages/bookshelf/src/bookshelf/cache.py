@@ -72,8 +72,9 @@ class ContentCache:
         self._path_for(content_hash).unlink(missing_ok=True)
 
     def _entries(self) -> list[Path]:
-        # Only digest-named files count as entries, so prune and clear
-        # never touch foreign files in a user-supplied cache directory.
+        # Only digest-named files count as entries.
+        # Prune and clear therefore never touch foreign files
+        # in a user-supplied cache directory.
         digest_length = hashlib.sha256().digest_size * 2
         return [
             path

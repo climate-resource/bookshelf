@@ -15,9 +15,10 @@ from bookshelf._core import ops
 SDK_ROOT = Path(__file__).resolve().parents[1]
 DATA_MEDIA_TYPES = frozenset({"application/json", "text/csv", "application/parquet"})
 
-# The hardened contract contains more operations than the SDK intentionally uses.
-# Keeping the complete baseline lets a newly added operation warn without treating the
-# existing server-only surface as perpetual drift.
+# The hardened contract contains more operations
+# than the SDK intentionally uses.
+# Keeping the complete baseline lets a newly added operation warn
+# without treating the existing server-only surface as perpetual drift.
 KNOWN_OPERATION_IDS = frozenset(
     {
         "agentTokenExchange",

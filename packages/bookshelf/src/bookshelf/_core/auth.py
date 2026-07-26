@@ -78,8 +78,9 @@ class _RefreshingAuth(httpx.Auth):
     Both hooks are sans-io, the flow drivers only add locking.
     """
 
-    # Deliberately not requires_response_body: that would make httpx buffer every
-    # response body, defeating streamed resource downloads.
+    # Deliberately not requires_response_body.
+    # That would make httpx buffer every response body
+    # and defeat streamed resource downloads.
     # Only the token response is read, explicitly, inside the flow.
 
     def __init__(self, *, access_token: str | None = None, expires_at: float | None = None) -> None:
@@ -87,8 +88,9 @@ class _RefreshingAuth(httpx.Auth):
         if expires_at is None and access_token is not None:
             expires_at = decode_jwt_expiry(access_token)
         self._expires_at = expires_at
-        # A handed-in token of unknown expiry may already be dead, so it is
-        # refreshed before first use. A token this provider minted is not.
+        # A handed-in token of unknown expiry may already be dead.
+        # It is refreshed before first use.
+        # A token this provider minted is not.
         self._minted = False
         self._sync_lock = threading.Lock()
         self._async_lock = asyncio.Lock()
@@ -158,8 +160,9 @@ class _RefreshingAuth(httpx.Auth):
         self, request: httpx.Request
     ) -> Generator[httpx.Request, httpx.Response, None]:
         if self._needs_refresh():
-            # The lock is held across the refresh yield so concurrent callers
-            # wait for one exchange instead of racing their own.
+            # The lock is held across the refresh yield,
+            # so concurrent callers wait for one exchange
+            # instead of racing their own.
             with self._sync_lock:
                 if self._needs_refresh():
                     token_response = yield self._refresh_request()

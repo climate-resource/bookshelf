@@ -338,7 +338,8 @@ def test_streaming_response_body_is_not_buffered() -> None:
     """Only the token response is read, so streamed downloads stay streamed."""
     issuer = TokenIssuer()
     auth = ClientCredentials("cid", "secret", token_url=TOKEN_URL)
-    # requires_response_body would make httpx buffer every API response, not just tokens.
+    # requires_response_body would make httpx buffer every API response,
+    # not just tokens.
     assert auth.requires_response_body is False
     with sync_client(issuer, auth) as client, client.stream("GET", API_URL) as response:
         assert json.loads(response.read()) == {"ok": True}
