@@ -1,0 +1,393 @@
+"""``bookshelf.lock`` — the generated, immutable lock artifact.
+
+The lock is compiled from the realized publish state (registered resources,
+server-assigned tracking IDs, activity values) and committed to the producer
+repo alongside ``bookshelf.yaml``, the way ``uv.lock`` or ``dvc.lock`` are.
+
+Design
+------
+- **One file per recipe**: a recipe may declare several books; the written
+  ``bookshelf.lock`` is a single :class:`AggregateLock` whose ``books[]`` holds
+  one :class:`LockDocument` per book in recipe declaration order.  Multi-book
+  recipes therefore do not clobber one another.
+- **Recipe/lock split**: the recipe declares *intent*; the lock records
+  *realized provenance* — resolved hashes, minted tracking IDs, the
+  server-assigned edition, and the full ``used``/``generated`` edge set.
+- **Lineage by logical name**: ``used[]`` entries carry the logical name (``id``)
+  from the recipe.  The tracking IDs that were sent to the server as
+  ``UsedRefByTrackingId`` are already resolved client-side from the ingest
+  result map; the backend's logical-key fallback stays rare.
+- **Deterministic serialization**: ``serialize_lock`` produces byte-identical
+  YAML on re-runs with unchanged inputs — sorted keys, explicit string
+  formatting for hashes, no timestamps, LF newlines, stable list order.
+
+Committed-lock masking
+-----------------------
+The file **committed to the producer repo** omits server-assigned fields:
+
+- ``book.edition`` (only known after ``publish``)
+- ``generated[].tracking_id`` (server-assigned UUIDs)
+
+This keeps the committed lock reviewable and diffable without noise from
+server counters.  After a publish, the full in-memory lock holds those fields
+for provenance; ``mask_lock`` strips them for the committed copy.
+
+**Comparison contract**: mask both sides, then assert ``byte-identical``
+(via ``serialize_lock``).  Do not compare unmasked locks for equality across
+independent runs.
+
+config_hash
+-----------
+``compute_config_hash`` hashes the canonical recipe-book bytes and, optionally,
+the notebook source bytes.  The exact composition is **provisional** and
+non-contractual until a working end-to-end flow exists; callers must not
+rely on the specific concatenation order being stable across versions.
+The result is used as ``Activity.config_hash``; it is recorded as provenance,
+not consulted for idempotency.
+"""
+
+from pathlib import Path
+from typing import Any
+from uuid import UUID
+
+import yaml
+from pydantic import BaseModel, ConfigDict, Field
+
+from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
+from bookshelf.publisher.recipe import RecipeBook
+
+LOCK_SCHEMA_VERSION = "1.0"
+
+
+class LockBook(BaseModel):
+    """Identity section of the lock: collection, version, and server-assigned edition."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    collection: str
+    version: str
+    edition: int | None = None  # None in the committed file (server-assigned, masked out)
+
+
+class LockActivity(BaseModel):
+    """Realized activity provenance recorded in the lock."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: str
+    code_ref: str
+    config_hash: str
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
+class LockUsed(BaseModel):
+    """One raw input in the lock's ``used[]`` list.
+
+    ``id`` is the logical name from the recipe (namespaced as
+    ``{collection}/{name}``).
+    ``external_uri`` / ``url`` is the original source URL or DOI.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str  # logical name (logical_key)
+    mode: str  # "managed" | "pointer"
+    external_uri: str  # original url / doi
+    sha256: str
+
+
+class LockGenerated(BaseModel):
+    """One output or notebook resource in the lock's ``generated[]`` list.
+
+    ``tracking_id`` is ``None`` in the committed file (server-assigned,
+    masked out by ``mask_lock``).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str  # logical name
+    type: str
+    name_in_book: str
+    sha256: str
+    bytes: int
+    tracking_id: UUID | None = None  # masked out in committed file
+
+
+class LockDocument(BaseModel):
+    """One book's realized provenance — a single entry of the aggregate lock.
+
+    A recipe may declare several books; each compiles to one of these, and they
+    are gathered under :class:`AggregateLock`, which is the artifact written to
+    ``bookshelf.lock``.
+    ``schema_version`` is carried by the enclosing :class:`AggregateLock`, not
+    here, so per-book entries nest cleanly under ``AggregateLock.books``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    book: LockBook
+    activity: LockActivity
+    used: list[LockUsed] = Field(default_factory=list)
+    generated: list[LockGenerated] = Field(default_factory=list)
+
+
+class AggregateLock(BaseModel):
+    """The full ``bookshelf.lock`` document for one recipe.
+
+    A recipe declares one or more books; this aggregate holds one
+    :class:`LockDocument` per book under ``books`` in **recipe declaration
+    order**.  This is the artifact written to ``bookshelf.lock`` — a single file
+    per recipe, so multi-book recipes no longer clobber one another.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: str = LOCK_SCHEMA_VERSION
+    books: list[LockDocument] = Field(default_factory=list)
+
+
+def build_lock(
+    *,
+    recipe_book: RecipeBook,
+    collection: str,
+    edition: int | None,
+    code_ref: str,
+    config_hash: str,
+    output_hashes: dict[str, str],
+    output_sizes: dict[str, int],
+    output_tracking_ids: dict[str, UUID],
+    notebook_items: list[LockGenerated] | None = None,
+) -> LockDocument:
+    """Assemble a :class:`LockDocument` from the realized publish state.
+
+    Parameters
+    ----------
+    recipe_book:
+        The :class:`~bookshelf.publisher.recipe.RecipeBook` being published.
+    collection:
+        The Volume/collection slug (used to namespace logical keys and populate
+        ``book.collection``).
+    edition:
+        Server-assigned edition integer, or ``None`` before the publish step.
+    code_ref:
+        ``{remote_url}@{sha}`` derived from the producer's git repo.
+    config_hash:
+        ``sha256:…`` hash of the recipe book section + notebook source bytes.
+    output_hashes:
+        Mapping from logical output name → ``sha256:<hex>`` of the local file.
+    output_sizes:
+        Mapping from logical output name → byte count of the local file.
+    output_tracking_ids:
+        Mapping from logical output name → tracking ID returned by the server
+        after registering the output resource.
+    notebook_items:
+        Optional list of :class:`LockGenerated` entries for executed notebook
+        resources (``DOCUMENT`` type), added by the notebook-capture worker.
+
+    Returns
+    -------
+    LockDocument
+        The fully populated lock document.
+    """
+    # --- used[] — one entry per recipe input ---
+    used: list[LockUsed] = []
+    for name, spec in recipe_book.inputs.items():
+        logical_key = f"{collection}/{name}"
+        used.append(
+            LockUsed(
+                id=logical_key,
+                mode=spec.mode,
+                external_uri=spec.url,
+                sha256=spec.sha256,
+            )
+        )
+
+    # --- generated[] — one entry per recipe output (+ notebooks) ---
+    generated: list[LockGenerated] = []
+    for out_name, out_spec in recipe_book.outputs.items():
+        generated.append(
+            LockGenerated(
+                id=out_name,
+                type=out_spec.type,
+                name_in_book=out_spec.name_in_book,
+                sha256=output_hashes[out_name],
+                bytes=output_sizes[out_name],
+                tracking_id=output_tracking_ids.get(out_name),
+            )
+        )
+    if notebook_items:
+        generated.extend(notebook_items)
+
+    return LockDocument(
+        book=LockBook(
+            collection=collection,
+            version=recipe_book.version,
+            edition=edition,
+        ),
+        activity=LockActivity(
+            kind=recipe_book.activity.kind,
+            code_ref=code_ref,
+            config_hash=config_hash,
+            params=dict(recipe_book.activity.params),
+        ),
+        used=used,
+        generated=generated,
+    )
+
+
+def build_aggregate_lock(entries: list[LockDocument]) -> AggregateLock:
+    """Assemble the top-level :class:`AggregateLock` from per-book entries.
+
+    Parameters
+    ----------
+    entries:
+        Per-book :class:`LockDocument` objects in **recipe declaration order**.
+        Typically produced by calling :func:`build_lock` once per book inside
+        the publish loop, then passing the accumulated list here after the loop.
+
+    Returns
+    -------
+    AggregateLock
+        The complete aggregate lock ready for serialization and writing.
+    """
+    return AggregateLock(books=list(entries))
+
+
+def mask_lock(lock: LockDocument) -> LockDocument:
+    """Return a copy of ``lock`` with server-assigned fields removed.
+
+    Drops:
+    - ``book.edition`` (server-assigned integer; set to ``None``)
+    - ``generated[].tracking_id`` (server-assigned UUID; set to ``None``)
+
+    The masked copy is what gets committed to the producer repo.
+    To compare two independent publish runs: mask both sides and call
+    ``serialize_lock`` on each; the bytes must be identical if the
+    inputs were identical.
+    """
+    masked_generated = [item.model_copy(update={"tracking_id": None}) for item in lock.generated]
+    masked_book = lock.book.model_copy(update={"edition": None})
+    return lock.model_copy(update={"book": masked_book, "generated": masked_generated})
+
+
+def _sort_recursive(obj: Any) -> Any:  # noqa: ANN401
+    """Recursively sort every mapping by key, preserving list order.
+
+    The single canonicalization used by both lock serialization and
+    ``config_hash`` computation, so the two can never drift apart.
+    """
+    if isinstance(obj, dict):
+        return {k: _sort_recursive(v) for k, v in sorted(obj.items())}
+    if isinstance(obj, list):
+        return [_sort_recursive(item) for item in obj]
+    return obj
+
+
+def _model_to_sorted_dict(model: BaseModel) -> dict[str, Any]:
+    """Convert a pydantic model to a plain dict for YAML serialisation.
+
+    Omits ``None`` values (masked fields and optional defaults).
+    Recursively sorts every mapping by key for determinism, while preserving
+    list order (so ``books[]`` keeps recipe declaration order).
+    """
+    result: dict[str, Any] = _sort_recursive(model.model_dump(mode="json", exclude_none=True))
+    return result
+
+
+def _dump_sorted_yaml(model: BaseModel) -> bytes:
+    """Serialize any lock model to deterministic YAML bytes (LF, UTF-8).
+
+    Byte-identical across re-runs with unchanged inputs: sorted keys,
+    no timestamps, no line-wrapping, stable list order.
+    """
+    text = yaml.dump(
+        _model_to_sorted_dict(model),
+        allow_unicode=True,
+        default_flow_style=False,
+        sort_keys=True,
+        width=10000,  # do not line-wrap long strings
+    )
+    # yaml.dump uses LF on all platforms in PyYAML >= 6, but be explicit.
+    text_str: str = str(text)
+    normalized = text_str.replace("\r\n", "\n").replace("\r", "\n")
+    return normalized.encode("utf-8")
+
+
+def serialize_lock(lock: LockDocument) -> bytes:
+    """Serialize a per-book lock entry to deterministic YAML bytes."""
+    return _dump_sorted_yaml(lock)
+
+
+def mask_aggregate_lock(lock: AggregateLock) -> AggregateLock:
+    """Return a copy of ``lock`` with each book's server-assigned fields removed.
+
+    Applies :func:`mask_lock` to every entry in ``books`` (dropping
+    ``book.edition`` and each ``generated[].tracking_id``), preserving order.
+    """
+    return lock.model_copy(update={"books": [mask_lock(book) for book in lock.books]})
+
+
+def serialize_aggregate_lock(lock: AggregateLock) -> bytes:
+    """Serialize an aggregate lock to deterministic YAML bytes (LF, UTF-8).
+
+    Byte-identical across re-runs with unchanged inputs: sorted keys, no
+    timestamps, stable book order (recipe declaration order is preserved as the
+    list order; mapping keys within each book are sorted).
+    """
+    return _dump_sorted_yaml(lock)
+
+
+def write_aggregate_lock(path: Path, lock: AggregateLock) -> None:
+    """Write the masked committed aggregate lock to ``path``.
+
+    Always writes the masked form (``mask_aggregate_lock`` applied first) so the
+    committed file never contains server-assigned fields.
+    """
+    path.write_bytes(serialize_aggregate_lock(mask_aggregate_lock(lock)))
+
+
+def compute_config_hash(
+    recipe_book_canonical_bytes: bytes,
+    notebook_source_bytes: bytes | None = None,
+) -> str:
+    """Compute a provisional ``sha256:<hex>`` config hash.
+
+    The hash covers the canonical recipe-book bytes (deterministic YAML of
+    the recipe book section) and, optionally, the notebook source bytes.
+
+    **Non-contractual**: the exact concatenation is provisional and may
+    change before a stable release.
+    The hash is recorded as ``Activity.config_hash`` for provenance only;
+    the platform never consults it to decide whether to publish.
+    """
+    return sha256_hex(recipe_book_canonical_bytes + (notebook_source_bytes or b""))
+
+
+def recipe_book_canonical_bytes(recipe_book: RecipeBook) -> bytes:
+    """Return deterministic bytes representing a recipe book section.
+
+    Used as the first input to :func:`compute_config_hash`.
+    The serialisation is ``json``-mode pydantic dump with sorted keys.
+    """
+    raw = _sort_recursive(recipe_book.model_dump(mode="json", exclude_none=True))
+    return canonical_json_bytes(raw)
+
+
+__all__ = [
+    "AggregateLock",
+    "LockActivity",
+    "LockBook",
+    "LockDocument",
+    "LockGenerated",
+    "LockUsed",
+    "LOCK_SCHEMA_VERSION",
+    "build_aggregate_lock",
+    "build_lock",
+    "compute_config_hash",
+    "mask_aggregate_lock",
+    "mask_lock",
+    "recipe_book_canonical_bytes",
+    "serialize_aggregate_lock",
+    "serialize_lock",
+    "write_aggregate_lock",
+]

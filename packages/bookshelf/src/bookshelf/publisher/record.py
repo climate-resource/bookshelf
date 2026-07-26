@@ -1,0 +1,805 @@
+"""Recording adapter for the public Bookshelf producer surface."""
+
+from __future__ import annotations
+
+import shutil
+import tempfile
+from collections.abc import Iterator, Mapping, Sequence
+from contextvars import ContextVar
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any, Self
+from uuid import UUID
+
+import yaml
+
+from bookshelf._core.client import BookshelfClient
+from bookshelf._core.config import UNSET, AuthInput
+from bookshelf._core.errors import BookshelfError
+from bookshelf._generated import models
+from bookshelf._produce.activities import Activity
+from bookshelf._produce.books import DraftBook
+from bookshelf._produce.helpers import activity_envelope, used_ref, uuid7
+from bookshelf._produce.helpers import resource_type as _resource_type
+from bookshelf._produce.helpers import runner as _runner
+from bookshelf._produce.helpers import visibility as _visibility
+from bookshelf._produce.resources import Resource
+from bookshelf._produce.serialise import serialise
+from bookshelf._produce.types import HasTrackingId, RegisterItem, UsedInput
+from bookshelf.cache import ContentCache
+from bookshelf.facade import Bookshelf
+from bookshelf.publisher.bundle import (
+    Bundle,
+    BundleActivity,
+    BundleBook,
+    BundleUsedRef,
+    synthesise_pointer_hash,
+)
+from bookshelf.publisher.notebook import ExecutedNotebook, execute_python_build
+
+
+@dataclass(frozen=True, slots=True)
+class RecordRecipe:
+    """Run-invariant framing for a standalone build file."""
+
+    collection: str
+    license: str
+    authors: tuple[dict[str, Any], ...]
+    notebook: Path | None = None
+
+
+class RecordedResource(Resource):
+    """Local resource handle returned by a recording activity."""
+
+    def __init__(
+        self,
+        client: BookshelfClient,
+        cache: ContentCache,
+        tracking_id: UUID,
+        resource_type: models.ResourceType,
+        hash_: str,
+        *,
+        logical_key: str | None = None,
+        visibility: models.Visibility = models.Visibility.hidden,
+        tags: Sequence[str] = (),
+        metadata: Mapping[str, Any] | None = None,
+        location: str | None = None,
+    ) -> None:
+        now = datetime.now(UTC)
+        super().__init__(
+            client,
+            cache,
+            tracking_id,
+            metadata=models.ResourceRead(
+                tracking_id=tracking_id,
+                type=resource_type,
+                logical_key=logical_key,
+                hash=hash_,
+                visibility=visibility,
+                tags=list(tags),
+                metadata=dict(metadata or {}),
+                owner_org_id="recording",
+                locations=[] if location is None else [location],
+                location_url=location,
+                created_at=now,
+                updated_at=now,
+            ),
+            resource_type=resource_type,
+        )
+        self.hash = hash_
+
+
+class RecordingActivity(Activity):
+    """Activity context that records generated resources without network writes."""
+
+    def __init__(
+        self,
+        bundle: Bundle,
+        client: BookshelfClient,
+        cache: ContentCache,
+        *,
+        activity_id: UUID,
+        kind: str,
+        code_ref: str,
+        config: Mapping[str, Any],
+        runner_name: str,
+        config_hash: str | None = None,
+    ) -> None:
+        self._bundle = bundle
+        self._client = client
+        self._cache = cache
+        self.activity_id = activity_id
+        self.kind = kind
+        self.code_ref = code_ref
+        self.config = dict(config)
+        self.runner = runner_name
+        self.config_hash = config_hash
+        self._envelope = activity_envelope(
+            activity_id=activity_id,
+            kind=kind,
+            code_ref=code_ref,
+            config=config,
+            runner=runner_name,
+            used=(),
+            config_hash=config_hash,
+        )
+        self._used: list[BundleUsedRef] = []
+        self._entered = False
+        self._closed = False
+
+    def __enter__(self) -> Self:
+        if self._closed:
+            raise RuntimeError("activity context cannot be re-entered after exit")
+        if self._entered:
+            raise RuntimeError("activity context is already entered")
+        self._entered = True
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self._entered = False
+        self._closed = True
+
+    def register(
+        self,
+        obj: object,
+        *,
+        type: str | models.ResourceType,
+        logical_key: str | None = None,
+        used: Sequence[UsedInput] = (),
+        visibility: str | models.Visibility = models.Visibility.hidden,
+        tags: Sequence[str] = (),
+        metadata: Mapping[str, Any] | None = None,
+        tracking_id: UUID | None = None,
+        format: str | None = None,
+        dedupe: bool = True,
+    ) -> RecordedResource:
+        """Serialise an output once and append its bytes and provenance."""
+        self._require_entered()
+        resource_type = _resource_type(type)
+        resource_visibility = _visibility(visibility)
+        materialised = serialise(obj, type=resource_type.value)
+        resource_id = tracking_id or uuid7()
+        self._merge_used(used)
+        self._bundle.set_activity(self._bundle_activity())
+        self._bundle.add_resource(
+            data=materialised.data,
+            hash_=materialised.hash,
+            type_=resource_type.value,
+            tracking_id=resource_id,
+            logical_key=logical_key,
+            format_=format or materialised.format,
+            visibility=resource_visibility.value,
+            tags=list(tags),
+            metadata=dict(metadata or {}),
+            dedupe=dedupe,
+            generated=True,
+            used=list(self._used),
+        )
+        return RecordedResource(
+            self._client,
+            self._cache,
+            resource_id,
+            resource_type,
+            materialised.hash,
+            logical_key=logical_key,
+            visibility=resource_visibility,
+            tags=tags,
+            metadata=metadata,
+        )
+
+    def register_many(
+        self,
+        entries: Sequence[RegisterItem],
+        *,
+        used: Sequence[UsedInput] = (),
+        atomic: bool = True,
+    ) -> list[Resource]:
+        """Record a batch in declaration order."""
+        del atomic
+        return [
+            self.register(
+                entry.obj,
+                type=entry.type,
+                logical_key=entry.logical_key,
+                used=used,
+                visibility=entry.visibility,
+                tags=entry.tags,
+                metadata=entry.metadata,
+                tracking_id=entry.tracking_id,
+                format=entry.format,
+                dedupe=entry.dedupe,
+            )
+            for entry in entries
+        ]
+
+    def register_external(
+        self,
+        *,
+        type: str | models.ResourceType,
+        uri: str,
+        hash: str | None = None,
+        logical_key: str | None = None,
+        used: Sequence[UsedInput] = (),
+        visibility: str | models.Visibility = models.Visibility.hidden,
+        tags: Sequence[str] = (),
+        metadata: Mapping[str, Any] | None = None,
+        tracking_id: UUID | None = None,
+        dedupe: bool = True,
+    ) -> RecordedResource:
+        """Record an external output and its activity provenance."""
+        self._require_entered()
+        self._merge_used(used)
+        self._bundle.set_activity(self._bundle_activity())
+        return _record_pointer(
+            self._bundle,
+            self._client,
+            self._cache,
+            type=type,
+            uri=uri,
+            hash=hash,
+            logical_key=logical_key,
+            visibility=visibility,
+            tags=tags,
+            metadata=metadata,
+            tracking_id=tracking_id,
+            dedupe=dedupe,
+            generated=True,
+            used=self._used,
+        )
+
+    def _require_entered(self) -> None:
+        if not self._entered:
+            raise RuntimeError("register operations require an open activity block")
+
+    def _merge_used(self, values: Sequence[UsedInput]) -> None:
+        for value in values:
+            reference = _bundle_used_ref(value)
+            if reference not in self._used:
+                self._used.append(reference)
+        for resource in self._bundle.manifest.resources:
+            if resource.generated:
+                resource.used = list(self._used)
+
+    def _bundle_activity(self) -> BundleActivity:
+        return BundleActivity(
+            activity_id=self._envelope.activity_id,
+            kind=self._envelope.kind,
+            code_ref=self._envelope.code_ref,
+            config_hash=self._envelope.config_hash,
+            parameters=dict(self._envelope.parameters or {}),
+            runner=self._envelope.runner,
+        )
+
+
+class RecordedDraftBook(DraftBook):
+    """Draft-book handle whose writes update the bundle manifest."""
+
+    def __init__(
+        self,
+        bundle: Bundle,
+        client: BookshelfClient,
+        *,
+        volume: str,
+        version: str,
+        visibility: models.Visibility,
+        license: str,
+        description: str | None,
+        citation_doi: str | None,
+        metadata: Mapping[str, Any] | None,
+    ) -> None:
+        self._bundle = bundle
+        super().__init__(
+            client,
+            models.BookDetail(
+                book_id=uuid7(),
+                version=version,
+                edition=0,
+                status="draft",
+                visibility=visibility,
+                created_at=datetime.now(UTC),
+                series_name=volume,
+                description=description,
+                license=license,
+                citation_doi=citation_doi,
+                metadata=dict(metadata or {}),
+            ),
+        )
+
+    def attach(
+        self,
+        resource: HasTrackingId | str | UUID,
+        *,
+        name_in_book: str,
+    ) -> models.BookEntryAttachResponse:
+        """Record a book-local name for a resource in this bundle."""
+        tracking_id = (
+            UUID(str(resource))
+            if isinstance(resource, str | UUID)
+            else UUID(str(resource.tracking_id))
+        )
+        self._bundle.add_book_entry(name_in_book=name_in_book, tracking_id=tracking_id)
+        return models.BookEntryAttachResponse(
+            entry_id=uuid7(),
+            book_id=self.book_id,
+            tracking_id=tracking_id,
+            name_in_book=name_in_book,
+        )
+
+    def publish(self) -> Self:
+        """Mark the recorded book for publication during replay."""
+        self._bundle.mark_book_published()
+        self.metadata.status = "published"
+        return self
+
+
+class RecordingSink:
+    """Bundle-backed adapter for producer writes."""
+
+    def __init__(
+        self,
+        bundle: Bundle,
+        client: BookshelfClient,
+        cache: ContentCache,
+        *,
+        authors: Sequence[Mapping[str, Any]] = (),
+    ) -> None:
+        self.bundle = bundle
+        self._client = client
+        self._cache = cache
+        self._authors = tuple(dict(author) for author in authors)
+        self._activity_started = False
+
+    def activity(
+        self,
+        *,
+        code_ref: str | None = None,
+        config: Mapping[str, Any] | None = None,
+        kind: str = "run",
+        runner: str | None = None,
+        activity_id: UUID | None = None,
+        config_hash: str | None = None,
+    ) -> RecordingActivity:
+        """Open the normal activity surface over the recording adapter."""
+        if self._activity_started:
+            raise BookshelfError("a recorded build supports one activity block")
+        self._activity_started = True
+        if code_ref is None:
+            from bookshelf._produce.provenance import derive_code_ref
+
+            code_ref = derive_code_ref()
+        return RecordingActivity(
+            self.bundle,
+            self._client,
+            self._cache,
+            activity_id=activity_id or uuid7(),
+            kind=kind,
+            code_ref=code_ref,
+            config=dict(config or {}),
+            runner_name=runner or _runner(),
+            config_hash=config_hash,
+        )
+
+    def draft_book(
+        self,
+        volume: str,
+        *,
+        version: str,
+        description: str | None = None,
+        citation_doi: str | None = None,
+        license: str | None = None,
+        visibility: str | models.Visibility = models.Visibility.hidden,
+        metadata: Mapping[str, Any] | None = None,
+        bundle_hash: str | None = None,
+    ) -> RecordedDraftBook:
+        """Record pre-edition book framing and return its local handle."""
+        del bundle_hash
+        if license is None:
+            raise ValueError("recorded books require an explicit license")
+        resource_visibility = _visibility(visibility)
+        self.bundle.set_book(
+            BundleBook(
+                volume=volume,
+                version=version,
+                visibility=resource_visibility.value,
+                license=license,
+                authors=list(self._authors),
+                description=description,
+                citation_doi=citation_doi,
+                metadata=dict(metadata or {}),
+            )
+        )
+        return RecordedDraftBook(
+            self.bundle,
+            self._client,
+            volume=volume,
+            version=version,
+            visibility=resource_visibility,
+            license=license,
+            description=description,
+            citation_doi=citation_doi,
+            metadata=metadata,
+        )
+
+    def register_external(
+        self,
+        *,
+        type: str | models.ResourceType,
+        uri: str,
+        hash: str | None = None,
+        logical_key: str | None = None,
+        visibility: str | models.Visibility = models.Visibility.hidden,
+        tags: Sequence[str] = (),
+        metadata: Mapping[str, Any] | None = None,
+        tracking_id: UUID | None = None,
+        dedupe: bool = True,
+    ) -> RecordedResource:
+        """Record a catalogued pointer without writing its bytes."""
+        return _record_pointer(
+            self.bundle,
+            self._client,
+            self._cache,
+            type=type,
+            uri=uri,
+            hash=hash,
+            logical_key=logical_key,
+            visibility=visibility,
+            tags=tags,
+            metadata=metadata,
+            tracking_id=tracking_id,
+            dedupe=dedupe,
+        )
+
+    def record_document(
+        self,
+        data: bytes,
+        *,
+        logical_key: str,
+        metadata: Mapping[str, Any],
+    ) -> RecordedResource:
+        """Record execution evidence as an output of the captured activity."""
+        activity = self.bundle.manifest.activity
+        if activity is None:
+            raise BookshelfError("a recorded build requires an activity before execution documents")
+        materialised = serialise(data, type="document")
+        resource_id = uuid7()
+        used = _recorded_activity_used(self.bundle)
+        self.bundle.add_resource(
+            data=materialised.data,
+            hash_=materialised.hash,
+            type_="document",
+            tracking_id=resource_id,
+            logical_key=logical_key,
+            metadata=dict(metadata),
+            dedupe=False,
+            generated=True,
+            used=used,
+        )
+        return RecordedResource(
+            self._client,
+            self._cache,
+            resource_id,
+            models.ResourceType.document,
+            materialised.hash,
+            logical_key=logical_key,
+            metadata=metadata,
+        )
+
+
+class RecordingBookshelf(Bookshelf):
+    """Bookshelf facade with live reads and bundle-backed writes."""
+
+    def __init__(
+        self,
+        bundle: Bundle,
+        base_url: str | None = None,
+        *,
+        auth: AuthInput = UNSET,
+        authors: Sequence[Mapping[str, Any]] = (),
+    ) -> None:
+        super().__init__(base_url, auth=auth)
+        self.bundle = bundle
+        self.recording_sink = RecordingSink(
+            bundle,
+            self._client,
+            self._cache,
+            authors=authors,
+        )
+        self._produce_sink = self.recording_sink
+
+
+@dataclass(slots=True)
+class _RecordingContext:
+    recipe: RecordRecipe
+    bundle: Bundle
+    bookshelf: RecordingBookshelf | None = None
+    book: RecordedDraftBook | None = None
+    setup_called: bool = False
+
+
+_ACTIVE_RECORDING: ContextVar[_RecordingContext | None] = ContextVar(
+    "bookshelf_active_recording",
+    default=None,
+)
+
+
+class SetupResult:
+    """Pair returned by explicit build setup."""
+
+    def __init__(
+        self,
+        bs: Bookshelf | RecordingBookshelf,
+        book: DraftBook | RecordedDraftBook,
+    ) -> None:
+        self.bs = bs
+        self.book = book
+
+    def __iter__(self) -> Iterator[Any]:
+        yield self.bs
+        yield self.book
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.bs, name)
+
+
+def setup(
+    *,
+    version: str,
+    visibility: str | models.Visibility = models.Visibility.hidden,
+    license: str | None = None,
+    collection: str | None = None,
+    base_url: str | None = None,
+    auth: AuthInput = UNSET,
+) -> SetupResult:
+    """Construct live or recording handles for a standalone build file."""
+    book: DraftBook | RecordedDraftBook
+    context = _ACTIVE_RECORDING.get()
+    if context is not None:
+        if context.setup_called:
+            raise BookshelfError("a recorded build must call bookshelf.setup once")
+        if collection is not None and collection != context.recipe.collection:
+            raise BookshelfError(
+                f"build collection {collection!r} does not match recipe collection "
+                f"{context.recipe.collection!r}"
+            )
+        context.bookshelf = RecordingBookshelf(
+            context.bundle,
+            base_url,
+            auth=auth,
+            authors=context.recipe.authors,
+        )
+        book = context.bookshelf.draft_book(
+            collection or context.recipe.collection,
+            version=version,
+            visibility=visibility,
+            license=license or context.recipe.license,
+        )
+        if not isinstance(book, RecordedDraftBook):
+            raise TypeError("recording sink returned a live draft book")
+        context.book = book
+        context.setup_called = True
+        return SetupResult(context.bookshelf, book)
+    if collection is None:
+        raise BookshelfError("direct setup requires collection")
+    bs = Bookshelf(base_url, auth=auth)
+    book = bs.draft_book(
+        collection,
+        version=version,
+        visibility=visibility,
+        license=license,
+    )
+    return SetupResult(bs, book)
+
+
+def load_record_recipe(path: Path) -> RecordRecipe:
+    """Load the slim run-invariant recipe used by record mode."""
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if not isinstance(raw, dict):
+        raise BookshelfError(f"{path} must contain a YAML mapping")
+    collection = raw.get("collection")
+    license_value = raw.get("license")
+    if not isinstance(collection, str) or not collection:
+        raise BookshelfError(f"{path} must define a non-empty collection")
+    if not isinstance(license_value, str) or not license_value:
+        raise BookshelfError(f"{path} must define a non-empty license")
+    authors_raw = raw.get("authors", [])
+    if not isinstance(authors_raw, list) or not all(
+        isinstance(author, dict) for author in authors_raw
+    ):
+        raise BookshelfError(f"{path} authors must be a list of mappings")
+    notebook_raw = raw.get("notebook")
+    notebook = Path(notebook_raw) if isinstance(notebook_raw, str) else None
+    return RecordRecipe(
+        collection=collection,
+        license=license_value,
+        authors=tuple(dict(author) for author in authors_raw),
+        notebook=notebook,
+    )
+
+
+def run_record(
+    *,
+    build_path: Path | None,
+    recipe_path: Path,
+    bundle_path: Path,
+    parameters: Mapping[str, Any] | None = None,
+    cwd: Path | None = None,
+) -> dict[str, Any]:
+    """Execute a standalone Jupytext build file into a reviewable bundle."""
+    workdir = cwd or Path.cwd()
+    recipe = load_record_recipe(recipe_path)
+    selected = build_path or recipe.notebook
+    if selected is None:
+        raise BookshelfError("pass a build file or set notebook in bookshelf.yaml")
+    build = selected if selected.is_absolute() else workdir / selected
+    build = build.resolve()
+    if build.suffix.lower() != ".py":
+        raise BookshelfError("record requires a standalone Jupytext .py build file")
+    if not build.is_file():
+        raise BookshelfError(f"build file not found: {build}")
+
+    target = bundle_path.resolve()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(
+        prefix=f".{target.name}-record-",
+        dir=target.parent,
+    ) as staging_dir:
+        bundle = Bundle(Path(staging_dir))
+        context = _RecordingContext(recipe=recipe, bundle=bundle)
+        token = _ACTIVE_RECORDING.set(context)
+        try:
+            with tempfile.TemporaryDirectory(prefix="bookshelf-executed-") as artifacts:
+                executed = execute_python_build(
+                    build,
+                    params=dict(parameters or {}),
+                    workdir=workdir,
+                    artifacts_dir=Path(artifacts),
+                )
+                if not context.setup_called:
+                    raise BookshelfError("build file must call bookshelf.setup explicitly")
+                _record_executed_documents(context, executed)
+        finally:
+            _ACTIVE_RECORDING.reset(token)
+            if context.bookshelf is not None:
+                context.bookshelf.close()
+        bundle.write()
+        _replace_bundle(Path(staging_dir), target)
+    return {
+        "bundle_path": str(target),
+        "manifest_path": str(target / bundle.manifest_path.name),
+        "resources": len(bundle.manifest.resources),
+        "book_entries": len(bundle.manifest.book.entries) if bundle.manifest.book else 0,
+        "published": bool(bundle.manifest.book and bundle.manifest.book.published),
+    }
+
+
+def _record_executed_documents(
+    context: _RecordingContext,
+    executed: ExecutedNotebook,
+) -> None:
+    """Record executed notebook evidence and attach it to the drafted book."""
+    if context.bookshelf is None or context.book is None:
+        raise BookshelfError("build file must call bookshelf.setup explicitly")
+    documents = [
+        (executed.ipynb_path, f"{executed.name}.ipynb", "notebook"),
+        (executed.html_path, f"{executed.name}.html", "notebook-html"),
+    ]
+    for path, name_in_book, kind in documents:
+        resource = context.bookshelf.recording_sink.record_document(
+            path.read_bytes(),
+            logical_key=f"document/{name_in_book}",
+            metadata={"kind": kind, "notebook_name": executed.name},
+        )
+        context.book.attach(resource, name_in_book=name_in_book)
+
+
+def _replace_bundle(staging: Path, target: Path) -> None:
+    """Install a completed bundle without exposing partial recording output."""
+    if not target.exists():
+        staging.rename(target)
+        return
+    backup = target.with_name(f".{target.name}-backup-{uuid7()}")
+    target.rename(backup)
+    try:
+        staging.rename(target)
+    except BaseException:
+        backup.rename(target)
+        raise
+    shutil.rmtree(backup)
+
+
+def _recorded_activity_used(bundle: Bundle) -> list[BundleUsedRef]:
+    """Return the ordered union of inputs recorded by activity outputs."""
+    values: list[BundleUsedRef] = []
+    for resource in bundle.manifest.resources:
+        if resource.generated:
+            for reference in resource.used:
+                if reference not in values:
+                    values.append(reference)
+    return values
+
+
+def parse_parameters(values: Sequence[str]) -> dict[str, Any]:
+    """Parse command-line key and value pairs as YAML scalars."""
+    parsed: dict[str, Any] = {}
+    for value in values:
+        key, separator, raw = value.partition("=")
+        if not separator or not key:
+            raise BookshelfError(f"invalid parameter {value!r}, expected key=value")
+        parsed[key] = yaml.safe_load(raw)
+    return parsed
+
+
+def _bundle_used_ref(value: UsedInput) -> BundleUsedRef:
+    reference = used_ref(value)
+    if isinstance(reference, models.UsedRefByTrackingId):
+        return BundleUsedRef(tracking_id=reference.tracking_id)
+    return BundleUsedRef(logical_key=reference.logical_key)
+
+
+def _record_pointer(
+    bundle: Bundle,
+    client: BookshelfClient,
+    cache: ContentCache,
+    *,
+    type: str | models.ResourceType,
+    uri: str,
+    hash: str | None,
+    logical_key: str | None,
+    visibility: str | models.Visibility,
+    tags: Sequence[str],
+    metadata: Mapping[str, Any] | None,
+    tracking_id: UUID | None,
+    dedupe: bool,
+    generated: bool = False,
+    used: Sequence[BundleUsedRef] = (),
+) -> RecordedResource:
+    """Append one pointer resource and return its local handle."""
+    resource_type = _resource_type(type)
+    resource_visibility = _visibility(visibility)
+    resource_hash = hash or synthesise_pointer_hash(
+        type_=resource_type.value,
+        external_uri=uri,
+        logical_key=logical_key,
+    )
+    resource_id = tracking_id or uuid7()
+    bundle.add_pointer(
+        external_uri=uri,
+        hash_=resource_hash,
+        type_=resource_type.value,
+        tracking_id=resource_id,
+        logical_key=logical_key,
+        visibility=resource_visibility.value,
+        tags=list(tags),
+        metadata=dict(metadata or {}),
+        dedupe=dedupe,
+        generated=generated,
+        used=list(used),
+    )
+    return RecordedResource(
+        client,
+        cache,
+        resource_id,
+        resource_type,
+        resource_hash,
+        logical_key=logical_key,
+        visibility=resource_visibility,
+        tags=tags,
+        metadata=metadata,
+        location=uri,
+    )
+
+
+__all__ = [
+    "RecordRecipe",
+    "RecordedDraftBook",
+    "RecordedResource",
+    "RecordingActivity",
+    "RecordingBookshelf",
+    "RecordingSink",
+    "SetupResult",
+    "load_record_recipe",
+    "parse_parameters",
+    "run_record",
+    "setup",
+]
