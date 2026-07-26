@@ -118,7 +118,7 @@ def write_module_page(
         fh.write("\n")
         fh.write(f"::: {package_full_name}")
 
-    package_doc_split = package.__doc__.splitlines()
+    package_doc_split = (package.__doc__ or package_full_name).splitlines()
     if not package_doc_split[0]:
         summary = package_doc_split[1]
     else:
@@ -128,7 +128,6 @@ def write_module_page(
 
 
 write_module_page("bookshelf")
-write_module_page("bookshelf_producer")
 
 with mkdocs_gen_files.open(ROOT_DIR / "NAVIGATION.md", "w") as fh:
     fh.writelines(nav.build_literate_nav())

@@ -8,8 +8,7 @@ Thanks https://stackoverflow.com/a/25562415/10473080
 
 import importlib
 import pkgutil
-
-import bookshelf
+from importlib.metadata import version
 
 
 def import_submodules(package_name):
@@ -26,4 +25,4 @@ def import_submodules(package_name):
 
 
 import_submodules("bookshelf")
-print(bookshelf.__version__)
+print(version("bookshelf"))

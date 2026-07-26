@@ -1,4 +1,4 @@
-target-version = "py310"
+target-version = "py312"
 line-length = 110
 
 [lint]
@@ -53,7 +53,7 @@ ignore = [
 ]
 
 [lint.isort]
-known-first-party = ["bookshelf", "bookshelf_producer"]
+known-first-party = ["bookshelf"]
 
 [lint.pydocstyle]
 convention = "numpy"

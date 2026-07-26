@@ -25,9 +25,9 @@ bookshelf = "bookshelf._cli:main"
 
 [project.optional-dependencies]
 dataframes = [
-    "polars==1.40.1",
-    "pandas==3.0.0",
-    "pyarrow==23.0.0",
+    "polars>=1.0",
+    "pandas>=2.2",
+    "pyarrow>=16",
 ]
 scmrun = ["scmdata>=0.18"]
 publish = [
@@ -44,8 +44,8 @@ test = [
     "types-PyYAML>=6.0",
     "keyring>=25",
     "typer>=0.12",
-    "pandas==3.0.0",
-    "pyarrow==23.0.0",
+    "pandas>=2.2",
+    "pyarrow>=16",
 ]
 
 [build-system]
@@ -117,7 +117,7 @@ ignore_missing_imports = true
 
 [dependency-groups]
 dev = [
-    "mypy==1.19.1",
+    "mypy>=1.13.0",
     "pandas-stubs>=2.2",
 ]
 codegen = [

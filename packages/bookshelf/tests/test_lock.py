@@ -1,4 +1,4 @@
-"""Tests for bookshelf.publisher.lock — lock generation, serialization, masking."""
+"""Tests for bookshelf.publisher.lock: lock generation, serialization, masking."""
 
 import uuid
 from pathlib import Path
@@ -205,7 +205,7 @@ def test_lock_document_has_no_schema_version():
 
 
 def test_build_aggregate_lock_single_book():
-    """build_aggregate_lock wraps a single entry; schema_version is set."""
+    """build_aggregate_lock wraps a single entry. Schema_version is set."""
     entry = _make_lock_entry()
     agg = build_aggregate_lock([entry])
     assert agg.schema_version == "1.0"
@@ -298,7 +298,7 @@ def test_mask_aggregate_lock_masks_all_entries():
 
 
 def test_mask_aggregate_lock_does_not_mutate_original():
-    """mask_aggregate_lock returns a new object; originals are unchanged."""
+    """mask_aggregate_lock returns a new object. Originals are unchanged."""
     entry = _make_lock_entry(edition=7)
     agg = build_aggregate_lock([entry])
     mask_aggregate_lock(agg)
@@ -459,7 +459,7 @@ def test_serialize_aggregate_lock_multi_book_preserves_order():
 
 
 def test_write_aggregate_lock_writes_masked_file(tmp_path: Path):
-    """write_aggregate_lock writes the masked aggregate; edition and tracking_ids absent."""
+    """write_aggregate_lock writes the masked aggregate. Edition and tracking_ids absent."""
     entry = _make_lock_entry(edition=3)
     agg = build_aggregate_lock([entry])
     lock_path = tmp_path / "bookshelf.lock"

@@ -1,11 +1,10 @@
 """Materialise an in-memory object into the bytes a registration uploads.
 
-This is the **one** ``serialise -> hash`` step shared by the live write path
-and the recording sink,
-so the bytes a bundle records hash identically to the bytes a replay uploads.
-The record/replay byte-parity guarantee depends on this being a single
-function: any second copy could drift and break parity, so callers MUST reuse
-:func:`serialise` rather than re-implement it.
+This is the one ``serialise -> hash`` step shared by the live write path
+and the recording sink.
+The bytes a bundle records therefore hash identically to the bytes replay uploads.
+Callers must reuse :func:`serialise`
+because a second implementation could drift and break byte parity.
 
 Two shapes are produced from the resource ``type``:
 
@@ -15,16 +14,14 @@ Two shapes are produced from the resource ``type``:
 - ``document`` / ``binary`` / ``geospatial`` -> **raw bytes**,
   stored exactly as given (a ``.ipynb`` / ``.html`` / arbitrary blob).
 
-Already-serialised inputs (``bytes`` or a ``Path``) pass through unchanged for
-*every* type, so an advanced caller can hand over pre-encoded parquet without
-it being re-encoded.
+Already-serialised ``bytes`` and ``Path`` inputs pass through unchanged.
+An advanced caller can therefore supply pre-encoded parquet.
 
-Determinism note: the parquet writer is pinned so the same frame always yields
-the same bytes within one environment.
+The Parquet writer uses pinned options.
+The same frame therefore produces the same bytes within one environment.
 pyarrow stamps its own library version into the file footer (``created_by``),
-which the public writer API cannot suppress,
-so bytes are reproducible for a given pyarrow version,
-since a bundle is recorded and replayed by the same pinned client.
+and the public writer API cannot suppress it.
+Bytes are reproducible for a given pyarrow version.
 """
 
 from __future__ import annotations
@@ -48,10 +45,10 @@ _OPAQUE_CONTENT_TYPE = "application/octet-stream"
 class SerialisedObject(NamedTuple):
     """The bytes to upload plus their canonical hash, content type, and format.
 
-    ``format`` is the declared storage format for registration (``parquet``,
-    ``csv``, ``csv.gz``) when it is known with certainty — the serialiser
-    encoded the bytes itself, or a ``Path`` suffix names it — and ``None``
-    otherwise (raw ``bytes`` pass through unclaimed).
+    ``format`` is the declared storage format for registration.
+    It is set when the serialiser encoded the bytes
+    or when a ``Path`` suffix identifies the format.
+    Raw ``bytes`` leave it as ``None``.
     """
 
     data: bytes
@@ -66,7 +63,7 @@ def serialise(obj: Any, *, type: str) -> SerialisedObject:
     ``obj`` is a ``DataFrame`` (polars or pandas), raw ``bytes``, or a
     :class:`~pathlib.Path`.
     For a parquet ``type`` (``timeseries`` / ``tabular``) a ``DataFrame`` is
-    encoded to deterministic parquet; ``bytes`` / ``Path`` inputs pass through
+    encoded to deterministic parquet, ``bytes`` / ``Path`` inputs pass through
     unchanged for every type.
     The hash is the canonical ``sha256:<hex>`` of the resulting bytes.
     """
@@ -79,7 +76,7 @@ def serialise(obj: Any, *, type: str) -> SerialisedObject:
 def _materialise(obj: Any, *, type: str) -> tuple[bytes, str, str | None]:
     """Return ``(bytes, content_type, format)`` for ``obj`` under resource ``type``."""
     if isinstance(obj, bytes):
-        # Already serialised — store verbatim regardless of type. The format
+        # Already serialised: store verbatim regardless of type. The format
         # is unknowable from bytes alone, so it is not claimed.
         return obj, _content_type_for(type), None
     if isinstance(obj, Path):
@@ -87,7 +84,7 @@ def _materialise(obj: Any, *, type: str) -> tuple[bytes, str, str | None]:
     if type in _PARQUET_TYPES:
         return _dataframe_to_parquet(obj), _PARQUET_CONTENT_TYPE, "parquet"
     raise TypeError(
-        f"Cannot serialise {obj.__class__.__name__!r} for resource type {type!r}; "
+        f"Cannot serialise {obj.__class__.__name__!r} for resource type {type!r}, "
         "pass bytes or a Path for opaque/document resources, "
         "or a polars/pandas DataFrame for timeseries/tabular resources."
     )
@@ -98,7 +95,7 @@ def _format_from_suffix(name: str) -> str | None:
 
     Managed uploads land at content-addressed keys with no suffix, so the
     source filename is the only place the format survives. Only formats the
-    server's query engine can scan are claimed; anything else stays None.
+    server's query engine can scan are claimed. Anything else stays None.
     """
     lowered = name.lower()
     if lowered.endswith((".parquet", ".pq")):
@@ -118,15 +115,16 @@ def _content_type_for(type: str) -> str:
 def _dataframe_to_parquet(df: Any) -> bytes:
     """Encode a polars or pandas ``DataFrame`` to deterministic parquet bytes.
 
-    The frame is first converted to a pyarrow ``Table`` — both polars and
-    pandas round-trip through Arrow, so either yields the same table and the
-    same bytes — then written with pinned options:
+    The frame is first converted to a pyarrow ``Table``.
+    Both polars and pandas round-trip through Arrow,
+    so either yields the same table and bytes.
+    The writer uses these pinned options:
 
     - ``compression="none"`` and ``write_statistics=False`` remove
-      compression- and statistics-driven byte variance;
-    - ``version`` / ``data_page_version`` are pinned to a stable format;
-    - the pandas index is dropped and pandas schema metadata stripped, so a
-      pandas frame encodes identically to the equivalent polars frame.
+      compression- and statistics-driven byte variance.
+    - ``version`` and ``data_page_version`` select a stable format.
+    - The pandas index and schema metadata are removed.
+      A pandas frame therefore encodes identically to the equivalent polars frame.
 
     Requires the optional ``dataframes`` extra (``polars`` / ``pandas`` /
     ``pyarrow``).
@@ -135,8 +133,8 @@ def _dataframe_to_parquet(df: Any) -> bytes:
         import pyarrow.parquet as pq
     except ImportError as exc:
         raise ImportError(
-            "Serialising a DataFrame requires the optional 'dataframes' extra; "
-            "install bookshelf[dataframes] to enable it."
+            "Serialising a DataFrame requires the optional 'dataframes' extra. "
+            "Install bookshelf[dataframes] to enable it."
         ) from exc
 
     table = _to_arrow_table(df)

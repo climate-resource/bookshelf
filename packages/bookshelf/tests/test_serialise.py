@@ -63,7 +63,7 @@ def test_serialise_tabular_uses_parquet() -> None:
 def test_serialise_polars_and_pandas_agree() -> None:
     """A pandas frame serialises to the same bytes as the equivalent polars frame.
 
-    Both convert through Arrow, so the shared writer yields identical bytes —
+    Both convert through Arrow, so the shared writer yields identical bytes :
     which keeps a record produced by either frontend replayable.
     """
     df = _frame()
@@ -111,7 +111,7 @@ def test_serialise_rejects_dataframe_for_opaque_type() -> None:
 
 
 # ----------------------------------------------------------------------
-# Declared format — filled only when known with certainty.
+# Declared format: filled only when known with certainty.
 # ----------------------------------------------------------------------
 def test_serialise_dataframe_declares_parquet_format() -> None:
     """A client-encoded DataFrame is definitively parquet."""
@@ -120,7 +120,7 @@ def test_serialise_dataframe_declares_parquet_format() -> None:
 
 
 def test_serialise_bytes_claims_no_format() -> None:
-    """Raw bytes pass through unclaimed — the format is unknowable."""
+    """Raw bytes pass through unclaimed: the format is unknowable."""
     assert serialise(b"anything", type="timeseries").format is None
     assert serialise(b"anything", type="document").format is None
 

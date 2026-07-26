@@ -4,7 +4,7 @@ When a recipe declares ``books[].notebook``, the executed notebook and its
 rendered HTML are captured as first-class ``DOCUMENT`` resources and attached
 as Book Entries alongside the data outputs.
 
-**Requires the** ``[publish]`` **extra** — ``papermill`` and ``nbconvert`` are
+**Requires the** ``[publish]`` **extra**: ``papermill`` and ``nbconvert`` are
 *not* installed with the base package.
 Install them with::
 
@@ -27,7 +27,7 @@ Usage (called by the pipeline wiring in ``publish.py``)::
     executed = execute_notebook(notebook_path, params=book.activity.params, workdir=cwd)
     items, paths = prepare_notebook_items(executed)
     # items: list[RegisterResourceItem] ready for bs.register_outputs()
-    # paths: list[Path] — the local files in the same order
+    # paths: list[Path]: the local files in the same order
 """
 
 import ast
@@ -316,7 +316,7 @@ def prepare_notebook_items(
     The caller passes ``items`` to ``bs.register_outputs()``
     and later calls ``bs.attach_entry()`` for each.
 
-    **Dedupe contract** — both items carry ``dedupe=False``
+    **Dedupe contract**: both items carry ``dedupe=False``
     so the backend skips alias detection.
     Each book edition must produce a *distinct* entry resource even when
     the notebook bytes are identical to a previous edition.
@@ -329,8 +329,8 @@ def prepare_notebook_items(
     Returns
     -------
     tuple[list[RegisterResourceItem], list[Path]]
-        ``items`` — two registration items (ipynb first, html second).
-        ``paths`` — corresponding local file paths in the same order.
+        ``items``: two registration items (ipynb first, html second).
+        ``paths``: corresponding local file paths in the same order.
     """
     ipynb_item = RegisterResourceItem(
         type="document",

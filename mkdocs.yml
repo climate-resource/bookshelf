@@ -75,7 +75,7 @@ plugins:
       enable_inventory: true
       handlers:
         python:
-          paths: [src, packages/bookshelf-producer/src]
+          paths: [packages/bookshelf/src]
           import:
             # Cross-ref helpers (lots included here, remove what you don't want)
             - https://www.attrs.org/en/stable/objects.inv

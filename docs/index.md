@@ -1,12 +1,30 @@
----8<--- "README.md:description"
+# Bookshelf Python SDK
 
-## Where to next?
+The `bookshelf` package is the official Python SDK
+for the Bookshelf data platform.
+It provides synchronous and asynchronous facades
+for consuming published data,
+producing managed resources,
+and running record and replay publishing workflows.
 
-If you want to use the tool to create input4MIPs files,
-we recommend going to our [how-to guides][how-to-guides].
-Some other potential points of interest:
+Version 1 replaces the legacy Bookshelf consumer library
+and the separate `bookshelf-producer` distribution.
+Applications that depend on the legacy API must pin `bookshelf<1`.
 
-- Getting Started instructions: [Getting Started][getting-started]
-- (How-to guides, just in case you missed it the first time: [How-to...][how-to-guides])
-- The command-line interface's documentation: [CLI](cli)
-- The full API docs: [API reference](api/bookshelf/#bookshelf_1)
+## Install
+
+```bash
+uv add bookshelf
+```
+
+The SDK requires Python 3.12 or newer.
+Optional dataframe,
+SCMRun,
+and publishing integrations are available as extras:
+
+```bash
+uv add "bookshelf[dataframes,scmrun,publish]"
+```
+
+Continue with [Getting started](getting_started.md),
+or browse the [API reference](api/).

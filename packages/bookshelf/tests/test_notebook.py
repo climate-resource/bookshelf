@@ -1,4 +1,4 @@
-"""Tests for bookshelf.publisher.notebook — papermill + nbconvert capture.
+"""Tests for bookshelf.publisher.notebook: papermill + nbconvert capture.
 
 papermill and nbconvert are *not* installed in the base test environment
 (they live behind the ``[publish]`` extra), so all tests that exercise the
@@ -124,7 +124,7 @@ class TestPrepareNotebookItems:
         assert items[1].metadata["notebook_name"] == "cool_analysis"
 
     def test_dedupe_false_on_both(self, tmp_path: Path) -> None:
-        """``dedupe=False`` on both items — per-book dedupe contract."""
+        """``dedupe=False`` on both items: per-book dedupe contract."""
         executed = _make_executed(tmp_path)
         items, _ = prepare_notebook_items(executed)
         assert items[0].dedupe is False

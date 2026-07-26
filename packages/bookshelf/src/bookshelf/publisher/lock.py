@@ -1,25 +1,40 @@
-"""``bookshelf.lock`` — the generated, immutable lock artifact.
+"""``bookshelf.lock`` is the generated, immutable lock artifact.
 
-The lock is compiled from the realized publish state (registered resources,
-server-assigned tracking IDs, activity values) and committed to the producer
-repo alongside ``bookshelf.yaml``, the way ``uv.lock`` or ``dvc.lock`` are.
+The lock is compiled from the realized publish state:
+registered resources,
+server-assigned tracking IDs,
+and activity values.
+It is committed to the producer repo alongside ``bookshelf.yaml``,
+the way ``uv.lock`` or ``dvc.lock`` are.
 
 Design
 ------
-- **One file per recipe**: a recipe may declare several books; the written
-  ``bookshelf.lock`` is a single :class:`AggregateLock` whose ``books[]`` holds
-  one :class:`LockDocument` per book in recipe declaration order.  Multi-book
-  recipes therefore do not clobber one another.
-- **Recipe/lock split**: the recipe declares *intent*; the lock records
-  *realized provenance* — resolved hashes, minted tracking IDs, the
-  server-assigned edition, and the full ``used``/``generated`` edge set.
-- **Lineage by logical name**: ``used[]`` entries carry the logical name (``id``)
-  from the recipe.  The tracking IDs that were sent to the server as
-  ``UsedRefByTrackingId`` are already resolved client-side from the ingest
-  result map; the backend's logical-key fallback stays rare.
-- **Deterministic serialization**: ``serialize_lock`` produces byte-identical
-  YAML on re-runs with unchanged inputs — sorted keys, explicit string
-  formatting for hashes, no timestamps, LF newlines, stable list order.
+- **One file per recipe**:
+  a recipe may declare several books.
+  The written ``bookshelf.lock`` is a single :class:`AggregateLock`
+  whose ``books[]`` holds one :class:`LockDocument`
+  per book in recipe declaration order.
+  Multi-book recipes therefore do not clobber one another.
+- **Recipe/lock split**:
+  the recipe declares *intent*.
+  The lock records *realized provenance*:
+  resolved hashes,
+  minted tracking IDs,
+  the server-assigned edition,
+  and the full ``used``/``generated`` edge set.
+- **Lineage by logical name**:
+  ``used[]`` entries carry the logical name (``id``) from the recipe.
+  Tracking IDs sent to the server as ``UsedRefByTrackingId``
+  are already resolved client-side from the ingest result map.
+  The backend's logical-key fallback stays rare.
+- **Deterministic serialization**:
+  ``serialize_lock`` produces byte-identical YAML
+  when inputs remain unchanged.
+  It uses sorted keys,
+  explicit string formatting for hashes,
+  no timestamps,
+  LF newlines,
+  and stable list order.
 
 Committed-lock masking
 -----------------------
@@ -28,21 +43,24 @@ The file **committed to the producer repo** omits server-assigned fields:
 - ``book.edition`` (only known after ``publish``)
 - ``generated[].tracking_id`` (server-assigned UUIDs)
 
-This keeps the committed lock reviewable and diffable without noise from
-server counters.  After a publish, the full in-memory lock holds those fields
-for provenance; ``mask_lock`` strips them for the committed copy.
+This keeps the committed lock reviewable and diffable
+without noise from server counters.
+After a publish,
+the full in-memory lock holds those fields for provenance.
+``mask_lock`` strips them for the committed copy.
 
-**Comparison contract**: mask both sides, then assert ``byte-identical``
-(via ``serialize_lock``).  Do not compare unmasked locks for equality across
-independent runs.
+**Comparison contract**:
+mask both sides,
+then assert ``byte-identical`` via ``serialize_lock``.
+Do not compare unmasked locks for equality across independent runs.
 
 config_hash
 -----------
 ``compute_config_hash`` hashes the canonical recipe-book bytes and, optionally,
 the notebook source bytes.  The exact composition is **provisional** and
-non-contractual until a working end-to-end flow exists; callers must not
+non-contractual until a working end-to-end flow exists, callers must not
 rely on the specific concatenation order being stable across versions.
-The result is used as ``Activity.config_hash``; it is recorded as provenance,
+The result is used as ``Activity.config_hash``, it is recorded as provenance,
 not consulted for idempotency.
 """
 
@@ -114,9 +132,9 @@ class LockGenerated(BaseModel):
 
 
 class LockDocument(BaseModel):
-    """One book's realized provenance — a single entry of the aggregate lock.
+    """One book's realized provenance: a single entry of the aggregate lock.
 
-    A recipe may declare several books; each compiles to one of these, and they
+    A recipe may declare several books, each compiles to one of these, and they
     are gathered under :class:`AggregateLock`, which is the artifact written to
     ``bookshelf.lock``.
     ``schema_version`` is carried by the enclosing :class:`AggregateLock`, not
@@ -134,9 +152,9 @@ class LockDocument(BaseModel):
 class AggregateLock(BaseModel):
     """The full ``bookshelf.lock`` document for one recipe.
 
-    A recipe declares one or more books; this aggregate holds one
+    A recipe declares one or more books, this aggregate holds one
     :class:`LockDocument` per book under ``books`` in **recipe declaration
-    order**.  This is the artifact written to ``bookshelf.lock`` — a single file
+    order**.  This is the artifact written to ``bookshelf.lock``: a single file
     per recipe, so multi-book recipes no longer clobber one another.
     """
 
@@ -189,7 +207,7 @@ def build_lock(
     LockDocument
         The fully populated lock document.
     """
-    # --- used[] — one entry per recipe input ---
+    # --- used[]: one entry per recipe input ---
     used: list[LockUsed] = []
     for name, spec in recipe_book.inputs.items():
         logical_key = f"{collection}/{name}"
@@ -202,7 +220,7 @@ def build_lock(
             )
         )
 
-    # --- generated[] — one entry per recipe output (+ notebooks) ---
+    # --- generated[]: one entry per recipe output (+ notebooks) ---
     generated: list[LockGenerated] = []
     for out_name, out_spec in recipe_book.outputs.items():
         generated.append(
@@ -257,12 +275,12 @@ def mask_lock(lock: LockDocument) -> LockDocument:
     """Return a copy of ``lock`` with server-assigned fields removed.
 
     Drops:
-    - ``book.edition`` (server-assigned integer; set to ``None``)
-    - ``generated[].tracking_id`` (server-assigned UUID; set to ``None``)
+    - ``book.edition`` (server-assigned integer. Set to ``None``)
+    - ``generated[].tracking_id`` (server-assigned UUID. Set to ``None``)
 
     The masked copy is what gets committed to the producer repo.
     To compare two independent publish runs: mask both sides and call
-    ``serialize_lock`` on each; the bytes must be identical if the
+    ``serialize_lock`` on each, the bytes must be identical if the
     inputs were identical.
     """
     masked_generated = [item.model_copy(update={"tracking_id": None}) for item in lock.generated]
@@ -332,7 +350,7 @@ def serialize_aggregate_lock(lock: AggregateLock) -> bytes:
 
     Byte-identical across re-runs with unchanged inputs: sorted keys, no
     timestamps, stable book order (recipe declaration order is preserved as the
-    list order; mapping keys within each book are sorted).
+    list order, mapping keys within each book are sorted).
     """
     return _dump_sorted_yaml(lock)
 
@@ -352,13 +370,14 @@ def compute_config_hash(
 ) -> str:
     """Compute a provisional ``sha256:<hex>`` config hash.
 
-    The hash covers the canonical recipe-book bytes (deterministic YAML of
-    the recipe book section) and, optionally, the notebook source bytes.
+    The hash covers the canonical recipe-book bytes,
+    which are deterministic YAML of the recipe book section.
+    It can also cover the notebook source bytes.
 
     **Non-contractual**: the exact concatenation is provisional and may
     change before a stable release.
-    The hash is recorded as ``Activity.config_hash`` for provenance only;
-    the platform never consults it to decide whether to publish.
+    The hash is recorded as ``Activity.config_hash`` for provenance only.
+    The platform never consults it to decide whether to publish.
     """
     return sha256_hex(recipe_book_canonical_bytes + (notebook_source_bytes or b""))
 

@@ -195,7 +195,7 @@ def _normal_state(_version: str, runner: Runner, hook: Hook) -> None:
         f"backups={len(backups)}, temporary={len(temporary)}"
     )
     if len(backups) > 1:
-        _stop("multiple backup trees exist; preserving all generated-tree evidence")
+        _stop("multiple backup trees exist. Preserving all generated-tree evidence")
 
     if len(backups) == 1:
         backup = backups[0]
@@ -204,13 +204,13 @@ def _normal_state(_version: str, runner: Runner, hook: Hook) -> None:
                 validator(backup, boundary="startup-backup")
                 _rename(backup, LIVE_TREE, hook, "startup_backup_to_live")
             except Exception as exc:
-                _stop(f"sole backup could not be restored; preserving all evidence: {exc}")
+                _stop(f"sole backup could not be restored. Preserving all evidence: {exc}")
         else:
             try:
                 validator(LIVE_TREE, boundary="startup-live")
             except Exception as exc:
                 _stop(
-                    f"live and backup coexist but live is invalid; preserving all evidence: {exc}"
+                    f"live and backup coexist but live is invalid. Preserving all evidence: {exc}"
                 )
             try:
                 _remove_tree(backup, hook, "startup_backup_cleanup")
@@ -221,7 +221,7 @@ def _normal_state(_version: str, runner: Runner, hook: Hook) -> None:
         try:
             validator(LIVE_TREE, boundary="startup-live")
         except Exception as exc:
-            _stop(f"live generated tree is invalid; refusing destructive repair: {exc}")
+            _stop(f"live generated tree is invalid, refusing destructive repair: {exc}")
 
     if _siblings("._generated.backup.*"):
         _stop("backup residue remains after startup recovery")
@@ -301,7 +301,7 @@ def _pre_promotion_check(own_tree: Path, validator: TreeValidator) -> bool:
     temporary = _siblings("._generated.tmp.*")
     if backups or temporary != [own_tree]:
         _stop(
-            "generated-tree state changed before promotion; preserving all observed state "
+            "generated-tree state changed before promotion. Preserving all observed state "
             f"(backups={[p.name for p in backups]}, temporary={[p.name for p in temporary]})"
         )
     live_exists = LIVE_TREE.exists()
@@ -333,7 +333,7 @@ def _rollback(
         TreeValidator(None, validator.runner)(LIVE_TREE, boundary="rollback-live")
         _cleanup_owned_temporary(temporary, hook)
     except Exception as exc:
-        _stop(f"rollback failed or became ambiguous; preserving remaining evidence: {exc}")
+        _stop(f"rollback failed or became ambiguous. Preserving remaining evidence: {exc}")
 
 
 def _promote(
@@ -356,7 +356,7 @@ def _promote(
             except Exception as rollback_exc:
                 _stop(
                     "first-generation promotion failed and candidate cleanup was ambiguous: "
-                    f"{exc}; cleanup: {rollback_exc}"
+                    f"{exc}, cleanup: {rollback_exc}"
                 )
             raise GenerationError(f"First-generation promotion failed: {exc}") from exc
         return
@@ -389,13 +389,13 @@ def _promote(
             )
         else:
             _cleanup_owned_temporary(temporary, hook)
-        raise GenerationError(f"Promotion failed; previous generated tree restored: {exc}") from exc
+        raise GenerationError(f"Promotion failed: previous generated tree restored: {exc}") from exc
 
     try:
         _remove_tree(backup, hook, "backup_cleanup")
     except Exception as exc:
         _stop(
-            "promoted live is valid but backup cleanup failed; preserving remaining backup "
+            "promoted live is valid but backup cleanup failed. Preserving remaining backup "
             f"evidence, which may be partial once cleanup starts: {exc}"
         )
 

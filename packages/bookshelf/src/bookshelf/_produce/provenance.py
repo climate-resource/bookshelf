@@ -14,7 +14,7 @@ def derive_code_ref() -> str:
 
     Raises :class:`~bookshelf._core.errors.BookshelfError` when the
     working directory is not inside a git repository, or when git is not
-    available — the caller must pass ``code_ref=`` explicitly in that case.
+    available: the caller must pass ``code_ref=`` explicitly in that case.
     """
     try:
         remote = subprocess.run(
@@ -57,7 +57,7 @@ def canonical_config_hash(config: dict[str, Any]) -> str:
     separators=(",",":")`` via :func:`~bookshelf._core.hashing.canonical_json_bytes`.
     This is intentionally distinct from ``lock.py``'s recipe canonicaliser,
     which additionally recurse-sorts list elements and drops ``None`` values
-    for the recipe-compile flow; the two agree on all flat configs.
+    for the recipe-compile flow. The two agree on all flat configs.
     """
     return sha256_hex(canonical_json_bytes(config))
 

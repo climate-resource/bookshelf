@@ -42,20 +42,14 @@ ruff-fixes:  ## fix the code using ruff
 	uvx ruff@0.6.9 check --fix
 	uvx ruff@0.6.9 format
 
-.PHONY: test-producer
-test-producer:  ## run the tests for the producer package
-	uv run --package bookshelf_producer \
-		pytest packages/bookshelf-producer \
-		-r a -v --doctest-modules --cov=packages/bookshelf-producer/src
-
-.PHONY: test-core
-test-core:  ## run the tests for the core package
+.PHONY: test-sdk
+test-sdk:  ## run the tests for the SDK package
 	uv run  --package bookshelf \
 		pytest packages/bookshelf \
 		-r a -v --doctest-modules
 
 .PHONY: test
-test: test-core test-producer  ## run the tests
+test: test-sdk  ## run the tests
 
 
 # Note on code coverage and testing:

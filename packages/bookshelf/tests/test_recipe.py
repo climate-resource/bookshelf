@@ -1,4 +1,4 @@
-"""Tests for bookshelf.publisher.recipe — the bookshelf.yaml schema + parser."""
+"""Tests for bookshelf.publisher.recipe: the bookshelf.yaml schema + parser."""
 
 import textwrap
 from pathlib import Path

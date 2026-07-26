@@ -1,4 +1,4 @@
-"""Pydantic models for ``bookshelf.yaml`` — the mutable recipe artifact.
+"""Pydantic models for ``bookshelf.yaml``: the mutable recipe artifact.
 
 The recipe file declares *intent*: which collection (Volume) to publish to,
 what inputs exist and how to fetch them,
@@ -7,7 +7,7 @@ and what outputs to register.
 At publish time the recipe is *compiled* into an immutable ``bookshelf.lock``
 (see ``lock.py``).
 
-Recipe authors never supply ``code_ref``, ``config_hash``, or ``runner`` —
+Recipe authors never supply ``code_ref``, ``config_hash``, or ``runner`` :
 those are auto-derived at build time and rejected if found in the authored YAML.
 """
 
@@ -30,7 +30,7 @@ _SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 def _validate_sha256(value: str) -> str:
     """Reject any string that is not a valid ``sha256:<hex>`` digest."""
     if not _SHA256_RE.match(value):
-        raise ValueError(f"sha256 must be in the form 'sha256:<64 hex digits>'; got {value!r}")
+        raise ValueError(f"sha256 must be in the form 'sha256:<64 hex digits>', got {value!r}")
     return value
 
 
@@ -43,14 +43,14 @@ class InputSpec(BaseModel):
     """One raw input declared in a recipe book section.
 
     ``mode`` governs ingest policy:
-    - ``managed`` (default) — fetch the bytes, verify ``sha256``,
+    - ``managed`` (default): fetch the bytes, verify ``sha256``,
       and re-host them content-addressed on the platform,
       registering the managed resource with ``original_url`` as provenance metadata.
-    - ``pointer`` — do *not* fetch; register an external-pointer ``Resource``
+    - ``pointer``: do *not* fetch, register an external-pointer ``Resource``
       carrying ``external_uri`` + ``sha256`` (use when the licence forbids
       re-hosting).
 
-    The ``sha256`` field is a **fetch-time assertion** for managed inputs —
+    The ``sha256`` field is a **fetch-time assertion** for managed inputs :
     the download is rejected if the bytes do not match.
     For pointer inputs it is the declared hash of the remote file.
     Either way it must be in ``sha256:<64 hex digits>`` format.
@@ -72,11 +72,12 @@ class InputSpec(BaseModel):
 class OutputSpec(BaseModel):
     """One output artifact produced by this book's activity.
 
-    ``used`` lists the *logical names* of recipe inputs that this output
-    depends on.
-    Every name in ``used`` must resolve to a key in the parent book's
-    ``inputs`` mapping — validation happens at the ``RecipeBook`` level
-    (where the full ``inputs`` mapping is visible).
+    ``used`` lists the *logical names* of recipe inputs
+    that this output depends on.
+    Every name in ``used`` must resolve to a key
+    in the parent book's ``inputs`` mapping.
+    Validation happens at the ``RecipeBook`` level,
+    where the full ``inputs`` mapping is visible.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -148,7 +149,7 @@ class RecipeBook(BaseModel):
                 if ref not in self.inputs:
                     declared = sorted(self.inputs.keys())
                     raise ValueError(
-                        f"Output {out_name!r} references undeclared input {ref!r}; "
+                        f"Output {out_name!r} references undeclared input {ref!r}, "
                         f"declared inputs: {declared}"
                     )
         return self
@@ -158,8 +159,8 @@ class Recipe(BaseModel):
     """The parsed and validated ``bookshelf.yaml`` recipe.
 
     ``collection`` maps to the target Volume name.
-    ``license`` is the collection-level default SPDX identifier;
-    individual ``books[].license`` values override it per version.
+    ``license`` is the collection-level default SPDX identifier.
+    Individual ``books[].license`` values override it per version.
     ``books`` must be non-empty.
     """
 

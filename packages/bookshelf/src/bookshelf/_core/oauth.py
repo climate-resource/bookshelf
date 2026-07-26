@@ -23,7 +23,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 import httpx
 
 # Public WorkOS client IDs (safe to hardcode for PKCE/device-code apps).
-# Production ID is not bundled — it must be supplied via BOOKSHELF_WORKOS_CLIENT_ID.
+# Production ID is not bundled: it must be supplied via BOOKSHELF_WORKOS_CLIENT_ID.
 _CLIENT_IDS: dict[str, str | None] = {
     "staging": "client_01KABZE0E62YS9H7BMV6YZGMD1",
     "production": None,
@@ -43,7 +43,7 @@ _DEVICE_CODE_TIMEOUT = 300  # seconds to wait for device-code approval
 
 
 # Self-contained HTML for the loopback callback page shown after the browser redirect.
-# No external assets — the page must render offline.
+# No external assets: the page must render offline.
 def _render_callback_page(*, success: bool, detail: str = "") -> bytes:
     accent = "#28c9c4" if success else "#f69f18"
     glyph = "&#10003;" if success else "&#33;"  # check / bang
@@ -141,7 +141,7 @@ def get_workos_client_id(api_url: str = "") -> str:
     """Return the WorkOS client ID from ``$BOOKSHELF_WORKOS_CLIENT_ID`` or pick one by API URL.
 
     The staging client ID is bundled.
-    The production client ID is not bundled and must be supplied via the environment variable;
+    The production client ID is not bundled and must be supplied via the environment variable,
     omitting it on a non-staging URL raises ``OAuthError`` with an actionable message.
     """
     env_id = os.environ.get("BOOKSHELF_WORKOS_CLIENT_ID")

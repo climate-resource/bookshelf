@@ -51,11 +51,9 @@ jobs:
           BASE_VERSION=`sed -ne 's/^version = "\([0-9\.abrc]*\)"/\1/p' pyproject.toml`
           echo "Bumping from version $BASE_VERSION"
 
-          # Bump all distributions in lock-step.
+          # Keep the workspace metadata and published SDK in lock-step.
           uv run pdm bump ${{ github.event.inputs.bump_rule }}
           cd packages/bookshelf
-          uv run pdm bump ${{ github.event.inputs.bump_rule }}
-          cd ../bookshelf-producer
           uv run pdm bump ${{ github.event.inputs.bump_rule }}
           cd ../..
 
@@ -85,8 +83,6 @@ jobs:
           # Bump to pre-release of next version
           uv run pdm bump pre-release --pre alpha
           cd packages/bookshelf
-          uv run pdm bump pre-release --pre alpha
-          cd ../bookshelf-producer
           uv run pdm bump pre-release --pre alpha
           cd ../..
           uv lock
