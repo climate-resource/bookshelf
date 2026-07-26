@@ -25,7 +25,7 @@ from bookshelf._produce.helpers import resource_type as _resource_type
 from bookshelf._produce.helpers import runner as _runner
 from bookshelf._produce.helpers import visibility as _visibility
 from bookshelf._produce.resources import Resource
-from bookshelf._produce.serialise import serialise
+from bookshelf._produce.serialise import SerialisedObject, serialise
 from bookshelf._produce.types import HasTrackingId, RegisterItem, UsedInput
 from bookshelf.cache import ContentCache
 from bookshelf.facade import Bookshelf
@@ -34,6 +34,7 @@ from bookshelf.publisher.bundle import (
     BundleActivity,
     BundleBook,
     BundleUsedRef,
+    resource_filename,
     synthesise_pointer_hash,
 )
 from bookshelf.publisher.notebook import ExecutedNotebook, execute_python_build
@@ -47,6 +48,17 @@ class RecordRecipe:
     license: str
     authors: tuple[dict[str, Any], ...]
     notebook: Path | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedRegistration:
+    """One fully validated managed resource awaiting bundle commit."""
+
+    entry: RegisterItem
+    materialised: SerialisedObject
+    resource_id: UUID
+    resource_type: models.ResourceType
+    visibility: models.Visibility
 
 
 class RecordedResource(Resource):
@@ -195,23 +207,110 @@ class RecordingActivity(Activity):
         used: Sequence[UsedInput] = (),
         atomic: bool = True,
     ) -> list[Resource]:
-        """Record a batch in declaration order."""
-        del atomic
-        return [
-            self.register(
-                entry.obj,
-                type=entry.type,
-                logical_key=entry.logical_key,
-                used=used,
-                visibility=entry.visibility,
-                tags=entry.tags,
-                metadata=entry.metadata,
-                tracking_id=entry.tracking_id,
-                format=entry.format,
-                dedupe=entry.dedupe,
+        """Record a batch in declaration order.
+
+        Atomic batches are fully materialised and validated in a temporary bundle
+        before their manifest and bytes are promoted together.
+        """
+        self._require_entered()
+        if not entries:
+            return []
+        if not atomic:
+            return [
+                self.register(
+                    entry.obj,
+                    type=entry.type,
+                    logical_key=entry.logical_key,
+                    used=used,
+                    visibility=entry.visibility,
+                    tags=entry.tags,
+                    metadata=entry.metadata,
+                    tracking_id=entry.tracking_id,
+                    format=entry.format,
+                    dedupe=entry.dedupe,
+                )
+                for entry in entries
+            ]
+
+        prepared = [self._prepare_registration(entry) for entry in entries]
+        merged_used = list(self._used)
+        for value in used:
+            reference = _bundle_used_ref(value)
+            if reference not in merged_used:
+                merged_used.append(reference)
+
+        previous_count = len(self._bundle.manifest.resources)
+        with tempfile.TemporaryDirectory(prefix="bookshelf-record-batch-") as staging_dir:
+            staged = Bundle(
+                Path(staging_dir),
+                manifest=self._bundle.manifest.model_copy(deep=True),
             )
-            for entry in entries
+            staged.set_activity(self._bundle_activity())
+            for resource in staged.manifest.resources:
+                if resource.generated:
+                    resource.used = list(merged_used)
+            for item in prepared:
+                staged.add_resource(
+                    data=item.materialised.data,
+                    hash_=item.materialised.hash,
+                    type_=item.resource_type.value,
+                    tracking_id=item.resource_id,
+                    logical_key=item.entry.logical_key,
+                    format_=item.entry.format or item.materialised.format,
+                    visibility=item.visibility.value,
+                    tags=list(item.entry.tags),
+                    metadata=dict(item.entry.metadata or {}),
+                    dedupe=item.entry.dedupe,
+                    generated=True,
+                    used=list(merged_used),
+                )
+
+            created: list[Path] = []
+            try:
+                self._bundle.resources_dir.mkdir(parents=True, exist_ok=True)
+                for resource in staged.manifest.resources[previous_count:]:
+                    destination = self._bundle.resources_dir / resource_filename(
+                        resource.hash,
+                        resource.type,
+                    )
+                    if destination.exists():
+                        continue
+                    created.append(destination)
+                    destination.write_bytes(staged.resource_bytes(resource))
+            except Exception:
+                for path in created:
+                    path.unlink(missing_ok=True)
+                raise
+
+            self._bundle.manifest = staged.manifest
+            self._used = merged_used
+
+        return [
+            RecordedResource(
+                self._client,
+                self._cache,
+                item.resource_id,
+                item.resource_type,
+                item.materialised.hash,
+                logical_key=item.entry.logical_key,
+                visibility=item.visibility,
+                tags=item.entry.tags,
+                metadata=item.entry.metadata,
+            )
+            for item in prepared
         ]
+
+    @staticmethod
+    def _prepare_registration(entry: RegisterItem) -> _PreparedRegistration:
+        resource_type = _resource_type(entry.type)
+        visibility = _visibility(entry.visibility)
+        return _PreparedRegistration(
+            entry=entry,
+            materialised=serialise(entry.obj, type=resource_type.value),
+            resource_id=entry.tracking_id or uuid7(),
+            resource_type=resource_type,
+            visibility=visibility,
+        )
 
     def register_external(
         self,

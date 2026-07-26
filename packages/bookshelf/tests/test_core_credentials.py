@@ -1,6 +1,7 @@
 """Tests for the stored-credential store (keychain + 0600 file) harvested from the PoC CLI."""
 
 import json
+import os
 import stat
 from datetime import UTC, datetime
 from pathlib import Path
@@ -42,6 +43,26 @@ def test_round_trip_with_file_permissions(isolated_store: Path) -> None:
     assert loaded.api_url == "https://api.test/bookshelf"
     mode = stat.S_IMODE(isolated_store.stat().st_mode)
     assert mode == 0o600
+
+
+def test_existing_store_permissions_are_tightened_before_write(
+    isolated_store: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    isolated_store.write_text("{}")
+    isolated_store.chmod(0o644)
+    original_dump = json.dump
+    mode_during_write: list[int] = []
+
+    def capture_mode(*args: object, **kwargs: object) -> None:
+        destination = args[1]
+        mode_during_write.append(stat.S_IMODE(os.fstat(destination.fileno()).st_mode))
+        original_dump(*args, **kwargs)
+
+    monkeypatch.setattr(credentials.json, "dump", capture_mode)
+    credentials.save_credentials("tok", api_url="https://api.test")
+
+    assert mode_during_write == [0o600]
 
 
 def test_keychain_value_wins_over_file_copy(isolated_store: Path) -> None:

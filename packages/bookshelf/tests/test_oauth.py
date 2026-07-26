@@ -145,6 +145,22 @@ def test_refresh_access_token_failure_raises() -> None:
         _oauth.refresh_access_token("ref", transport=transport)
 
 
+def test_error_detail_handles_non_object_json() -> None:
+    response = httpx.Response(400, json=["invalid request"])
+
+    assert _oauth._error_detail(response) == response.text
+
+
+def test_callback_page_escapes_provider_error() -> None:
+    page = _oauth._render_callback_page(
+        success=False,
+        detail="<script>alert('xss')</script>",
+    )
+
+    assert b"<script>" not in page
+    assert b"&lt;script&gt;" in page
+
+
 def test_authorization_code_flow_roundtrip(monkeypatch: pytest.MonkeyPatch) -> None:
     """Full PKCE loop: browser open -> loopback callback -> code exchange."""
     auth_request: dict[str, str] = {}

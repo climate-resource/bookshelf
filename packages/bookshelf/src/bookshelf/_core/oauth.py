@@ -8,6 +8,7 @@ and :mod:`bookshelf._core.auth` refreshes it.
 
 import base64
 import hashlib
+import html
 import os
 import secrets
 import socket
@@ -57,7 +58,11 @@ def _render_callback_page(*, success: bool, detail: str = "") -> bytes:
         body = "You&rsquo;re signed in. Close this tab and return to your terminal."
     else:
         heading = "Authentication failed"
-        body = detail or "Something went wrong. Return to your terminal and try again."
+        body = (
+            html.escape(detail)
+            if detail
+            else "Something went wrong. Return to your terminal and try again."
+        )
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -454,10 +459,12 @@ def refresh_access_token(
 def _error_detail(response: httpx.Response) -> str:
     """Extract a human-readable error detail from a failed WorkOS response."""
     try:
-        detail = response.json().get("message", response.text)
+        payload = response.json()
     except ValueError:
-        detail = response.text
-    return str(detail)
+        return response.text
+    if isinstance(payload, dict):
+        return str(payload.get("message", response.text))
+    return response.text
 
 
 __all__ = [
