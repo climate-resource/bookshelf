@@ -19,6 +19,27 @@ of rst and use slightly different categories.
 
 <!-- towncrier release notes start -->
 
+## bookshelf v0.4.3 (2026-07-26)
+
+### Deprecations
+
+- `bookshelf-producer` is frozen and will be retired
+  once every feedstock has migrated to support an API driven approach.
+  No new features will be added to it.
+
+  Its `bookshelf` dependency is now pinned below `0.5.0`.
+  `bookshelf-producer` functionality will be integrated into the `bookshelf` package in `0.5.0`,
+  and the producer write path it calls is being replaced rather than shimmed,
+  so producer must stop resolving forward into it. ([#135](https://github.com/climate-resource/bookshelf/pull/135))
+
+
+## bookshelf v0.4.2 (2026-05-08)
+
+### Trivial/Internal Changes
+
+- [#129](https://github.com/climate-resource/bookshelf/pull/129)
+
+
 ## bookshelf v0.4.1 (2026-05-08)
 
 ### Trivial/Internal Changes
