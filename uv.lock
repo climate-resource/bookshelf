@@ -318,7 +318,7 @@ wheels = [
 
 [[package]]
 name = "bookshelf"
-version = "1.0.0"
+version = "0.4.4a1"
 source = { editable = "packages/bookshelf" }
 dependencies = [
     { name = "httpx" },
@@ -406,7 +406,7 @@ dev = [
 
 [[package]]
 name = "bookshelf-root"
-version = "1.0.0"
+version = "0.4.4a1"
 source = { virtual = "." }
 dependencies = [
     { name = "bookshelf" },

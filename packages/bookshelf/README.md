@@ -8,8 +8,7 @@ It also includes the `bookshelf` command line interface for authentication,
 discovery,
 and local cache management.
 
-Version 1 replaces the legacy Bookshelf consumer library.
-Applications that still depend on the V1 library must pin `bookshelf<1`.
+This migration replaces the legacy Bookshelf consumer library.
 
 ## Installation
 
@@ -38,7 +37,7 @@ A local wheel can also be built and installed directly:
 
 ```bash
 uv build --project packages/bookshelf --out-dir /tmp/bookshelf-sdk-dist
-uv pip install /tmp/bookshelf-sdk-dist/bookshelf-1.0.0-*.whl
+uv pip install /tmp/bookshelf-sdk-dist/bookshelf-*.whl
 ```
 
 ## Consuming published data

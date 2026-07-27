@@ -11,9 +11,8 @@ and command line authentication and discovery.
 [![CI](https://github.com/climate-resource/bookshelf/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/climate-resource/bookshelf/actions/workflows/ci.yaml)
 [![Licence](https://img.shields.io/pypi/l/bookshelf?label=licence)](https://github.com/climate-resource/bookshelf/blob/main/LICENCE)
 
-Version 1 replaces the legacy Bookshelf consumer library.
-Applications that still depend on that library must pin `bookshelf<1`.
-The retired `bookshelf-producer` distribution is not part of the version 1 workspace.
+This migration replaces the legacy Bookshelf consumer library.
+The retired `bookshelf-producer` distribution is not part of the workspace.
 Its publishing capabilities now live in the `bookshelf` SDK.
 
 ## Installation

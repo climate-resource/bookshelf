@@ -1,6 +1,6 @@
 # How-to guides
 
-The version 1 SDK examples currently live in the
+The SDK examples currently live in the
 [package README](https://github.com/climate-resource/bookshelf/tree/main/packages/bookshelf#readme).
 It covers data access,
 dataframe conversion,

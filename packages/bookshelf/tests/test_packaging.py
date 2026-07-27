@@ -1,5 +1,6 @@
 """Packaging tests for the single-namespace SDK wheel."""
 
+import tomllib
 from email.parser import Parser
 from pathlib import Path
 from zipfile import ZipFile
@@ -9,6 +10,7 @@ import pytest
 import bookshelf
 
 SDK_ROOT = Path(__file__).resolve().parents[1]
+SDK_VERSION = tomllib.loads((SDK_ROOT / "pyproject.toml").read_text())["project"]["version"]
 
 
 def test_py_typed_marker_present() -> None:
@@ -27,7 +29,7 @@ def wheel(tmp_path_factory: pytest.TempPathFactory) -> Path:
         capture_output=True,
         text=True,
     )
-    wheels = list(output.glob("bookshelf-1.0.0-*.whl"))
+    wheels = list(output.glob(f"bookshelf-{SDK_VERSION}-*.whl"))
     assert len(wheels) == 1
     return wheels[0]
 
@@ -43,7 +45,7 @@ def test_wheel_metadata_uses_public_distribution_identity(wheel: Path) -> None:
         entry_points = archive.read(entry_points_name).decode()
 
     assert metadata["Name"] == "bookshelf"
-    assert metadata["Version"] == "1.0.0"
+    assert metadata["Version"] == SDK_VERSION
     assert any(
         requirement.startswith("pyyaml>=6.0") for requirement in metadata.get_all("Requires-Dist")
     )

@@ -7,9 +7,8 @@ for consuming published data,
 producing managed resources,
 and running record and replay publishing workflows.
 
-Version 1 replaces the legacy Bookshelf consumer library
+This migration replaces the legacy Bookshelf consumer library
 and the separate `bookshelf-producer` distribution.
-Applications that depend on the legacy API must pin `bookshelf<1`.
 
 ## Install
 
