@@ -1,5 +1,8 @@
 """Packaging tests for the single-namespace SDK wheel."""
 
+import os
+import subprocess
+import sys
 import tomllib
 from email.parser import Parser
 from pathlib import Path
@@ -74,3 +77,21 @@ def test_wheel_declares_one_package_with_the_generated_core(wheel: Path) -> None
     }
     assert required <= names
     assert not any(name.startswith("bookshelf_client/") for name in names)
+
+
+def test_importing_the_sdk_does_not_require_the_git_binary() -> None:
+    """Consuming a book never needs git, so the import must not depend on it.
+
+    gitpython raises at import time when no git binary is found,
+    which is why the provenance helper imports it lazily.
+    A subprocess is required because gitpython is already imported in this one.
+    """
+    result = subprocess.run(
+        [sys.executable, "-c", "import bookshelf"],
+        env={**os.environ, "PATH": ""},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
