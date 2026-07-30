@@ -12,16 +12,8 @@ from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
 def derive_code_ref() -> str:
     """Return ``<remote-url>@<sha>[+dirty]`` for the current git checkout.
 
-    Raises :class:`~bookshelf._core.errors.BookshelfError`
-    naming the unmet requirement:
-    git cannot be run,
-    this is not a repository,
-    git refuses to read this repository,
-    the repository is bare,
-    it has no ``origin`` remote,
-    or it has no commits.
-    Each of those is established rather than guessed,
-    so the message states it as fact.
+    Raises :class:`~bookshelf._core.errors.BookshelfError` naming the unmet requirement,
+    whether git cannot be run, this is not a usable repository, or it has no commits.
     The caller may pass ``code_ref=`` explicitly instead.
     """
     # gitpython raises at import time when the git binary is absent, and consuming a
@@ -61,8 +53,7 @@ def _derive_code_ref() -> str:
             "Run from a clone, or pass code_ref= explicitly."
         ) from exc
 
-    # gitpython reads refs and config in pure Python, which skips the validation git
-    # itself applies, so a repository git rejects would otherwise read as an empty one.
+    # gitpython reads refs and config in pure Python, so a repository git itself rejects reads as empty.
     # Running a real git command first makes that failure surface as itself.
     try:
         dirty = repo.is_dirty(untracked_files=True)

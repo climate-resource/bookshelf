@@ -653,15 +653,11 @@ def setup(
 ) -> SetupResult:
     """Construct live or recording handles for a standalone build file.
 
-    Under an active recording,
-    ``visibility`` and ``license`` fall back to the recipe when omitted,
-    so a recorded build declares its framing in ``bookshelf.yaml``
-    rather than repeating it in the build file.
-    Visibility resolves from the caller,
-    then the recipe,
+    Under an active recording, ``visibility`` and ``license`` fall back to the recipe when omitted,
+    so a recorded build declares its framing in ``bookshelf.yaml`` rather than in the build file.
+    Visibility resolves from the caller, then the recipe,
     then :attr:`~bookshelf.models.Visibility.hidden`.
-    Direct use has no recipe to consult,
-    so an omitted visibility is ``hidden`` and an omitted licence stays unset.
+    Direct use has no recipe, so an omitted visibility is ``hidden`` and an omitted licence stays unset.
     """
     book: DraftBook | RecordedDraftBook
     context = _ACTIVE_RECORDING.get()
@@ -682,8 +678,8 @@ def setup(
         book = context.bookshelf.draft_book(
             collection or context.recipe.collection,
             version=version,
-            # `is not None`, not `or`: an explicit empty string is invalid input to
-            # reject, never a signal to inherit whatever the recipe declares.
+            # `is not None`, not `or`: an empty string is invalid input to reject,
+            # never a signal to inherit the recipe's value.
             visibility=(
                 visibility
                 if visibility is not None
