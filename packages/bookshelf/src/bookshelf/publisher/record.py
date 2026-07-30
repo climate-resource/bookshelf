@@ -48,6 +48,7 @@ class RecordRecipe:
     license: str
     authors: tuple[dict[str, Any], ...]
     notebook: Path | None = None
+    visibility: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -644,13 +645,20 @@ class SetupResult:
 def setup(
     *,
     version: str,
-    visibility: str | models.Visibility = models.Visibility.hidden,
+    visibility: str | models.Visibility | None = None,
     license: str | None = None,
     collection: str | None = None,
     base_url: str | None = None,
     auth: AuthInput = UNSET,
 ) -> SetupResult:
-    """Construct live or recording handles for a standalone build file."""
+    """Construct live or recording handles for a standalone build file.
+
+    ``visibility`` and ``license`` fall back to the recipe when omitted,
+    so a recorded build declares its framing in ``bookshelf.yaml``
+    rather than repeating it here.
+    Both default to the recipe's value,
+    then to :attr:`~bookshelf.models.Visibility.hidden` for visibility.
+    """
     book: DraftBook | RecordedDraftBook
     context = _ACTIVE_RECORDING.get()
     if context is not None:
@@ -670,7 +678,7 @@ def setup(
         book = context.bookshelf.draft_book(
             collection or context.recipe.collection,
             version=version,
-            visibility=visibility,
+            visibility=visibility or context.recipe.visibility or models.Visibility.hidden,
             license=license or context.recipe.license,
         )
         if not isinstance(book, RecordedDraftBook):
@@ -679,12 +687,17 @@ def setup(
         context.setup_called = True
         return SetupResult(context.bookshelf, book)
     if collection is None:
-        raise BookshelfError("direct setup requires collection")
+        raise BookshelfError(
+            "bookshelf.setup found no active recording, and no collection was passed. "
+            "A build file is executed by the recorder, which reads the collection from "
+            "the recipe, so run it with bookshelf.publisher.run_record. "
+            "Pass collection= to build against the API directly instead."
+        )
     bs = Bookshelf(base_url, auth=auth)
     book = bs.draft_book(
         collection,
         version=version,
-        visibility=visibility,
+        visibility=visibility or models.Visibility.hidden,
         license=license,
     )
     return SetupResult(bs, book)
@@ -708,11 +721,16 @@ def load_record_recipe(path: Path) -> RecordRecipe:
         raise BookshelfError(f"{path} authors must be a list of mappings")
     notebook_raw = raw.get("notebook")
     notebook = Path(notebook_raw) if isinstance(notebook_raw, str) else None
+    visibility_raw = raw.get("visibility")
+    if visibility_raw is not None and visibility_raw not in set(models.Visibility):
+        allowed = ", ".join(sorted(models.Visibility))
+        raise BookshelfError(f"{path} visibility must be one of {allowed}, got {visibility_raw!r}")
     return RecordRecipe(
         collection=collection,
         license=license_value,
         authors=tuple(dict(author) for author in authors_raw),
         notebook=notebook,
+        visibility=visibility_raw,
     )
 
 
