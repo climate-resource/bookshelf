@@ -44,12 +44,20 @@ def derive_code_ref() -> str:
     so each is reported separately and carries git's own stderr.
     The caller may pass ``code_ref=`` explicitly instead.
     """
+    # Every command shares one exec-layer diagnosis, because a git that cannot run
+    # says nothing about which query was in flight.
     try:
-        _git("rev-parse", "--git-dir")
+        return _derive_code_ref()
     except OSError as exc:
         raise BookshelfError(
             f"Cannot derive code_ref: git could not be run ({exc}). Pass code_ref= explicitly."
         ) from exc
+
+
+def _derive_code_ref() -> str:
+    """Query git for the code ref, mapping each command's own failure to its cause."""
+    try:
+        _git("rev-parse", "--git-dir")
     except subprocess.CalledProcessError as exc:
         raise BookshelfError(
             "Cannot derive code_ref: not inside a git repository. "

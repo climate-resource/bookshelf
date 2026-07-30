@@ -98,6 +98,29 @@ def test_a_git_that_cannot_be_executed_stays_on_the_bookshelf_error_path(
         derive_code_ref()
 
 
+def test_an_exec_failure_after_the_first_command_is_still_a_bookshelf_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only the first command used to be guarded, so later exec failures escaped raw."""
+    _git(tmp_path, "init")
+    _git(tmp_path, "remote", "add", "origin", "https://example.com/thing")
+    monkeypatch.chdir(tmp_path)
+
+    real_run = subprocess.run
+    calls = {"n": 0}
+
+    def _fail_after_the_first(*args: object, **kwargs: object) -> object:
+        calls["n"] += 1
+        if calls["n"] > 1:
+            raise OSError(24, "Too many open files")
+        return real_run(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(subprocess, "run", _fail_after_the_first)
+
+    with pytest.raises(BookshelfError, match="git could not be run"):
+        derive_code_ref()
+
+
 def test_a_failure_carries_gits_own_stderr(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """The diagnosis must not sound more certain than the evidence behind it."""
     monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path))
