@@ -27,7 +27,8 @@ def derive_code_ref() -> str:
     git is unavailable,
     this is not a repository,
     there is no ``origin`` remote,
-    or there is no commit to record.
+    there is no commit to record,
+    or there is no working tree to read state from.
     Each of those needs a different fix,
     so they are reported separately rather than as one ambiguous message.
     The caller may pass ``code_ref=`` explicitly instead.
@@ -63,8 +64,17 @@ def derive_code_ref() -> str:
             "Commit first, or pass code_ref= explicitly."
         ) from exc
 
+    try:
+        dirty = _git("status", "--porcelain")
+    except subprocess.CalledProcessError as exc:
+        raise BookshelfError(
+            "Cannot derive code_ref: this repository has no working tree, "
+            "so its state cannot be read. "
+            "Run from a normal clone, or pass code_ref= explicitly."
+        ) from exc
+
     ref = f"{remote}@{sha}"
-    if _git("status", "--porcelain"):
+    if dirty:
         ref += "+dirty"
     return ref
 

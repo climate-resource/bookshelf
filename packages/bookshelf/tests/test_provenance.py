@@ -15,6 +15,8 @@ def _git(cwd: Path, *args: str) -> None:
 
 
 def test_outside_a_repository_says_so(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # The ceiling stops git walking up, so the result does not depend on where TMPDIR sits.
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path))
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(BookshelfError, match="not inside a git repository"):
@@ -76,11 +78,31 @@ def test_a_missing_git_binary_is_reported_as_such(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(tmp_path)
-
-    def _no_git(*args: object, **kwargs: object) -> None:
-        raise FileNotFoundError("git")
-
-    monkeypatch.setattr(subprocess, "run", _no_git)
+    monkeypatch.setenv("PATH", "")
 
     with pytest.raises(BookshelfError, match="git is not installed"):
+        derive_code_ref()
+
+
+def test_a_repository_with_no_working_tree_is_reported_as_such(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A bare repository answers every other query, so only `git status` catches it."""
+    source = tmp_path / "source"
+    source.mkdir()
+    _git(source, "init")
+    (source / "a.txt").write_text("a")
+    _git(source, "add", "a.txt")
+    _git(source, "-c", "user.name=T", "-c", "user.email=t@example.com", "commit", "-m", "one")
+
+    bare = tmp_path / "bare.git"
+    subprocess.run(
+        ["git", "clone", "--bare", str(source), str(bare)],
+        check=True,
+        capture_output=True,
+    )
+    # The bare clone already carries an origin pointing at its source.
+    monkeypatch.chdir(bare)
+
+    with pytest.raises(BookshelfError, match="no working tree"):
         derive_code_ref()
