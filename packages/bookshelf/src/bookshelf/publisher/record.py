@@ -726,7 +726,9 @@ def load_record_recipe(path: Path) -> RecordRecipe:
     notebook_raw = raw.get("notebook")
     notebook = Path(notebook_raw) if isinstance(notebook_raw, str) else None
     visibility_raw = raw.get("visibility")
-    if visibility_raw is not None and visibility_raw not in set(models.Visibility):
+    if visibility_raw is not None and (
+        not isinstance(visibility_raw, str) or visibility_raw not in set(models.Visibility)
+    ):
         allowed = ", ".join(sorted(models.Visibility))
         raise BookshelfError(f"{path} visibility must be one of {allowed}, got {visibility_raw!r}")
     return RecordRecipe(

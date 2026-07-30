@@ -19,6 +19,17 @@ def _git(*args: str) -> str:
     ).stdout.strip()
 
 
+def _said(exc: subprocess.CalledProcessError) -> str:
+    """Return git's own stderr, so a diagnosis is never more confident than the evidence.
+
+    A command fails for reasons other than the one being tested,
+    such as dubious ownership under ``safe.directory`` or a held ``index.lock``,
+    and the caller needs to see that rather than an authoritative guess.
+    """
+    detail = str(exc.stderr or "").strip()
+    return f" git said: {detail}" if detail else ""
+
+
 def derive_code_ref() -> str:
     """Return ``<remote-url>@<sha>[+dirty]`` for the current git checkout.
 
@@ -30,20 +41,19 @@ def derive_code_ref() -> str:
     there is no commit to record,
     or there is no working tree to read state from.
     Each of those needs a different fix,
-    so they are reported separately rather than as one ambiguous message.
+    so each is reported separately and carries git's own stderr.
     The caller may pass ``code_ref=`` explicitly instead.
     """
     try:
         _git("rev-parse", "--git-dir")
-    except FileNotFoundError as exc:
+    except OSError as exc:
         raise BookshelfError(
-            "Cannot derive code_ref: git is not installed or not on PATH. "
-            "Pass code_ref= explicitly."
+            f"Cannot derive code_ref: git could not be run ({exc}). Pass code_ref= explicitly."
         ) from exc
     except subprocess.CalledProcessError as exc:
         raise BookshelfError(
             "Cannot derive code_ref: not inside a git repository. "
-            "Run from a clone, or pass code_ref= explicitly."
+            f"Run from a clone, or pass code_ref= explicitly.{_said(exc)}"
         ) from exc
 
     try:
@@ -52,7 +62,7 @@ def derive_code_ref() -> str:
         raise BookshelfError(
             "Cannot derive code_ref: this repository has no 'origin' remote, "
             "so the code has no address to record. "
-            "Add one with 'git remote add origin <url>', or pass code_ref= explicitly."
+            f"Add one with 'git remote add origin <url>', or pass code_ref= explicitly.{_said(exc)}"
         ) from exc
 
     try:
@@ -61,7 +71,7 @@ def derive_code_ref() -> str:
         raise BookshelfError(
             "Cannot derive code_ref: this repository has no commits, "
             "so there is no revision to record. "
-            "Commit first, or pass code_ref= explicitly."
+            f"Commit first, or pass code_ref= explicitly.{_said(exc)}"
         ) from exc
 
     try:
@@ -70,7 +80,7 @@ def derive_code_ref() -> str:
         raise BookshelfError(
             "Cannot derive code_ref: this repository has no working tree, "
             "so its state cannot be read. "
-            "Run from a normal clone, or pass code_ref= explicitly."
+            f"Run from a normal clone, or pass code_ref= explicitly.{_said(exc)}"
         ) from exc
 
     ref = f"{remote}@{sha}"

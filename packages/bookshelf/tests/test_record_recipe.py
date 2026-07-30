@@ -55,6 +55,17 @@ def test_an_unknown_visibility_is_rejected_naming_the_allowed_values(tmp_path: P
         load_record_recipe(path)
 
 
+@pytest.mark.parametrize("value", ["[a]", "{a: b}", "3"])
+def test_a_visibility_that_is_not_a_string_stays_on_the_bookshelf_error_path(
+    tmp_path: Path, value: str
+) -> None:
+    """An unhashable value must not escape as a raw TypeError from the membership test."""
+    path = _write_recipe(tmp_path, f"visibility: {value}")
+
+    with pytest.raises(BookshelfError, match="visibility must be one of"):
+        load_record_recipe(path)
+
+
 def test_direct_setup_without_a_collection_points_at_the_recorder() -> None:
     """The message names the cause and both ways forward, not just a missing argument."""
     with pytest.raises(BookshelfError) as excinfo:

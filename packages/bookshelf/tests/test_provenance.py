@@ -74,13 +74,36 @@ def test_an_uncommitted_change_marks_the_ref_dirty(
     assert derive_code_ref().endswith("+dirty")
 
 
-def test_a_missing_git_binary_is_reported_as_such(
+def test_an_unrunnable_git_is_reported_as_such(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("PATH", "")
 
-    with pytest.raises(BookshelfError, match="git is not installed"):
+    with pytest.raises(BookshelfError, match="git could not be run"):
+        derive_code_ref()
+
+
+def test_a_git_that_cannot_be_executed_stays_on_the_bookshelf_error_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A present but non-executable git raises PermissionError, not FileNotFoundError."""
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    (fake_bin / "git").write_text("#!/bin/sh\nexit 0\n")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("PATH", str(fake_bin))
+
+    with pytest.raises(BookshelfError, match="git could not be run"):
+        derive_code_ref()
+
+
+def test_a_failure_carries_gits_own_stderr(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The diagnosis must not sound more certain than the evidence behind it."""
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path))
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(BookshelfError, match="git said:"):
         derive_code_ref()
 
 
