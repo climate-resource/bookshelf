@@ -152,6 +152,27 @@ def test_a_repository_git_refuses_to_read_is_reported_as_such(
     assert "no commits" not in message
 
 
+def test_a_silent_git_failure_leaves_no_dangling_quote(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """git does not always write to stderr, and the message must still read cleanly."""
+    _repo_with_a_commit(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    def _fail_quietly(*args: object, **kwargs: object) -> bool:
+        raise git.GitCommandError(["git", "status"], 1, stderr="")
+
+    monkeypatch.setattr(git.Repo, "is_dirty", _fail_quietly)
+
+    with pytest.raises(BookshelfError) as excinfo:
+        derive_code_ref()
+
+    message = str(excinfo.value)
+    assert "refused to read" in message
+    assert "git said" not in message
+    assert message.endswith("Pass code_ref= explicitly.")
+
+
 def test_a_bare_repository_is_reported_as_such(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

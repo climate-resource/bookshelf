@@ -73,9 +73,10 @@ def _derive_code_ref() -> str:
         ) from exc
     except git.GitCommandError as exc:
         detail = str(exc.stderr or "").strip()
+        said = f" git said: {detail}" if detail else ""
         raise BookshelfError(
             "Cannot derive code_ref: git refused to read this repository. "
-            f"Pass code_ref= explicitly. git said: {detail}"
+            f"Pass code_ref= explicitly.{said}"
         ) from exc
 
     if repo.bare:
