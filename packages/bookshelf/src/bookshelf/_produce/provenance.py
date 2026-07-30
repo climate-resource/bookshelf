@@ -20,11 +20,12 @@ def _git(*args: str) -> str:
 
 
 def _said(exc: subprocess.CalledProcessError) -> str:
-    """Return git's own stderr, so a diagnosis is never more confident than the evidence.
+    """Return git's own stderr as supplemental detail, empty when git emitted none.
 
-    A command fails for reasons other than the one being tested,
-    such as dubious ownership under ``safe.directory`` or a held ``index.lock``,
-    and the caller needs to see that rather than an authoritative guess.
+    A non-zero exit proves only that the query failed,
+    never why it failed,
+    so callers name the query and offer its usual cause as a possibility.
+    The specifics come from here.
     """
     detail = str(exc.stderr or "").strip()
     return f" git said: {detail}" if detail else ""
@@ -34,14 +35,18 @@ def derive_code_ref() -> str:
     """Return ``<remote-url>@<sha>[+dirty]`` for the current git checkout.
 
     Raises :class:`~bookshelf._core.errors.BookshelfError`
-    naming which requirement is unmet:
-    git is unavailable,
-    this is not a repository,
-    there is no ``origin`` remote,
-    there is no commit to record,
-    or there is no working tree to read state from.
-    Each of those needs a different fix,
-    so each is reported separately and carries git's own stderr.
+    naming the query that failed:
+    git could not be run,
+    no repository could be identified,
+    no ``origin`` remote could be read,
+    ``HEAD`` could not be resolved,
+    or the working tree state could not be read.
+    Each query has a different usual cause and a different fix,
+    so each is reported separately with its cause offered as a possibility.
+    A repository whose config git refuses to read fails the first query
+    without being the usual cause of that failure,
+    which is why none of these is stated as established fact.
+    Git's own stderr is appended whenever git ran and produced any.
     The caller may pass ``code_ref=`` explicitly instead.
     """
     # Every command shares one exec-layer diagnosis, because a git that cannot run
@@ -55,21 +60,22 @@ def derive_code_ref() -> str:
 
 
 def _derive_code_ref() -> str:
-    """Query git for the code ref, mapping each command's own failure to its cause."""
+    """Query git for the code ref, naming whichever query fails."""
     try:
         _git("rev-parse", "--git-dir")
     except subprocess.CalledProcessError as exc:
         raise BookshelfError(
-            "Cannot derive code_ref: not inside a git repository. "
-            f"Run from a clone, or pass code_ref= explicitly.{_said(exc)}"
+            "Cannot derive code_ref: git could not identify a repository here, "
+            "usually because this is not a clone. "
+            f"Run from one, or pass code_ref= explicitly.{_said(exc)}"
         ) from exc
 
     try:
         remote = _git("remote", "get-url", "origin")
     except subprocess.CalledProcessError as exc:
         raise BookshelfError(
-            "Cannot derive code_ref: this repository has no 'origin' remote, "
-            "so the code has no address to record. "
+            "Cannot derive code_ref: git could not read an 'origin' remote, "
+            "usually because none is set, so the code has no address to record. "
             f"Add one with 'git remote add origin <url>', or pass code_ref= explicitly.{_said(exc)}"
         ) from exc
 
@@ -77,17 +83,17 @@ def _derive_code_ref() -> str:
         sha = _git("rev-parse", "HEAD")
     except subprocess.CalledProcessError as exc:
         raise BookshelfError(
-            "Cannot derive code_ref: this repository has no commits, "
-            "so there is no revision to record. "
-            f"Commit first, or pass code_ref= explicitly.{_said(exc)}"
+            "Cannot derive code_ref: git could not resolve HEAD, "
+            "usually because the repository has no commits, "
+            f"so there is no revision to record. Commit first, or pass code_ref= explicitly.{_said(exc)}"
         ) from exc
 
     try:
         dirty = _git("status", "--porcelain")
     except subprocess.CalledProcessError as exc:
         raise BookshelfError(
-            "Cannot derive code_ref: this repository has no working tree, "
-            "so its state cannot be read. "
+            "Cannot derive code_ref: git could not read the working tree state, "
+            "usually because the repository is bare. "
             f"Run from a normal clone, or pass code_ref= explicitly.{_said(exc)}"
         ) from exc
 

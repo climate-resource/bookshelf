@@ -111,6 +111,18 @@ def test_an_explicit_argument_still_overrides_the_recipe(tmp_path: Path) -> None
     assert book.metadata.visibility is models.Visibility.org
 
 
+def test_an_explicit_empty_visibility_never_inherits_the_recipe(tmp_path: Path) -> None:
+    """Invalid caller input must be rejected, not read as an omission.
+
+    Falling through here would widen the book to the recipe's `public`,
+    which is the one outcome this resolution must never produce by accident.
+    """
+    recipe = _write_recipe(tmp_path, "visibility: public")
+
+    with _recording(recipe, tmp_path / "bundle"), pytest.raises(ValueError):
+        setup(version="v1.0.0", visibility="")
+
+
 def test_a_recipe_that_is_silent_leaves_the_book_hidden(tmp_path: Path) -> None:
     """Neither caller nor recipe saying anything must not widen a book."""
     with _recording(_write_recipe(tmp_path), tmp_path / "bundle"):

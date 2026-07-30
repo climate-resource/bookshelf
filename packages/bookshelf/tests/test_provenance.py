@@ -19,7 +19,7 @@ def test_outside_a_repository_says_so(tmp_path: Path, monkeypatch: pytest.Monkey
     monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path))
     monkeypatch.chdir(tmp_path)
 
-    with pytest.raises(BookshelfError, match="not inside a git repository"):
+    with pytest.raises(BookshelfError, match="could not identify a repository"):
         derive_code_ref()
 
 
@@ -29,7 +29,7 @@ def test_a_missing_origin_remote_names_the_remote(
     _git(tmp_path, "init")
     monkeypatch.chdir(tmp_path)
 
-    with pytest.raises(BookshelfError, match="no 'origin' remote"):
+    with pytest.raises(BookshelfError, match="could not read an 'origin' remote"):
         derive_code_ref()
 
 
@@ -40,7 +40,7 @@ def test_a_repository_with_no_commits_names_the_commit(
     _git(tmp_path, "remote", "add", "origin", "https://example.com/thing")
     monkeypatch.chdir(tmp_path)
 
-    with pytest.raises(BookshelfError, match="no commits"):
+    with pytest.raises(BookshelfError, match="could not resolve HEAD"):
         derive_code_ref()
 
 
@@ -130,6 +130,26 @@ def test_a_failure_carries_gits_own_stderr(tmp_path: Path, monkeypatch: pytest.M
         derive_code_ref()
 
 
+def test_a_repository_git_refuses_to_read_is_not_called_a_missing_repository(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A non-zero exit proves the query failed, not that the usual cause applies.
+
+    This directory is a repository, so any message asserting otherwise is false.
+    """
+    _git(tmp_path, "init")
+    (tmp_path / ".git" / "config").write_text("[core]\n\trepositoryformatversion = 99\n")
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(BookshelfError) as excinfo:
+        derive_code_ref()
+
+    message = str(excinfo.value)
+    assert "usually because" in message
+    assert "git said:" in message
+    assert "found 99" in message
+
+
 def test_a_repository_with_no_working_tree_is_reported_as_such(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -150,5 +170,5 @@ def test_a_repository_with_no_working_tree_is_reported_as_such(
     # The bare clone already carries an origin pointing at its source.
     monkeypatch.chdir(bare)
 
-    with pytest.raises(BookshelfError, match="no working tree"):
+    with pytest.raises(BookshelfError, match="could not read the working tree state"):
         derive_code_ref()

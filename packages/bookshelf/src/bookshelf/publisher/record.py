@@ -682,7 +682,13 @@ def setup(
         book = context.bookshelf.draft_book(
             collection or context.recipe.collection,
             version=version,
-            visibility=visibility or context.recipe.visibility or models.Visibility.hidden,
+            # `is not None`, not `or`: an explicit empty string is invalid input to
+            # reject, never a signal to inherit whatever the recipe declares.
+            visibility=(
+                visibility
+                if visibility is not None
+                else context.recipe.visibility or models.Visibility.hidden
+            ),
             license=license or context.recipe.license,
         )
         if not isinstance(book, RecordedDraftBook):
@@ -701,7 +707,7 @@ def setup(
     book = bs.draft_book(
         collection,
         version=version,
-        visibility=visibility or models.Visibility.hidden,
+        visibility=visibility if visibility is not None else models.Visibility.hidden,
         license=license,
     )
     return SetupResult(bs, book)
