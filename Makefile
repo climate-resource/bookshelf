@@ -40,7 +40,7 @@ ruff-fixes:  ## fix the code using ruff
     # format before and after checking so that the formatted stuff is checked and
     # the fixed stuff is formatted
     # The hooks exit non-zero when they fix something, which is not a failure here.
-    # `make checks` is the gate that reports whether anything is left to fix.
+    # CI runs the same hooks without this suppression, so that is where a real problem surfaces.
 	-uv run pre-commit run --all-files ruff-format
 	-uv run pre-commit run --all-files ruff-check
 	-uv run pre-commit run --all-files ruff-format
