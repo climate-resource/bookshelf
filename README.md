@@ -9,7 +9,7 @@ and command line authentication and discovery.
 [![PyPI](https://img.shields.io/pypi/v/bookshelf.svg)](https://pypi.org/project/bookshelf/)
 [![Python](https://img.shields.io/pypi/pyversions/bookshelf.svg)](https://pypi.org/project/bookshelf/)
 [![CI](https://github.com/climate-resource/bookshelf/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/climate-resource/bookshelf/actions/workflows/ci.yaml)
-[![Licence](https://img.shields.io/pypi/l/bookshelf?label=licence)](https://github.com/climate-resource/bookshelf/blob/main/LICENCE)
+[![Licence](https://img.shields.io/pypi/l/bookshelf?label=licence)](https://github.com/climate-resource/bookshelf/blob/main/LICENSE)
 
 This migration replaces the legacy Bookshelf consumer library.
 The retired `bookshelf-producer` distribution is not part of the workspace.

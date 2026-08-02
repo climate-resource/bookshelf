@@ -1,41 +1,42 @@
-# CHANGELOG
+# Changelog
 
-This directory contains "news fragments", i.e. short files that contain a small markdown-formatted bit of text that will be
-added to the CHANGELOG when it is next compiled.
+This directory contains news fragments.
+These are short markdown files that are assembled into the changelog
+the next time a release is cut.
 
-The CHANGELOG will be read by users, so this description should be aimed to bookshelf users instead of
-describing internal changes which are only relevant to developers. Merge requests in combination with our git history provides additional
-developer-centric information.
+The changelog is read by users of `bookshelf`,
+so write for them rather than describing internal changes.
+The git history and the pull requests already cover the developer view.
 
-Make sure to use phrases in the past tense and use punctuation, examples:
+Use the past tense and punctuate properly:
 
 ```
 Improved verbose diff output with sequences.
 
-Terminal summary statistics now use multiple colors.
+Terminal summary statistics now use multiple colours.
 ```
 
-Each file should have a name of the form `<MR>.<TYPE>.md`, where `<MR>` is the merge request number, and `<TYPE>` is one of:
+Each file is named `<PR>.<TYPE>.md`, where `<PR>` is the pull request number
+and `<TYPE>` is one of:
 
-* `feature`: new user facing features, like new command-line options and new behaviour.
-* `improvement`: improvement of existing functionality, usually without requiring user intervention
+* `feature`: new user facing features, like new command line options and new behaviour.
+* `improvement`: improvement of existing functionality, usually without requiring user intervention.
 * `fix`: fixes a bug.
-* `docs`: documentation improvement, like rewording an entire section or adding missing docs.
+* `docs`: documentation improvement, like rewording a section or adding missing docs.
 * `deprecation`: feature deprecation.
 * `breaking`: a change which may break existing uses, such as feature removal or behaviour change.
-* `trivial`: fixing a small typo or internal change that might be noteworthy.
+* `trivial`: a small typo or internal change that might be noteworthy.
 
-So for example: `123.feature.md`, `456.fix.md`.
+For example: `123.feature.md`, `456.fix.md`.
 
-Since you need the merge request number for the filename, you must submit a MR first. From this MR, you can get the MR number and then create the news file. A single MR can also have multiple news items, for example a given MR may add a feature as well as
-deprecate some existing functionality.
+You need the pull request number for the filename, so open the pull request first.
+A single pull request can carry more than one fragment,
+for example when it adds a feature and deprecates something at the same time.
 
-If you are not sure what issue type to use, don't hesitate to ask in your MR.
+If you are not sure which type to use, ask in the pull request.
 
-`towncrier` preserves multiple paragraphs and formatting (code blocks, lists, and so on), but for entries other than
-features it is usually better to stick to a single paragraph to keep it concise. You may also use `MyST` [style
-cross-referencing](https://myst-parser.readthedocs.io/en/latest/syntax/cross-referencing.html) within your news items to link to other
-documentation.
+`towncrier` preserves multiple paragraphs and formatting such as code blocks and lists.
+For anything other than a feature it is usually better to stick to one paragraph.
 
-You can also run `towncrier build --draft` to see the draft changelog that will be appended to [docs/source/changelog.md]()
-on the next release.
+Run `make changelog-draft` to preview what will be added to
+[docs/changelog.md](../docs/changelog.md) on the next release.

@@ -3,6 +3,7 @@ name = "bookshelf"
 version = "0.4.4a1"
 description = "Python SDK for the Bookshelf data platform"
 readme = "README.md"
+# Lower bounds follow SPEC 0 (https://scientific-python.org/specs/spec-0000/).
 requires-python = ">=3.12"
 classifiers = [
     "License :: OSI Approved :: MIT License",

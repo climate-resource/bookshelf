@@ -1,7 +1,7 @@
 site_name: Bookshelf
 site_description: Curated set of climate data
 site_url: https://climate-resource.github.io/bookshelf
-edit_uri: blob/master/docs/
+edit_uri: blob/main/docs/
 
 repo_name: climate-resource/bookshelf
 repo_url: https://github.com/climate-resource/bookshelf

@@ -31,16 +31,17 @@ help:  ## print short description of each target
 .PHONY: checks
 checks:  ## run all the linting checks of the codebase
 	@echo "=== pre-commit ==="; uv run pre-commit run --all-files || echo "--- pre-commit failed ---" >&2; \
-		echo "=== mypy ==="; MYPYPATH=stubs uv run mypy src || echo "--- mypy failed ---" >&2; \
+		echo "=== mypy ==="; \
+		(cd packages/bookshelf && uv run --locked --all-extras mypy src) || echo "--- mypy failed ---" >&2; \
 		echo "======"
 
 .PHONY: ruff-fixes
 ruff-fixes:  ## fix the code using ruff
     # format before and after checking so that the formatted stuff is checked and
     # the fixed stuff is formatted
-	uvx ruff@0.6.9 format
-	uvx ruff@0.6.9 check --fix
-	uvx ruff@0.6.9 format
+	uv run pre-commit run --all-files ruff-format
+	uv run pre-commit run --all-files ruff-check
+	uv run pre-commit run --all-files ruff-format
 
 .PHONY: test-sdk
 test-sdk:  ## run the tests for the SDK package
@@ -50,6 +51,11 @@ test-sdk:  ## run the tests for the SDK package
 
 .PHONY: test
 test: test-sdk  ## run the tests
+
+.PHONY: test-integration
+test-integration:  ## run the tests that talk to the real remote bookshelf
+	# Not run in CI because it depends on the remote bookshelf being up
+	uv run pytest tests/integration -r a -v
 
 
 # Note on code coverage and testing:
@@ -82,7 +88,7 @@ changelog-draft:  ## compile a draft of the next changelog
 licence-check:  ## Check that licences of the dependencies are suitable
 	# Will likely fail on Windows, but Makefiles are in general not Windows
 	# compatible so we're not too worried
-	uv export --without=tests --without=docs --without=dev > $(TEMP_FILE)
+	uv export --no-dev --no-emit-workspace --no-hashes --format requirements.txt > $(TEMP_FILE)
 	uv run liccheck -r $(TEMP_FILE) -R licence-check.txt
 	rm -f $(TEMP_FILE)
 
