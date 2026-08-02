@@ -11,12 +11,16 @@ import typer
 from bookshelf._cli.auth import auth_app
 from bookshelf._cli.cache import cache_app
 from bookshelf._cli.discovery import search, show
+from bookshelf._cli.producer import publish, record, validate
 
 app = typer.Typer(help="Bookshelf data platform CLI.", no_args_is_help=True)
 app.add_typer(auth_app, name="auth")
 app.add_typer(cache_app, name="cache")
 app.command("search")(search)
 app.command("show")(show)
+app.command("record")(record)
+app.command("validate")(validate)
+app.command("publish")(publish)
 
 
 def main() -> None:  # pragma: no cover - thin entry point

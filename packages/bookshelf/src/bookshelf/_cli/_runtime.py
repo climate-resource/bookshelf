@@ -24,6 +24,7 @@ EXIT_AUTH_REQUIRED = 3
 EXIT_FORBIDDEN = 4
 EXIT_NOT_FOUND = 5
 EXIT_NETWORK = 6
+EXIT_INVALID_BUNDLE = 7
 
 
 class CliError(Exception):
@@ -121,6 +122,7 @@ def command_errors() -> Generator[None]:
 __all__ = [
     "EXIT_AUTH_REQUIRED",
     "EXIT_FORBIDDEN",
+    "EXIT_INVALID_BUNDLE",
     "EXIT_NETWORK",
     "EXIT_NOT_FOUND",
     "EXIT_OK",
