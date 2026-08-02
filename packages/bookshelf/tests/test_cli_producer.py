@@ -1,6 +1,7 @@
 """Tests for ``bookshelf record``, ``bookshelf validate`` and ``bookshelf publish``."""
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
@@ -18,6 +19,7 @@ from bookshelf._cli._runtime import (
 from bookshelf._core.hashing import sha256_hex
 from bookshelf.publisher.bundle import Bundle, BundleBook, resource_filename
 
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
 UNREACHABLE_API = "http://127.0.0.1:9"
 runner = CliRunner()
 
@@ -45,6 +47,11 @@ def _bundle(root: Path, *, published: bool = True, entries: int = 1) -> Bundle:
 
 def _payload(output: str) -> dict[str, Any]:
     return json.loads(output)  # type: ignore[no-any-return]
+
+
+def _plain(text: str) -> str:
+    """Strip ANSI styling, which typer emits for its own usage errors under CI."""
+    return _ANSI.sub("", text)
 
 
 def test_validate_reports_the_bundle_summary(tmp_path: Path) -> None:
@@ -90,8 +97,8 @@ def test_validate_rejects_a_bundle_that_is_still_a_draft(tmp_path: Path) -> None
     result = runner.invoke(app, ["validate", str(bundle.root)])
 
     assert result.exit_code == EXIT_INVALID_BUNDLE
-    assert "does not record a publish operation" in result.stderr
-    assert "bookshelf record" in result.stderr
+    assert "does not record a publish operation" in _plain(result.stderr)
+    assert "bookshelf record" in _plain(result.stderr)
 
 
 def test_validate_rejects_a_bundle_with_no_book_framing(tmp_path: Path) -> None:
@@ -101,7 +108,7 @@ def test_validate_rejects_a_bundle_with_no_book_framing(tmp_path: Path) -> None:
     result = runner.invoke(app, ["validate", str(bundle.root)])
 
     assert result.exit_code == EXIT_INVALID_BUNDLE
-    assert "no book framing" in result.stderr
+    assert "no book framing" in _plain(result.stderr)
 
 
 def test_validate_rejects_tampered_resource_bytes(tmp_path: Path) -> None:
@@ -113,7 +120,7 @@ def test_validate_rejects_tampered_resource_bytes(tmp_path: Path) -> None:
     result = runner.invoke(app, ["validate", str(bundle.root)])
 
     assert result.exit_code == EXIT_INVALID_BUNDLE
-    assert "has hash" in result.stderr
+    assert "has hash" in _plain(result.stderr)
 
 
 def test_validate_rejects_an_entry_with_no_resource(tmp_path: Path) -> None:
@@ -124,14 +131,14 @@ def test_validate_rejects_an_entry_with_no_resource(tmp_path: Path) -> None:
     result = runner.invoke(app, ["validate", str(bundle.root)])
 
     assert result.exit_code == EXIT_INVALID_BUNDLE
-    assert "has no resource" in result.stderr
+    assert "has no resource" in _plain(result.stderr)
 
 
 def test_validate_rejects_a_missing_bundle(tmp_path: Path) -> None:
     result = runner.invoke(app, ["validate", str(tmp_path / "absent")])
 
     assert result.exit_code == EXIT_INVALID_BUNDLE
-    assert "cannot read a bundle" in result.stderr
+    assert "cannot read a bundle" in _plain(result.stderr)
 
 
 def test_validate_rejects_a_malformed_manifest(tmp_path: Path) -> None:
@@ -174,8 +181,8 @@ def test_record_refuses_an_existing_bundle_without_force(tmp_path: Path) -> None
     )
 
     assert result.exit_code == EXIT_USAGE
-    assert "already exists" in result.stderr
-    assert "--force" in result.stderr
+    assert "already exists" in _plain(result.stderr)
+    assert "--force" in _plain(result.stderr)
 
 
 def test_record_reports_a_missing_publish_extra_as_usage(
@@ -186,7 +193,7 @@ def test_record_reports_a_missing_publish_extra_as_usage(
     result = runner.invoke(app, ["record", "--bundle", str(tmp_path / "bundle")])
 
     assert result.exit_code == EXIT_USAGE
-    assert "bookshelf[publish]" in result.stderr
+    assert "bookshelf[publish]" in _plain(result.stderr)
 
 
 def test_record_passes_parameters_and_paths_through(
@@ -241,7 +248,7 @@ def test_record_rejects_a_malformed_parameter(
     result = runner.invoke(app, ["record", "--bundle", str(tmp_path / "bundle"), "-p", "nonsense"])
 
     assert result.exit_code == EXIT_USAGE
-    assert "expected key=value" in result.stderr
+    assert "expected key=value" in _plain(result.stderr)
 
 
 class _FakeDraft:
@@ -363,13 +370,13 @@ def test_publish_forwards_the_recorded_framing_to_the_draft(
     assert client.draft_kwargs["license"] == "MIT"
 
 
-def test_publish_accepts_no_token_flag(tmp_path: Path) -> None:
+def test_publish_rejects_a_token_flag(tmp_path: Path) -> None:
     bundle = _bundle(tmp_path / "bundle")
 
     result = runner.invoke(app, ["publish", str(bundle.root), "--token", "secret"])
 
     assert result.exit_code == EXIT_USAGE
-    assert "--token" in result.stderr
+    assert "--token" in _plain(result.stderr)
 
 
 def test_publish_rejects_an_invalid_bundle_before_reaching_the_api(
