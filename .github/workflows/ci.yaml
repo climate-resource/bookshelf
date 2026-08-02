@@ -2,6 +2,9 @@ name: CI
 
 on:
   pull_request:
+    # The default types omit ready_for_review, which would leave the jobs gated on
+    # `!draft` below permanently skipped on any pull request opened as a draft.
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
     tags: ['v*']
