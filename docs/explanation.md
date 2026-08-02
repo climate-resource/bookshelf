@@ -16,7 +16,7 @@ The same work is repeated.
 Two projects can silently disagree about what the same dataset says.
 Reproducing a result from a year ago means reconstructing whatever the cleaning code did at the time.
 
-`bookshelf` exists to pay that cost once.
+`bookshelf` helps us deplicate that effort.
 
 ## The shape of the solution
 

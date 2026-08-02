@@ -11,6 +11,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
     "gitpython>=3.1",
@@ -28,7 +29,7 @@ bookshelf = "bookshelf._cli:main"
 [project.optional-dependencies]
 dataframes = [
     "polars>=1.0",
-    "pandas>=2.2",
+    "pandas>=2.3",
     "pyarrow>=16",
 ]
 scmrun = ["scmdata>=0.18"]
