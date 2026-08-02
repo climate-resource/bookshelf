@@ -40,22 +40,22 @@ That is usually the first question asked when a number moves.
 
 **Metadata travels with the data.**
 Each `Book` carries its licence as an SPDX identifier,
-along with its source, its authors and a SHA256 hash for every resource.
+and a SHA256 hash for every resource.
+The `Volume` above it carries the authors and the publisher.
 Hashes are checked on download,
 so a truncated or tampered file fails loudly rather than quietly producing wrong numbers.
 
-## Why timeseries are served in one shape
+## Why timeseries come in two shapes
 
-Timeseries `Resource`s are stored wide,
-with one row per timeseries and one column per year.
+Wide form has one row per timeseries and one column per year.
 That is what [scmdata](https://scmdata.readthedocs.io/) expects,
 and it is compact for climate model work.
-
 Long form, with one row per observation, is what dataframe and database tooling expects.
-The SDK derives it on demand by melting the wide frame,
-so a consumer asks for the shape it wants without the store holding both.
-Storing one shape keeps a single copy of the numbers,
-which means the two shapes cannot drift apart.
+
+A `Resource` is written in whichever shape produced it,
+and the SDK converts between the two on read.
+Asking for the wrong shape costs a reshape rather than an error,
+so a producer does not have to guess what its consumers will want.
 
 ## Why the notebooks are moving out
 
@@ -66,7 +66,7 @@ A one line fix to a single dataset meant a new release of `bookshelf`.
 Datasets now live in their own feedstock repositories,
 scaffolded from a [copier template](https://github.com/climate-resource/copier-bookshelf-dataset).
 Each one releases on its own schedule and depends on `bookshelf` like any other user.
-The notebooks that remain here are kept as examples and as test fixtures.
+The notebooks that remain here are being migrated out.
 
 ## Why the SDK talks to an API
 

@@ -39,8 +39,9 @@ checks:  ## run all the linting checks of the codebase
 ruff-fixes:  ## fix the code using ruff
     # format before and after checking so that the formatted stuff is checked and
     # the fixed stuff is formatted
-	uv run pre-commit run --all-files ruff-format
-	uv run pre-commit run --all-files ruff-check
+    # The hooks exit non-zero when they fix something, which is not a failure here.
+	-uv run pre-commit run --all-files ruff-format
+	-uv run pre-commit run --all-files ruff-check
 	uv run pre-commit run --all-files ruff-format
 
 .PHONY: test-sdk

@@ -10,7 +10,6 @@ See `example_volume/example_volume.yaml` for the expected format.
 New datasets should not be added here.
 Start a feedstock repository from the
 [copier template](https://github.com/climate-resource/copier-bookshelf-dataset) instead.
-The notebooks kept here are examples and test fixtures,
-and are being migrated out.
+The notebooks kept here are being migrated out.
 
 `example_volume` is the smallest working notebook and metadata file to read first.
