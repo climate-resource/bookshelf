@@ -17,7 +17,12 @@ from bookshelf._cli._runtime import (
     EXIT_USAGE,
 )
 from bookshelf._core.hashing import sha256_hex
-from bookshelf.publisher.bundle import Bundle, BundleBook, resource_filename
+from bookshelf.publisher.bundle import (
+    Bundle,
+    BundleBook,
+    compute_book_bundle_hash,
+    resource_filename,
+)
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 UNREACHABLE_API = "http://127.0.0.1:9"
@@ -45,6 +50,15 @@ def _bundle(root: Path, *, published: bool = True, entries: int = 1) -> Bundle:
     return bundle
 
 
+def _recipe(path: Path, *, notebook: str | None = "build.py") -> Path:
+    """Write a minimal valid record recipe, optionally without a notebook."""
+    lines = ["collection: example", "license: MIT"]
+    if notebook is not None:
+        lines.append(f"notebook: {notebook}")
+    path.write_text("\n".join(lines) + "\n")
+    return path
+
+
 def _payload(output: str) -> dict[str, Any]:
     return json.loads(output)  # type: ignore[no-any-return]
 
@@ -56,13 +70,16 @@ def _plain(text: str) -> str:
 
 def test_validate_reports_the_bundle_summary(tmp_path: Path) -> None:
     bundle = _bundle(tmp_path / "bundle", entries=2)
+    # Recomputed from what landed on disk, so the reported hash is checked
+    # against an independent value rather than against itself.
+    expected_hash = compute_book_bundle_hash(Bundle.read(bundle.root).manifest)
 
     result = runner.invoke(app, ["validate", str(bundle.root), "--json"])
 
     assert result.exit_code == EXIT_OK
     assert _payload(result.stdout) == {
         "bundle_path": str(bundle.root),
-        "bundle_hash": _payload(result.stdout)["bundle_hash"],
+        "bundle_hash": expected_hash,
         "resources": 2,
         "book_entries": 2,
         "published": True,
@@ -185,6 +202,95 @@ def test_record_refuses_an_existing_bundle_without_force(tmp_path: Path) -> None
     assert "--force" in _plain(result.stderr)
 
 
+def test_record_names_the_fix_when_no_build_file_resolves(tmp_path: Path) -> None:
+    recipe = _recipe(tmp_path / "bookshelf.yaml", notebook=None)
+
+    result = runner.invoke(
+        app, ["record", "--recipe", str(recipe), "--bundle", str(tmp_path / "bundle")]
+    )
+
+    assert result.exit_code == EXIT_USAGE
+    assert "sets no notebook" in _plain(result.stderr)
+    assert "bookshelf record BUILD" in _plain(result.stderr)
+
+
+def test_record_names_the_fix_when_the_build_file_is_absent(tmp_path: Path) -> None:
+    recipe = _recipe(tmp_path / "bookshelf.yaml")
+
+    result = runner.invoke(
+        app,
+        [
+            "record",
+            str(tmp_path / "absent.py"),
+            "--recipe",
+            str(recipe),
+            "--bundle",
+            str(tmp_path / "bundle"),
+        ],
+    )
+
+    assert result.exit_code == EXIT_USAGE
+    assert "build file not found" in _plain(result.stderr)
+
+
+def test_record_names_the_fix_when_the_build_file_is_not_python(tmp_path: Path) -> None:
+    recipe = _recipe(tmp_path / "bookshelf.yaml")
+    notebook = tmp_path / "build.ipynb"
+    notebook.write_text("{}")
+
+    result = runner.invoke(
+        app,
+        ["record", str(notebook), "--recipe", str(recipe), "--bundle", str(tmp_path / "bundle")],
+    )
+
+    assert result.exit_code == EXIT_USAGE
+    assert "standalone Jupytext .py build file" in _plain(result.stderr)
+
+
+def test_record_names_the_fix_when_the_recipe_is_missing(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "record",
+            "--recipe",
+            str(tmp_path / "absent.yaml"),
+            "--bundle",
+            str(tmp_path / "bundle"),
+        ],
+    )
+
+    assert result.exit_code == EXIT_USAGE
+    assert "cannot read the recipe" in _plain(result.stderr)
+    assert "--recipe" in _plain(result.stderr)
+
+
+def test_record_names_the_fix_when_the_recipe_is_malformed(tmp_path: Path) -> None:
+    recipe = tmp_path / "bookshelf.yaml"
+    recipe.write_text("collection: example\n")
+
+    result = runner.invoke(
+        app, ["record", "--recipe", str(recipe), "--bundle", str(tmp_path / "bundle")]
+    )
+
+    assert result.exit_code == EXIT_USAGE
+    assert "non-empty license" in _plain(result.stderr)
+
+
+def test_record_validates_the_recipe_even_when_a_build_file_is_given(tmp_path: Path) -> None:
+    """An explicit build file must not skip recipe validation, which run_record would fail on."""
+    build = tmp_path / "build.py"
+    build.write_text("x = 1\n")
+    recipe = tmp_path / "bookshelf.yaml"
+    recipe.write_text("collection: example\n")
+
+    result = runner.invoke(
+        app,
+        ["record", str(build), "--recipe", str(recipe), "--bundle", str(tmp_path / "bundle")],
+    )
+
+    assert result.exit_code == EXIT_USAGE
+
+
 def test_record_reports_a_missing_publish_extra_as_usage(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -212,14 +318,17 @@ def test_record_passes_parameters_and_paths_through(
         }
 
     monkeypatch.setattr("bookshelf._cli.producer.run_record", fake_run_record)
+    recipe = _recipe(tmp_path / "bookshelf.yaml")
+    build = tmp_path / "build.py"
+    build.write_text("x = 1\n")
 
     result = runner.invoke(
         app,
         [
             "record",
-            "build.py",
+            str(build),
             "--recipe",
-            "recipe.yaml",
+            str(recipe),
             "--bundle",
             str(tmp_path / "bundle"),
             "-p",
@@ -233,19 +342,44 @@ def test_record_passes_parameters_and_paths_through(
     )
 
     assert result.exit_code == EXIT_OK
-    assert seen["build_path"] == Path("build.py")
-    assert seen["recipe_path"] == Path("recipe.yaml")
+    # The CLI resolves the build path, so run_record is handed one it has already accepted.
+    assert seen["build_path"] == build.resolve()
+    assert seen["recipe_path"] == recipe
     # Values are YAML scalars, so a bare 5.0 arrives as a float and not a string.
     assert seen["parameters"] == {"tag": "v5.0", "revision": 5.0, "strict": True}
     assert _payload(result.stdout)["resources"] == 1
+
+
+def test_record_resolves_the_build_file_from_the_recipe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Omitting BUILD falls back to the recipe's notebook, which is how a bare record runs."""
+    seen: dict[str, Any] = {}
+    monkeypatch.setattr(
+        "bookshelf._cli.producer.run_record", lambda **kwargs: seen.update(kwargs) or {}
+    )
+    _recipe(tmp_path / "bookshelf.yaml")
+    (tmp_path / "build.py").write_text("x = 1\n")
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(app, ["record", "--bundle", str(tmp_path / "bundle"), "--json"])
+
+    assert result.exit_code == EXIT_OK
+    assert seen["build_path"] == (tmp_path / "build.py").resolve()
 
 
 def test_record_rejects_a_malformed_parameter(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr("bookshelf._cli.producer.run_record", lambda **_: {})
+    recipe = _recipe(tmp_path / "bookshelf.yaml")
+    (tmp_path / "build.py").write_text("x = 1\n")
+    monkeypatch.chdir(tmp_path)
 
-    result = runner.invoke(app, ["record", "--bundle", str(tmp_path / "bundle"), "-p", "nonsense"])
+    result = runner.invoke(
+        app,
+        ["record", "--recipe", str(recipe), "--bundle", str(tmp_path / "bundle"), "-p", "nonsense"],
+    )
 
     assert result.exit_code == EXIT_USAGE
     assert "expected key=value" in _plain(result.stderr)

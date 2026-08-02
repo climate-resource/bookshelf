@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import typer
+import yaml
 
 from bookshelf._cli._runtime import (
     EXIT_INVALID_BUNDLE,
@@ -31,7 +32,9 @@ from bookshelf._core.hashing import sha256_hex
 from bookshelf.facade import Bookshelf
 from bookshelf.publisher import (
     Bundle,
+    RecordRecipe,
     compute_book_bundle_hash,
+    load_record_recipe,
     parse_parameters,
     replay_bundle_sync,
     run_record,
@@ -68,6 +71,53 @@ def _parameters(values: list[str]) -> dict[str, Any]:
         return parse_parameters(values)
     except BookshelfError as exc:
         raise CliError(str(exc), exit_code=EXIT_USAGE) from exc
+
+
+def _load_recipe(path: Path) -> RecordRecipe:
+    """Load the record recipe, treating an unreadable or malformed one as a usage error."""
+    try:
+        return load_record_recipe(path)
+    except (OSError, yaml.YAMLError, BookshelfError) as exc:
+        raise CliError(
+            f"cannot read the recipe at {path}: {exc}. "
+            "Run 'bookshelf record --recipe PATH' to point at a different one.",
+            exit_code=EXIT_USAGE,
+        ) from exc
+
+
+def _resolve_build(build: Path | None, recipe: Path) -> Path:
+    """Resolve which build file to execute, naming the fix for each caller mistake.
+
+    ``run_record`` repeats these checks and raises the base ``BookshelfError`` for them,
+    which the exit table maps to an unexpected failure.
+    A caller's typo is not an unexpected failure,
+    so the resolution happens here and ``run_record`` receives a path it has already accepted.
+    """
+    # Always load the recipe, even when BUILD is given.
+    # run_record loads it either way, so a malformed one must fail here rather than there.
+    notebook = _load_recipe(recipe).notebook
+    selected = build or notebook
+    if selected is None:
+        raise CliError(
+            f"no build file given and {recipe} sets no notebook. "
+            "Run 'bookshelf record BUILD', or set 'notebook:' in the recipe.",
+            exit_code=EXIT_USAGE,
+        )
+
+    resolved = (selected if selected.is_absolute() else Path.cwd() / selected).resolve()
+    if resolved.suffix.lower() != ".py":
+        raise CliError(
+            f"record needs a standalone Jupytext .py build file, got {resolved}. "
+            "Run 'bookshelf record BUILD' naming the .py file.",
+            exit_code=EXIT_USAGE,
+        )
+    if not resolved.is_file():
+        raise CliError(
+            f"build file not found: {resolved}. "
+            "Run 'bookshelf record BUILD' naming a file that exists.",
+            exit_code=EXIT_USAGE,
+        )
+    return resolved
 
 
 def _read_bundle(root: Path) -> Bundle:
@@ -187,8 +237,9 @@ def record(
                 f"Run 'bookshelf record --force --bundle {bundle}' to replace it.",
                 exit_code=EXIT_USAGE,
             )
+        resolved_build = _resolve_build(build, recipe)
         summary = run_record(
-            build_path=build,
+            build_path=resolved_build,
             recipe_path=recipe,
             bundle_path=bundle,
             parameters=_parameters(parameter),
