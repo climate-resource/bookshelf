@@ -14,8 +14,7 @@ Every project that needs one ends up writing its own cleaning code.
 That has three costs.
 The same work is repeated.
 Two projects can silently disagree about what the same dataset says.
-Reproducing a result from a year ago means reconstructing whatever the cleaning
-code did at the time.
+Reproducing a result from a year ago means reconstructing whatever the cleaning code did at the time.
 
 `bookshelf` exists to pay that cost once.
 
@@ -36,39 +35,27 @@ which is what makes an analysis reproducible.
 **Versions and editions are separate.**
 The version tracks the upstream data.
 The edition tracks our processing of it.
-Splitting them means a consumer can tell whether a change came from the data provider
-or from us, which is usually the first question asked when a number moves.
+Splitting them means a consumer can tell whether a change came from the data provider or from us.
+That is usually the first question asked when a number moves.
 
 **Metadata travels with the data.**
-Each `Book` is a
-[datapackage](https://specs.frictionlessdata.io/data-package/)
-recording the licence, the source, the author and the hash of every file.
-The hashes are checked on download,
+Each `Book` carries its licence as an SPDX identifier,
+along with its source, its authors and a SHA256 hash for every resource.
+Hashes are checked on download,
 so a truncated or tampered file fails loudly rather than quietly producing wrong numbers.
 
-## Why a datapackage
+## Why timeseries are served in one shape
 
-We did not want to invent a metadata format.
-The frictionless
-[data package](https://specs.frictionlessdata.io/data-package/)
-specification already covers resources, hashes, licences and schemas,
-and it has tooling in several languages.
-A `Book` is a datapackage with a few extra fields,
-so a `Book` can be read by anything that already understands datapackages.
-
-## Why timeseries are stored in two shapes
-
-Most `Resource`s are timeseries, written in both wide and long form.
-
-Wide form has one row per timeseries and one column per year.
-It is what [scmdata](https://scmdata.readthedocs.io/) expects,
+Timeseries `Resource`s are stored wide,
+with one row per timeseries and one column per year.
+That is what [scmdata](https://scmdata.readthedocs.io/) expects,
 and it is compact for climate model work.
 
-Long form has one row per observation.
-It is what dataframe and database tooling expects,
-and it is much easier to join against other tables.
-
-Writing both costs a little storage and saves every consumer a reshape.
+Long form, with one row per observation, is what dataframe and database tooling expects.
+The SDK derives it on demand by melting the wide frame,
+so a consumer asks for the shape it wants without the store holding both.
+Storing one shape keeps a single copy of the numbers,
+which means the two shapes cannot drift apart.
 
 ## Why the notebooks are moving out
 
@@ -76,8 +63,8 @@ The notebooks in this repository were originally the only way to build a `Book`.
 That coupled every dataset's release cycle to this package's release cycle.
 A one line fix to a single dataset meant a new release of `bookshelf`.
 
-Datasets now live in their own feedstock repositories, scaffolded from a
-[copier template](https://github.com/climate-resource/copier-bookshelf-dataset).
+Datasets now live in their own feedstock repositories,
+scaffolded from a [copier template](https://github.com/climate-resource/copier-bookshelf-dataset).
 Each one releases on its own schedule and depends on `bookshelf` like any other user.
 The notebooks that remain here are kept as examples and as test fixtures.
 

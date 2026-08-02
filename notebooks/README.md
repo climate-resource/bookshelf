@@ -13,7 +13,4 @@ Start a feedstock repository from the
 The notebooks kept here are examples and test fixtures,
 and are being migrated out.
 
-`example_volume` is the minimal pair to copy when you want something to read.
-
-For more detail, see the
-[development docs](https://climate-resource.github.io/bookshelf/latest/development/).
+`example_volume` is the smallest working notebook and metadata file to read first.

@@ -27,8 +27,8 @@ dev = [
     "pre-commit>=3.3.1",
     "towncrier>=23.6.0",
     "liccheck>=0.9.1",
-    # liccheck reaches into pkg_resources and pip internals, neither of which
-    # a uv-managed environment provides on its own
+    # liccheck reaches into pkg_resources and pip internals,
+    # neither of which a uv-managed environment provides on its own.
     "setuptools<81",
     "pip>=25",
     # Stubs
@@ -157,8 +157,8 @@ issue_format = "[#{issue}](https://github.com/climate-resource/bookshelf/pull/{i
   showcontent = false
 
 [tool.liccheck]
-# Packaging metadata now reports SPDX expressions (PEP 639) rather than the
-# long-form names, so both spellings have to be listed.
+# Packaging metadata reports licences as both SPDX expressions (PEP 639) and long-form names,
+# so both spellings have to be listed.
 authorized_licenses = [
     # SPDX identifiers
     "0BSD",
