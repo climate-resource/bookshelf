@@ -27,6 +27,7 @@ from bookshelf._produce.helpers import visibility as _visibility
 from bookshelf._produce.resources import Resource
 from bookshelf._produce.serialise import SerialisedObject, serialise
 from bookshelf._produce.types import HasTrackingId, RegisterItem, UsedInput
+from bookshelf._produce.visibility import INHERIT, VisibilityInput
 from bookshelf.cache import ContentCache
 from bookshelf.facade import Bookshelf
 from bookshelf.publisher.bundle import (
@@ -118,6 +119,7 @@ class RecordingActivity(Activity):
         config: Mapping[str, Any],
         runner_name: str,
         config_hash: str | None = None,
+        default_visibility: models.Visibility = models.Visibility.hidden,
     ) -> None:
         self._bundle = bundle
         self._client = client
@@ -128,6 +130,7 @@ class RecordingActivity(Activity):
         self.config = dict(config)
         self.runner = runner_name
         self.config_hash = config_hash
+        self.default_visibility = default_visibility
         self._envelope = activity_envelope(
             activity_id=activity_id,
             kind=kind,
@@ -160,7 +163,7 @@ class RecordingActivity(Activity):
         type: str | models.ResourceType,
         logical_key: str | None = None,
         used: Sequence[UsedInput] = (),
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
@@ -170,7 +173,7 @@ class RecordingActivity(Activity):
         """Serialise an output once and append its bytes and provenance."""
         self._require_entered()
         resource_type = _resource_type(type)
-        resource_visibility = _visibility(visibility)
+        resource_visibility = _visibility(visibility, self.default_visibility)
         materialised = serialise(obj, type=resource_type.value)
         resource_id = tracking_id or uuid7()
         self._merge_used(used)
@@ -299,10 +302,9 @@ class RecordingActivity(Activity):
             for item in prepared
         ]
 
-    @staticmethod
-    def _prepare_registration(entry: RegisterItem) -> _PreparedRegistration:
+    def _prepare_registration(self, entry: RegisterItem) -> _PreparedRegistration:
         resource_type = _resource_type(entry.type)
-        visibility = _visibility(entry.visibility)
+        visibility = _visibility(entry.visibility, self.default_visibility)
         return _PreparedRegistration(
             entry=entry,
             materialised=serialise(entry.obj, type=resource_type.value),
@@ -319,7 +321,7 @@ class RecordingActivity(Activity):
         hash: str | None = None,
         logical_key: str | None = None,
         used: Sequence[UsedInput] = (),
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
@@ -338,6 +340,7 @@ class RecordingActivity(Activity):
             hash=hash,
             logical_key=logical_key,
             visibility=visibility,
+            default_visibility=self.default_visibility,
             tags=tags,
             metadata=metadata,
             tracking_id=tracking_id,
@@ -442,12 +445,19 @@ class RecordingSink:
         cache: ContentCache,
         *,
         authors: Sequence[Mapping[str, Any]] = (),
+        default_visibility: models.Visibility = models.Visibility.hidden,
     ) -> None:
         self.bundle = bundle
         self._client = client
         self._cache = cache
         self._authors = tuple(dict(author) for author in authors)
         self._activity_started = False
+        self.default_visibility = default_visibility
+        """The tier a registration takes when the build file names none.
+
+        Seeded from the recipe and re-seeded by :meth:`draft_book`, so the book's
+        declared tier is what its resources record as.
+        """
 
     def activity(
         self,
@@ -477,6 +487,7 @@ class RecordingSink:
             config=dict(config or {}),
             runner_name=runner or _runner(),
             config_hash=config_hash,
+            default_visibility=self.default_visibility,
         )
 
     def draft_book(
@@ -487,20 +498,25 @@ class RecordingSink:
         description: str | None = None,
         citation_doi: str | None = None,
         license: str | None = None,
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         metadata: Mapping[str, Any] | None = None,
         bundle_hash: str | None = None,
     ) -> RecordedDraftBook:
-        """Record pre-edition book framing and return its local handle."""
+        """Record pre-edition book framing and return its local handle.
+
+        The book's tier becomes the default for every resource this build records
+        afterwards, so declaring the book public is enough to publish public data.
+        """
         del bundle_hash
         if license is None:
             raise ValueError("recorded books require an explicit license")
-        resource_visibility = _visibility(visibility)
+        book_visibility = _visibility(visibility, self.default_visibility)
+        self.default_visibility = book_visibility
         self.bundle.set_book(
             BundleBook(
                 volume=volume,
                 version=version,
-                visibility=resource_visibility.value,
+                visibility=book_visibility.value,
                 license=license,
                 authors=list(self._authors),
                 description=description,
@@ -513,7 +529,7 @@ class RecordingSink:
             self._client,
             volume=volume,
             version=version,
-            visibility=resource_visibility,
+            visibility=book_visibility,
             license=license,
             description=description,
             citation_doi=citation_doi,
@@ -527,7 +543,7 @@ class RecordingSink:
         uri: str,
         hash: str | None = None,
         logical_key: str | None = None,
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
@@ -543,6 +559,7 @@ class RecordingSink:
             hash=hash,
             logical_key=logical_key,
             visibility=visibility,
+            default_visibility=self.default_visibility,
             tags=tags,
             metadata=metadata,
             tracking_id=tracking_id,
@@ -556,7 +573,12 @@ class RecordingSink:
         logical_key: str,
         metadata: Mapping[str, Any],
     ) -> RecordedResource:
-        """Record execution evidence as an output of the captured activity."""
+        """Record execution evidence as an output of the captured activity.
+
+        The recorder adds these documents itself, so the build file cannot pass a
+        tier for them. They take the book's, which keeps a public book's evidence
+        readable alongside the data it explains.
+        """
         activity = self.bundle.manifest.activity
         if activity is None:
             raise BookshelfError("a recorded build requires an activity before execution documents")
@@ -569,6 +591,7 @@ class RecordingSink:
             type_="document",
             tracking_id=resource_id,
             logical_key=logical_key,
+            visibility=self.default_visibility.value,
             metadata=dict(metadata),
             dedupe=False,
             generated=True,
@@ -581,6 +604,7 @@ class RecordingSink:
             models.ResourceType.document,
             materialised.hash,
             logical_key=logical_key,
+            visibility=self.default_visibility,
             metadata=metadata,
         )
 
@@ -598,6 +622,9 @@ class RecordingBookshelf(Bookshelf):
     ) -> None:
         super().__init__(base_url, auth=auth)
         self.bundle = bundle
+        # The sink's default tier stays ``hidden`` until draft_book seeds it from
+        # the book. A build file reaches this facade only through setup, which
+        # drafts the book first, so nothing registers against the placeholder.
         self.recording_sink = RecordingSink(
             bundle,
             self._client,
@@ -657,6 +684,10 @@ def setup(
     Visibility resolves from the caller, then the recipe,
     then :attr:`~bookshelf.models.Visibility.hidden`.
     Direct use has no recipe, so an omitted visibility is ``hidden`` and an omitted licence stays unset.
+
+    The resolved tier is also the default for every resource the build records,
+    including the notebook and HTML documents the recorder adds itself.
+    Pass ``visibility=`` on an individual registration to narrow that one resource.
     """
     book: DraftBook | RecordedDraftBook
     context = _ACTIVE_RECORDING.get()
@@ -870,7 +901,8 @@ def _record_pointer(
     uri: str,
     hash: str | None,
     logical_key: str | None,
-    visibility: str | models.Visibility,
+    visibility: VisibilityInput,
+    default_visibility: models.Visibility,
     tags: Sequence[str],
     metadata: Mapping[str, Any] | None,
     tracking_id: UUID | None,
@@ -880,7 +912,7 @@ def _record_pointer(
 ) -> RecordedResource:
     """Append one pointer resource and return its local handle."""
     resource_type = _resource_type(type)
-    resource_visibility = _visibility(visibility)
+    resource_visibility = _visibility(visibility, default_visibility)
     resource_hash = hash or synthesise_pointer_hash(
         type_=resource_type.value,
         external_uri=uri,

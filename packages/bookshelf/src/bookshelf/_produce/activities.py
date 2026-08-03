@@ -45,6 +45,7 @@ from bookshelf._produce.types import (
     RegistrationSuccess,
     UsedInput,
 )
+from bookshelf._produce.visibility import INHERIT, VisibilityInput
 from bookshelf.cache import ContentCache
 
 
@@ -62,6 +63,7 @@ class Activity:
         config: Mapping[str, Any],
         runner: str,
         config_hash: str | None = None,
+        default_visibility: models.Visibility = models.Visibility.hidden,
     ) -> None:
         self._client = client
         self._cache = cache
@@ -71,6 +73,7 @@ class Activity:
         self.config = dict(config)
         self.runner = runner
         self.config_hash = config_hash
+        self.default_visibility = default_visibility
         self._entered = False
         self._closed = False
 
@@ -97,7 +100,7 @@ class Activity:
         type: str | models.ResourceType,
         logical_key: str | None = None,
         used: Sequence[UsedInput] = (),
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
@@ -161,7 +164,7 @@ class Activity:
         hash: str | None = None,
         logical_key: str | None = None,
         used: Sequence[UsedInput] = (),
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
@@ -178,7 +181,7 @@ class Activity:
             type=resource_type,
             hash=hash,
             logical_key=logical_key,
-            visibility=_visibility(visibility),
+            visibility=_visibility(visibility, self.default_visibility),
             tags=list(tags),
             metadata=dict(metadata or {}),
             external_uri=uri,
@@ -260,7 +263,7 @@ class Activity:
             hash=serialised.hash,
             format=entry.format or serialised.format,
             logical_key=entry.logical_key,
-            visibility=_visibility(entry.visibility),
+            visibility=_visibility(entry.visibility, self.default_visibility),
             tags=list(entry.tags),
             metadata=dict(entry.metadata or {}),
             locations=[models.LocationInput(shelf="managed", path=storage_path)],
@@ -320,6 +323,7 @@ class AsyncActivity:
         config: Mapping[str, Any],
         runner: str,
         config_hash: str | None = None,
+        default_visibility: models.Visibility = models.Visibility.hidden,
     ) -> None:
         self._client = client
         self._cache = cache
@@ -329,6 +333,7 @@ class AsyncActivity:
         self.config = dict(config)
         self.runner = runner
         self.config_hash = config_hash
+        self.default_visibility = default_visibility
         self._entered = False
         self._closed = False
 
@@ -357,7 +362,7 @@ class AsyncActivity:
         type: str | models.ResourceType,
         logical_key: str | None = None,
         used: Sequence[UsedInput] = (),
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
@@ -424,7 +429,7 @@ class AsyncActivity:
         hash: str | None = None,
         logical_key: str | None = None,
         used: Sequence[UsedInput] = (),
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
@@ -441,7 +446,7 @@ class AsyncActivity:
             type=resource_type,
             hash=hash,
             logical_key=logical_key,
-            visibility=_visibility(visibility),
+            visibility=_visibility(visibility, self.default_visibility),
             tags=list(tags),
             metadata=dict(metadata or {}),
             external_uri=uri,
@@ -523,7 +528,7 @@ class AsyncActivity:
             hash=serialised.hash,
             format=entry.format or serialised.format,
             logical_key=entry.logical_key,
-            visibility=_visibility(entry.visibility),
+            visibility=_visibility(entry.visibility, self.default_visibility),
             tags=list(entry.tags),
             metadata=dict(entry.metadata or {}),
             locations=[models.LocationInput(shelf="managed", path=storage_path)],
