@@ -36,15 +36,23 @@ from bookshelf._produce.helpers import (
 )
 from bookshelf._produce.provenance import derive_code_ref
 from bookshelf._produce.resources import AsyncResource, Resource
+from bookshelf._produce.visibility import INHERIT, VisibilityInput
 from bookshelf.cache import ContentCache
 
 
 class LiveSink:
     """Live synchronous adapter for producer writes."""
 
-    def __init__(self, client: BookshelfClient, cache: ContentCache) -> None:
+    def __init__(
+        self,
+        client: BookshelfClient,
+        cache: ContentCache,
+        *,
+        default_visibility: models.Visibility = models.Visibility.hidden,
+    ) -> None:
         self._client = client
         self._cache = cache
+        self.default_visibility = default_visibility
 
     def activity(
         self,
@@ -66,6 +74,7 @@ class LiveSink:
             config=dict(config or {}),
             runner=runner or _runner(),
             config_hash=config_hash,
+            default_visibility=self.default_visibility,
         )
 
     def register_external(
@@ -75,7 +84,7 @@ class LiveSink:
         uri: str,
         hash: str | None = None,
         logical_key: str | None = None,
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
@@ -88,7 +97,7 @@ class LiveSink:
             type=resource_type,
             hash=hash,
             logical_key=logical_key,
-            visibility=_visibility(visibility),
+            visibility=_visibility(visibility, self.default_visibility),
             tags=list(tags),
             metadata=dict(metadata or {}),
             external_uri=uri,
@@ -143,9 +152,16 @@ class LiveSink:
 class AsyncLiveSink:
     """Live asynchronous adapter for producer writes."""
 
-    def __init__(self, client: BookshelfClient, cache: ContentCache) -> None:
+    def __init__(
+        self,
+        client: BookshelfClient,
+        cache: ContentCache,
+        *,
+        default_visibility: models.Visibility = models.Visibility.hidden,
+    ) -> None:
         self._client = client
         self._cache = cache
+        self.default_visibility = default_visibility
 
     def activity(
         self,
@@ -167,6 +183,7 @@ class AsyncLiveSink:
             config=dict(config or {}),
             runner=runner or _runner(),
             config_hash=config_hash,
+            default_visibility=self.default_visibility,
         )
 
     async def register_external(
@@ -176,7 +193,7 @@ class AsyncLiveSink:
         uri: str,
         hash: str | None = None,
         logical_key: str | None = None,
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
@@ -189,7 +206,7 @@ class AsyncLiveSink:
             type=resource_type,
             hash=hash,
             logical_key=logical_key,
-            visibility=_visibility(visibility),
+            visibility=_visibility(visibility, self.default_visibility),
             tags=list(tags),
             metadata=dict(metadata or {}),
             external_uri=uri,
@@ -262,7 +279,7 @@ class ProduceSink(Protocol):
         uri: str,
         hash: str | None = None,
         logical_key: str | None = None,
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
@@ -304,7 +321,7 @@ class AsyncProduceSink(Protocol):
         uri: str,
         hash: str | None = None,
         logical_key: str | None = None,
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
@@ -357,7 +374,7 @@ class ProduceFacade:
         uri: str,
         hash: str | None = None,
         logical_key: str | None = None,
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
@@ -433,7 +450,7 @@ class AsyncProduceFacade:
         uri: str,
         hash: str | None = None,
         logical_key: str | None = None,
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
