@@ -45,6 +45,37 @@ BOOK_LIST: dict[str, Any] = {
 
 BOOK_ENTRIES: dict[str, Any] = {"items": []}
 
+
+def book_list_item(*, status: str = "draft", edition: int = 1) -> dict[str, Any]:
+    """One book list row, which the address-resolving callers need to have something to find."""
+    return {
+        "id": "b1",
+        "volume_name": "example",
+        "version": "v1.0.0",
+        "edition": edition,
+        "status": status,
+        "visibility": "hidden",
+        "private": True,
+        "metadata": {},
+        "created_at": TS,
+        "published_at": TS if status == "published" else None,
+    }
+
+
+VOLUME: dict[str, Any] = {
+    "id": "vol_1",
+    "name": "example",
+    "owner_org_id": "org_1",
+    "description": None,
+    "license": "MIT",
+    "metadata": {},
+    "authors": [],
+    "maintainers": [],
+    "citation": None,
+    "created_at": TS,
+    "updated_at": TS,
+}
+
 ENTRY_ATTACHED: dict[str, Any] = {
     "entry_id": "0197a000-0000-7000-8000-0000000000e1",
     "book_id": "0197a000-0000-7000-8000-0000000000b1",
