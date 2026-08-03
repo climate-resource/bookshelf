@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 from uuid import UUID
 
@@ -82,7 +83,6 @@ async def replay_bundle(
 
     if manifest.activity is not None and generated:
         activity = manifest.activity
-        used = _activity_used(generated)
         async with bs.activity(
             activity_id=activity.activity_id,
             kind=activity.kind,
@@ -92,6 +92,7 @@ async def replay_bundle(
             config_hash=activity.config_hash,
         ) as live_activity:
             for resource in generated:
+                used = _resource_used(resource, resources)
                 if resource.kind == "pointer":
                     if resource.external_uri is None:
                         raise ValueError(f"pointer {resource.tracking_id} has no external URI")
@@ -182,7 +183,6 @@ def replay_bundle_sync(
 
     if manifest.activity is not None and generated:
         activity = manifest.activity
-        used = _activity_used(generated)
         with bs.activity(
             activity_id=activity.activity_id,
             kind=activity.kind,
@@ -192,6 +192,7 @@ def replay_bundle_sync(
             config_hash=activity.config_hash,
         ) as live_activity:
             for resource in generated:
+                used = _resource_used(resource, resources)
                 if resource.kind == "pointer":
                     if resource.external_uri is None:
                         raise ValueError(f"pointer {resource.tracking_id} has no external URI")
@@ -231,20 +232,38 @@ def replay_bundle_sync(
     return draft
 
 
-def _activity_used(resources: list[BundleResource]) -> list[UsedInput]:
+def _resource_used(
+    resource: BundleResource,
+    registered: Mapping[UUID, Resource | AsyncResource],
+) -> list[UsedInput]:
+    """Resolve one resource's recorded inputs against what replay actually registered.
+
+    A recorded tracking id is a claim about the bundle, not about the deployment.
+    The server may answer a registration with an existing resource when the bytes
+    match one it already holds, so an input is cited by the id that came back
+    rather than the id the bundle asked for.
+
+    A resource never cites itself, and an id from outside this bundle is passed
+    through for the server to resolve.
+    """
     values: list[UsedInput] = []
     seen: set[tuple[str, str]] = set()
-    for resource in resources:
-        for reference in resource.used:
-            value = _used_value(reference)
-            key = (
-                ("tracking_id", str(value))
-                if isinstance(value, UUID)
-                else ("logical_key", value.logical_key)
-            )
-            if key not in seen:
-                seen.add(key)
-                values.append(value)
+    for reference in resource.used:
+        value = _used_value(reference)
+        if isinstance(value, UUID):
+            if value == resource.tracking_id:
+                continue
+            handle = registered.get(value)
+            if handle is not None:
+                value = handle.tracking_id
+        key = (
+            ("tracking_id", str(value))
+            if isinstance(value, UUID)
+            else ("logical_key", value.logical_key)
+        )
+        if key not in seen:
+            seen.add(key)
+            values.append(value)
     return values
 
 

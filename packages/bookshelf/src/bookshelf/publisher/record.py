@@ -247,9 +247,9 @@ class RecordingActivity(Activity):
                 manifest=self._bundle.manifest.model_copy(deep=True),
             )
             staged.set_activity(self._bundle_activity())
-            for resource in staged.manifest.resources:
-                if resource.generated:
-                    resource.used = list(merged_used)
+            # Only the resources this batch adds take the merged inputs.
+            # Rewriting the ones already recorded would hand each of them every
+            # input the activity has seen since, including themselves.
             for item in prepared:
                 staged.add_resource(
                     data=item.materialised.data,
@@ -353,13 +353,16 @@ class RecordingActivity(Activity):
             raise RuntimeError("register operations require an open activity block")
 
     def _merge_used(self, values: Sequence[UsedInput]) -> None:
+        """Accumulate the activity's inputs for the resources still to come.
+
+        Resources already recorded keep the inputs they were registered with.
+        Rewriting them would give an output every input the activity acquired
+        after it, and give the first output itself.
+        """
         for value in values:
             reference = _bundle_used_ref(value)
             if reference not in self._used:
                 self._used.append(reference)
-        for resource in self._bundle.manifest.resources:
-            if resource.generated:
-                resource.used = list(self._used)
 
     def _bundle_activity(self) -> BundleActivity:
         return BundleActivity(
