@@ -66,6 +66,7 @@ async def replay_bundle(
     resources: dict[UUID, AsyncResource] = {}
     generated = [resource for resource in manifest.resources if resource.generated]
     inputs = [resource for resource in manifest.resources if not resource.generated]
+    in_bundle = frozenset(resource.tracking_id for resource in manifest.resources)
     for resource in inputs:
         if resource.kind != "pointer" or resource.external_uri is None:
             raise ValueError("managed bundle resources require a recorded activity")
@@ -92,7 +93,7 @@ async def replay_bundle(
             config_hash=activity.config_hash,
         ) as live_activity:
             for resource in generated:
-                used = _resource_used(resource, resources)
+                used = _resource_used(resource, resources, in_bundle)
                 if resource.kind == "pointer":
                     if resource.external_uri is None:
                         raise ValueError(f"pointer {resource.tracking_id} has no external URI")
@@ -166,6 +167,7 @@ def replay_bundle_sync(
     resources: dict[UUID, Resource] = {}
     generated = [resource for resource in manifest.resources if resource.generated]
     inputs = [resource for resource in manifest.resources if not resource.generated]
+    in_bundle = frozenset(resource.tracking_id for resource in manifest.resources)
     for resource in inputs:
         if resource.kind != "pointer" or resource.external_uri is None:
             raise ValueError("managed bundle resources require a recorded activity")
@@ -192,7 +194,7 @@ def replay_bundle_sync(
             config_hash=activity.config_hash,
         ) as live_activity:
             for resource in generated:
-                used = _resource_used(resource, resources)
+                used = _resource_used(resource, resources, in_bundle)
                 if resource.kind == "pointer":
                     if resource.external_uri is None:
                         raise ValueError(f"pointer {resource.tracking_id} has no external URI")
@@ -235,16 +237,19 @@ def replay_bundle_sync(
 def _resource_used(
     resource: BundleResource,
     registered: Mapping[UUID, Resource | AsyncResource],
+    in_bundle: frozenset[UUID],
 ) -> list[UsedInput]:
     """Resolve one resource's recorded inputs against what replay actually registered.
 
     A recorded tracking id is a claim about the bundle, not about the deployment.
-    The server may answer a registration with an existing resource when the bytes
-    match one it already holds, so an input is cited by the id that came back
-    rather than the id the bundle asked for.
+    The server may answer a registration with a resource it already holds when the
+    bytes match, so an input is cited by the id that came back rather than the id
+    the bundle asked for.
 
-    A resource never cites itself, and an id from outside this bundle is passed
-    through for the server to resolve.
+    A resource citing itself is dropped, which a bundle recorded before inputs were
+    kept per resource will do.
+    An id the bundle does not carry belongs to something registered elsewhere, so it
+    passes through for the server to resolve.
     """
     values: list[UsedInput] = []
     seen: set[tuple[str, str]] = set()
@@ -256,6 +261,12 @@ def _resource_used(
             handle = registered.get(value)
             if handle is not None:
                 value = handle.tracking_id
+            elif value in in_bundle:
+                raise ValueError(
+                    f"resource {resource.tracking_id} consumes {value}, "
+                    "which the bundle records after it. "
+                    "Inputs must be registered before whatever consumes them."
+                )
         key = (
             ("tracking_id", str(value))
             if isinstance(value, UUID)
