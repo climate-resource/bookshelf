@@ -63,3 +63,28 @@ def test_atomic_register_many_does_not_record_a_partial_batch(tmp_path: Path) ->
     assert bundle.manifest.activity is None
     assert bundle.manifest.resources == []
     assert not bundle.resources_dir.exists()
+
+
+def test_a_later_batch_does_not_rewrite_earlier_lineage(tmp_path: Path) -> None:
+    """A recorded input belongs to the resource that consumed it.
+
+    Recording the notebook documents happens after the build has registered its
+    outputs, so a batch that back-filled its merged inputs across the whole
+    manifest would hand the raw input to every resource, including itself.
+    """
+    bundle = Bundle(tmp_path / "bundle")
+
+    with _activity(bundle, tmp_path / "cache") as activity:
+        raw = activity.register(b"raw", type="tabular")
+        activity.register(b"derived", type="tabular", used=[raw.tracking_id])
+        activity.register_many([RegisterItem(b"notebook", type="document")])
+
+    recorded = {
+        resource.tracking_id: [reference.tracking_id for reference in resource.used]
+        for resource in bundle.manifest.resources
+    }
+    raw_used, derived_used, document_used = recorded.values()
+
+    assert raw_used == [], "the raw input consumed nothing and must not cite itself"
+    assert derived_used == [raw.tracking_id]
+    assert document_used == [raw.tracking_id]
