@@ -813,7 +813,7 @@ def build_delete_book(book_id: str) -> ApiRequest:
 
 
 def parse_delete_book(response: ApiResponse) -> None:
-    """A published book is protected, so the refusal arrives as the declared 400."""
+    """Only a draft can be deleted, so a published book comes back as a refusal."""
     _check(DELETE_BOOK, response)
 
 

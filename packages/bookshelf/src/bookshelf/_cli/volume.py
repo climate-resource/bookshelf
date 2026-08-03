@@ -2,9 +2,6 @@
 
 Drafting a book into a volume that does not exist fails,
 so a new feedstock creates its volume here before it publishes.
-
-Creation needs WRITE and deletion needs ADMIN,
-so a credential that can make a volume may not be able to remove it.
 """
 
 import json
@@ -50,7 +47,7 @@ def _metadata(path: Path | None) -> dict[str, Any] | None:
     return document
 
 
-def _people(values: list[str]) -> list[dict[str, Any]] | None:
+def _people_from_names(values: list[str]) -> list[dict[str, Any]] | None:
     """Parse repeated ``--author`` or ``--maintainer`` values, which carry a name and nothing else."""
     if not values:
         return None
@@ -121,8 +118,8 @@ def volume_create(
                 license=licence,
                 description=description,
                 citation=citation,
-                authors=_people(author),
-                maintainers=_people(maintainer),
+                authors=_people_from_names(author),
+                maintainers=_people_from_names(maintainer),
                 metadata=document,
             )
         _emit_volume(created, json_output=json_output)
@@ -144,8 +141,8 @@ def volume_update(
     """Update a volume's metadata. Each field given replaces what is there, and the licence is fixed."""
     with command_errors():
         document = _metadata(metadata)
-        authors = _people(author)
-        maintainers = _people(maintainer)
+        authors = _people_from_names(author)
+        maintainers = _people_from_names(maintainer)
         given = (description, citation, document, authors, maintainers)
         if all(value is None for value in given):
             raise CliError(

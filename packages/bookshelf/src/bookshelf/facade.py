@@ -86,7 +86,6 @@ def _volume_update(
 
     Each field the API accepts replaces what is there,
     so an omitted one has to stay off the wire rather than arrive as null.
-    A field can therefore be changed here but not cleared.
     """
     fields: dict[str, Any] = {}
     if description is not None:
@@ -254,6 +253,7 @@ class Bookshelf(ProduceFacade):
         """Update a draft book's metadata, replacing each field named.
 
         Only a draft can be updated, so this is a fix before publishing rather than after.
+        A field can be changed but not cleared, because an omitted one stays off the wire.
         """
         return self._client.update_book(
             book_id,
@@ -431,6 +431,7 @@ class AsyncBookshelf(AsyncProduceFacade):
         """Update a draft book's metadata, replacing each field named.
 
         Only a draft can be updated, so this is a fix before publishing rather than after.
+        A field can be changed but not cleared, because an omitted one stays off the wire.
         """
         return await self._client.update_book_async(
             book_id,

@@ -25,6 +25,7 @@ from bookshelf._cli._address import Address, parse_address
 from bookshelf._cli._runtime import (
     EXIT_INVALID_BUNDLE,
     EXIT_NOT_FOUND,
+    EXIT_UNEXPECTED,
     EXIT_USAGE,
     CliError,
     command_errors,
@@ -366,8 +367,8 @@ def discard(
 def _resolve_draft(client: BookshelfClient, parsed: Address) -> models.BookListItem:
     """Resolve an address to the one draft book it names, refusing a published one.
 
-    The listing is paged, so an edition past the first page has to be walked to
-    rather than reported as absent.
+    The listing is paged,
+    so an edition past the first page is walked to rather than reported as absent.
     """
     match: models.BookListItem | None = None
     for page in range(_MAX_PAGES):
@@ -380,6 +381,11 @@ def _resolve_draft(client: BookshelfClient, parsed: Address) -> models.BookListI
         match = next((item for item in books.items if item.edition == parsed.edition), None)
         if match is not None or not books.has_more:
             break
+    else:
+        raise CliError(
+            f"{parsed} lookup exceeded the pagination safety cap.",
+            exit_code=EXIT_UNEXPECTED,
+        )
     if match is None:
         raise CliError(
             f"{parsed} does not resolve to a book. "
