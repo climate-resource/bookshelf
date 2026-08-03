@@ -40,6 +40,11 @@ _PAGE_SIZE = 100
 _MAX_PAGES = 1000
 
 
+def _people(values: Sequence[Mapping[str, Any]]) -> list[models.Author]:
+    """Validate a list of authors or maintainers, which share one shape."""
+    return [models.Author.model_validate(dict(value)) for value in values]
+
+
 def _volume_create(
     name: str,
     *,
@@ -58,11 +63,9 @@ def _volume_create(
     if metadata is not None:
         fields["metadata"] = dict(metadata)
     if authors is not None:
-        fields["authors"] = [models.Author.model_validate(dict(author)) for author in authors]
+        fields["authors"] = _people(authors)
     if maintainers is not None:
-        fields["maintainers"] = [
-            models.Author.model_validate(dict(person)) for person in maintainers
-        ]
+        fields["maintainers"] = _people(maintainers)
     if citation is not None:
         fields["citation"] = models.Citation(root=citation)
     if discovery is not None:
@@ -83,6 +86,7 @@ def _volume_update(
 
     Each field the API accepts replaces what is there,
     so an omitted one has to stay off the wire rather than arrive as null.
+    A field can therefore be changed here but not cleared.
     """
     fields: dict[str, Any] = {}
     if description is not None:
@@ -90,11 +94,9 @@ def _volume_update(
     if metadata is not None:
         fields["metadata"] = dict(metadata)
     if authors is not None:
-        fields["authors"] = [models.Author.model_validate(dict(author)) for author in authors]
+        fields["authors"] = _people(authors)
     if maintainers is not None:
-        fields["maintainers"] = [
-            models.Author.model_validate(dict(person)) for person in maintainers
-        ]
+        fields["maintainers"] = _people(maintainers)
     if citation is not None:
         fields["citation"] = models.Citation1(root=citation)
     if discovery is not None:
@@ -211,6 +213,7 @@ class Bookshelf(ProduceFacade):
         """Update a volume's metadata, replacing each field named and leaving the rest alone.
 
         The licence is fixed at creation and cannot be changed here.
+        A field can be changed but not cleared, because an omitted one stays off the wire.
         """
         return self._client.update_volume(
             name,
@@ -387,6 +390,7 @@ class AsyncBookshelf(AsyncProduceFacade):
         """Update a volume's metadata, replacing each field named and leaving the rest alone.
 
         The licence is fixed at creation and cannot be changed here.
+        A field can be changed but not cleared, because an omitted one stays off the wire.
         """
         return await self._client.update_volume_async(
             name,

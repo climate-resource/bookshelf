@@ -799,7 +799,6 @@ def build_update_book(book_id: str, request: models.BookUpdate) -> ApiRequest:
 
 
 def parse_update_book(response: ApiResponse) -> models.BookResponse:
-    """Parse the updated book. Only a draft is updatable, so a published book fails here."""
     _check(UPDATE_BOOK, response)
     payload = json.loads(response.content)
     _restore_utc_fields(payload, ("created_at", "updated_at", "published_at", "invalidated_at"))
@@ -814,7 +813,7 @@ def build_delete_book(book_id: str) -> ApiRequest:
 
 
 def parse_delete_book(response: ApiResponse) -> None:
-    """Confirm the draft is gone. A published book is protected, and arrives as an error."""
+    """A published book is protected, so the refusal arrives as the declared 400."""
     _check(DELETE_BOOK, response)
 
 
@@ -1027,7 +1026,6 @@ def build_delete_volume(volume_name: str) -> ApiRequest:
 
 
 def parse_delete_volume(response: ApiResponse) -> None:
-    """Confirm the volume and its books are gone. Deletion needs ADMIN, where creation needs WRITE."""
     _check(DELETE_VOLUME, response)
 
 

@@ -50,14 +50,17 @@ def _metadata(path: Path | None) -> dict[str, Any] | None:
     return document
 
 
-def _authors(values: list[str]) -> list[dict[str, Any]] | None:
-    """Parse ``--author NAME`` values, which carry a name and nothing else."""
+def _people(values: list[str]) -> list[dict[str, Any]] | None:
+    """Parse repeated ``--author`` or ``--maintainer`` values, which carry a name and nothing else."""
     if not values:
         return None
     return [{"name": value} for value in values]
 
 
 def _emit_volume(volume: models.VolumeResponse, *, json_output: bool) -> None:
+    """Emit every field the command can set, so ``--json`` reads back what was sent."""
+    authors = [person.name for person in volume.authors]
+    maintainers = [person.name for person in volume.maintainers]
     if json_output:
         emit_json(
             {
@@ -66,6 +69,9 @@ def _emit_volume(volume: models.VolumeResponse, *, json_output: bool) -> None:
                 "license": volume.license,
                 "description": volume.description,
                 "citation": volume.citation,
+                "authors": authors,
+                "maintainers": maintainers,
+                "metadata": volume.metadata,
                 "created_at": iso(volume.created_at),
                 "updated_at": iso(volume.updated_at),
             }
@@ -80,6 +86,10 @@ def _emit_volume(volume: models.VolumeResponse, *, json_output: bool) -> None:
         lines.append(field("Description", volume.description))
     if volume.citation is not None:
         lines.append(field("Citation", volume.citation))
+    if authors:
+        lines.append(field("Authors", ", ".join(authors)))
+    if maintainers:
+        lines.append(field("Maintainers", ", ".join(maintainers)))
     lines.append(field("Updated", iso(volume.updated_at) or "-"))
     emit("\n".join(lines))
 
@@ -98,7 +108,11 @@ def volume_create(
     api_url: str | None = typer.Option(None, "--api-url", help="Deployment to create in."),
     json_output: bool = typer.Option(False, "--json", help="Emit the volume as JSON."),
 ) -> None:
-    """Create a volume, which a first publish into a new collection needs."""
+    """Create a volume, which a first publish into a new collection needs.
+
+    Creating needs WRITE and deleting needs ADMIN,
+    so you may not be able to delete what you create here.
+    """
     with command_errors():
         document = _metadata(metadata)
         with Bookshelf(resolve_base_url(api_url)) as client:
@@ -107,8 +121,8 @@ def volume_create(
                 license=licence,
                 description=description,
                 citation=citation,
-                authors=_authors(author),
-                maintainers=_authors(maintainer),
+                authors=_people(author),
+                maintainers=_people(maintainer),
                 metadata=document,
             )
         _emit_volume(created, json_output=json_output)
@@ -130,7 +144,9 @@ def volume_update(
     """Update a volume's metadata. Each field given replaces what is there, and the licence is fixed."""
     with command_errors():
         document = _metadata(metadata)
-        given = (description, citation, document, _authors(author), _authors(maintainer))
+        authors = _people(author)
+        maintainers = _people(maintainer)
+        given = (description, citation, document, authors, maintainers)
         if all(value is None for value in given):
             raise CliError(
                 "update needs at least one field to change. "
@@ -142,8 +158,8 @@ def volume_update(
                 name,
                 description=description,
                 citation=citation,
-                authors=_authors(author),
-                maintainers=_authors(maintainer),
+                authors=authors,
+                maintainers=maintainers,
                 metadata=document,
             )
         _emit_volume(updated, json_output=json_output)
@@ -157,8 +173,6 @@ def volume_delete(
     json_output: bool = typer.Option(False, "--json", help="Emit the outcome as JSON."),
 ) -> None:
     """Delete a volume and every book in it. This needs ADMIN, where creation needs WRITE."""
-    # No prompt: the callers are scripts, so the confirmation is a flag
-    # rather than something that depends on a terminal being attached.
     with command_errors():
         if not yes:
             raise CliError(

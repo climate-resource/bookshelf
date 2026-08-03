@@ -50,6 +50,8 @@ from bookshelf.publisher import (
 from bookshelf.publisher.bundle import BundleBook
 
 _RECORD_REQUIREMENTS = ("papermill", "nbconvert")
+_PAGE_SIZE = 100
+_MAX_PAGES = 1000
 
 
 def _require_publish_extra() -> None:
@@ -362,16 +364,29 @@ def discard(
 
 
 def _resolve_draft(client: BookshelfClient, parsed: Address) -> models.BookListItem:
-    """Resolve an address to the one draft book it names, refusing a published one."""
-    books = client.list_books(volume=parsed.volume, version=parsed.version, limit=1000)
-    match = next((item for item in books.items if item.edition == parsed.edition), None)
+    """Resolve an address to the one draft book it names, refusing a published one.
+
+    The listing is paged, so an edition past the first page has to be walked to
+    rather than reported as absent.
+    """
+    match: models.BookListItem | None = None
+    for page in range(_MAX_PAGES):
+        books = client.list_books(
+            volume=parsed.volume,
+            version=parsed.version,
+            limit=_PAGE_SIZE,
+            offset=page * _PAGE_SIZE,
+        )
+        match = next((item for item in books.items if item.edition == parsed.edition), None)
+        if match is not None or not books.has_more:
+            break
     if match is None:
         raise CliError(
             f"{parsed} does not resolve to a book. "
             f"Run 'bookshelf show {parsed.volume}' to see what is there.",
             exit_code=EXIT_NOT_FOUND,
         )
-    if str(match.status) != "draft":
+    if match.status != models.BookStatus.draft:
         raise CliError(
             f"{parsed} is {match.status}, and only a draft can be discarded. "
             "Publish a corrected edition instead.",

@@ -74,6 +74,26 @@ def test_volume_create_posts_the_named_fields(monkeypatch: pytest.MonkeyPatch) -
     }
 
 
+def test_volume_json_reads_back_every_field_the_command_can_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    volume = dict(
+        payloads.VOLUME,
+        authors=[{"name": "A Person"}],
+        maintainers=[{"name": "Another Person"}],
+        metadata={"source": "upstream"},
+    )
+    _patch_client(monkeypatch, 201, volume)
+
+    result = runner.invoke(app, ["volume", "create", "example", "--licence", "MIT", "--json"])
+
+    assert result.exit_code == EXIT_OK
+    payload = json.loads(result.stdout)
+    assert payload["authors"] == ["A Person"]
+    assert payload["maintainers"] == ["Another Person"]
+    assert payload["metadata"] == {"source": "upstream"}
+
+
 def test_volume_create_human_output_names_the_volume(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_client(monkeypatch, 201, payloads.VOLUME)
 
@@ -192,8 +212,8 @@ def test_volume_delete_maps_the_admin_refusal_to_its_exit_code(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Creation needs WRITE and deletion needs ADMIN, so this is a routine outcome to report."""
-    problem = dict(payloads.PROBLEM_CONFLICT, status=403, detail="admin permission required")
-    _patch_client(monkeypatch, 403, problem)
+    refusal = payloads.problem(403, "Forbidden", "admin permission required")
+    _patch_client(monkeypatch, 403, refusal)
 
     result = runner.invoke(app, ["volume", "delete", "example", "--yes"])
 

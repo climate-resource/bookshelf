@@ -435,6 +435,40 @@ def test_discard_deletes_the_draft_edition(monkeypatch: pytest.MonkeyPatch) -> N
     ]
 
 
+def test_discard_walks_past_the_first_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An edition beyond the first page must be deleted, not reported as absent."""
+    seen_offsets: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "DELETE":
+            return httpx.Response(204)
+        offset = request.url.params.get("offset", "0")
+        seen_offsets.append(offset)
+        first_page = offset == "0"
+        return httpx.Response(
+            200,
+            json={
+                "items": [payloads.book_list_item(edition=9 if first_page else 1)],
+                "total": 2,
+                "limit": 100,
+                "offset": int(offset),
+                "has_more": first_page,
+            },
+        )
+
+    monkeypatch.setattr(
+        "bookshelf._cli.producer.BookshelfClient",
+        lambda url: BookshelfClient(url, auth=None, transport=httpx.MockTransport(handler)),
+    )
+    monkeypatch.setenv("BOOKSHELF_URL", "https://bookshelf.test")
+
+    result = runner.invoke(app, ["discard", "example@v1.0.0_e001", "--json"])
+
+    assert result.exit_code == EXIT_OK
+    assert seen_offsets == ["0", "100"]
+    assert _payload(result.stdout)["book_id"] == "b1"
+
+
 def test_discard_refuses_a_published_edition_before_asking(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -85,9 +85,9 @@ def test_delete_volume_reaches_the_api_and_returns_nothing() -> None:
 def test_delete_volume_surfaces_the_admin_refusal() -> None:
     """Creation needs WRITE and deletion needs ADMIN, so a 403 here is an ordinary outcome."""
     recorded: list[httpx.Request] = []
-    problem = dict(payloads.PROBLEM_CONFLICT, status=403, detail="admin permission required")
+    refusal = payloads.problem(403, "Forbidden", "admin permission required")
 
-    with _sync(recorded, 403, problem) as client, pytest.raises(ForbiddenError, match="admin"):
+    with _sync(recorded, 403, refusal) as client, pytest.raises(ForbiddenError, match="admin"):
         client.delete_volume("example")
 
 
@@ -102,9 +102,9 @@ def test_discard_draft_deletes_the_book() -> None:
 
 def test_discard_draft_surfaces_the_published_book_refusal() -> None:
     recorded: list[httpx.Request] = []
-    problem = dict(payloads.PROBLEM_CONFLICT, status=400, detail="only draft books can be deleted")
+    refusal = payloads.problem(400, "Cannot delete", "only draft books can be deleted")
 
-    with _sync(recorded, 400, problem) as client, pytest.raises(ValidationError, match="draft"):
+    with _sync(recorded, 400, refusal) as client, pytest.raises(ValidationError, match="draft"):
         client.discard_draft("b1")
 
 

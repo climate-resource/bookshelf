@@ -122,6 +122,17 @@ UPLOAD_INITIATED: dict[str, Any] = {
 
 UPLOAD_EXISTS: dict[str, Any] = {"already_exists": True, "storage_path": "ingest/org_1/abc"}
 
+
+def problem(status: int, title: str, detail: str) -> dict[str, Any]:
+    """One problem+json body, so a fixture does not claim a status its title contradicts."""
+    return {
+        "type": f"https://bookshelf.example/problems/{status}",
+        "title": title,
+        "status": status,
+        "detail": detail,
+    }
+
+
 PROBLEM_CONFLICT: dict[str, Any] = {
     "type": "https://bookshelf.example/problems/conflict",
     "title": "Conflict",
