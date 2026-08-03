@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
+import httpx
 import pytest
 from typer.testing import CliRunner
 
@@ -13,9 +14,11 @@ from bookshelf._cli import app
 from bookshelf._cli._runtime import (
     EXIT_INVALID_BUNDLE,
     EXIT_NETWORK,
+    EXIT_NOT_FOUND,
     EXIT_OK,
     EXIT_USAGE,
 )
+from bookshelf._core.client import BookshelfClient
 from bookshelf._core.hashing import sha256_hex
 from bookshelf.publisher.bundle import (
     Bundle,
@@ -23,6 +26,7 @@ from bookshelf.publisher.bundle import (
     compute_book_bundle_hash,
     resource_filename,
 )
+from tests import _core_payloads as payloads
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 UNREACHABLE_API = "http://127.0.0.1:9"
@@ -383,6 +387,127 @@ def test_record_rejects_a_malformed_parameter(
 
     assert result.exit_code == EXIT_USAGE
     assert "expected key=value" in _plain(result.stderr)
+
+
+def _patch_discard(
+    monkeypatch: pytest.MonkeyPatch, *, status: str = "draft", edition: int = 1
+) -> list[httpx.Request]:
+    """Route ``discard`` at a mock transport that lists one book and accepts the deletion."""
+    recorded: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        recorded.append(request)
+        if request.method == "DELETE":
+            return httpx.Response(204)
+        return httpx.Response(
+            200,
+            json={
+                "items": [payloads.book_list_item(status=status, edition=edition)],
+                "total": 1,
+                "limit": 1000,
+                "offset": 0,
+                "has_more": False,
+            },
+        )
+
+    monkeypatch.setattr(
+        "bookshelf._cli.producer.BookshelfClient",
+        lambda url: BookshelfClient(url, auth=None, transport=httpx.MockTransport(handler)),
+    )
+    monkeypatch.setenv("BOOKSHELF_URL", "https://bookshelf.test")
+    return recorded
+
+
+def test_discard_deletes_the_draft_edition(monkeypatch: pytest.MonkeyPatch) -> None:
+    recorded = _patch_discard(monkeypatch)
+
+    result = runner.invoke(app, ["discard", "example@v1.0.0_e001", "--json"])
+
+    assert result.exit_code == EXIT_OK
+    assert _payload(result.stdout) == {
+        "outcome": "discarded",
+        "book_id": "b1",
+        "address": "example@v1.0.0_e001",
+    }
+    assert [(request.method, request.url.path) for request in recorded] == [
+        ("GET", "/v1/books"),
+        ("DELETE", "/v1/books/b1"),
+    ]
+
+
+def test_discard_walks_past_the_first_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An edition beyond the first page must be deleted, not reported as absent."""
+    seen_offsets: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "DELETE":
+            return httpx.Response(204)
+        offset = request.url.params.get("offset", "0")
+        seen_offsets.append(offset)
+        first_page = offset == "0"
+        return httpx.Response(
+            200,
+            json={
+                "items": [payloads.book_list_item(edition=9 if first_page else 1)],
+                "total": 2,
+                "limit": 100,
+                "offset": int(offset),
+                "has_more": first_page,
+            },
+        )
+
+    monkeypatch.setattr(
+        "bookshelf._cli.producer.BookshelfClient",
+        lambda url: BookshelfClient(url, auth=None, transport=httpx.MockTransport(handler)),
+    )
+    monkeypatch.setenv("BOOKSHELF_URL", "https://bookshelf.test")
+
+    result = runner.invoke(app, ["discard", "example@v1.0.0_e001", "--json"])
+
+    assert result.exit_code == EXIT_OK
+    assert seen_offsets == ["0", "100"]
+    assert _payload(result.stdout)["book_id"] == "b1"
+
+
+def test_discard_refuses_a_published_edition_before_asking(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recorded = _patch_discard(monkeypatch, status="published")
+
+    result = runner.invoke(app, ["discard", "example@v1.0.0_e001"])
+
+    assert result.exit_code == EXIT_USAGE
+    assert "only a draft can be discarded" in _plain(result.stderr)
+    assert [request.method for request in recorded] == ["GET"]
+
+
+def test_discard_reports_an_edition_that_is_not_there(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_discard(monkeypatch, edition=2)
+
+    result = runner.invoke(app, ["discard", "example@v1.0.0_e001"])
+
+    assert result.exit_code == EXIT_NOT_FOUND
+    assert "does not resolve to a book" in _plain(result.stderr)
+
+
+@pytest.mark.parametrize(
+    ("address", "expected"),
+    [
+        ("example", "needs an exact edition"),
+        ("example@v1.0.0", "needs an exact edition"),
+        ("example@v1.0.0_e001/by_country", "not a file within one"),
+    ],
+)
+def test_discard_rejects_an_address_that_is_not_one_edition(
+    address: str, expected: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    recorded = _patch_discard(monkeypatch)
+
+    result = runner.invoke(app, ["discard", address])
+
+    assert result.exit_code == EXIT_USAGE
+    assert expected in _plain(result.stderr)
+    assert recorded == []
 
 
 class _FakeDraft:

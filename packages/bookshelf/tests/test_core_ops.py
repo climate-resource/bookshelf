@@ -14,8 +14,8 @@ TRACKING_ID = UUID("0197a000-0000-7000-8000-000000000001")
 
 
 def test_registry_covers_the_used_surface() -> None:
-    assert len(ops.OP_REGISTRY) == 26
-    assert len({(op.method, op.path_template) for op in ops.OP_REGISTRY.values()}) == 26
+    assert len(ops.OP_REGISTRY) == 31
+    assert len({(op.method, op.path_template) for op in ops.OP_REGISTRY.values()}) == 31
 
 
 def test_build_register_resources_dumps_set_fields_only() -> None:
@@ -176,6 +176,41 @@ def test_build_put_presigned_is_absolute_and_registry_free() -> None:
             ),
         ),
         (
+            ops.build_update_book("book/one", models.BookUpdate(metadata={"note": "fixed"})),
+            ApiRequest(
+                method="PATCH",
+                path="/v1/books/book%2Fone",
+                json_body={"metadata": {"note": "fixed"}},
+            ),
+        ),
+        (
+            ops.build_delete_book("book/one"),
+            ApiRequest(method="DELETE", path="/v1/books/book%2Fone"),
+        ),
+        (
+            ops.build_create_volume(models.VolumeCreate(name="example", license="MIT")),
+            ApiRequest(
+                method="POST",
+                path="/v1/volumes",
+                json_body={"name": "example", "license": "MIT"},
+            ),
+        ),
+        (
+            ops.build_update_volume(
+                "example/one",
+                models.VolumeUpdate(description=models.Description3(root="now with units")),
+            ),
+            ApiRequest(
+                method="PATCH",
+                path="/v1/volumes/example%2Fone",
+                json_body={"description": "now with units"},
+            ),
+        ),
+        (
+            ops.build_delete_volume("example/one"),
+            ApiRequest(method="DELETE", path="/v1/volumes/example%2Fone"),
+        ),
+        (
             ops.build_get_resource(TRACKING_ID, as_of="2026-01-01T00:00:00Z"),
             ApiRequest(
                 method="GET",
@@ -233,6 +268,9 @@ _PARSE_PAIR_CASES: list[tuple[Any, int, dict[str, Any], type[Any]]] = [
     (ops.parse_publish_book, 200, payloads.BOOK_DETAIL, models.BookDetail),
     (ops.parse_list_books, 200, payloads.BOOK_LIST, models.BookListResponse),
     (ops.parse_get_book, 200, payloads.BOOK_RESPONSE, models.BookResponse),
+    (ops.parse_update_book, 200, payloads.BOOK_RESPONSE, models.BookResponse),
+    (ops.parse_create_volume, 201, payloads.VOLUME, models.VolumeResponse),
+    (ops.parse_update_volume, 200, payloads.VOLUME, models.VolumeResponse),
     (ops.parse_list_book_entries, 200, payloads.BOOK_ENTRIES, models.BookEntriesResponse),
     (ops.parse_list_resources, 200, payloads.RESOURCE_LIST, models.ResourceListResponse),
     (ops.parse_get_resource, 200, payloads.RESOURCE_READ, models.ResourceRead),
@@ -271,6 +309,38 @@ def test_parse_initiate_upload_discriminates_both_arms() -> None:
 
 def test_parse_complete_upload_accepts_204() -> None:
     assert ops.parse_complete_ingest_upload(payloads.empty_response(204)) is None
+
+
+def test_parse_deletions_accept_204() -> None:
+    assert ops.parse_delete_book(payloads.empty_response(204)) is None
+    assert ops.parse_delete_volume(payloads.empty_response(204)) is None
+
+
+def test_parse_delete_book_rejects_a_published_book() -> None:
+    """The API protects a published book, and the refusal arrives as a declared 400."""
+    problem = {
+        "type": "https://bookshelf.test/problems/400",
+        "title": "Cannot delete",
+        "status": 400,
+        "detail": "only draft books can be deleted",
+    }
+    response = payloads.json_response(400, problem, media_type="application/problem+json")
+
+    with pytest.raises(errors.ValidationError) as excinfo:
+        ops.parse_delete_book(response)
+
+    assert excinfo.value.detail == "only draft books can be deleted"
+
+
+def test_parse_create_volume_restores_the_utc_wire_invariant() -> None:
+    naive = dict(
+        payloads.VOLUME, created_at="2026-01-01T00:00:00", updated_at="2026-01-01T00:00:00"
+    )
+
+    volume = ops.parse_create_volume(payloads.json_response(201, naive))
+
+    assert volume.created_at.tzinfo is not None
+    assert volume.updated_at.tzinfo is not None
 
 
 def test_parse_put_presigned_returns_etag() -> None:

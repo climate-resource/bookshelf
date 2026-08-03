@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Self
+from collections.abc import Mapping, Sequence
+from typing import Any, Self
 from uuid import UUID
 
 import httpx
@@ -37,6 +38,88 @@ from bookshelf.cache import ContentCache
 
 _PAGE_SIZE = 100
 _MAX_PAGES = 1000
+
+
+def _people(values: Sequence[Mapping[str, Any]]) -> list[models.Author]:
+    """Validate a list of authors or maintainers, which share one shape."""
+    return [models.Author.model_validate(dict(value)) for value in values]
+
+
+def _volume_create(
+    name: str,
+    *,
+    license: str,
+    description: str | None,
+    metadata: Mapping[str, Any] | None,
+    authors: Sequence[Mapping[str, Any]] | None,
+    maintainers: Sequence[Mapping[str, Any]] | None,
+    citation: str | None,
+    discovery: models.DiscoveryProfile | None,
+) -> models.VolumeCreate:
+    """Build a create request carrying the name, the licence, and whatever else was named."""
+    fields: dict[str, Any] = {"name": name, "license": license}
+    if description is not None:
+        fields["description"] = models.Description2(root=description)
+    if metadata is not None:
+        fields["metadata"] = dict(metadata)
+    if authors is not None:
+        fields["authors"] = _people(authors)
+    if maintainers is not None:
+        fields["maintainers"] = _people(maintainers)
+    if citation is not None:
+        fields["citation"] = models.Citation(root=citation)
+    if discovery is not None:
+        fields["discovery"] = discovery
+    return models.VolumeCreate(**fields)
+
+
+def _volume_update(
+    *,
+    description: str | None,
+    metadata: Mapping[str, Any] | None,
+    authors: Sequence[Mapping[str, Any]] | None,
+    maintainers: Sequence[Mapping[str, Any]] | None,
+    citation: str | None,
+    discovery: models.DiscoveryProfile | None,
+) -> models.VolumeUpdate:
+    """Build a patch carrying only the fields the caller named.
+
+    Each field the API accepts replaces what is there,
+    so an omitted one has to stay off the wire rather than arrive as null.
+    """
+    fields: dict[str, Any] = {}
+    if description is not None:
+        fields["description"] = models.Description3(root=description)
+    if metadata is not None:
+        fields["metadata"] = dict(metadata)
+    if authors is not None:
+        fields["authors"] = _people(authors)
+    if maintainers is not None:
+        fields["maintainers"] = _people(maintainers)
+    if citation is not None:
+        fields["citation"] = models.Citation1(root=citation)
+    if discovery is not None:
+        fields["discovery"] = discovery
+    return models.VolumeUpdate(**fields)
+
+
+def _book_update(
+    *,
+    description: str | None,
+    metadata: Mapping[str, Any] | None,
+    data_dictionary: Sequence[Mapping[str, Any]] | None,
+) -> models.BookUpdate:
+    """Build a draft patch carrying only the fields the caller named."""
+    fields: dict[str, Any] = {}
+    if description is not None:
+        fields["description"] = models.Description1(root=description)
+    if metadata is not None:
+        fields["metadata"] = dict(metadata)
+    if data_dictionary is not None:
+        fields["data_dictionary"] = [
+            models.DataDictionaryEntry.model_validate(dict(entry)) for entry in data_dictionary
+        ]
+    return models.BookUpdate(**fields)
 
 
 def _missing_book(volume: str, version: str, edition: int | None) -> NotFoundError:
@@ -84,6 +167,102 @@ class Bookshelf(ProduceFacade):
         """Resolve an exact tracking id into a lean Resource."""
         metadata = self._client.get_resource(tracking_id)
         return Resource(self._client, self._cache, tracking_id, metadata=metadata)
+
+    def create_volume(
+        self,
+        name: str,
+        *,
+        license: str,
+        description: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        authors: Sequence[Mapping[str, Any]] | None = None,
+        maintainers: Sequence[Mapping[str, Any]] | None = None,
+        citation: str | None = None,
+        discovery: models.DiscoveryProfile | None = None,
+    ) -> models.VolumeResponse:
+        """Create the volume a first publish needs, which drafting a book will not do for you.
+
+        Creation needs WRITE and deletion needs ADMIN,
+        so a caller can create a volume it cannot delete.
+        """
+        return self._client.create_volume(
+            _volume_create(
+                name,
+                license=license,
+                description=description,
+                metadata=metadata,
+                authors=authors,
+                maintainers=maintainers,
+                citation=citation,
+                discovery=discovery,
+            )
+        )
+
+    def update_volume(
+        self,
+        name: str,
+        *,
+        description: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        authors: Sequence[Mapping[str, Any]] | None = None,
+        maintainers: Sequence[Mapping[str, Any]] | None = None,
+        citation: str | None = None,
+        discovery: models.DiscoveryProfile | None = None,
+    ) -> models.VolumeResponse:
+        """Update a volume's metadata, replacing each field named and leaving the rest alone.
+
+        The licence is fixed at creation and cannot be changed here.
+        A field can be changed but not cleared, because an omitted one stays off the wire.
+        """
+        return self._client.update_volume(
+            name,
+            _volume_update(
+                description=description,
+                metadata=metadata,
+                authors=authors,
+                maintainers=maintainers,
+                citation=citation,
+                discovery=discovery,
+            ),
+        )
+
+    def delete_volume(self, name: str) -> None:
+        """Delete a volume and every book in it.
+
+        This needs ADMIN, which is a higher bar than the WRITE that creation needs,
+        so the credential that created a volume may not be able to remove it.
+        """
+        self._client.delete_volume(name)
+
+    def discard_draft(self, book_id: str) -> None:
+        """Delete a draft book, so a failed publish leaves no edition behind.
+
+        Only a draft can be discarded.
+        A published book is protected by the API and arrives back as an error.
+        """
+        self._client.delete_book(book_id)
+
+    def update_draft(
+        self,
+        book_id: str,
+        *,
+        description: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        data_dictionary: Sequence[Mapping[str, Any]] | None = None,
+    ) -> models.BookResponse:
+        """Update a draft book's metadata, replacing each field named.
+
+        Only a draft can be updated, so this is a fix before publishing rather than after.
+        A field can be changed but not cleared, because an omitted one stays off the wire.
+        """
+        return self._client.update_book(
+            book_id,
+            _book_update(
+                description=description,
+                metadata=metadata,
+                data_dictionary=data_dictionary,
+            ),
+        )
 
     def book(self, volume: str, version: str, *, edition: int | None = None) -> Book:
         """Resolve a published Book, defaulting to the latest edition."""
@@ -166,6 +345,102 @@ class AsyncBookshelf(AsyncProduceFacade):
         """Resolve an exact tracking id into a lean async Resource."""
         metadata = await self._client.get_resource_async(tracking_id)
         return AsyncResource(self._client, self._cache, tracking_id, metadata=metadata)
+
+    async def create_volume(
+        self,
+        name: str,
+        *,
+        license: str,
+        description: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        authors: Sequence[Mapping[str, Any]] | None = None,
+        maintainers: Sequence[Mapping[str, Any]] | None = None,
+        citation: str | None = None,
+        discovery: models.DiscoveryProfile | None = None,
+    ) -> models.VolumeResponse:
+        """Create the volume a first publish needs, which drafting a book will not do for you.
+
+        Creation needs WRITE and deletion needs ADMIN,
+        so a caller can create a volume it cannot delete.
+        """
+        return await self._client.create_volume_async(
+            _volume_create(
+                name,
+                license=license,
+                description=description,
+                metadata=metadata,
+                authors=authors,
+                maintainers=maintainers,
+                citation=citation,
+                discovery=discovery,
+            )
+        )
+
+    async def update_volume(
+        self,
+        name: str,
+        *,
+        description: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        authors: Sequence[Mapping[str, Any]] | None = None,
+        maintainers: Sequence[Mapping[str, Any]] | None = None,
+        citation: str | None = None,
+        discovery: models.DiscoveryProfile | None = None,
+    ) -> models.VolumeResponse:
+        """Update a volume's metadata, replacing each field named and leaving the rest alone.
+
+        The licence is fixed at creation and cannot be changed here.
+        A field can be changed but not cleared, because an omitted one stays off the wire.
+        """
+        return await self._client.update_volume_async(
+            name,
+            _volume_update(
+                description=description,
+                metadata=metadata,
+                authors=authors,
+                maintainers=maintainers,
+                citation=citation,
+                discovery=discovery,
+            ),
+        )
+
+    async def delete_volume(self, name: str) -> None:
+        """Delete a volume and every book in it.
+
+        This needs ADMIN, which is a higher bar than the WRITE that creation needs,
+        so the credential that created a volume may not be able to remove it.
+        """
+        await self._client.delete_volume_async(name)
+
+    async def discard_draft(self, book_id: str) -> None:
+        """Delete a draft book, so a failed publish leaves no edition behind.
+
+        Only a draft can be discarded.
+        A published book is protected by the API and arrives back as an error.
+        """
+        await self._client.delete_book_async(book_id)
+
+    async def update_draft(
+        self,
+        book_id: str,
+        *,
+        description: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        data_dictionary: Sequence[Mapping[str, Any]] | None = None,
+    ) -> models.BookResponse:
+        """Update a draft book's metadata, replacing each field named.
+
+        Only a draft can be updated, so this is a fix before publishing rather than after.
+        A field can be changed but not cleared, because an omitted one stays off the wire.
+        """
+        return await self._client.update_book_async(
+            book_id,
+            _book_update(
+                description=description,
+                metadata=metadata,
+                data_dictionary=data_dictionary,
+            ),
+        )
 
     async def book(
         self,
