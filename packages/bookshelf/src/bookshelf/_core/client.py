@@ -192,86 +192,6 @@ class BookshelfClient:
                     return self._api_response(response)
             await asyncio.sleep(self._retry.delay(attempt))
 
-    def register_resources(
-        self, request: models.RegisterResourcesRequest
-    ) -> models.RegisterResourcesResponse:
-        return ops.parse_register_resources(self._send(ops.build_register_resources(request)))
-
-    async def register_resources_async(
-        self, request: models.RegisterResourcesRequest
-    ) -> models.RegisterResourcesResponse:
-        return ops.parse_register_resources(
-            await self._send_async(ops.build_register_resources(request))
-        )
-
-    def put_presigned(
-        self, url: str, content: bytes, *, content_type: str | None = None
-    ) -> str | None:
-        return ops.parse_put_presigned(
-            self._send(ops.build_put_presigned(url, content, content_type=content_type))
-        )
-
-    async def put_presigned_async(
-        self, url: str, content: bytes, *, content_type: str | None = None
-    ) -> str | None:
-        return ops.parse_put_presigned(
-            await self._send_async(ops.build_put_presigned(url, content, content_type=content_type))
-        )
-
-    def query_resource_data(
-        self,
-        tracking_id: str | UUID,
-        *,
-        format: DataFormat = "parquet",
-        select: str | None = None,
-        order: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-        filters: Mapping[str, str] | None = None,
-        if_none_match: str | None = None,
-    ) -> DataPayload | NotModified:
-        return ops.parse_query_resource_data(
-            self._send(
-                ops.build_query_resource_data(
-                    tracking_id,
-                    format=format,
-                    select=select,
-                    order=order,
-                    limit=limit,
-                    offset=offset,
-                    filters=filters,
-                    if_none_match=if_none_match,
-                )
-            )
-        )
-
-    async def query_resource_data_async(
-        self,
-        tracking_id: str | UUID,
-        *,
-        format: DataFormat = "parquet",
-        select: str | None = None,
-        order: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-        filters: Mapping[str, str] | None = None,
-        if_none_match: str | None = None,
-    ) -> DataPayload | NotModified:
-        return ops.parse_query_resource_data(
-            await self._send_async(
-                ops.build_query_resource_data(
-                    tracking_id,
-                    format=format,
-                    select=select,
-                    order=order,
-                    limit=limit,
-                    offset=offset,
-                    filters=filters,
-                    if_none_match=if_none_match,
-                )
-            )
-        )
-
     def query_resource_dataframe(
         self,
         tracking_id: str | UUID,
@@ -335,198 +255,6 @@ class BookshelfClient:
             with destination.open("wb") as stream:
                 async for chunk in response.aiter_bytes():
                     stream.write(chunk)
-
-    def publish_book(self, book_id: str) -> models.BookDetail:
-        return ops.parse_publish_book(self._send(ops.build_publish_book(book_id)))
-
-    async def publish_book_async(self, book_id: str) -> models.BookDetail:
-        return ops.parse_publish_book(await self._send_async(ops.build_publish_book(book_id)))
-
-    def update_book(self, book_id: str, request: models.BookUpdate) -> models.BookResponse:
-        return ops.parse_update_book(self._send(ops.build_update_book(book_id, request)))
-
-    async def update_book_async(
-        self, book_id: str, request: models.BookUpdate
-    ) -> models.BookResponse:
-        return ops.parse_update_book(
-            await self._send_async(ops.build_update_book(book_id, request))
-        )
-
-    def list_resources(
-        self,
-        *,
-        logical_key: str | None = None,
-        type: str | None = None,
-        tags: Sequence[str] | None = None,
-        owner_org_id: str | None = None,
-        latest: bool | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-    ) -> models.ResourceListResponse:
-        return ops.parse_list_resources(
-            self._send(
-                ops.build_list_resources(
-                    logical_key=logical_key,
-                    type=type,
-                    tags=tags,
-                    owner_org_id=owner_org_id,
-                    latest=latest,
-                    limit=limit,
-                    cursor=cursor,
-                )
-            )
-        )
-
-    async def list_resources_async(
-        self,
-        *,
-        logical_key: str | None = None,
-        type: str | None = None,
-        tags: Sequence[str] | None = None,
-        owner_org_id: str | None = None,
-        latest: bool | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-    ) -> models.ResourceListResponse:
-        return ops.parse_list_resources(
-            await self._send_async(
-                ops.build_list_resources(
-                    logical_key=logical_key,
-                    type=type,
-                    tags=tags,
-                    owner_org_id=owner_org_id,
-                    latest=latest,
-                    limit=limit,
-                    cursor=cursor,
-                )
-            )
-        )
-
-    def list_resource_events(
-        self,
-        tracking_id: str | UUID,
-        *,
-        since: str | None = None,
-        until: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-    ) -> models.RegistrationEventsResponse:
-        return ops.parse_list_resource_events(
-            self._send(
-                ops.build_list_resource_events(
-                    tracking_id, since=since, until=until, limit=limit, cursor=cursor
-                )
-            )
-        )
-
-    async def list_resource_events_async(
-        self,
-        tracking_id: str | UUID,
-        *,
-        since: str | None = None,
-        until: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-    ) -> models.RegistrationEventsResponse:
-        return ops.parse_list_resource_events(
-            await self._send_async(
-                ops.build_list_resource_events(
-                    tracking_id, since=since, until=until, limit=limit, cursor=cursor
-                )
-            )
-        )
-
-    def list_volumes(
-        self,
-        *,
-        q: str | None = None,
-        topic: Sequence[str] | None = None,
-        keyword: Sequence[str] | None = None,
-        region: Sequence[str] | None = None,
-        publisher: str | None = None,
-        license: str | None = None,
-        coverage_year: int | None = None,
-        resource_type: str | None = None,
-        deprecated: bool | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-    ) -> models.VolumeListResponse:
-        return ops.parse_list_volumes(
-            self._send(
-                ops.build_list_volumes(
-                    q=q,
-                    topic=topic,
-                    keyword=keyword,
-                    region=region,
-                    publisher=publisher,
-                    license=license,
-                    coverage_year=coverage_year,
-                    resource_type=resource_type,
-                    deprecated=deprecated,
-                    limit=limit,
-                    offset=offset,
-                )
-            )
-        )
-
-    async def list_volumes_async(
-        self,
-        *,
-        q: str | None = None,
-        topic: Sequence[str] | None = None,
-        keyword: Sequence[str] | None = None,
-        region: Sequence[str] | None = None,
-        publisher: str | None = None,
-        license: str | None = None,
-        coverage_year: int | None = None,
-        resource_type: str | None = None,
-        deprecated: bool | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-    ) -> models.VolumeListResponse:
-        return ops.parse_list_volumes(
-            await self._send_async(
-                ops.build_list_volumes(
-                    q=q,
-                    topic=topic,
-                    keyword=keyword,
-                    region=region,
-                    publisher=publisher,
-                    license=license,
-                    coverage_year=coverage_year,
-                    resource_type=resource_type,
-                    deprecated=deprecated,
-                    limit=limit,
-                    offset=offset,
-                )
-            )
-        )
-
-    def update_volume(
-        self, volume_name: str, request: models.VolumeUpdate
-    ) -> models.VolumeResponse:
-        return ops.parse_update_volume(self._send(ops.build_update_volume(volume_name, request)))
-
-    async def update_volume_async(
-        self, volume_name: str, request: models.VolumeUpdate
-    ) -> models.VolumeResponse:
-        return ops.parse_update_volume(
-            await self._send_async(ops.build_update_volume(volume_name, request))
-        )
-
-    def register_agent_identity(
-        self, request: models.AgentIdentityRequest
-    ) -> models.AnonymousRegistrationResponse | models.ServiceAuthRegistrationResponse:
-        return ops.parse_register_agent_identity(
-            self._send(ops.build_register_agent_identity(request))
-        )
-
-    async def register_agent_identity_async(
-        self, request: models.AgentIdentityRequest
-    ) -> models.AnonymousRegistrationResponse | models.ServiceAuthRegistrationResponse:
-        return ops.parse_register_agent_identity(
-            await self._send_async(ops.build_register_agent_identity(request))
-        )
 
     # --- BEGIN GENERATED OPERATIONS ---
     # Generated by packages/bookshelf/scripts/generate_client.py
@@ -900,4 +628,276 @@ class BookshelfClient:
                     offset=offset,
                 )
             )
+        )
+
+    def list_resource_events(
+        self,
+        tracking_id: str | UUID,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> models.RegistrationEventsResponse:
+        return ops.parse_list_resource_events(
+            self._send(
+                ops.build_list_resource_events(
+                    tracking_id, since=since, until=until, limit=limit, cursor=cursor
+                )
+            )
+        )
+
+    async def list_resource_events_async(
+        self,
+        tracking_id: str | UUID,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> models.RegistrationEventsResponse:
+        return ops.parse_list_resource_events(
+            await self._send_async(
+                ops.build_list_resource_events(
+                    tracking_id, since=since, until=until, limit=limit, cursor=cursor
+                )
+            )
+        )
+
+    def list_resources(
+        self,
+        *,
+        logical_key: str | None = None,
+        type: str | None = None,
+        tags: Sequence[str] | None = None,
+        owner_org_id: str | None = None,
+        latest: bool | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> models.ResourceListResponse:
+        return ops.parse_list_resources(
+            self._send(
+                ops.build_list_resources(
+                    logical_key=logical_key,
+                    type=type,
+                    tags=tags,
+                    owner_org_id=owner_org_id,
+                    latest=latest,
+                    limit=limit,
+                    cursor=cursor,
+                )
+            )
+        )
+
+    async def list_resources_async(
+        self,
+        *,
+        logical_key: str | None = None,
+        type: str | None = None,
+        tags: Sequence[str] | None = None,
+        owner_org_id: str | None = None,
+        latest: bool | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> models.ResourceListResponse:
+        return ops.parse_list_resources(
+            await self._send_async(
+                ops.build_list_resources(
+                    logical_key=logical_key,
+                    type=type,
+                    tags=tags,
+                    owner_org_id=owner_org_id,
+                    latest=latest,
+                    limit=limit,
+                    cursor=cursor,
+                )
+            )
+        )
+
+    def list_volumes(
+        self,
+        *,
+        q: str | None = None,
+        topic: Sequence[str] | None = None,
+        keyword: Sequence[str] | None = None,
+        region: Sequence[str] | None = None,
+        publisher: str | None = None,
+        license: str | None = None,
+        coverage_year: int | None = None,
+        resource_type: str | None = None,
+        deprecated: bool | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> models.VolumeListResponse:
+        return ops.parse_list_volumes(
+            self._send(
+                ops.build_list_volumes(
+                    q=q,
+                    topic=topic,
+                    keyword=keyword,
+                    region=region,
+                    publisher=publisher,
+                    license=license,
+                    coverage_year=coverage_year,
+                    resource_type=resource_type,
+                    deprecated=deprecated,
+                    limit=limit,
+                    offset=offset,
+                )
+            )
+        )
+
+    async def list_volumes_async(
+        self,
+        *,
+        q: str | None = None,
+        topic: Sequence[str] | None = None,
+        keyword: Sequence[str] | None = None,
+        region: Sequence[str] | None = None,
+        publisher: str | None = None,
+        license: str | None = None,
+        coverage_year: int | None = None,
+        resource_type: str | None = None,
+        deprecated: bool | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> models.VolumeListResponse:
+        return ops.parse_list_volumes(
+            await self._send_async(
+                ops.build_list_volumes(
+                    q=q,
+                    topic=topic,
+                    keyword=keyword,
+                    region=region,
+                    publisher=publisher,
+                    license=license,
+                    coverage_year=coverage_year,
+                    resource_type=resource_type,
+                    deprecated=deprecated,
+                    limit=limit,
+                    offset=offset,
+                )
+            )
+        )
+
+    def publish_book(self, book_id: str) -> models.BookDetail:
+        return ops.parse_publish_book(self._send(ops.build_publish_book(book_id)))
+
+    async def publish_book_async(self, book_id: str) -> models.BookDetail:
+        return ops.parse_publish_book(await self._send_async(ops.build_publish_book(book_id)))
+
+    def put_presigned(
+        self, url: str, content: bytes, *, content_type: str | None = None
+    ) -> str | None:
+        return ops.parse_put_presigned(
+            self._send(ops.build_put_presigned(url, content, content_type=content_type))
+        )
+
+    async def put_presigned_async(
+        self, url: str, content: bytes, *, content_type: str | None = None
+    ) -> str | None:
+        return ops.parse_put_presigned(
+            await self._send_async(ops.build_put_presigned(url, content, content_type=content_type))
+        )
+
+    def query_resource_data(
+        self,
+        tracking_id: str | UUID,
+        *,
+        format: DataFormat = "parquet",
+        select: str | None = None,
+        order: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        filters: Mapping[str, str] | None = None,
+        if_none_match: str | None = None,
+    ) -> DataPayload | NotModified:
+        return ops.parse_query_resource_data(
+            self._send(
+                ops.build_query_resource_data(
+                    tracking_id,
+                    format=format,
+                    select=select,
+                    order=order,
+                    limit=limit,
+                    offset=offset,
+                    filters=filters,
+                    if_none_match=if_none_match,
+                )
+            )
+        )
+
+    async def query_resource_data_async(
+        self,
+        tracking_id: str | UUID,
+        *,
+        format: DataFormat = "parquet",
+        select: str | None = None,
+        order: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        filters: Mapping[str, str] | None = None,
+        if_none_match: str | None = None,
+    ) -> DataPayload | NotModified:
+        return ops.parse_query_resource_data(
+            await self._send_async(
+                ops.build_query_resource_data(
+                    tracking_id,
+                    format=format,
+                    select=select,
+                    order=order,
+                    limit=limit,
+                    offset=offset,
+                    filters=filters,
+                    if_none_match=if_none_match,
+                )
+            )
+        )
+
+    def register_agent_identity(
+        self, request: models.AgentIdentityRequest
+    ) -> models.AnonymousRegistrationResponse | models.ServiceAuthRegistrationResponse:
+        return ops.parse_register_agent_identity(
+            self._send(ops.build_register_agent_identity(request))
+        )
+
+    async def register_agent_identity_async(
+        self, request: models.AgentIdentityRequest
+    ) -> models.AnonymousRegistrationResponse | models.ServiceAuthRegistrationResponse:
+        return ops.parse_register_agent_identity(
+            await self._send_async(ops.build_register_agent_identity(request))
+        )
+
+    def register_resources(
+        self, request: models.RegisterResourcesRequest
+    ) -> models.RegisterResourcesResponse:
+        return ops.parse_register_resources(self._send(ops.build_register_resources(request)))
+
+    async def register_resources_async(
+        self, request: models.RegisterResourcesRequest
+    ) -> models.RegisterResourcesResponse:
+        return ops.parse_register_resources(
+            await self._send_async(ops.build_register_resources(request))
+        )
+
+    def update_book(self, book_id: str, request: models.BookUpdate) -> models.BookResponse:
+        return ops.parse_update_book(self._send(ops.build_update_book(book_id, request)))
+
+    async def update_book_async(
+        self, book_id: str, request: models.BookUpdate
+    ) -> models.BookResponse:
+        return ops.parse_update_book(
+            await self._send_async(ops.build_update_book(book_id, request))
+        )
+
+    def update_volume(
+        self, volume_name: str, request: models.VolumeUpdate
+    ) -> models.VolumeResponse:
+        return ops.parse_update_volume(self._send(ops.build_update_volume(volume_name, request)))
+
+    async def update_volume_async(
+        self, volume_name: str, request: models.VolumeUpdate
+    ) -> models.VolumeResponse:
+        return ops.parse_update_volume(
+            await self._send_async(ops.build_update_volume(volume_name, request))
         )
