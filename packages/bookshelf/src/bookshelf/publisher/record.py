@@ -697,8 +697,6 @@ def setup(
     Pass ``visibility=`` on an individual registration to narrow that one resource.
 
     ``data_dictionary=`` describes the columns of the book's tabular and timeseries entries.
-    It belongs in the build file rather than the recipe,
-    because the columns follow the frame the build assembles.
     """
     book: DraftBook | RecordedDraftBook
     context = _ACTIVE_RECORDING.get()
