@@ -30,23 +30,22 @@ help:  ## print short description of each target
 
 .PHONY: checks
 checks:  ## run all the linting checks of the codebase
-	@echo "=== pre-commit ==="; uv run pre-commit run --all-files || echo "--- pre-commit failed ---" >&2; \
-		echo "=== mypy ==="; MYPYPATH=stubs uv run mypy src || echo "--- mypy failed ---" >&2; \
-		echo "======"
+	uv run pre-commit run --all-files
+	(cd packages/bookshelf && uv run --locked --all-extras mypy src)
 
 .PHONY: ruff-fixes
 ruff-fixes:  ## fix the code using ruff
     # format before and after checking so that the formatted stuff is checked and
     # the fixed stuff is formatted
-	uvx ruff@0.6.9 format
-	uvx ruff@0.6.9 check --fix
-	uvx ruff@0.6.9 format
+	uv run ruff format
+	uv run ruff check --fix
+	uv run ruff format
 
 .PHONY: test-sdk
 test-sdk:  ## run the tests for the SDK package
-	uv run  --package bookshelf \
+	uv run --package bookshelf --locked --all-extras \
 		pytest packages/bookshelf \
-		-r a -v --doctest-modules
+		-r a -v
 
 .PHONY: test
 test: test-sdk  ## run the tests

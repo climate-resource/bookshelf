@@ -14,7 +14,6 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     env:
-      MYPYPATH: stubs
       PRE_COMMIT_HOME: /tmp/.cache/pre-commit
     steps:
       - name: Check out repository
