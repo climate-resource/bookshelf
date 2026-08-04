@@ -11,7 +11,7 @@ import git
 import pytest
 
 from bookshelf._core.errors import BookshelfError
-from bookshelf._produce.provenance import derive_code_ref
+from bookshelf._produce.provenance import _sanitise_remote_url, derive_code_ref
 
 
 def _git(cwd: Path, *args: str) -> None:
@@ -19,13 +19,34 @@ def _git(cwd: Path, *args: str) -> None:
     subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
 
 
-def _repo_with_a_commit(path: Path) -> None:
+def _repo_with_a_commit(path: Path, origin: str = "https://example.com/thing") -> None:
     """Build a repository carrying an origin and one commit."""
     _git(path, "init")
-    _git(path, "remote", "add", "origin", "https://example.com/thing")
+    _git(path, "remote", "add", "origin", origin)
     (path / "a.txt").write_text("a")
     _git(path, "add", "a.txt")
     _git(path, "-c", "user.name=T", "-c", "user.email=t@example.com", "commit", "-m", "one")
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("https://user:tok@example.com/org/repo.git", "https://example.com/org/repo.git"),
+        ("https://tok@example.com/org/repo.git", "https://example.com/org/repo.git"),
+        ("https://example.com/org/repo.git", "https://example.com/org/repo.git"),
+        (
+            "https://user:tok@example.com:8443/org/repo.git",
+            "https://example.com:8443/org/repo.git",
+        ),
+        ("ssh://git@example.com/org/repo.git", "ssh://example.com/org/repo.git"),
+        ("https://user:tok@[2001:db8::1]:443/x.git", "https://[2001:db8::1]:443/x.git"),
+        ("https://user:tok@[2001:db8::1]/x.git", "https://[2001:db8::1]/x.git"),
+        ("git@github.com:org/repo.git", "git@github.com:org/repo.git"),
+        ("/srv/local/repo.git", "/srv/local/repo.git"),
+    ],
+)
+def test_the_sanitiser_keeps_the_address_and_drops_the_userinfo(url: str, expected: str) -> None:
+    assert _sanitise_remote_url(url) == expected
 
 
 def test_outside_a_repository_says_so(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -66,6 +87,20 @@ def test_a_clean_checkout_derives_remote_and_sha(
 
     assert ref.startswith("https://example.com/thing@")
     assert not ref.endswith("+dirty")
+
+
+def test_a_credential_in_the_origin_never_reaches_the_ref(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CI systems set origin to a token-bearing URL, and provenance is published and immutable."""
+    _repo_with_a_commit(tmp_path, origin="https://user:tok@example.com/thing")
+    monkeypatch.chdir(tmp_path)
+
+    ref = derive_code_ref()
+
+    assert ref.startswith("https://example.com/thing@")
+    assert "tok" not in ref
+    assert "user" not in ref
 
 
 def test_an_uncommitted_change_marks_the_ref_dirty(
