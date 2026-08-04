@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from bookshelf._core.errors import BookshelfError
 from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
@@ -34,6 +35,30 @@ def derive_code_ref() -> str:
         raise BookshelfError(
             f"Cannot derive code_ref: git could not be queried ({exc}). Pass code_ref= explicitly."
         ) from exc
+
+
+def _sanitise_remote_url(url: str) -> str:
+    """Return ``url`` with any embedded credentials removed.
+
+    A remote of the form ``https://user:token@host/path`` carries a credential that
+    must never reach recorded provenance, so the userinfo component is dropped and
+    the host, port and path are kept.
+    Scp style remotes such as ``git@github.com:org/repo.git`` are returned unchanged,
+    because there ``git`` is a fixed protocol user name rather than a credential.
+    """
+    parsed = urlsplit(url)
+    if not parsed.scheme:
+        return url
+    if "@" not in parsed.netloc:
+        return url
+    if parsed.hostname is None:
+        return url
+
+    # hostname strips the brackets from an IPv6 literal, and a bare one cannot be told
+    # apart from a host and port, so it has to be rebracketed.
+    host = f"[{parsed.hostname}]" if ":" in parsed.hostname else parsed.hostname
+    netloc = f"{host}:{parsed.port}" if parsed.port is not None else host
+    return urlunsplit(parsed._replace(netloc=netloc))
 
 
 def _derive_code_ref() -> str:
@@ -89,7 +114,7 @@ def _derive_code_ref() -> str:
             "Commit first, or pass code_ref= explicitly."
         )
 
-    ref = f"{repo.remotes.origin.url}@{repo.head.commit.hexsha}"
+    ref = f"{_sanitise_remote_url(repo.remotes.origin.url)}@{repo.head.commit.hexsha}"
     if dirty:
         ref += "+dirty"
     return ref
