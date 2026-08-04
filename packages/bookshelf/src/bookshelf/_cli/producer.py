@@ -48,7 +48,7 @@ from bookshelf.publisher import (
     replay_bundle_sync,
     run_record,
 )
-from bookshelf.publisher.bundle import BundleBook
+from bookshelf.publisher.bundle import BundleBook, book_data_dictionary
 
 _RECORD_REQUIREMENTS = ("papermill", "nbconvert")
 _PAGE_SIZE = 100
@@ -303,6 +303,10 @@ def publish(
                 license=framing.license,
                 visibility=framing.visibility,
                 metadata=framing.metadata,
+                # This draft is keyed on the bundle hash, so the replay below
+                # resumes it rather than reapplying the framing. The dictionary
+                # has to travel on this call or it never reaches the book.
+                data_dictionary=book_data_dictionary(framing),
                 bundle_hash=bundle_hash,
             )
             # Drafting is the only way to learn whether the edition already exists,
