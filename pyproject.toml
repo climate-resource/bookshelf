@@ -153,26 +153,17 @@ issue_format = "[#{issue}](https://github.com/climate-resource/bookshelf/pull/{i
   showcontent = false
 
 [tool.licensecheck]
-# The licences of the dependencies are checked against the licence of the distributed
-# package, which is MIT, rather than against a hand maintained list of licence names.
+# Dependency licences are checked for compatibility with the licence of the package below.
 license = "mit"
 format = "simple"
+zero = true
+# licensecheck raises unless these are given, so they are pinned at their defaults.
 file = ""
 pypi_api = ""
 show_only_failing = false
-zero = true
 # The runtime dependencies of the distributed package, plus its optional extras.
-# The dev and codegen groups and the test extra are left out.
 requirements_paths = ["packages/bookshelf/pyproject.toml"]
 extras = ["dataframes", "scmrun", "publish"]
-groups = []
-# globalwarmingpotentials is CC0, which licensecheck does not recognise from the bare
-# string, so it falls back to UNKNOWN and fails.
-ignore_packages = ["globalwarmingpotentials"]
-fail_packages = []
-# Weak copyleft is accepted even though it is not strictly MIT compatible.
-ignore_licenses = ["LGPL", "LGPLv2", "LGPLv2+", "LGPLv3", "LGPLv3+", "MPL"]
+# Refused whatever the licence above is.
+# The names are matched against licensecheck's own terms, so "GPL" works and "GPL_X" does not.
 fail_licenses = ["GPL", "GPLv2", "GPLv2+", "GPLv3", "GPLv3+", "AGPL"]
-only_licenses = []
-skip_dependencies = []
-hide_output_parameters = []
