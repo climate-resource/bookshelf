@@ -112,6 +112,16 @@ jobs:
           git diff --exit-code -- packages/bookshelf/src/bookshelf/_generated
           test -z "$(git ls-files --others --exclude-standard \
             packages/bookshelf/src/bookshelf/_generated)"
+      - name: Regenerate the client
+        run: |
+          uv run --project packages/bookshelf --locked \
+            python packages/bookshelf/scripts/generate_client.py
+          git diff --exit-code -- packages/bookshelf/src/bookshelf/_core/client.py
+      - name: Check the client generator is idempotent
+        run: |
+          uv run --project packages/bookshelf --locked \
+            python packages/bookshelf/scripts/generate_client.py
+          git diff --exit-code -- packages/bookshelf/src/bookshelf/_core/client.py
 
   check-build:
     runs-on: ubuntu-latest
