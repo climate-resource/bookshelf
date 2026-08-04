@@ -515,7 +515,7 @@ class RecordingSink:
             raise ValueError("recorded books require an explicit license")
         book_visibility = _visibility(visibility, self.default_visibility)
         self.default_visibility = book_visibility
-        entries = list(data_dictionary or [])
+        dictionary_entries = list(data_dictionary or [])
         self.bundle.set_book(
             BundleBook(
                 volume=volume,
@@ -526,7 +526,7 @@ class RecordingSink:
                 description=description,
                 citation_doi=citation_doi,
                 metadata=dict(metadata or {}),
-                data_dictionary=[entry.model_dump(mode="json") for entry in entries],
+                data_dictionary=[entry.model_dump(mode="json") for entry in dictionary_entries],
             )
         )
         return RecordedDraftBook(
@@ -539,7 +539,7 @@ class RecordingSink:
             description=description,
             citation_doi=citation_doi,
             metadata=metadata,
-            data_dictionary=entries,
+            data_dictionary=dictionary_entries,
         )
 
     def register_external(
