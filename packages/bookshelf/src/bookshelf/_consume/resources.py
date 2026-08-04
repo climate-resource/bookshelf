@@ -586,7 +586,8 @@ class AsyncResource(_ResourceHandle):
         download = await self._client.get_resource_download_async(self.tracking_id)
         with self._cache.stage(content_hash) as temporary:
             await self._client.stream_url_to_path_async(download.presigned_url, temporary)
-            verify_path(temporary, content_hash)
+            # Verification hashes the whole downloaded file, so run it off the event loop too.
+            await asyncio.to_thread(verify_path, temporary, content_hash)
         return require_cached(self._cache, content_hash)
 
 
