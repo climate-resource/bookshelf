@@ -679,6 +679,7 @@ def setup(
     version: str,
     visibility: str | models.Visibility | None = None,
     license: str | None = None,
+    data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
     collection: str | None = None,
     base_url: str | None = None,
     auth: AuthInput = UNSET,
@@ -694,6 +695,10 @@ def setup(
     The resolved tier is also the default for every resource the build records,
     including the notebook and HTML documents the recorder adds itself.
     Pass ``visibility=`` on an individual registration to narrow that one resource.
+
+    ``data_dictionary=`` describes the columns of the book's tabular and timeseries entries.
+    It belongs in the build file rather than the recipe,
+    because the columns follow the frame the build assembles.
     """
     book: DraftBook | RecordedDraftBook
     context = _ACTIVE_RECORDING.get()
@@ -722,6 +727,7 @@ def setup(
                 else context.recipe.visibility or models.Visibility.hidden
             ),
             license=license or context.recipe.license,
+            data_dictionary=data_dictionary,
         )
         if not isinstance(book, RecordedDraftBook):
             raise TypeError("recording sink returned a live draft book")
@@ -741,6 +747,7 @@ def setup(
         version=version,
         visibility=visibility if visibility is not None else models.Visibility.hidden,
         license=license,
+        data_dictionary=data_dictionary,
     )
     return SetupResult(bs, book)
 

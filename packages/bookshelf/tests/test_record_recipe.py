@@ -4,6 +4,7 @@ import textwrap
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -172,3 +173,54 @@ def test_a_hidden_book_still_records_hidden_resources(tmp_path: Path) -> None:
         recorded = [r.visibility for r in bs.bundle.manifest.resources]
 
     assert recorded == ["hidden"]
+
+
+# ----------------------------------------------------------------------
+# The build file declares the columns of the data it assembles.
+# ----------------------------------------------------------------------
+def test_a_recorded_build_declares_its_data_dictionary(tmp_path: Path) -> None:
+    with _recording(_write_recipe(tmp_path), tmp_path / "bundle"):
+        bs, _ = setup(
+            version="v1.0.0",
+            data_dictionary=[
+                models.DataDictionaryEntry(name="region", role=models.Role.dimension),
+                models.DataDictionaryEntry(name="value", type="number", role=models.Role.measure),
+            ],
+        )
+        book = bs.bundle.manifest.book
+
+    assert book is not None
+    assert [entry["name"] for entry in book.data_dictionary] == ["region", "value"]
+    assert book.data_dictionary[1]["role"] == "measure"
+
+
+def test_a_build_that_declares_no_columns_records_an_empty_dictionary(tmp_path: Path) -> None:
+    with _recording(_write_recipe(tmp_path), tmp_path / "bundle"):
+        bs, _ = setup(version="v1.0.0")
+        book = bs.bundle.manifest.book
+
+    assert book is not None
+    assert book.data_dictionary == []
+
+
+def test_direct_setup_sends_the_data_dictionary_to_the_api(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The no-recording branch drafts against a live client, so it must forward it too."""
+    captured: dict[str, Any] = {}
+
+    class _FakeBookshelf:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            del args, kwargs
+
+        def draft_book(self, *args: Any, **kwargs: Any) -> Any:
+            captured.update(kwargs)
+            return object()
+
+    monkeypatch.setattr("bookshelf.publisher.record.Bookshelf", _FakeBookshelf)
+
+    setup(
+        version="v1.0.0",
+        collection="my-dataset",
+        data_dictionary=[models.DataDictionaryEntry(name="region", role=models.Role.dimension)],
+    )
+
+    assert [entry.name for entry in captured["data_dictionary"]] == ["region"]
