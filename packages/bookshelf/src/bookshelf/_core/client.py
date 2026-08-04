@@ -218,16 +218,6 @@ class BookshelfClient:
             await self._send_async(ops.build_initiate_ingest_upload(request))
         )
 
-    def complete_ingest_upload(self, request: models.IngestUploadCompleteRequest) -> None:
-        ops.parse_complete_ingest_upload(self._send(ops.build_complete_ingest_upload(request)))
-
-    async def complete_ingest_upload_async(
-        self, request: models.IngestUploadCompleteRequest
-    ) -> None:
-        ops.parse_complete_ingest_upload(
-            await self._send_async(ops.build_complete_ingest_upload(request))
-        )
-
     def put_presigned(
         self, url: str, content: bytes, *, content_type: str | None = None
     ) -> str | None:
@@ -340,156 +330,6 @@ class BookshelfClient:
         )
         return to_pandas(require_payload(payload))
 
-    def get_book_resource_timeseries(
-        self,
-        book_id: str | UUID,
-        resource_name: str,
-        *,
-        drop: Sequence[str] | None = None,
-        limit: int | None = None,
-        top_n: int | None = None,
-        year_min: int | None = None,
-        year_max: int | None = None,
-        filters: Mapping[str, str | list[str]] | None = None,
-    ) -> models.TimeseriesResponse:
-        return ops.parse_get_book_resource_timeseries(
-            self._send(
-                ops.build_get_book_resource_timeseries(
-                    book_id,
-                    resource_name,
-                    drop=drop,
-                    limit=limit,
-                    top_n=top_n,
-                    year_min=year_min,
-                    year_max=year_max,
-                    filters=filters,
-                )
-            )
-        )
-
-    async def get_book_resource_timeseries_async(
-        self,
-        book_id: str | UUID,
-        resource_name: str,
-        *,
-        drop: Sequence[str] | None = None,
-        limit: int | None = None,
-        top_n: int | None = None,
-        year_min: int | None = None,
-        year_max: int | None = None,
-        filters: Mapping[str, str | list[str]] | None = None,
-    ) -> models.TimeseriesResponse:
-        return ops.parse_get_book_resource_timeseries(
-            await self._send_async(
-                ops.build_get_book_resource_timeseries(
-                    book_id,
-                    resource_name,
-                    drop=drop,
-                    limit=limit,
-                    top_n=top_n,
-                    year_min=year_min,
-                    year_max=year_max,
-                    filters=filters,
-                )
-            )
-        )
-
-    def get_book_resource_facets(
-        self,
-        book_id: str | UUID,
-        resource_name: str,
-        *,
-        max_values: int | None = None,
-        filters: Mapping[str, str] | None = None,
-    ) -> models.FacetsResponse:
-        return ops.parse_get_book_resource_facets(
-            self._send(
-                ops.build_get_book_resource_facets(
-                    book_id, resource_name, max_values=max_values, filters=filters
-                )
-            )
-        )
-
-    async def get_book_resource_facets_async(
-        self,
-        book_id: str | UUID,
-        resource_name: str,
-        *,
-        max_values: int | None = None,
-        filters: Mapping[str, str] | None = None,
-    ) -> models.FacetsResponse:
-        return ops.parse_get_book_resource_facets(
-            await self._send_async(
-                ops.build_get_book_resource_facets(
-                    book_id, resource_name, max_values=max_values, filters=filters
-                )
-            )
-        )
-
-    def get_book_resource_preview(
-        self,
-        book_id: str | UUID,
-        resource_name: str,
-        *,
-        limit: int | None = None,
-        offset: int | None = None,
-    ) -> models.PreviewResponse:
-        return ops.parse_get_book_resource_preview(
-            self._send(
-                ops.build_get_book_resource_preview(
-                    book_id, resource_name, limit=limit, offset=offset
-                )
-            )
-        )
-
-    async def get_book_resource_preview_async(
-        self,
-        book_id: str | UUID,
-        resource_name: str,
-        *,
-        limit: int | None = None,
-        offset: int | None = None,
-    ) -> models.PreviewResponse:
-        return ops.parse_get_book_resource_preview(
-            await self._send_async(
-                ops.build_get_book_resource_preview(
-                    book_id, resource_name, limit=limit, offset=offset
-                )
-            )
-        )
-
-    def get_book_resource_schema(
-        self,
-        book_id: str | UUID,
-        resource_name: str,
-        *,
-        limit: int | None = None,
-        offset: int | None = None,
-    ) -> models.TimeseriesMetadataResponse:
-        return ops.parse_get_book_resource_schema(
-            self._send(
-                ops.build_get_book_resource_schema(
-                    book_id, resource_name, limit=limit, offset=offset
-                )
-            )
-        )
-
-    async def get_book_resource_schema_async(
-        self,
-        book_id: str | UUID,
-        resource_name: str,
-        *,
-        limit: int | None = None,
-        offset: int | None = None,
-    ) -> models.TimeseriesMetadataResponse:
-        return ops.parse_get_book_resource_schema(
-            await self._send_async(
-                ops.build_get_book_resource_schema(
-                    book_id, resource_name, limit=limit, offset=offset
-                )
-            )
-        )
-
     def get_url(self, url: str) -> bytes:
         return ops.parse_get_url(self._send(ops.build_get_url(url)))
 
@@ -515,12 +355,6 @@ class BookshelfClient:
             with destination.open("wb") as stream:
                 async for chunk in response.aiter_bytes():
                     stream.write(chunk)
-
-    def draft_book(self, request: models.BookDraftRequest) -> models.BookDetail:
-        return ops.parse_draft_book(self._send(ops.build_draft_book(request)))
-
-    async def draft_book_async(self, request: models.BookDraftRequest) -> models.BookDetail:
-        return ops.parse_draft_book(await self._send_async(ops.build_draft_book(request)))
 
     def publish_book(self, book_id: str) -> models.BookDetail:
         return ops.parse_publish_book(self._send(ops.build_publish_book(book_id)))
@@ -582,12 +416,6 @@ class BookshelfClient:
             )
         )
 
-    def get_book(self, book_id: str) -> models.BookResponse:
-        return ops.parse_get_book(self._send(ops.build_get_book(book_id)))
-
-    async def get_book_async(self, book_id: str) -> models.BookResponse:
-        return ops.parse_get_book(await self._send_async(ops.build_get_book(book_id)))
-
     def update_book(self, book_id: str, request: models.BookUpdate) -> models.BookResponse:
         return ops.parse_update_book(self._send(ops.build_update_book(book_id, request)))
 
@@ -597,12 +425,6 @@ class BookshelfClient:
         return ops.parse_update_book(
             await self._send_async(ops.build_update_book(book_id, request))
         )
-
-    def delete_book(self, book_id: str) -> None:
-        ops.parse_delete_book(self._send(ops.build_delete_book(book_id)))
-
-    async def delete_book_async(self, book_id: str) -> None:
-        ops.parse_delete_book(await self._send_async(ops.build_delete_book(book_id)))
 
     def list_book_entries(
         self, book_id: str, *, limit: int | None = None, cursor: str | None = None
@@ -816,12 +638,6 @@ class BookshelfClient:
     async def get_volume_async(self, volume_name: str) -> models.VolumeDetailResponse:
         return ops.parse_get_volume(await self._send_async(ops.build_get_volume(volume_name)))
 
-    def create_volume(self, request: models.VolumeCreate) -> models.VolumeResponse:
-        return ops.parse_create_volume(self._send(ops.build_create_volume(request)))
-
-    async def create_volume_async(self, request: models.VolumeCreate) -> models.VolumeResponse:
-        return ops.parse_create_volume(await self._send_async(ops.build_create_volume(request)))
-
     def update_volume(
         self, volume_name: str, request: models.VolumeUpdate
     ) -> models.VolumeResponse:
@@ -833,12 +649,6 @@ class BookshelfClient:
         return ops.parse_update_volume(
             await self._send_async(ops.build_update_volume(volume_name, request))
         )
-
-    def delete_volume(self, volume_name: str) -> None:
-        ops.parse_delete_volume(self._send(ops.build_delete_volume(volume_name)))
-
-    async def delete_volume_async(self, volume_name: str) -> None:
-        ops.parse_delete_volume(await self._send_async(ops.build_delete_volume(volume_name)))
 
     def get_catalogue_facets(self) -> models.VolumeFacets:
         return ops.parse_get_catalogue_facets(self._send(ops.build_get_catalogue_facets()))
@@ -900,4 +710,194 @@ class BookshelfClient:
     ) -> models.BookEntryAttachResponse:
         return ops.parse_attach_entry(
             await self._send_async(ops.build_attach_entry(book_id, request))
+        )
+
+    def complete_ingest_upload(self, request: models.IngestUploadCompleteRequest) -> None:
+        ops.parse_complete_ingest_upload(self._send(ops.build_complete_ingest_upload(request)))
+
+    async def complete_ingest_upload_async(
+        self, request: models.IngestUploadCompleteRequest
+    ) -> None:
+        ops.parse_complete_ingest_upload(
+            await self._send_async(ops.build_complete_ingest_upload(request))
+        )
+
+    def create_volume(self, request: models.VolumeCreate) -> models.VolumeResponse:
+        return ops.parse_create_volume(self._send(ops.build_create_volume(request)))
+
+    async def create_volume_async(self, request: models.VolumeCreate) -> models.VolumeResponse:
+        return ops.parse_create_volume(await self._send_async(ops.build_create_volume(request)))
+
+    def delete_book(self, book_id: str) -> None:
+        ops.parse_delete_book(self._send(ops.build_delete_book(book_id)))
+
+    async def delete_book_async(self, book_id: str) -> None:
+        ops.parse_delete_book(await self._send_async(ops.build_delete_book(book_id)))
+
+    def delete_volume(self, volume_name: str) -> None:
+        ops.parse_delete_volume(self._send(ops.build_delete_volume(volume_name)))
+
+    async def delete_volume_async(self, volume_name: str) -> None:
+        ops.parse_delete_volume(await self._send_async(ops.build_delete_volume(volume_name)))
+
+    def draft_book(self, request: models.BookDraftRequest) -> models.BookDetail:
+        return ops.parse_draft_book(self._send(ops.build_draft_book(request)))
+
+    async def draft_book_async(self, request: models.BookDraftRequest) -> models.BookDetail:
+        return ops.parse_draft_book(await self._send_async(ops.build_draft_book(request)))
+
+    def get_book(self, book_id: str) -> models.BookResponse:
+        return ops.parse_get_book(self._send(ops.build_get_book(book_id)))
+
+    async def get_book_async(self, book_id: str) -> models.BookResponse:
+        return ops.parse_get_book(await self._send_async(ops.build_get_book(book_id)))
+
+    def get_book_resource_facets(
+        self,
+        book_id: str | UUID,
+        resource_name: str,
+        *,
+        max_values: int | None = None,
+        filters: Mapping[str, str] | None = None,
+    ) -> models.FacetsResponse:
+        return ops.parse_get_book_resource_facets(
+            self._send(
+                ops.build_get_book_resource_facets(
+                    book_id, resource_name, max_values=max_values, filters=filters
+                )
+            )
+        )
+
+    async def get_book_resource_facets_async(
+        self,
+        book_id: str | UUID,
+        resource_name: str,
+        *,
+        max_values: int | None = None,
+        filters: Mapping[str, str] | None = None,
+    ) -> models.FacetsResponse:
+        return ops.parse_get_book_resource_facets(
+            await self._send_async(
+                ops.build_get_book_resource_facets(
+                    book_id, resource_name, max_values=max_values, filters=filters
+                )
+            )
+        )
+
+    def get_book_resource_preview(
+        self,
+        book_id: str | UUID,
+        resource_name: str,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> models.PreviewResponse:
+        return ops.parse_get_book_resource_preview(
+            self._send(
+                ops.build_get_book_resource_preview(
+                    book_id, resource_name, limit=limit, offset=offset
+                )
+            )
+        )
+
+    async def get_book_resource_preview_async(
+        self,
+        book_id: str | UUID,
+        resource_name: str,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> models.PreviewResponse:
+        return ops.parse_get_book_resource_preview(
+            await self._send_async(
+                ops.build_get_book_resource_preview(
+                    book_id, resource_name, limit=limit, offset=offset
+                )
+            )
+        )
+
+    def get_book_resource_schema(
+        self,
+        book_id: str | UUID,
+        resource_name: str,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> models.TimeseriesMetadataResponse:
+        return ops.parse_get_book_resource_schema(
+            self._send(
+                ops.build_get_book_resource_schema(
+                    book_id, resource_name, limit=limit, offset=offset
+                )
+            )
+        )
+
+    async def get_book_resource_schema_async(
+        self,
+        book_id: str | UUID,
+        resource_name: str,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> models.TimeseriesMetadataResponse:
+        return ops.parse_get_book_resource_schema(
+            await self._send_async(
+                ops.build_get_book_resource_schema(
+                    book_id, resource_name, limit=limit, offset=offset
+                )
+            )
+        )
+
+    def get_book_resource_timeseries(
+        self,
+        book_id: str | UUID,
+        resource_name: str,
+        *,
+        drop: Sequence[str] | None = None,
+        limit: int | None = None,
+        top_n: int | None = None,
+        year_min: int | None = None,
+        year_max: int | None = None,
+        filters: Mapping[str, str | list[str]] | None = None,
+    ) -> models.TimeseriesResponse:
+        return ops.parse_get_book_resource_timeseries(
+            self._send(
+                ops.build_get_book_resource_timeseries(
+                    book_id,
+                    resource_name,
+                    drop=drop,
+                    limit=limit,
+                    top_n=top_n,
+                    year_min=year_min,
+                    year_max=year_max,
+                    filters=filters,
+                )
+            )
+        )
+
+    async def get_book_resource_timeseries_async(
+        self,
+        book_id: str | UUID,
+        resource_name: str,
+        *,
+        drop: Sequence[str] | None = None,
+        limit: int | None = None,
+        top_n: int | None = None,
+        year_min: int | None = None,
+        year_max: int | None = None,
+        filters: Mapping[str, str | list[str]] | None = None,
+    ) -> models.TimeseriesResponse:
+        return ops.parse_get_book_resource_timeseries(
+            await self._send_async(
+                ops.build_get_book_resource_timeseries(
+                    book_id,
+                    resource_name,
+                    drop=drop,
+                    limit=limit,
+                    top_n=top_n,
+                    year_min=year_min,
+                    year_max=year_max,
+                    filters=filters,
+                )
+            )
         )
