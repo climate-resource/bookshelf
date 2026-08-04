@@ -155,15 +155,15 @@ issue_format = "[#{issue}](https://github.com/climate-resource/bookshelf/pull/{i
 [tool.licensecheck]
 # Dependency licences are checked for compatibility with the licence of the package below.
 license = "mit"
-format = "simple"
 zero = true
 # licensecheck raises unless these are given, so they are pinned at their defaults.
 file = ""
+format = "simple"
 pypi_api = ""
 show_only_failing = false
 # The runtime dependencies of the distributed package, plus its optional extras.
 requirements_paths = ["packages/bookshelf/pyproject.toml"]
 extras = ["dataframes", "scmrun", "publish"]
-# Refused whatever the licence above is.
+# The matrix already refuses these under MIT, so this is belt and braces if that licence changes.
 # The names are matched against licensecheck's own terms, so "GPL" works and "GPL_X" does not.
 fail_licenses = ["GPL", "GPLv2", "GPLv2+", "GPLv3", "GPLv3+", "AGPL"]
