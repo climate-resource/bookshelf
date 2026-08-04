@@ -29,6 +29,7 @@ from bookshelf._core.auth import (
     StaticToken,
 )
 from bookshelf._core.errors import AuthConfigurationError
+from bookshelf._core.oauth import is_staging_api_url
 
 PRODUCTION_API_URL = "https://api.climateresource.com.au/bookshelf"
 
@@ -209,7 +210,7 @@ def _workos_client_id(api_url: str) -> str | None:
     env_id = os.environ.get("BOOKSHELF_WORKOS_CLIENT_ID")
     if env_id:
         return env_id
-    if "staging" in api_url:
+    if is_staging_api_url(api_url):
         return _STAGING_WORKOS_CLIENT_ID
     return None
 

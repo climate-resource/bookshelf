@@ -146,6 +146,17 @@ class OAuthError(Exception):
     """Error during an OAuth authentication flow."""
 
 
+def is_staging_api_url(api_url: str) -> bool:
+    """Report whether an API URL names a staging deployment.
+
+    The match is on a hyphen delimited part of a host label,
+    so a path, a query or a customer domain that merely spells the word
+    cannot pull a production login onto the staging client.
+    """
+    host = urlparse(api_url).hostname or ""
+    return any(part == "staging" for label in host.split(".") for part in label.split("-"))
+
+
 def get_workos_client_id(api_url: str = "") -> str:
     """Return the WorkOS client ID from ``$BOOKSHELF_WORKOS_CLIENT_ID`` or pick one by API URL.
 
@@ -156,7 +167,7 @@ def get_workos_client_id(api_url: str = "") -> str:
     env_id = os.environ.get("BOOKSHELF_WORKOS_CLIENT_ID")
     if env_id:
         return env_id
-    if "staging" in api_url:
+    if is_staging_api_url(api_url):
         return _CLIENT_IDS["staging"]  # type: ignore[return-value]
     raise OAuthError(
         "Production login requires setting the BOOKSHELF_WORKOS_CLIENT_ID environment variable. "
@@ -246,21 +257,27 @@ def authorization_code_flow(
     class CallbackHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802 - http.server API
             params = parse_qs(urlparse(self.path).query)
-            result["code"] = params.get("code", [None])[0]
-            result["error"] = params.get("error", [None])[0]
+            code = params.get("code", [None])[0]
+            error = params.get("error", [None])[0]
+            if code is None and error is None:
+                # A favicon fetch or a reload must not stand in for the redirect.
+                self.send_response(204)
+                self.end_headers()
+                return
+            result["code"] = code
+            result["error"] = error
             result["state"] = params.get("state", [None])[0]
-            ok = result["error"] is None and result["code"] is not None
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.end_headers()
-            self.wfile.write(_render_callback_page(success=ok, detail=result["error"] or ""))
+            self.wfile.write(_render_callback_page(success=error is None, detail=error or ""))
             received.set()
 
         def log_message(self, *args: Any) -> None:
             """Suppress HTTP server logging."""
 
     server = HTTPServer(("127.0.0.1", port), CallbackHandler)
-    server_thread = Thread(target=server.handle_request, daemon=True)
+    server_thread = Thread(target=server.serve_forever, daemon=True)
     server_thread.start()
 
     auth_params = urlencode(
@@ -286,6 +303,8 @@ def authorization_code_flow(
                 "Timed out waiting for browser authentication. Try again or use --device-code."
             )
     finally:
+        server.shutdown()
+        server_thread.join(timeout=5)
         server.server_close()
 
     if result["error"]:

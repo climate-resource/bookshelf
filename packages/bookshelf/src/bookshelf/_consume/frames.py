@@ -32,8 +32,11 @@ def long_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
     if {"year", "value"} <= set(frame.columns):
         return frame.reset_index(drop=True)
     wide = wide_timeseries(frame)
-    long = wide.reset_index().melt(
-        id_vars=list(wide.index.names),
+    # A wide frame of nothing but year columns carries no dimensions,
+    # so its positional index is not something to melt on.
+    dimensions = [name for name in wide.index.names if name is not None]
+    long = wide.reset_index(drop=not dimensions).melt(
+        id_vars=dimensions,
         var_name="year",
         value_name="value",
     )

@@ -29,6 +29,9 @@ from bookshelf._produce.helpers import (
     runner as _runner,
 )
 from bookshelf._produce.helpers import (
+    single_success as _single_success,
+)
+from bookshelf._produce.helpers import (
     uuid7 as _uuid7,
 )
 from bookshelf._produce.helpers import (
@@ -108,7 +111,7 @@ class LiveSink:
         )
         successful, failures = _registration_results(response)
         _raise_partial_registration(successful, failures)
-        outcome = successful[0].outcome
+        outcome = _single_success(successful)
         return Resource(
             self._client,
             self._cache,
@@ -219,7 +222,7 @@ class AsyncLiveSink:
         )
         successful, failures = _registration_results(response)
         _raise_partial_registration(successful, failures)
-        outcome = successful[0].outcome
+        outcome = _single_success(successful)
         return AsyncResource(
             self._client,
             self._cache,

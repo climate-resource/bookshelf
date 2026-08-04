@@ -16,6 +16,9 @@ from bookshelf._produce.helpers import (
     activity_envelope as _activity_envelope,
 )
 from bookshelf._produce.helpers import (
+    paired_successes as _paired_successes,
+)
+from bookshelf._produce.helpers import (
     raise_partial_registration as _raise_partial_registration,
 )
 from bookshelf._produce.helpers import (
@@ -29,6 +32,9 @@ from bookshelf._produce.helpers import (
 )
 from bookshelf._produce.helpers import (
     resource_type as _resource_type,
+)
+from bookshelf._produce.helpers import (
+    single_success as _single_success,
 )
 from bookshelf._produce.helpers import (
     uuid7 as _uuid7,
@@ -153,7 +159,7 @@ class Activity:
             raise
         return [
             self._resource_from_outcome(outcome, item)
-            for item, outcome in zip(items, outcomes, strict=True)
+            for outcome, item in _paired_successes(outcomes, items)
         ]
 
     def register_external(
@@ -187,7 +193,7 @@ class Activity:
             external_uri=uri,
             dedupe=dedupe,
         )
-        outcome = self._register_items([item], used=used, atomic=True)[0]
+        outcome = _single_success(self._register_items([item], used=used, atomic=True))
         return Resource(
             self._client,
             self._cache,
@@ -276,7 +282,7 @@ class Activity:
         *,
         used: Sequence[UsedInput],
         atomic: bool,
-    ) -> list[models.RegistrationOutcome]:
+    ) -> list[RegistrationSuccess]:
         if atomic and len(items) > _MAX_REGISTRATION_BATCH:
             raise ValueError(f"atomic registrations are limited to {_MAX_REGISTRATION_BATCH} items")
         chunk_size = _MAX_REGISTRATION_BATCH if not atomic else max(len(items), 1)
@@ -306,7 +312,7 @@ class Activity:
             successful.extend(chunk_successful)
             failures.extend(chunk_failures)
         _raise_partial_registration(successful, failures)
-        return [result.outcome for result in successful]
+        return successful
 
 
 class AsyncActivity:
@@ -418,7 +424,7 @@ class AsyncActivity:
             raise
         return [
             self._resource_from_outcome(outcome, item)
-            for item, outcome in zip(items, outcomes, strict=True)
+            for outcome, item in _paired_successes(outcomes, items)
         ]
 
     async def register_external(
@@ -452,7 +458,7 @@ class AsyncActivity:
             external_uri=uri,
             dedupe=dedupe,
         )
-        outcome = (await self._register_items([item], used=used, atomic=True))[0]
+        outcome = _single_success(await self._register_items([item], used=used, atomic=True))
         return AsyncResource(
             self._client,
             self._cache,
@@ -541,7 +547,7 @@ class AsyncActivity:
         *,
         used: Sequence[UsedInput],
         atomic: bool,
-    ) -> list[models.RegistrationOutcome]:
+    ) -> list[RegistrationSuccess]:
         if atomic and len(items) > _MAX_REGISTRATION_BATCH:
             raise ValueError(f"atomic registrations are limited to {_MAX_REGISTRATION_BATCH} items")
         chunk_size = _MAX_REGISTRATION_BATCH if not atomic else max(len(items), 1)
@@ -571,7 +577,7 @@ class AsyncActivity:
             successful.extend(chunk_successful)
             failures.extend(chunk_failures)
         _raise_partial_registration(successful, failures)
-        return [result.outcome for result in successful]
+        return successful
 
 
 __all__ = ["Activity", "AsyncActivity"]

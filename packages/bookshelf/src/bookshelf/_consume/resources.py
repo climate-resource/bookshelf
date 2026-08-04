@@ -571,7 +571,8 @@ class AsyncResource(_ResourceHandle):
 
         Use :meth:`as_path` to stream large resources without loading them into memory.
         """
-        return (await self._ensure_cached()).read_bytes()
+        path = await self._ensure_cached()
+        return await asyncio.to_thread(path.read_bytes)
 
     async def as_path(self) -> Path:
         """Stream and verify the resource, then return its cached path."""

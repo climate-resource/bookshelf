@@ -480,7 +480,14 @@ def _restore_utc_fields(payload: dict[str, Any], fields: Sequence[str]) -> None:
     """Restore the UTC wire invariant for naive ASGI harness timestamps."""
     for field in fields:
         value = payload.get(field)
-        if isinstance(value, str) and datetime.fromisoformat(value).tzinfo is None:
+        if not isinstance(value, str):
+            continue
+        try:
+            parsed = datetime.fromisoformat(value)
+        except ValueError:
+            # Leave an unparseable timestamp alone so Pydantic reports the real failure.
+            continue
+        if parsed.tzinfo is None:
             payload[field] = f"{value}Z"
 
 

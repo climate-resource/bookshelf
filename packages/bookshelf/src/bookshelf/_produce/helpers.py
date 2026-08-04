@@ -9,6 +9,7 @@ import time
 from collections.abc import Mapping, Sequence
 from uuid import UUID
 
+from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf._produce.provenance import canonical_config_hash
 from bookshelf._produce.types import (
@@ -136,6 +137,33 @@ def registration_results(
     return successful, failures
 
 
+def paired_successes(
+    successful: Sequence[RegistrationSuccess],
+    items: Sequence[models.RegisterResourceItem],
+) -> list[tuple[models.RegistrationOutcome, models.RegisterResourceItem]]:
+    """Pair every committed outcome with the request item it registered.
+
+    The server reports the index of each result,
+    so a reordered response still resolves to the right item.
+    """
+    if len(successful) != len(items):
+        raise BookshelfError(
+            f"The server committed {len(successful)} registrations for {len(items)} items."
+        )
+    paired = []
+    for position, success in enumerate(successful):
+        index = success.index if 0 <= success.index < len(items) else position
+        paired.append((success.outcome, items[index]))
+    return paired
+
+
+def single_success(successful: Sequence[RegistrationSuccess]) -> models.RegistrationOutcome:
+    """Return the only committed outcome, refusing a response that registered nothing."""
+    if not successful:
+        raise BookshelfError("The server returned no registration outcome for the request.")
+    return successful[0].outcome
+
+
 def raise_partial_registration(
     successful: Sequence[RegistrationSuccess],
     failures: Sequence[RegistrationFailure],
@@ -150,12 +178,14 @@ __all__ = [
     "MAX_REGISTRATION_BATCH",
     "VisibilityInput",
     "activity_envelope",
+    "paired_successes",
     "raise_partial_registration",
     "registered_resource_type",
     "registered_tracking_id",
     "registration_results",
     "resource_type",
     "runner",
+    "single_success",
     "uuid7",
     "visibility",
 ]

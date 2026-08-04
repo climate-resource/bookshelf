@@ -232,3 +232,38 @@ def test_exchange_failure_raises() -> None:
         mp.setattr(_oauth.webbrowser, "open", fake_open)
         with pytest.raises(_oauth.OAuthError, match="invalid code"):
             _oauth.authorization_code_flow(transport=transport)
+
+
+@pytest.mark.parametrize(
+    "api_url",
+    [
+        "https://bookshelf-staging.ovh.climateresource.com.au",
+        "https://api.staging.example/bookshelf/v1",
+        "https://staging.test",
+    ],
+)
+def test_staging_api_urls_are_recognised(api_url: str) -> None:
+    assert _oauth.is_staging_api_url(api_url)
+
+
+@pytest.mark.parametrize(
+    "api_url",
+    [
+        "https://api.climateresource.com.au/bookshelf",
+        # The word appears, but not as part of a host label.
+        "https://api.climateresource.com.au/bookshelf/staging",
+        "https://api.example/v1?note=staging",
+        "https://mystaging.example",
+    ],
+)
+def test_non_staging_api_urls_are_not_recognised(api_url: str) -> None:
+    assert not _oauth.is_staging_api_url(api_url)
+
+
+def test_client_id_ignores_a_staging_path_on_a_production_host(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A path that spells the word must not pull a production login onto staging."""
+    monkeypatch.delenv("BOOKSHELF_WORKOS_CLIENT_ID", raising=False)
+    with pytest.raises(_oauth.OAuthError):
+        _oauth.get_workos_client_id("https://api.climateresource.com.au/bookshelf/staging")
