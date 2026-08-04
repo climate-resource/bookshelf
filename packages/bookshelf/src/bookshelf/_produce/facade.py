@@ -127,6 +127,7 @@ class LiveSink:
         license: str | None = None,
         visibility: str | models.Visibility = models.Visibility.hidden,
         metadata: Mapping[str, Any] | None = None,
+        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         bundle_hash: str | None = None,
     ) -> DraftBook:
         """Create a mutable draft whose membership changes remain intentional calls."""
@@ -141,6 +142,7 @@ class LiveSink:
                 license=models.License(root=license) if license is not None else None,
                 visibility=_visibility(visibility),
                 metadata=dict(metadata or {}),
+                data_dictionary=list(data_dictionary or []),
                 bundle_hash=(
                     models.BundleHash(root=bundle_hash) if bundle_hash is not None else None
                 ),
@@ -236,6 +238,7 @@ class AsyncLiveSink:
         license: str | None = None,
         visibility: str | models.Visibility = models.Visibility.hidden,
         metadata: Mapping[str, Any] | None = None,
+        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         bundle_hash: str | None = None,
     ) -> AsyncDraftBook:
         """Create an asynchronous mutable draft book handle."""
@@ -250,6 +253,7 @@ class AsyncLiveSink:
                 license=models.License(root=license) if license is not None else None,
                 visibility=_visibility(visibility),
                 metadata=dict(metadata or {}),
+                data_dictionary=list(data_dictionary or []),
                 bundle_hash=(
                     models.BundleHash(root=bundle_hash) if bundle_hash is not None else None
                 ),
@@ -296,6 +300,7 @@ class ProduceSink(Protocol):
         license: str | None = None,
         visibility: str | models.Visibility = models.Visibility.hidden,
         metadata: Mapping[str, Any] | None = None,
+        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         bundle_hash: str | None = None,
     ) -> DraftBook: ...
 
@@ -338,6 +343,7 @@ class AsyncProduceSink(Protocol):
         license: str | None = None,
         visibility: str | models.Visibility = models.Visibility.hidden,
         metadata: Mapping[str, Any] | None = None,
+        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         bundle_hash: str | None = None,
     ) -> AsyncDraftBook: ...
 
@@ -403,9 +409,14 @@ class ProduceFacade:
         license: str | None = None,
         visibility: str | models.Visibility = models.Visibility.hidden,
         metadata: Mapping[str, Any] | None = None,
+        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         bundle_hash: str | None = None,
     ) -> DraftBook:
-        """Create a draft through the active sink."""
+        """Create a draft through the active sink.
+
+        ``data_dictionary=`` describes the columns of the book's tabular and
+        timeseries entries. It stays editable while the book is a draft.
+        """
         return self._produce_sink.draft_book(
             volume,
             version=version,
@@ -414,6 +425,7 @@ class ProduceFacade:
             license=license,
             visibility=visibility,
             metadata=metadata,
+            data_dictionary=data_dictionary,
             bundle_hash=bundle_hash,
         )
 
@@ -479,9 +491,14 @@ class AsyncProduceFacade:
         license: str | None = None,
         visibility: str | models.Visibility = models.Visibility.hidden,
         metadata: Mapping[str, Any] | None = None,
+        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         bundle_hash: str | None = None,
     ) -> AsyncDraftBook:
-        """Create a draft through the active sink."""
+        """Create a draft through the active sink.
+
+        ``data_dictionary=`` describes the columns of the book's tabular and
+        timeseries entries. It stays editable while the book is a draft.
+        """
         return await self._produce_sink.draft_book(
             volume,
             version=version,
@@ -490,6 +507,7 @@ class AsyncProduceFacade:
             license=license,
             visibility=visibility,
             metadata=metadata,
+            data_dictionary=data_dictionary,
             bundle_hash=bundle_hash,
         )
 

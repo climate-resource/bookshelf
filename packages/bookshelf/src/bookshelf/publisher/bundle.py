@@ -307,6 +307,7 @@ class BundleBook(BaseModel):
     description: str | None = None
     citation_doi: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+    data_dictionary: list[dict[str, Any]] = Field(default_factory=list)
     entries: list[BundleBookEntry] = Field(default_factory=list)
     published: bool = False
 

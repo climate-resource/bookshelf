@@ -389,6 +389,7 @@ class RecordedDraftBook(DraftBook):
         description: str | None,
         citation_doi: str | None,
         metadata: Mapping[str, Any] | None,
+        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
     ) -> None:
         self._bundle = bundle
         super().__init__(
@@ -405,6 +406,7 @@ class RecordedDraftBook(DraftBook):
                 license=license,
                 citation_doi=citation_doi,
                 metadata=dict(metadata or {}),
+                data_dictionary=list(data_dictionary or []),
             ),
         )
 
@@ -500,6 +502,7 @@ class RecordingSink:
         license: str | None = None,
         visibility: VisibilityInput = INHERIT,
         metadata: Mapping[str, Any] | None = None,
+        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         bundle_hash: str | None = None,
     ) -> RecordedDraftBook:
         """Record pre-edition book framing and return its local handle.
@@ -512,6 +515,7 @@ class RecordingSink:
             raise ValueError("recorded books require an explicit license")
         book_visibility = _visibility(visibility, self.default_visibility)
         self.default_visibility = book_visibility
+        entries = list(data_dictionary or [])
         self.bundle.set_book(
             BundleBook(
                 volume=volume,
@@ -522,6 +526,7 @@ class RecordingSink:
                 description=description,
                 citation_doi=citation_doi,
                 metadata=dict(metadata or {}),
+                data_dictionary=[entry.model_dump(mode="json") for entry in entries],
             )
         )
         return RecordedDraftBook(
@@ -534,6 +539,7 @@ class RecordingSink:
             description=description,
             citation_doi=citation_doi,
             metadata=metadata,
+            data_dictionary=entries,
         )
 
     def register_external(

@@ -219,6 +219,56 @@
         }
       }
     },
+    "/agent/identity/claim/preview": {
+      "post": {
+        "tags": [
+          "agent-auth"
+        ],
+        "summary": "Preview Claim",
+        "description": "Report what completing this claim would grant, for the signed-in user.",
+        "operationId": "previewAgentClaim",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimPreviewResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/agent/identity/claim/verify": {
       "post": {
         "tags": [
@@ -585,7 +635,7 @@
           "volumes"
         ],
         "summary": "Create Volume",
-        "description": "Create a new volume.\n\nRequires write permission.",
+        "description": "Create a new volume.\n\nRequires write permission and the bookshelf:volumes:create capability.\nThe capability decision belongs to ``assert_can_create_volume``,\nand is inert without write,\nso granting it to a read-only principal grants nothing.",
         "operationId": "volumesCreateVolume",
         "security": [
           {
@@ -2159,7 +2209,7 @@
           "resources"
         ],
         "summary": "Get Resource Preview",
-        "description": "Get generic preview for tabular/other resources.\n\nReturns paginated rows with column metadata.\nSuitable for displaying data tables in the UI.",
+        "description": "Get generic preview for tabular/other resources.\n\nReturns paginated rows with column metadata.\nSuitable for displaying data tables in the UI.\n\nRepeat `columns` to preview a subset of a wide resource.\nThe projection is pushed into the read, so the columns left out cost nothing.",
         "operationId": "resourcesGetResourcePreview",
         "security": [
           {},
@@ -2213,6 +2263,27 @@
               "title": "Offset"
             },
             "description": "Row offset for pagination"
+          },
+          {
+            "name": "columns",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Columns to return",
+              "title": "Columns"
+            },
+            "description": "Columns to return"
           }
         ],
         "responses": {
@@ -2228,6 +2299,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
@@ -5278,6 +5352,14 @@
             "title": "Metadata",
             "description": "Free-form metadata blob."
           },
+          "data_dictionary": {
+            "items": {
+              "$ref": "#/components/schemas/DataDictionaryEntry"
+            },
+            "type": "array",
+            "title": "Data Dictionary",
+            "description": "Column descriptions for the book's tabular and timeseries entries."
+          },
           "hash": {
             "anyOf": [
               {
@@ -5395,6 +5477,14 @@
             "type": "object",
             "title": "Metadata",
             "description": "Optional metadata blob copied onto the new book."
+          },
+          "data_dictionary": {
+            "items": {
+              "$ref": "#/components/schemas/DataDictionaryEntry"
+            },
+            "type": "array",
+            "title": "Data Dictionary",
+            "description": "Column descriptions for the book's tabular and timeseries entries. Applied when the draft is created. A request that resumes an existing book through ``bundle_hash`` returns that book unchanged, so use ``PATCH /v1/books/{book_id}`` to revise a draft's dictionary."
           },
           "bundle_hash": {
             "anyOf": [
@@ -6334,6 +6424,83 @@
         "title": "ClaimBlock",
         "description": "RFC 8628-shaped device-code ceremony block."
       },
+      "ClaimGrant": {
+        "properties": {
+          "scope": {
+            "type": "string",
+            "title": "Scope",
+            "description": "The scope string the access token will carry."
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary",
+            "description": "What the scope lets the agent do, in plain words."
+          },
+          "sensitive": {
+            "type": "boolean",
+            "title": "Sensitive",
+            "description": "True for grants that go beyond reading and writing existing data, so the claim page can call them out rather than list them alongside the rest."
+          }
+        },
+        "type": "object",
+        "required": [
+          "scope",
+          "summary",
+          "sensitive"
+        ],
+        "title": "ClaimGrant",
+        "description": "One scope the claim would grant, described for the human approving it."
+      },
+      "ClaimPreviewRequest": {
+        "properties": {
+          "claim_attempt_token": {
+            "type": "string",
+            "title": "Claim Attempt Token",
+            "description": "Attempt token from the verification URL."
+          }
+        },
+        "type": "object",
+        "required": [
+          "claim_attempt_token"
+        ],
+        "title": "ClaimPreviewRequest",
+        "description": "Body of ``POST /agent/identity/claim/preview``."
+      },
+      "ClaimPreviewResponse": {
+        "properties": {
+          "registration_id": {
+            "type": "string",
+            "title": "Registration Id"
+          },
+          "agent_platform": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Platform",
+            "description": "Platform the agent declared at registration, if any."
+          },
+          "grants": {
+            "items": {
+              "$ref": "#/components/schemas/ClaimGrant"
+            },
+            "type": "array",
+            "title": "Grants",
+            "description": "Scopes the registration will carry once claimed."
+          }
+        },
+        "type": "object",
+        "required": [
+          "registration_id",
+          "grants"
+        ],
+        "title": "ClaimPreviewResponse",
+        "description": "What a claim would grant, shown before the user types the code."
+      },
       "ClaimStartRequest": {
         "properties": {
           "claim_token": {
@@ -6343,6 +6510,7 @@
           },
           "email": {
             "type": "string",
+            "minLength": 3,
             "title": "Email",
             "description": "Email the registration binds to."
           }
@@ -7033,6 +7201,18 @@
             "type": "integer",
             "title": "Expires In",
             "description": "URL expiration time in seconds"
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename",
+            "description": "Name the downloaded bytes should be saved under. Presigned URLs carry it as a Content-Disposition, so a browser uses it without the caller doing anything. Clients that write the bytes themselves should use it too. Absent for external pointers, whose naming the bookshelf does not control."
           }
         },
         "type": "object",
@@ -8534,7 +8714,7 @@
               }
             ],
             "title": "External Uri",
-            "description": "External pointer URI. When set, the item is registered as an external pointer (J3) and ``locations`` may be omitted."
+            "description": "External pointer URI. Must be ``https``. When set, the item is registered as an external pointer (J3) and ``locations`` may be omitted."
           },
           "locations": {
             "items": {
@@ -9108,6 +9288,11 @@
             "type": "string",
             "title": "Type"
           },
+          "tracking_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Tracking Id"
+          },
           "format": {
             "anyOf": [
               {
@@ -9168,7 +9353,8 @@
         "required": [
           "id",
           "name",
-          "type"
+          "type",
+          "tracking_id"
         ],
         "title": "ResourceSummary",
         "description": "Resource info for book responses, including download metadata."
@@ -10169,6 +10355,14 @@
             "title": "Resource Types",
             "description": "Unique resource types"
           },
+          "formats": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Formats",
+            "description": "Unique file formats across the readable resources"
+          },
           "total_resources": {
             "type": "integer",
             "title": "Total Resources",
@@ -10193,7 +10387,7 @@
           "updated_at"
         ],
         "title": "VolumeListItem",
-        "description": "Volume response for list endpoints with aggregated fields.\n\nAPI.md specifies that list endpoint returns additional computed fields:\n- latest_version: Most recent version string\n- latest_edition: Highest edition number for latest_version\n- resource_types: Array of unique resource types across all books"
+        "description": "Volume response for list endpoints with aggregated fields.\n\nAPI.md specifies that list endpoint returns additional computed fields:\n- latest_version: Most recent version string\n- latest_edition: Highest edition number for latest_version\n- resource_types: Array of unique resource types across all books\n- formats: Array of unique file formats across all books"
       },
       "VolumeListResponse": {
         "properties": {

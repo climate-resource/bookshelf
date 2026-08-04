@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from uuid import UUID
 
+from bookshelf._generated import models
 from bookshelf._produce.books import AsyncDraftBook, DraftBook
 from bookshelf._produce.resources import AsyncResource, Resource
 from bookshelf._produce.types import Used, UsedInput
@@ -58,6 +59,9 @@ async def replay_bundle(
         visibility=book.visibility,
         license=book.license,
         metadata=book.metadata,
+        data_dictionary=[
+            models.DataDictionaryEntry.model_validate(entry) for entry in book.data_dictionary
+        ],
         bundle_hash=compute_book_bundle_hash(manifest),
     )
     if draft.status == "published":
@@ -159,6 +163,9 @@ def replay_bundle_sync(
         visibility=book.visibility,
         license=book.license,
         metadata=book.metadata,
+        data_dictionary=[
+            models.DataDictionaryEntry.model_validate(entry) for entry in book.data_dictionary
+        ],
         bundle_hash=compute_book_bundle_hash(manifest),
     )
     if draft.status == "published":
