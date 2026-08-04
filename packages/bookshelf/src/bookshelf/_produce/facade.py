@@ -416,7 +416,8 @@ class ProduceFacade:
 
         ``data_dictionary=`` describes the columns of the book's tabular and timeseries entries.
         It is applied when the draft is created,
-        so a call that resumes an existing book through ``bundle_hash`` leaves the stored dictionary untouched.
+        so a call that resumes an existing book through ``bundle_hash``
+        leaves the stored dictionary untouched.
         """
         return self._produce_sink.draft_book(
             volume,
