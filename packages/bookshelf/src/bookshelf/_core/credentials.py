@@ -4,13 +4,15 @@ The store holds several records at once, keyed by deployment plus identity kind
 (``user`` for a WorkOS login, ``agent`` for a Bookshelf agent identity).
 One record per deployment is active, and one deployment is the default.
 
-Secrets are dual-written:
+Secrets have two possible homes:
 
 1. **OS keychain** (primary, hardened store) under service name ``"bookshelf"``
    with one username per record secret (``"<key>:access_token"`` and friends).
    On read the keychain value takes precedence over the file copy.
 2. **0600 JSON file** (secondary, compatibility store) at the ``platformdirs``
    user-config path ``bookshelf/credentials.json``.
+   The file always holds the record index, because that is what names the keychain entries.
+   It holds a secret only when the keychain could not take it.
 
 When no keychain backend is available every keychain call degrades silently
 to the file-only path.
@@ -87,8 +89,14 @@ def _keychain_call(operation: str, *args: str) -> str | None:
         return None
 
 
-def _keychain_set(username: str, value: str) -> None:
+def _keychain_set(username: str, value: str) -> bool:
+    """Store one secret and confirm it can be read back.
+
+    The return value decides whether the file copy is needed,
+    so a backend that accepts a write it cannot serve must count as a failure.
+    """
     _keychain_call("set_password", username, value)
+    return _keychain_get(username) == value
 
 
 def _keychain_get(username: str) -> str | None:
@@ -253,25 +261,30 @@ def save_credentials(
     api_url = normalise_api_url(api_url)
     key = record_key(api_url, kind)
 
-    _keychain_set(f"{key}:access_token", access_token)
-    if refresh_token is not None:
-        _keychain_set(f"{key}:refresh_token", refresh_token)
-    else:
-        _keychain_delete(f"{key}:refresh_token")
-    if identity_assertion is not None:
-        _keychain_set(f"{key}:identity_assertion", identity_assertion)
-    else:
-        _keychain_delete(f"{key}:identity_assertion")
+    secrets: dict[str, str | None] = {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "identity_assertion": identity_assertion,
+    }
+    # A secret reaches the file only when the keychain could not take it.
+    # The record itself always stays in the file,
+    # because it is the index that names the keychain entries.
+    for field in _SECRET_FIELDS:
+        value = secrets[field]
+        if value is None:
+            _keychain_delete(f"{key}:{field}")
+        elif _keychain_set(f"{key}:{field}", value):
+            secrets[field] = None
 
     store = _read_store()
     store["records"][key] = {
-        "access_token": access_token,
+        "access_token": secrets["access_token"],
         "token_type": token_type,
         "expires_at": expires_at.isoformat() if expires_at else None,
         "api_url": api_url,
-        "refresh_token": refresh_token,
+        "refresh_token": secrets["refresh_token"],
         "kind": kind,
-        "identity_assertion": identity_assertion,
+        "identity_assertion": secrets["identity_assertion"],
         "assertion_expires_at": assertion_expires_at.isoformat() if assertion_expires_at else None,
         "subject": subject,
         "organization_id": organization_id,
