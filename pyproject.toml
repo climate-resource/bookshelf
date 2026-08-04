@@ -20,7 +20,6 @@ dev = [
     "pytest-cov>=4.0.0",
     "pytest-mock>=3.11.1",
     "pytest-xdist>=3.3.1",
-    "requests-mock>=1.11.0",
     "mypy>=1.2.0",
     "ruff==0.15.0",
     "pre-commit>=3.3.1",
@@ -28,8 +27,6 @@ dev = [
     "liccheck>=0.9.1",
     # Stubs
     "types-pyyaml>=6.0.12.20240917",
-    "boto3-stubs[essential]>=1.35.39",
-    "types-requests>=2.32.0.20240914",
     "pandas-stubs>=2.2.3.241009",
     # Docs
     "mkdocs>=1.6.0",
@@ -40,10 +37,6 @@ dev = [
     "mkdocs-literate-nav>=0.6.1",
     "mkdocs-autorefs>=1.0.1",
     "mkdocs-jupyter>=0.24.0",
-    "myst-nb>=1.1.1",
-    "jupyterlab>=4.2.0",
-    "jupytext>=1.16.3",
-    "matplotlib>=3.9.2",
     "mike>=2.1.3",
     "mkdocs-minify-plugin>=0.8.0",
 ]
@@ -82,25 +75,8 @@ follow_imports = "normal"
 exclude = [
     "build",
     "dist",
-    "notebooks",
     "scripts",
-    "stubs",
-    "tests",
 ]
-
-[[tool.mypy.overrides]]
-module = [
-    "scmdata",
-    "pooch",
-    "jupytext",
-    "papermill",
-    "click_log",
-    "datapackage"
-]
-ignore_missing_imports = true
-
-[tool.jupytext]
-formats = "ipynb,py:percent"
 
 [tool.pytest.ini_options]
 addopts = [
