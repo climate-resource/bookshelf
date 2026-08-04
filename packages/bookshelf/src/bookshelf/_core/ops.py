@@ -207,6 +207,28 @@ GET_BOOK = _op(
         response_models=(models.BookResponse,),
     )
 )
+UPDATE_BOOK = _op(
+    OpSpec(
+        operation_id="booksUpdateBook",
+        method="PATCH",
+        path_template="/v1/books/{book_id}",
+        success_statuses=(200,),
+        error_statuses=(400, 401, 403, 404, 422),
+        supplied_parameters=(("path", "book_id"),),
+        request_model=models.BookUpdate,
+        response_models=(models.BookResponse,),
+    )
+)
+DELETE_BOOK = _op(
+    OpSpec(
+        operation_id="booksDeleteBook",
+        method="DELETE",
+        path_template="/v1/books/{book_id}",
+        success_statuses=(204,),
+        error_statuses=(400, 401, 403, 404, 422),
+        supplied_parameters=(("path", "book_id"),),
+    )
+)
 LIST_BOOK_ENTRIES = _op(
     OpSpec(
         operation_id="bookActionsListEntries",
@@ -307,6 +329,39 @@ GET_VOLUME = _op(
         error_statuses=(401, 404, 422),
         supplied_parameters=(("path", "volume_name"),),
         response_models=(models.VolumeDetailResponse,),
+    )
+)
+CREATE_VOLUME = _op(
+    OpSpec(
+        operation_id="volumesCreateVolume",
+        method="POST",
+        path_template="/v1/volumes",
+        success_statuses=(201,),
+        error_statuses=(401, 403, 409, 422),
+        request_model=models.VolumeCreate,
+        response_models=(models.VolumeResponse,),
+    )
+)
+UPDATE_VOLUME = _op(
+    OpSpec(
+        operation_id="volumesUpdateVolume",
+        method="PATCH",
+        path_template="/v1/volumes/{volume_name}",
+        success_statuses=(200,),
+        error_statuses=(401, 403, 404, 422),
+        supplied_parameters=(("path", "volume_name"),),
+        request_model=models.VolumeUpdate,
+        response_models=(models.VolumeResponse,),
+    )
+)
+DELETE_VOLUME = _op(
+    OpSpec(
+        operation_id="volumesDeleteVolume",
+        method="DELETE",
+        path_template="/v1/volumes/{volume_name}",
+        success_statuses=(204,),
+        error_statuses=(401, 403, 404, 422),
+        supplied_parameters=(("path", "volume_name"),),
     )
 )
 GET_CATALOGUE_FACETS = _op(
@@ -735,6 +790,33 @@ def parse_get_book(response: ApiResponse) -> models.BookResponse:
     return models.BookResponse.model_validate(payload)
 
 
+def build_update_book(book_id: str, request: models.BookUpdate) -> ApiRequest:
+    return ApiRequest(
+        method="PATCH",
+        path=UPDATE_BOOK.path_template.format(book_id=_segment(book_id)),
+        json_body=_json_body(request),
+    )
+
+
+def parse_update_book(response: ApiResponse) -> models.BookResponse:
+    _check(UPDATE_BOOK, response)
+    payload = json.loads(response.content)
+    _restore_utc_fields(payload, ("created_at", "updated_at", "published_at", "invalidated_at"))
+    return models.BookResponse.model_validate(payload)
+
+
+def build_delete_book(book_id: str) -> ApiRequest:
+    return ApiRequest(
+        method="DELETE",
+        path=DELETE_BOOK.path_template.format(book_id=_segment(book_id)),
+    )
+
+
+def parse_delete_book(response: ApiResponse) -> None:
+    """Only a draft can be deleted, so a published book comes back as a refusal."""
+    _check(DELETE_BOOK, response)
+
+
 def build_list_book_entries(
     book_id: str,
     *,
@@ -904,6 +986,47 @@ def parse_get_volume(response: ApiResponse) -> models.VolumeDetailResponse:
         for edition in version.get("editions", []):
             _restore_utc_fields(edition, ("created_at", "published_at"))
     return models.VolumeDetailResponse.model_validate(payload)
+
+
+def build_create_volume(request: models.VolumeCreate) -> ApiRequest:
+    return ApiRequest(
+        method="POST",
+        path=CREATE_VOLUME.path_template,
+        json_body=_json_body(request),
+    )
+
+
+def parse_create_volume(response: ApiResponse) -> models.VolumeResponse:
+    _check(CREATE_VOLUME, response)
+    payload = json.loads(response.content)
+    _restore_utc_fields(payload, ("created_at", "updated_at"))
+    return models.VolumeResponse.model_validate(payload)
+
+
+def build_update_volume(volume_name: str, request: models.VolumeUpdate) -> ApiRequest:
+    return ApiRequest(
+        method="PATCH",
+        path=UPDATE_VOLUME.path_template.format(volume_name=_segment(volume_name)),
+        json_body=_json_body(request),
+    )
+
+
+def parse_update_volume(response: ApiResponse) -> models.VolumeResponse:
+    _check(UPDATE_VOLUME, response)
+    payload = json.loads(response.content)
+    _restore_utc_fields(payload, ("created_at", "updated_at"))
+    return models.VolumeResponse.model_validate(payload)
+
+
+def build_delete_volume(volume_name: str) -> ApiRequest:
+    return ApiRequest(
+        method="DELETE",
+        path=DELETE_VOLUME.path_template.format(volume_name=_segment(volume_name)),
+    )
+
+
+def parse_delete_volume(response: ApiResponse) -> None:
+    _check(DELETE_VOLUME, response)
 
 
 def build_get_catalogue_facets() -> ApiRequest:

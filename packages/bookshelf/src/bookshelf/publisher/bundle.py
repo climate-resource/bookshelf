@@ -79,6 +79,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
+from bookshelf._generated import models
 from bookshelf.publisher.lock import _dump_sorted_yaml
 
 BUNDLE_SCHEMA_VERSION = "1.0"
@@ -307,6 +308,7 @@ class BundleBook(BaseModel):
     description: str | None = None
     citation_doi: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+    data_dictionary: list[dict[str, Any]] = Field(default_factory=list)
     entries: list[BundleBookEntry] = Field(default_factory=list)
     published: bool = False
 
@@ -384,6 +386,11 @@ def resource_filename(hash_: str, type_: str) -> str:
     hex_digest = _sha256_hex(hash_)
     extension = "parquet" if type_ in _PARQUET_TYPES else "bin"
     return f"{hex_digest}.{extension}"
+
+
+def book_data_dictionary(book: BundleBook) -> list[models.DataDictionaryEntry]:
+    """Return a recorded book's data dictionary as validated entries."""
+    return [models.DataDictionaryEntry.model_validate(entry) for entry in book.data_dictionary]
 
 
 def compute_book_bundle_hash(manifest: BundleManifest) -> str:

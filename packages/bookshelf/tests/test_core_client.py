@@ -49,6 +49,68 @@ def test_sync_shell_round_trips_registrations() -> None:
     assert response.atomic is True
 
 
+def _recording_handler(seen: list[tuple[str, str]], status: int, payload: Any) -> Any:
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((request.method, request.url.path))
+        if status == 204:
+            return httpx.Response(204)
+        return httpx.Response(status, json=payload)
+
+    return handler
+
+
+def test_volume_lifecycle_round_trips_on_both_shells() -> None:
+    seen: list[tuple[str, str]] = []
+    handler = _recording_handler(seen, 201, payloads.VOLUME)
+
+    with make_client(handler) as client:
+        created = client.create_volume(models.VolumeCreate(name="example", license="MIT"))
+    assert created.name == "example"
+    assert seen == [("POST", "/v1/volumes")]
+
+
+async def test_volume_lifecycle_round_trips_on_the_async_shell() -> None:
+    seen: list[tuple[str, str]] = []
+    handler = _recording_handler(seen, 200, payloads.VOLUME)
+
+    async with make_client(handler) as client:
+        updated = await client.update_volume_async(
+            "example", models.VolumeUpdate(description=models.Description3(root="units fixed"))
+        )
+    assert updated.name == "example"
+    assert seen == [("PATCH", "/v1/volumes/example")]
+
+
+def test_deletions_return_nothing_on_both_shells() -> None:
+    seen: list[tuple[str, str]] = []
+    handler = _recording_handler(seen, 204, None)
+
+    with make_client(handler) as client:
+        assert client.delete_volume("example") is None
+        assert client.delete_book("b1") is None
+    assert seen == [("DELETE", "/v1/volumes/example"), ("DELETE", "/v1/books/b1")]
+
+
+async def test_async_deletions_return_nothing() -> None:
+    seen: list[tuple[str, str]] = []
+    handler = _recording_handler(seen, 204, None)
+
+    async with make_client(handler) as client:
+        assert await client.delete_volume_async("example") is None
+        assert await client.delete_book_async("b1") is None
+    assert seen == [("DELETE", "/v1/volumes/example"), ("DELETE", "/v1/books/b1")]
+
+
+def test_update_book_patches_the_draft() -> None:
+    seen: list[tuple[str, str]] = []
+    handler = _recording_handler(seen, 200, payloads.BOOK_RESPONSE)
+
+    with make_client(handler) as client:
+        updated = client.update_book("b1", models.BookUpdate(metadata={"note": "fixed"}))
+    assert updated.id == "b1"
+    assert seen == [("PATCH", "/v1/books/b1")]
+
+
 def test_lazy_per_surface_transports() -> None:
     client = make_client(api_handler)
     assert client._sync is None and client._async is None

@@ -45,6 +45,37 @@ BOOK_LIST: dict[str, Any] = {
 
 BOOK_ENTRIES: dict[str, Any] = {"items": []}
 
+
+def book_list_item(*, status: str = "draft", edition: int = 1) -> dict[str, Any]:
+    """One book list row, which the address-resolving callers need to have something to find."""
+    return {
+        "id": "b1",
+        "volume_name": "example",
+        "version": "v1.0.0",
+        "edition": edition,
+        "status": status,
+        "visibility": "hidden",
+        "private": True,
+        "metadata": {},
+        "created_at": TS,
+        "published_at": TS if status == "published" else None,
+    }
+
+
+VOLUME: dict[str, Any] = {
+    "id": "vol_1",
+    "name": "example",
+    "owner_org_id": "org_1",
+    "description": None,
+    "license": "MIT",
+    "metadata": {},
+    "authors": [],
+    "maintainers": [],
+    "citation": None,
+    "created_at": TS,
+    "updated_at": TS,
+}
+
 ENTRY_ATTACHED: dict[str, Any] = {
     "entry_id": "0197a000-0000-7000-8000-0000000000e1",
     "book_id": "0197a000-0000-7000-8000-0000000000b1",
@@ -90,6 +121,17 @@ UPLOAD_INITIATED: dict[str, Any] = {
 }
 
 UPLOAD_EXISTS: dict[str, Any] = {"already_exists": True, "storage_path": "ingest/org_1/abc"}
+
+
+def problem(status: int, title: str, detail: str) -> dict[str, Any]:
+    """One problem+json body, so a fixture does not claim a status its title contradicts."""
+    return {
+        "type": f"https://bookshelf.example/problems/{status}",
+        "title": title,
+        "status": status,
+        "detail": detail,
+    }
+
 
 PROBLEM_CONFLICT: dict[str, Any] = {
     "type": "https://bookshelf.example/problems/conflict",

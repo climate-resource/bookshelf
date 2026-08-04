@@ -18,6 +18,8 @@ from bookshelf._produce.types import (
     Used,
     UsedInput,
 )
+from bookshelf._produce.visibility import INHERIT, VisibilityInput
+from bookshelf._produce.visibility import resolve as resolve_visibility
 
 MAX_REGISTRATION_BATCH = 1000
 
@@ -48,9 +50,12 @@ def resource_type(value: str | models.ResourceType) -> models.ResourceType:
     return value if isinstance(value, models.ResourceType) else models.ResourceType(value)
 
 
-def visibility(value: str | models.Visibility) -> models.Visibility:
-    """Normalise a public visibility input."""
-    return value if isinstance(value, models.Visibility) else models.Visibility(value)
+def visibility(
+    value: VisibilityInput,
+    default: models.Visibility = models.Visibility.hidden,
+) -> models.Visibility:
+    """Normalise a public visibility input, resolving :data:`INHERIT` to ``default``."""
+    return resolve_visibility(value, default)
 
 
 def registered_tracking_id(outcome: models.RegistrationOutcome) -> UUID:
@@ -141,7 +146,9 @@ def raise_partial_registration(
 
 
 __all__ = [
+    "INHERIT",
     "MAX_REGISTRATION_BATCH",
+    "VisibilityInput",
     "activity_envelope",
     "raise_partial_registration",
     "registered_resource_type",

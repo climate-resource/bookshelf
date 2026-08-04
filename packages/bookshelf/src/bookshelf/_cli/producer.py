@@ -1,4 +1,4 @@
-"""``bookshelf record``, ``bookshelf validate`` and ``bookshelf publish``.
+"""``bookshelf record``, ``bookshelf validate``, ``bookshelf publish`` and ``bookshelf discard``.
 
 The producer surface over :mod:`bookshelf.publisher`,
 so a feedstock and a CI action drive the same implementation
@@ -8,6 +8,10 @@ rather than each writing its own Python against the library.
 and guards for it up front.
 ``validate`` and ``publish`` need nothing beyond the core install,
 and ``validate`` opens no socket at all.
+
+``discard`` is the other half of a publish that failed:
+a draft edition is allocated before validation runs,
+so an abandoned attempt leaves an edition behind until it is deleted.
 """
 
 import importlib.util
@@ -17,8 +21,11 @@ from typing import Any
 import typer
 import yaml
 
+from bookshelf._cli._address import Address, parse_address
 from bookshelf._cli._runtime import (
     EXIT_INVALID_BUNDLE,
+    EXIT_NOT_FOUND,
+    EXIT_UNEXPECTED,
     EXIT_USAGE,
     CliError,
     command_errors,
@@ -26,9 +33,11 @@ from bookshelf._cli._runtime import (
     emit_json,
     field,
 )
+from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import resolve_base_url
 from bookshelf._core.errors import BookshelfError
 from bookshelf._core.hashing import sha256_hex
+from bookshelf._generated import models
 from bookshelf.facade import Bookshelf
 from bookshelf.publisher import (
     Bundle,
@@ -39,9 +48,11 @@ from bookshelf.publisher import (
     replay_bundle_sync,
     run_record,
 )
-from bookshelf.publisher.bundle import BundleBook
+from bookshelf.publisher.bundle import BundleBook, book_data_dictionary
 
 _RECORD_REQUIREMENTS = ("papermill", "nbconvert")
+_PAGE_SIZE = 100
+_MAX_PAGES = 1000
 
 
 def _require_publish_extra() -> None:
@@ -292,6 +303,10 @@ def publish(
                 license=framing.license,
                 visibility=framing.visibility,
                 metadata=framing.metadata,
+                # This draft is keyed on the bundle hash, so the replay below
+                # resumes it rather than reapplying the framing. The dictionary
+                # has to travel on this call or it never reaches the book.
+                data_dictionary=book_data_dictionary(framing),
                 bundle_hash=bundle_hash,
             )
             # Drafting is the only way to learn whether the edition already exists,
@@ -319,4 +334,75 @@ def publish(
         _emit_summary(summary, _PUBLISH_LABELS, json_output=json_output)
 
 
-__all__ = ["publish", "record", "validate"]
+def discard(
+    address: str = typer.Argument(help="Draft edition to discard, as volume@version_eNNN."),
+    api_url: str | None = typer.Option(None, "--api-url", help="Deployment to discard in."),
+    json_output: bool = typer.Option(False, "--json", help="Emit the outcome as JSON."),
+) -> None:
+    """Delete a draft edition, so a publish that failed validation leaves no debris.
+
+    Only a draft can be discarded.
+    A published book is protected by the API, and the CLI refuses one before it asks.
+    """
+    with command_errors():
+        parsed = parse_address(address)
+        if parsed.entry is not None:
+            raise CliError(
+                f"discard takes a book, not a file within one, and {address!r} names a file. "
+                f"Run 'bookshelf discard {parsed.volume}@{parsed.version}_eNNN'.",
+                exit_code=EXIT_USAGE,
+            )
+        if parsed.version is None or parsed.edition is None:
+            raise CliError(
+                f"discard needs an exact edition, and {address!r} does not name one. "
+                f"Run 'bookshelf show {parsed.volume}' to see the editions, then "
+                f"'bookshelf discard {parsed.volume}@VERSION_eNNN'.",
+                exit_code=EXIT_USAGE,
+            )
+        with BookshelfClient(resolve_base_url(api_url)) as client:
+            book = _resolve_draft(client, parsed)
+            client.delete_book(book.id)
+        if json_output:
+            emit_json({"outcome": "discarded", "book_id": book.id, "address": str(parsed)})
+            return
+        emit(field("Discarded", f"{parsed} ({book.id})"))
+
+
+def _resolve_draft(client: BookshelfClient, parsed: Address) -> models.BookListItem:
+    """Resolve an address to the one draft book it names, refusing a published one.
+
+    The listing is paged,
+    so an edition past the first page is walked to rather than reported as absent.
+    """
+    match: models.BookListItem | None = None
+    for page in range(_MAX_PAGES):
+        books = client.list_books(
+            volume=parsed.volume,
+            version=parsed.version,
+            limit=_PAGE_SIZE,
+            offset=page * _PAGE_SIZE,
+        )
+        match = next((item for item in books.items if item.edition == parsed.edition), None)
+        if match is not None or not books.has_more:
+            break
+    else:
+        raise CliError(
+            f"{parsed} lookup exceeded the pagination safety cap.",
+            exit_code=EXIT_UNEXPECTED,
+        )
+    if match is None:
+        raise CliError(
+            f"{parsed} does not resolve to a book. "
+            f"Run 'bookshelf show {parsed.volume}' to see what is there.",
+            exit_code=EXIT_NOT_FOUND,
+        )
+    if match.status != models.BookStatus.draft:
+        raise CliError(
+            f"{parsed} is {match.status}, and only a draft can be discarded. "
+            "Publish a corrected edition instead.",
+            exit_code=EXIT_USAGE,
+        )
+    return match
+
+
+__all__ = ["discard", "publish", "record", "validate"]

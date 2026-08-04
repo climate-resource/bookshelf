@@ -600,6 +600,22 @@ class BookshelfClient:
     async def get_book_async(self, book_id: str) -> models.BookResponse:
         return ops.parse_get_book(await self._send_async(ops.build_get_book(book_id)))
 
+    def update_book(self, book_id: str, request: models.BookUpdate) -> models.BookResponse:
+        return ops.parse_update_book(self._send(ops.build_update_book(book_id, request)))
+
+    async def update_book_async(
+        self, book_id: str, request: models.BookUpdate
+    ) -> models.BookResponse:
+        return ops.parse_update_book(
+            await self._send_async(ops.build_update_book(book_id, request))
+        )
+
+    def delete_book(self, book_id: str) -> None:
+        ops.parse_delete_book(self._send(ops.build_delete_book(book_id)))
+
+    async def delete_book_async(self, book_id: str) -> None:
+        ops.parse_delete_book(await self._send_async(ops.build_delete_book(book_id)))
+
     def list_book_entries(
         self, book_id: str, *, limit: int | None = None, cursor: str | None = None
     ) -> models.BookEntriesResponse:
@@ -811,6 +827,30 @@ class BookshelfClient:
 
     async def get_volume_async(self, volume_name: str) -> models.VolumeDetailResponse:
         return ops.parse_get_volume(await self._send_async(ops.build_get_volume(volume_name)))
+
+    def create_volume(self, request: models.VolumeCreate) -> models.VolumeResponse:
+        return ops.parse_create_volume(self._send(ops.build_create_volume(request)))
+
+    async def create_volume_async(self, request: models.VolumeCreate) -> models.VolumeResponse:
+        return ops.parse_create_volume(await self._send_async(ops.build_create_volume(request)))
+
+    def update_volume(
+        self, volume_name: str, request: models.VolumeUpdate
+    ) -> models.VolumeResponse:
+        return ops.parse_update_volume(self._send(ops.build_update_volume(volume_name, request)))
+
+    async def update_volume_async(
+        self, volume_name: str, request: models.VolumeUpdate
+    ) -> models.VolumeResponse:
+        return ops.parse_update_volume(
+            await self._send_async(ops.build_update_volume(volume_name, request))
+        )
+
+    def delete_volume(self, volume_name: str) -> None:
+        ops.parse_delete_volume(self._send(ops.build_delete_volume(volume_name)))
+
+    async def delete_volume_async(self, volume_name: str) -> None:
+        ops.parse_delete_volume(await self._send_async(ops.build_delete_volume(volume_name)))
 
     def get_catalogue_facets(self) -> models.VolumeFacets:
         return ops.parse_get_catalogue_facets(self._send(ops.build_get_catalogue_facets()))

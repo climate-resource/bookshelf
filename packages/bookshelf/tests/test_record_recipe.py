@@ -9,6 +9,7 @@ import pytest
 
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
+from bookshelf._produce.types import RegisterItem
 from bookshelf.publisher.bundle import Bundle
 from bookshelf.publisher.record import (
     _ACTIVE_RECORDING,
@@ -129,3 +130,45 @@ def test_a_recipe_that_is_silent_leaves_the_book_hidden(tmp_path: Path) -> None:
         _, book = setup(version="v1.0.0")
 
     assert book.metadata.visibility is models.Visibility.hidden
+
+
+# ----------------------------------------------------------------------
+# The book's tier is the default for the resources the build records.
+# ----------------------------------------------------------------------
+def test_recorded_resources_take_the_books_visibility(tmp_path: Path) -> None:
+    """A public book records public resources, so a generated feedstock can publish."""
+    with _recording(_write_recipe(tmp_path, "visibility: public"), tmp_path / "bundle"):
+        bs, _ = setup(version="v1.0.0")
+        with bs.activity(kind="build", code_ref="test") as activity:
+            activity.register(b"data", type="tabular")
+            activity.register_many([RegisterItem(b"batched", type="tabular")])
+            activity.register_external(type="tabular", uri="https://example.invalid/data.csv")
+        bs.recording_sink.record_document(
+            b"<html/>", logical_key="document/build.html", metadata={}
+        )
+        recorded = [r.visibility for r in bs.bundle.manifest.resources]
+
+    assert recorded == ["public", "public", "public", "public"]
+
+
+def test_a_recorded_resource_can_be_narrowed_below_the_book(tmp_path: Path) -> None:
+    """Narrowing one member of a public book is a deliberate per-resource act."""
+    with _recording(_write_recipe(tmp_path, "visibility: public"), tmp_path / "bundle"):
+        bs, _ = setup(version="v1.0.0")
+        with bs.activity(kind="build", code_ref="test") as activity:
+            activity.register(b"open", type="tabular")
+            activity.register(b"embargoed", type="tabular", visibility="hidden")
+        recorded = [r.visibility for r in bs.bundle.manifest.resources]
+
+    assert recorded == ["public", "hidden"]
+
+
+def test_a_hidden_book_still_records_hidden_resources(tmp_path: Path) -> None:
+    """The pre-existing default is unchanged when nothing declares a wider tier."""
+    with _recording(_write_recipe(tmp_path), tmp_path / "bundle"):
+        bs, _ = setup(version="v1.0.0")
+        with bs.activity(kind="build", code_ref="test") as activity:
+            activity.register(b"data", type="tabular")
+        recorded = [r.visibility for r in bs.bundle.manifest.resources]
+
+    assert recorded == ["hidden"]

@@ -9,6 +9,7 @@ from uuid import UUID
 
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
+from bookshelf._produce.visibility import INHERIT, VisibilityInput
 
 if TYPE_CHECKING:
     from bookshelf._produce.resources import AsyncResource, Resource
@@ -39,7 +40,7 @@ class RegisterItem:
     obj: object
     type: str | models.ResourceType
     logical_key: str | None = None
-    visibility: str | models.Visibility = models.Visibility.hidden
+    visibility: VisibilityInput = INHERIT
     tags: Sequence[str] = ()
     metadata: Mapping[str, Any] | None = None
     tracking_id: UUID | None = None

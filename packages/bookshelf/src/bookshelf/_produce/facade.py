@@ -36,15 +36,23 @@ from bookshelf._produce.helpers import (
 )
 from bookshelf._produce.provenance import derive_code_ref
 from bookshelf._produce.resources import AsyncResource, Resource
+from bookshelf._produce.visibility import INHERIT, VisibilityInput
 from bookshelf.cache import ContentCache
 
 
 class LiveSink:
     """Live synchronous adapter for producer writes."""
 
-    def __init__(self, client: BookshelfClient, cache: ContentCache) -> None:
+    def __init__(
+        self,
+        client: BookshelfClient,
+        cache: ContentCache,
+        *,
+        default_visibility: models.Visibility = models.Visibility.hidden,
+    ) -> None:
         self._client = client
         self._cache = cache
+        self.default_visibility = default_visibility
 
     def activity(
         self,
@@ -66,6 +74,7 @@ class LiveSink:
             config=dict(config or {}),
             runner=runner or _runner(),
             config_hash=config_hash,
+            default_visibility=self.default_visibility,
         )
 
     def register_external(
@@ -75,7 +84,7 @@ class LiveSink:
         uri: str,
         hash: str | None = None,
         logical_key: str | None = None,
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
@@ -88,7 +97,7 @@ class LiveSink:
             type=resource_type,
             hash=hash,
             logical_key=logical_key,
-            visibility=_visibility(visibility),
+            visibility=_visibility(visibility, self.default_visibility),
             tags=list(tags),
             metadata=dict(metadata or {}),
             external_uri=uri,
@@ -118,6 +127,7 @@ class LiveSink:
         license: str | None = None,
         visibility: str | models.Visibility = models.Visibility.hidden,
         metadata: Mapping[str, Any] | None = None,
+        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         bundle_hash: str | None = None,
     ) -> DraftBook:
         """Create a mutable draft whose membership changes remain intentional calls."""
@@ -132,6 +142,7 @@ class LiveSink:
                 license=models.License(root=license) if license is not None else None,
                 visibility=_visibility(visibility),
                 metadata=dict(metadata or {}),
+                data_dictionary=list(data_dictionary or []),
                 bundle_hash=(
                     models.BundleHash(root=bundle_hash) if bundle_hash is not None else None
                 ),
@@ -143,9 +154,16 @@ class LiveSink:
 class AsyncLiveSink:
     """Live asynchronous adapter for producer writes."""
 
-    def __init__(self, client: BookshelfClient, cache: ContentCache) -> None:
+    def __init__(
+        self,
+        client: BookshelfClient,
+        cache: ContentCache,
+        *,
+        default_visibility: models.Visibility = models.Visibility.hidden,
+    ) -> None:
         self._client = client
         self._cache = cache
+        self.default_visibility = default_visibility
 
     def activity(
         self,
@@ -167,6 +185,7 @@ class AsyncLiveSink:
             config=dict(config or {}),
             runner=runner or _runner(),
             config_hash=config_hash,
+            default_visibility=self.default_visibility,
         )
 
     async def register_external(
@@ -176,7 +195,7 @@ class AsyncLiveSink:
         uri: str,
         hash: str | None = None,
         logical_key: str | None = None,
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
@@ -189,7 +208,7 @@ class AsyncLiveSink:
             type=resource_type,
             hash=hash,
             logical_key=logical_key,
-            visibility=_visibility(visibility),
+            visibility=_visibility(visibility, self.default_visibility),
             tags=list(tags),
             metadata=dict(metadata or {}),
             external_uri=uri,
@@ -219,6 +238,7 @@ class AsyncLiveSink:
         license: str | None = None,
         visibility: str | models.Visibility = models.Visibility.hidden,
         metadata: Mapping[str, Any] | None = None,
+        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         bundle_hash: str | None = None,
     ) -> AsyncDraftBook:
         """Create an asynchronous mutable draft book handle."""
@@ -233,6 +253,7 @@ class AsyncLiveSink:
                 license=models.License(root=license) if license is not None else None,
                 visibility=_visibility(visibility),
                 metadata=dict(metadata or {}),
+                data_dictionary=list(data_dictionary or []),
                 bundle_hash=(
                     models.BundleHash(root=bundle_hash) if bundle_hash is not None else None
                 ),
@@ -262,7 +283,7 @@ class ProduceSink(Protocol):
         uri: str,
         hash: str | None = None,
         logical_key: str | None = None,
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
@@ -279,6 +300,7 @@ class ProduceSink(Protocol):
         license: str | None = None,
         visibility: str | models.Visibility = models.Visibility.hidden,
         metadata: Mapping[str, Any] | None = None,
+        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         bundle_hash: str | None = None,
     ) -> DraftBook: ...
 
@@ -304,7 +326,7 @@ class AsyncProduceSink(Protocol):
         uri: str,
         hash: str | None = None,
         logical_key: str | None = None,
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
@@ -321,6 +343,7 @@ class AsyncProduceSink(Protocol):
         license: str | None = None,
         visibility: str | models.Visibility = models.Visibility.hidden,
         metadata: Mapping[str, Any] | None = None,
+        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         bundle_hash: str | None = None,
     ) -> AsyncDraftBook: ...
 
@@ -357,7 +380,7 @@ class ProduceFacade:
         uri: str,
         hash: str | None = None,
         logical_key: str | None = None,
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
@@ -386,9 +409,16 @@ class ProduceFacade:
         license: str | None = None,
         visibility: str | models.Visibility = models.Visibility.hidden,
         metadata: Mapping[str, Any] | None = None,
+        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         bundle_hash: str | None = None,
     ) -> DraftBook:
-        """Create a draft through the active sink."""
+        """Create a draft through the active sink.
+
+        ``data_dictionary=`` describes the columns of the book's tabular and
+        timeseries entries. It is applied when the draft is created, so a call
+        that resumes an existing book through ``bundle_hash`` leaves the stored
+        dictionary untouched.
+        """
         return self._produce_sink.draft_book(
             volume,
             version=version,
@@ -397,6 +427,7 @@ class ProduceFacade:
             license=license,
             visibility=visibility,
             metadata=metadata,
+            data_dictionary=data_dictionary,
             bundle_hash=bundle_hash,
         )
 
@@ -433,7 +464,7 @@ class AsyncProduceFacade:
         uri: str,
         hash: str | None = None,
         logical_key: str | None = None,
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
@@ -462,9 +493,16 @@ class AsyncProduceFacade:
         license: str | None = None,
         visibility: str | models.Visibility = models.Visibility.hidden,
         metadata: Mapping[str, Any] | None = None,
+        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         bundle_hash: str | None = None,
     ) -> AsyncDraftBook:
-        """Create a draft through the active sink."""
+        """Create a draft through the active sink.
+
+        ``data_dictionary=`` describes the columns of the book's tabular and
+        timeseries entries. It is applied when the draft is created, so a call
+        that resumes an existing book through ``bundle_hash`` leaves the stored
+        dictionary untouched.
+        """
         return await self._produce_sink.draft_book(
             volume,
             version=version,
@@ -473,6 +511,7 @@ class AsyncProduceFacade:
             license=license,
             visibility=visibility,
             metadata=metadata,
+            data_dictionary=data_dictionary,
             bundle_hash=bundle_hash,
         )
 
