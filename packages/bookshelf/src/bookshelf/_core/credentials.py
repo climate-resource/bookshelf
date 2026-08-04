@@ -9,14 +9,11 @@ Secrets have two possible homes:
 1. **OS keychain** (primary, hardened store) under service name ``"bookshelf"``
    with one username per record secret (``"<key>:access_token"`` and friends).
    On read the keychain value takes precedence over the file copy.
-2. **0600 JSON file** (secondary, compatibility store) at the ``platformdirs``
+2. **JSON file** (secondary, compatibility store) at the ``platformdirs``
    user-config path ``bookshelf/credentials.json``.
-   The file always holds the record index, because that is what names the keychain entries.
-   It holds a secret only when the keychain could not take it.
+   This file is only readable by the current user.
 
-When no keychain backend is available every keychain call degrades silently
-to the file-only path.
-Loading never refreshes, the credential providers own refresh.
+When no keychain backend is available every keychain call degrades silently to the file-only path.
 """
 
 import json
@@ -90,11 +87,7 @@ def _keychain_call(operation: str, *args: str) -> str | None:
 
 
 def _keychain_set(username: str, value: str) -> bool:
-    """Store one secret and confirm it can be read back.
-
-    The return value decides whether the file copy is needed,
-    so a backend that accepts a write it cannot serve must count as a failure.
-    """
+    """Store one secret and confirm it can be read back."""
     _keychain_call("set_password", username, value)
     return _keychain_get(username) == value
 
@@ -137,18 +130,11 @@ def _read_store() -> dict[str, Any]:
 
 
 def _write_store(store: dict[str, Any]) -> None:
-    """Replace the store file atomically, so a partial write cannot destroy it.
-
-    The temporary file is a sibling of the real one,
-    because ``os.replace`` is only atomic within a single filesystem.
-    """
     creds_path = credentials_path()
     creds_path.parent.mkdir(parents=True, exist_ok=True)
+    # Make a temp file and then os.remove to avoid corrupted writes
     temporary = creds_path.with_name(f"{creds_path.name}.{os.getpid()}.tmp")
     try:
-        # Created 0600 up front.
-        # A chmod after the write would leave a window
-        # where the secrets are world readable.
         fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, stat.S_IRUSR | stat.S_IWUSR)
         try:
             os.fchmod(fd, stat.S_IRUSR | stat.S_IWUSR)

@@ -19,7 +19,8 @@ _REAL_KEYCHAIN_GET = credentials._keychain_get
 def isolated_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     path = tmp_path / "credentials.json"
     monkeypatch.setattr(credentials, "credentials_path", lambda: path)
-    # Tests must never touch the real OS keychain.
+
+    # Mock the OS keychain
     store: dict[str, str] = {}
 
     def fake_set(username: str, value: str) -> bool:
