@@ -7,9 +7,6 @@
 # Jupyter cache
 .jupyter_cache
 
-# Licence check
-licence-check.txt
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

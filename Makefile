@@ -1,9 +1,6 @@
 # Makefile to help automate key steps
 
 .DEFAULT_GOAL := help
-# Will likely fail on Windows, but Makefiles are in general not Windows
-# compatible so we're not too worried
-TEMP_FILE := $(shell mktemp)
 
 
 # some of our sources have to be downloaded from older servers, need
@@ -80,11 +77,7 @@ changelog-draft:  ## compile a draft of the next changelog
 
 .PHONY: licence-check
 licence-check:  ## Check that licences of the dependencies are suitable
-	# Will likely fail on Windows, but Makefiles are in general not Windows
-	# compatible so we're not too worried
-	uv export --without=tests --without=docs --without=dev > $(TEMP_FILE)
-	uv run liccheck -r $(TEMP_FILE) -R licence-check.txt
-	rm -f $(TEMP_FILE)
+	uv run licensecheck
 
 .PHONY: virtual-environment
 virtual-environment:  ## update virtual environment, create a new one if it doesn't already exist

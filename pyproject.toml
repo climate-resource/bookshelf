@@ -25,7 +25,7 @@ dev = [
     "ruff==0.15.0",
     "pre-commit>=3.3.1",
     "towncrier>=23.6.0",
-    "liccheck>=0.9.1",
+    "licensecheck>=2026",
     # Stubs
     "types-pyyaml>=6.0.12.20240917",
     "boto3-stubs[essential]>=1.35.39",
@@ -152,41 +152,27 @@ issue_format = "[#{issue}](https://github.com/climate-resource/bookshelf/pull/{i
   name = "Trivial/Internal Changes"
   showcontent = false
 
-[tool.liccheck]
-authorized_licenses = [
-    "bsd",
-    "bsd license",
-    "BSD 3-Clause",
-    "CC0",
-    "apache",
-    "apache 2.0",
-    "apache software",
-    "apache software license",
-    "Apache License, Version 2.0",
-    "Historical Permission Notice and Disclaimer (HPND)",
-    "isc license",
-    "isc license (iscl)",
-    "gnu lgpl",
-    "lgpl with exceptions or zpl",
-    "LGPLv2+",
-    "GNU Lesser General Public License v2 (LGPLv2)",
-    "GNU Lesser General Public License v2 or later (LGPLv2+)",
-    "mit",
-    "mit license",
-    "Mozilla Public License 2.0 (MPL 2.0)",
-    "python software foundation",
-    "python software foundation license",
-    "zpl 2.1",
-]
-# This starting list is relatively conservative. Depending on the project, it
-# may make sense to move some of these into the authorized list
-unauthorized_licenses = [
-    "agpl",
-    "gnu agpl",
-    "gpl v3",
-    "gplv3",
-    "gpl v2",
-    "gplv2",
-    "gpl v1",
-    "gplv1",
-]
+[tool.licensecheck]
+# The licences of the dependencies are checked against the licence of the distributed
+# package, which is MIT, rather than against a hand maintained list of licence names.
+license = "mit"
+format = "simple"
+file = ""
+pypi_api = ""
+show_only_failing = false
+zero = true
+# The runtime dependencies of the distributed package, plus its optional extras.
+# The dev and codegen groups and the test extra are left out.
+requirements_paths = ["packages/bookshelf/pyproject.toml"]
+extras = ["dataframes", "scmrun", "publish"]
+groups = []
+# globalwarmingpotentials is CC0, which licensecheck does not recognise from the bare
+# string, so it falls back to UNKNOWN and fails.
+ignore_packages = ["globalwarmingpotentials"]
+fail_packages = []
+# Weak copyleft is accepted even though it is not strictly MIT compatible.
+ignore_licenses = ["LGPL", "LGPLv2", "LGPLv2+", "LGPLv3", "LGPLv3+", "MPL"]
+fail_licenses = ["GPL", "GPLv2", "GPLv2+", "GPLv3", "GPLv3+", "AGPL"]
+only_licenses = []
+skip_dependencies = []
+hide_output_parameters = []
