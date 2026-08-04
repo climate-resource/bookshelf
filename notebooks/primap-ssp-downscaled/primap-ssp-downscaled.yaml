@@ -1,0 +1,15 @@
+name: primap-ssp-downscaled
+edition: 3
+license: CC-BY
+description: SSP pathways downscaled to country-level
+metadata:
+  author: Mika Pflüger
+  author_email: mika.pflueger@climate-resource.com
+
+versions:
+  - version: v1.0
+    dataset:
+      files:
+        - url: doi:10.5281/zenodo.3638137/PMSSPBIE_05Feb20.csv
+          hash: 74a967630cf406f0a5a1d49354c76d04badc901078080731a1f23b0f14ccc9da
+      author: Gütschow, Johannes, Jeffery, M. Louise, Günther, Annika, & Meinshausen, Malte
