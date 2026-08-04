@@ -14,6 +14,7 @@ from bookshelf.publisher.bundle import (
     Bundle,
     BundleResource,
     BundleUsedRef,
+    book_data_dictionary,
     compute_book_bundle_hash,
 )
 
@@ -58,6 +59,7 @@ async def replay_bundle(
         visibility=book.visibility,
         license=book.license,
         metadata=book.metadata,
+        data_dictionary=book_data_dictionary(book),
         bundle_hash=compute_book_bundle_hash(manifest),
     )
     if draft.status == "published":
@@ -159,6 +161,7 @@ def replay_bundle_sync(
         visibility=book.visibility,
         license=book.license,
         metadata=book.metadata,
+        data_dictionary=book_data_dictionary(book),
         bundle_hash=compute_book_bundle_hash(manifest),
     )
     if draft.status == "published":

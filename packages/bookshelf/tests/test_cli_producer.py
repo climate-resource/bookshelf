@@ -683,3 +683,40 @@ def test_tracking_ids_round_trip_as_uuids(tmp_path: Path) -> None:
     reloaded = Bundle.read(bundle.root)
 
     assert isinstance(reloaded.manifest.resources[0].tracking_id, UUID)
+
+
+def test_publish_sends_the_recorded_data_dictionary_on_the_draft(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The dictionary has to ride on the CLI's own draft call.
+
+    That draft is keyed on the bundle hash, so the replay underneath resumes it
+    and never reapplies the framing.
+    """
+    bundle = Bundle(tmp_path / "bundle")
+    bundle.set_book(
+        BundleBook(
+            volume="example",
+            version="v1.0.0",
+            visibility="public",
+            license="MIT",
+            data_dictionary=[{"name": "region", "type": "string", "role": "dimension"}],
+        )
+    )
+    data = b"payload"
+    resource = bundle.add_resource(
+        data=data, hash_=sha256_hex(data), type_="document", tracking_id=uuid4()
+    )
+    bundle.add_book_entry(name_in_book="entry-0", tracking_id=resource.tracking_id)
+    bundle.mark_book_published()
+    bundle.write()
+
+    client = _FakeClient(status="draft")
+    _patch_publish(monkeypatch, client, edition=2)
+
+    result = runner.invoke(app, ["publish", str(bundle.root), "--json"])
+
+    assert result.exit_code == EXIT_OK
+    sent = client.draft_kwargs["data_dictionary"]
+    assert [entry.name for entry in sent] == ["region"]
+    assert sent[0].role == "dimension"

@@ -309,11 +309,51 @@ class ClaimBlock(BaseModel):
     ]
 
 
+class ClaimGrant(BaseModel):
+    scope: Annotated[
+        str, Field(description="The scope string the access token will carry.", title="Scope")
+    ]
+    summary: Annotated[
+        str, Field(description="What the scope lets the agent do, in plain words.", title="Summary")
+    ]
+    sensitive: Annotated[
+        bool,
+        Field(
+            description="True for grants that go beyond reading and writing existing data, so the claim page can call them out rather than list them alongside the rest.",
+            title="Sensitive",
+        ),
+    ]
+
+
+class ClaimPreviewRequest(BaseModel):
+    claim_attempt_token: Annotated[
+        str,
+        Field(description="Attempt token from the verification URL.", title="Claim Attempt Token"),
+    ]
+
+
+class ClaimPreviewResponse(BaseModel):
+    registration_id: Annotated[str, Field(title="Registration Id")]
+    agent_platform: Annotated[
+        str | None,
+        Field(
+            description="Platform the agent declared at registration, if any.",
+            title="Agent Platform",
+        ),
+    ] = None
+    grants: Annotated[
+        list[ClaimGrant],
+        Field(description="Scopes the registration will carry once claimed.", title="Grants"),
+    ]
+
+
 class ClaimStartRequest(BaseModel):
     claim_token: Annotated[
         str, Field(description="The registration's claim token.", title="Claim Token")
     ]
-    email: Annotated[str, Field(description="Email the registration binds to.", title="Email")]
+    email: Annotated[
+        str, Field(description="Email the registration binds to.", min_length=3, title="Email")
+    ]
 
 
 class ClaimStartResponse(BaseModel):
@@ -568,6 +608,13 @@ class DownloadResponse(BaseModel):
     expires_in: Annotated[
         int, Field(description="URL expiration time in seconds", title="Expires In")
     ]
+    filename: Annotated[
+        str | None,
+        Field(
+            description="Name the downloaded bytes should be saved under. Presigned URLs carry it as a Content-Disposition, so a browser uses it without the caller doing anything. Clients that write the bytes themselves should use it too. Absent for external pointers, whose naming the bookshelf does not control.",
+            title="Filename",
+        ),
+    ] = None
 
 
 class DownstreamEntry(BaseModel):
@@ -887,6 +934,7 @@ class ResourceSummary(BaseModel):
     id: Annotated[str, Field(title="Id")]
     name: Annotated[str, Field(title="Name")]
     type: Annotated[str, Field(title="Type")]
+    tracking_id: Annotated[UUID, Field(title="Tracking Id")]
     format: Annotated[str | None, Field(title="Format")] = None
     size_bytes: Annotated[int | None, Field(title="Size Bytes")] = None
     hash: Annotated[str | None, Field(title="Hash")] = None
@@ -1315,6 +1363,13 @@ class BookDraftRequest(BaseModel):
     metadata: Annotated[
         dict[str, Any] | None,
         Field(description="Optional metadata blob copied onto the new book.", title="Metadata"),
+    ] = None
+    data_dictionary: Annotated[
+        list[DataDictionaryEntry] | None,
+        Field(
+            description="Column descriptions for the book's tabular and timeseries entries. Applied when the draft is created. A request that resumes an existing book through ``bundle_hash`` returns that book unchanged, so use ``PATCH /v1/books/{book_id}`` to revise a draft's dictionary.",
+            title="Data Dictionary",
+        ),
     ] = None
     bundle_hash: Annotated[
         BundleHash | None,
@@ -1818,7 +1873,7 @@ class RegisterResourceItem(BaseModel):
     external_uri: Annotated[
         str | None,
         Field(
-            description="External pointer URI. When set, the item is registered as an external pointer (J3) and ``locations`` may be omitted.",
+            description="External pointer URI. Must be ``https``. When set, the item is registered as an external pointer (J3) and ``locations`` may be omitted.",
             title="External Uri",
         ),
     ] = None
@@ -2102,6 +2157,10 @@ class VolumeListItem(BaseModel):
     resource_types: Annotated[
         list[str] | None, Field(description="Unique resource types", title="Resource Types")
     ] = None
+    formats: Annotated[
+        list[str] | None,
+        Field(description="Unique file formats across the readable resources", title="Formats"),
+    ] = None
     total_resources: Annotated[
         int | None,
         Field(description="Resources across the readable books", title="Total Resources"),
@@ -2192,6 +2251,13 @@ class BookDetail(BaseModel):
     ] = None
     metadata: Annotated[
         dict[str, Any] | None, Field(description="Free-form metadata blob.", title="Metadata")
+    ] = None
+    data_dictionary: Annotated[
+        list[DataDictionaryEntry] | None,
+        Field(
+            description="Column descriptions for the book's tabular and timeseries entries.",
+            title="Data Dictionary",
+        ),
     ] = None
     hash: Annotated[
         str | None, Field(description="Bundle SHA256 hash; only set after publish.", title="Hash")
