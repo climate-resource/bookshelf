@@ -82,22 +82,8 @@ follow_imports = "normal"
 exclude = [
     "build",
     "dist",
-    "notebooks",
     "scripts",
-    "stubs",
-    "tests",
 ]
-
-[[tool.mypy.overrides]]
-module = [
-    "scmdata",
-    "pooch",
-    "jupytext",
-    "papermill",
-    "click_log",
-    "datapackage"
-]
-ignore_missing_imports = true
 
 [tool.jupytext]
 formats = "ipynb,py:percent"
