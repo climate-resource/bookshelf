@@ -4,17 +4,16 @@ The store holds several records at once, keyed by deployment plus identity kind
 (``user`` for a WorkOS login, ``agent`` for a Bookshelf agent identity).
 One record per deployment is active, and one deployment is the default.
 
-Secrets are dual-written:
+Secrets have two possible homes:
 
 1. **OS keychain** (primary, hardened store) under service name ``"bookshelf"``
    with one username per record secret (``"<key>:access_token"`` and friends).
    On read the keychain value takes precedence over the file copy.
-2. **0600 JSON file** (secondary, compatibility store) at the ``platformdirs``
+2. **JSON file** (secondary, compatibility store) at the ``platformdirs``
    user-config path ``bookshelf/credentials.json``.
+   This file is only readable by the current user.
 
-When no keychain backend is available every keychain call degrades silently
-to the file-only path.
-Loading never refreshes, the credential providers own refresh.
+When no keychain backend is available every keychain call degrades silently to the file-only path.
 """
 
 import json
@@ -87,8 +86,10 @@ def _keychain_call(operation: str, *args: str) -> str | None:
         return None
 
 
-def _keychain_set(username: str, value: str) -> None:
+def _keychain_set(username: str, value: str) -> bool:
+    """Store one secret and confirm it can be read back."""
     _keychain_call("set_password", username, value)
+    return _keychain_get(username) == value
 
 
 def _keychain_get(username: str) -> str | None:
@@ -131,18 +132,20 @@ def _read_store() -> dict[str, Any]:
 def _write_store(store: dict[str, Any]) -> None:
     creds_path = credentials_path()
     creds_path.parent.mkdir(parents=True, exist_ok=True)
-    # Created 0600 up front.
-    # A chmod after the write would leave a window
-    # where the secrets are world readable.
-    fd = os.open(creds_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, stat.S_IRUSR | stat.S_IWUSR)
+    # Make a temp file and then os.remove to avoid corrupted writes
+    temporary = creds_path.with_name(f"{creds_path.name}.{os.getpid()}.tmp")
     try:
-        os.fchmod(fd, stat.S_IRUSR | stat.S_IWUSR)
-    except OSError:
-        os.close(fd)
-        raise
-    with os.fdopen(fd, "w") as f:
-        json.dump(store, f, indent=2)
-    creds_path.chmod(stat.S_IRUSR | stat.S_IWUSR)
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, stat.S_IRUSR | stat.S_IWUSR)
+        try:
+            os.fchmod(fd, stat.S_IRUSR | stat.S_IWUSR)
+        except OSError:
+            os.close(fd)
+            raise
+        with os.fdopen(fd, "w") as f:
+            json.dump(store, f, indent=2)
+        os.replace(temporary, creds_path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def _record_to_credentials(key: str, record: dict[str, Any]) -> StoredCredentials | None:
@@ -244,25 +247,30 @@ def save_credentials(
     api_url = normalise_api_url(api_url)
     key = record_key(api_url, kind)
 
-    _keychain_set(f"{key}:access_token", access_token)
-    if refresh_token is not None:
-        _keychain_set(f"{key}:refresh_token", refresh_token)
-    else:
-        _keychain_delete(f"{key}:refresh_token")
-    if identity_assertion is not None:
-        _keychain_set(f"{key}:identity_assertion", identity_assertion)
-    else:
-        _keychain_delete(f"{key}:identity_assertion")
+    secrets: dict[str, str | None] = {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "identity_assertion": identity_assertion,
+    }
+    # A secret reaches the file only when the keychain could not take it.
+    # The record itself always stays in the file,
+    # because it is the index that names the keychain entries.
+    for field in _SECRET_FIELDS:
+        value = secrets[field]
+        if value is None:
+            _keychain_delete(f"{key}:{field}")
+        elif _keychain_set(f"{key}:{field}", value):
+            secrets[field] = None
 
     store = _read_store()
     store["records"][key] = {
-        "access_token": access_token,
+        "access_token": secrets["access_token"],
         "token_type": token_type,
         "expires_at": expires_at.isoformat() if expires_at else None,
         "api_url": api_url,
-        "refresh_token": refresh_token,
+        "refresh_token": secrets["refresh_token"],
         "kind": kind,
-        "identity_assertion": identity_assertion,
+        "identity_assertion": secrets["identity_assertion"],
         "assertion_expires_at": assertion_expires_at.isoformat() if assertion_expires_at else None,
         "subject": subject,
         "organization_id": organization_id,

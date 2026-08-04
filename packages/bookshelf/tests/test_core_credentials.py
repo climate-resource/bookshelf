@@ -19,9 +19,15 @@ _REAL_KEYCHAIN_GET = credentials._keychain_get
 def isolated_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     path = tmp_path / "credentials.json"
     monkeypatch.setattr(credentials, "credentials_path", lambda: path)
-    # Tests must never touch the real OS keychain.
+
+    # Mock the OS keychain
     store: dict[str, str] = {}
-    monkeypatch.setattr(credentials, "_keychain_set", store.__setitem__)
+
+    def fake_set(username: str, value: str) -> bool:
+        store[username] = value
+        return True
+
+    monkeypatch.setattr(credentials, "_keychain_set", fake_set)
     monkeypatch.setattr(credentials, "_keychain_get", store.get)
     monkeypatch.setattr(credentials, "_keychain_delete", lambda k: store.pop(k, None))
     return path
@@ -43,6 +49,28 @@ def test_round_trip_with_file_permissions(isolated_store: Path) -> None:
     assert loaded.api_url == "https://api.test/bookshelf"
     mode = stat.S_IMODE(isolated_store.stat().st_mode)
     assert mode == 0o600
+
+
+def test_save_leaves_no_temporary_file_behind(isolated_store: Path) -> None:
+    credentials.save_credentials("tok", api_url="https://api.test")
+    assert isolated_store.exists()
+    assert stat.S_IMODE(isolated_store.stat().st_mode) == 0o600
+    leftovers = [
+        entry.name for entry in isolated_store.parent.iterdir() if entry.name.endswith(".tmp")
+    ]
+    assert leftovers == []
+
+
+def test_second_save_replaces_the_store_without_losing_records(isolated_store: Path) -> None:
+    credentials.save_credentials("a", api_url="https://api.test")
+    credentials.save_credentials("b", api_url="https://staging.test")
+
+    data = json.loads(isolated_store.read_text())
+    assert set(data["records"]) == {
+        credentials.record_key("https://api.test", "user"),
+        credentials.record_key("https://staging.test", "user"),
+    }
+    assert stat.S_IMODE(isolated_store.stat().st_mode) == 0o600
 
 
 def test_existing_store_permissions_are_tightened_before_write(
@@ -101,10 +129,15 @@ def test_missing_or_corrupt_file_returns_none(isolated_store: Path) -> None:
 
 
 def test_clear_removes_file_and_keychain(isolated_store: Path) -> None:
-    credentials.save_credentials("tok", api_url="https://api.test")
+    credentials.save_credentials(
+        "at", api_url="https://api.test", refresh_token="rt", identity_assertion="ia"
+    )
+    key = credentials.record_key("https://api.test", "user")
     credentials.clear_credentials()
     assert not isolated_store.exists()
     assert credentials.load_credentials() is None
+    for field in credentials._SECRET_FIELDS:
+        assert credentials._keychain_get(f"{key}:{field}") is None
 
 
 def test_expiry_derived_from_jwt_exp_when_absent(isolated_store: Path) -> None:
@@ -203,6 +236,91 @@ def test_clear_one_deployment_leaves_the_others(isolated_store: Path) -> None:
     assert remaining is not None
     # The default deployment moved off the cleared one.
     assert credentials.load_credentials() is not None
+
+
+def test_working_keychain_keeps_every_secret_out_of_the_file(isolated_store: Path) -> None:
+    credentials.save_credentials(
+        "at",
+        api_url="https://api.test",
+        refresh_token="rt",
+        identity_assertion="ia",
+    )
+
+    raw = isolated_store.read_text()
+    for secret in ("at", "rt", "ia"):
+        assert f'"{secret}"' not in raw
+
+    loaded = credentials.load_credentials()
+    assert loaded is not None
+    assert loaded.access_token == "at"
+    assert loaded.refresh_token == "rt"
+    assert loaded.identity_assertion == "ia"
+
+
+def test_absent_backend_falls_back_to_the_file_copy(
+    isolated_store: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With no keychain to hold them the secrets must still be persisted."""
+
+    class BrokenKeyring:
+        def set_password(self, *args: object) -> None:
+            raise RuntimeError("no keychain backend")
+
+        def get_password(self, *args: object) -> str:
+            raise RuntimeError("no keychain backend")
+
+    import sys
+
+    monkeypatch.setattr(credentials, "_keychain_set", _REAL_KEYCHAIN_SET)
+    monkeypatch.setattr(credentials, "_keychain_get", _REAL_KEYCHAIN_GET)
+    monkeypatch.setitem(sys.modules, "keyring", BrokenKeyring())
+    credentials.save_credentials(
+        "at", api_url="https://api.test", refresh_token="rt", identity_assertion="ia"
+    )
+
+    key = credentials.record_key("https://api.test", "user")
+    record = json.loads(isolated_store.read_text())["records"][key]
+    assert record["access_token"] == "at"
+    assert record["refresh_token"] == "rt"
+    assert record["identity_assertion"] == "ia"
+
+    loaded = credentials.load_credentials()
+    assert loaded is not None
+    assert loaded.access_token == "at"
+    assert loaded.refresh_token == "rt"
+    assert loaded.identity_assertion == "ia"
+
+
+def test_backend_that_cannot_serve_a_write_falls_back_to_the_file_copy(
+    isolated_store: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A write the backend accepts but cannot read back must not lose the secret."""
+
+    class LyingKeyring:
+        def set_password(self, *args: object) -> None:
+            return None
+
+        def get_password(self, *args: object) -> str | None:
+            return None
+
+    import sys
+
+    monkeypatch.setattr(credentials, "_keychain_set", _REAL_KEYCHAIN_SET)
+    monkeypatch.setattr(credentials, "_keychain_get", _REAL_KEYCHAIN_GET)
+    monkeypatch.setitem(sys.modules, "keyring", LyingKeyring())
+    credentials.save_credentials(
+        "at", api_url="https://api.test", refresh_token="rt", identity_assertion="ia"
+    )
+
+    key = credentials.record_key("https://api.test", "user")
+    record = json.loads(isolated_store.read_text())["records"][key]
+    assert record["access_token"] == "at"
+    assert record["refresh_token"] == "rt"
+    assert record["identity_assertion"] == "ia"
+
+    loaded = credentials.load_credentials()
+    assert loaded is not None
+    assert loaded.access_token == "at"
 
 
 def test_keychain_failure_degrades_to_file(
