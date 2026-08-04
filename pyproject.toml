@@ -75,6 +75,7 @@ follow_imports = "normal"
 exclude = [
     "build",
     "dist",
+    "notebooks",
     "scripts",
 ]
 
