@@ -204,20 +204,6 @@ class BookshelfClient:
             await self._send_async(ops.build_register_resources(request))
         )
 
-    def initiate_ingest_upload(
-        self, request: models.IngestUploadInitiateRequest
-    ) -> models.UploadInitiateResponse | models.UploadAlreadyExistsResponse:
-        return ops.parse_initiate_ingest_upload(
-            self._send(ops.build_initiate_ingest_upload(request))
-        )
-
-    async def initiate_ingest_upload_async(
-        self, request: models.IngestUploadInitiateRequest
-    ) -> models.UploadInitiateResponse | models.UploadAlreadyExistsResponse:
-        return ops.parse_initiate_ingest_upload(
-            await self._send_async(ops.build_initiate_ingest_upload(request))
-        )
-
     def put_presigned(
         self, url: str, content: bytes, *, content_type: str | None = None
     ) -> str | None:
@@ -330,12 +316,6 @@ class BookshelfClient:
         )
         return to_pandas(require_payload(payload))
 
-    def get_url(self, url: str) -> bytes:
-        return ops.parse_get_url(self._send(ops.build_get_url(url)))
-
-    async def get_url_async(self, url: str) -> bytes:
-        return ops.parse_get_url(await self._send_async(ops.build_get_url(url)))
-
     def stream_url_to_path(self, url: str, destination: Path) -> None:
         """Stream an API issued content URL to a local path without API credentials."""
         with self._sync_client.stream("GET", url, auth=None) as response:
@@ -362,60 +342,6 @@ class BookshelfClient:
     async def publish_book_async(self, book_id: str) -> models.BookDetail:
         return ops.parse_publish_book(await self._send_async(ops.build_publish_book(book_id)))
 
-    def list_books(
-        self,
-        *,
-        volume: str | None = None,
-        version: str | None = None,
-        status: str | None = None,
-        latest_only: bool | None = None,
-        producer_version: str | None = None,
-        config_hash: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-    ) -> models.BookListResponse:
-        return ops.parse_list_books(
-            self._send(
-                ops.build_list_books(
-                    volume=volume,
-                    version=version,
-                    status=status,
-                    latest_only=latest_only,
-                    producer_version=producer_version,
-                    config_hash=config_hash,
-                    limit=limit,
-                    offset=offset,
-                )
-            )
-        )
-
-    async def list_books_async(
-        self,
-        *,
-        volume: str | None = None,
-        version: str | None = None,
-        status: str | None = None,
-        latest_only: bool | None = None,
-        producer_version: str | None = None,
-        config_hash: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-    ) -> models.BookListResponse:
-        return ops.parse_list_books(
-            await self._send_async(
-                ops.build_list_books(
-                    volume=volume,
-                    version=version,
-                    status=status,
-                    latest_only=latest_only,
-                    producer_version=producer_version,
-                    config_hash=config_hash,
-                    limit=limit,
-                    offset=offset,
-                )
-            )
-        )
-
     def update_book(self, book_id: str, request: models.BookUpdate) -> models.BookResponse:
         return ops.parse_update_book(self._send(ops.build_update_book(book_id, request)))
 
@@ -424,20 +350,6 @@ class BookshelfClient:
     ) -> models.BookResponse:
         return ops.parse_update_book(
             await self._send_async(ops.build_update_book(book_id, request))
-        )
-
-    def list_book_entries(
-        self, book_id: str, *, limit: int | None = None, cursor: str | None = None
-    ) -> models.BookEntriesResponse:
-        return ops.parse_list_book_entries(
-            self._send(ops.build_list_book_entries(book_id, limit=limit, cursor=cursor))
-        )
-
-    async def list_book_entries_async(
-        self, book_id: str, *, limit: int | None = None, cursor: str | None = None
-    ) -> models.BookEntriesResponse:
-        return ops.parse_list_book_entries(
-            await self._send_async(ops.build_list_book_entries(book_id, limit=limit, cursor=cursor))
         )
 
     def list_resources(
@@ -488,48 +400,6 @@ class BookshelfClient:
                     cursor=cursor,
                 )
             )
-        )
-
-    def get_resource(
-        self, tracking_id: str | UUID, *, as_of: str | None = None
-    ) -> models.ResourceRead:
-        return ops.parse_get_resource(self._send(ops.build_get_resource(tracking_id, as_of=as_of)))
-
-    async def get_resource_async(
-        self, tracking_id: str | UUID, *, as_of: str | None = None
-    ) -> models.ResourceRead:
-        return ops.parse_get_resource(
-            await self._send_async(ops.build_get_resource(tracking_id, as_of=as_of))
-        )
-
-    def get_resource_download(
-        self, tracking_id: str | UUID, *, expires_in: int | None = None
-    ) -> models.DownloadResponse:
-        return ops.parse_get_resource_download(
-            self._send(ops.build_get_resource_download(tracking_id, expires_in=expires_in))
-        )
-
-    async def get_resource_download_async(
-        self, tracking_id: str | UUID, *, expires_in: int | None = None
-    ) -> models.DownloadResponse:
-        return ops.parse_get_resource_download(
-            await self._send_async(
-                ops.build_get_resource_download(tracking_id, expires_in=expires_in)
-            )
-        )
-
-    def invalidate_resource(
-        self, tracking_id: str | UUID, request: models.InvalidateRequest
-    ) -> models.InvalidateResponse:
-        return ops.parse_invalidate_resource(
-            self._send(ops.build_invalidate_resource(tracking_id, request))
-        )
-
-    async def invalidate_resource_async(
-        self, tracking_id: str | UUID, request: models.InvalidateRequest
-    ) -> models.InvalidateResponse:
-        return ops.parse_invalidate_resource(
-            await self._send_async(ops.build_invalidate_resource(tracking_id, request))
         )
 
     def list_resource_events(
@@ -632,12 +502,6 @@ class BookshelfClient:
             )
         )
 
-    def get_volume(self, volume_name: str) -> models.VolumeDetailResponse:
-        return ops.parse_get_volume(self._send(ops.build_get_volume(volume_name)))
-
-    async def get_volume_async(self, volume_name: str) -> models.VolumeDetailResponse:
-        return ops.parse_get_volume(await self._send_async(ops.build_get_volume(volume_name)))
-
     def update_volume(
         self, volume_name: str, request: models.VolumeUpdate
     ) -> models.VolumeResponse:
@@ -649,20 +513,6 @@ class BookshelfClient:
         return ops.parse_update_volume(
             await self._send_async(ops.build_update_volume(volume_name, request))
         )
-
-    def get_catalogue_facets(self) -> models.VolumeFacets:
-        return ops.parse_get_catalogue_facets(self._send(ops.build_get_catalogue_facets()))
-
-    async def get_catalogue_facets_async(self) -> models.VolumeFacets:
-        return ops.parse_get_catalogue_facets(
-            await self._send_async(ops.build_get_catalogue_facets())
-        )
-
-    def get_current_user(self) -> models.UserResponse:
-        return ops.parse_get_current_user(self._send(ops.build_get_current_user()))
-
-    async def get_current_user_async(self) -> models.UserResponse:
-        return ops.parse_get_current_user(await self._send_async(ops.build_get_current_user()))
 
     def register_agent_identity(
         self, request: models.AgentIdentityRequest
@@ -898,6 +748,156 @@ class BookshelfClient:
                     year_min=year_min,
                     year_max=year_max,
                     filters=filters,
+                )
+            )
+        )
+
+    def get_catalogue_facets(self) -> models.VolumeFacets:
+        return ops.parse_get_catalogue_facets(self._send(ops.build_get_catalogue_facets()))
+
+    async def get_catalogue_facets_async(self) -> models.VolumeFacets:
+        return ops.parse_get_catalogue_facets(
+            await self._send_async(ops.build_get_catalogue_facets())
+        )
+
+    def get_current_user(self) -> models.UserResponse:
+        return ops.parse_get_current_user(self._send(ops.build_get_current_user()))
+
+    async def get_current_user_async(self) -> models.UserResponse:
+        return ops.parse_get_current_user(await self._send_async(ops.build_get_current_user()))
+
+    def get_resource(
+        self, tracking_id: str | UUID, *, as_of: str | None = None
+    ) -> models.ResourceRead:
+        return ops.parse_get_resource(self._send(ops.build_get_resource(tracking_id, as_of=as_of)))
+
+    async def get_resource_async(
+        self, tracking_id: str | UUID, *, as_of: str | None = None
+    ) -> models.ResourceRead:
+        return ops.parse_get_resource(
+            await self._send_async(ops.build_get_resource(tracking_id, as_of=as_of))
+        )
+
+    def get_resource_download(
+        self, tracking_id: str | UUID, *, expires_in: int | None = None
+    ) -> models.DownloadResponse:
+        return ops.parse_get_resource_download(
+            self._send(ops.build_get_resource_download(tracking_id, expires_in=expires_in))
+        )
+
+    async def get_resource_download_async(
+        self, tracking_id: str | UUID, *, expires_in: int | None = None
+    ) -> models.DownloadResponse:
+        return ops.parse_get_resource_download(
+            await self._send_async(
+                ops.build_get_resource_download(tracking_id, expires_in=expires_in)
+            )
+        )
+
+    def get_url(self, url: str) -> bytes:
+        return ops.parse_get_url(self._send(ops.build_get_url(url)))
+
+    async def get_url_async(self, url: str) -> bytes:
+        return ops.parse_get_url(await self._send_async(ops.build_get_url(url)))
+
+    def get_volume(self, volume_name: str) -> models.VolumeDetailResponse:
+        return ops.parse_get_volume(self._send(ops.build_get_volume(volume_name)))
+
+    async def get_volume_async(self, volume_name: str) -> models.VolumeDetailResponse:
+        return ops.parse_get_volume(await self._send_async(ops.build_get_volume(volume_name)))
+
+    def initiate_ingest_upload(
+        self, request: models.IngestUploadInitiateRequest
+    ) -> models.UploadInitiateResponse | models.UploadAlreadyExistsResponse:
+        return ops.parse_initiate_ingest_upload(
+            self._send(ops.build_initiate_ingest_upload(request))
+        )
+
+    async def initiate_ingest_upload_async(
+        self, request: models.IngestUploadInitiateRequest
+    ) -> models.UploadInitiateResponse | models.UploadAlreadyExistsResponse:
+        return ops.parse_initiate_ingest_upload(
+            await self._send_async(ops.build_initiate_ingest_upload(request))
+        )
+
+    def invalidate_resource(
+        self, tracking_id: str | UUID, request: models.InvalidateRequest
+    ) -> models.InvalidateResponse:
+        return ops.parse_invalidate_resource(
+            self._send(ops.build_invalidate_resource(tracking_id, request))
+        )
+
+    async def invalidate_resource_async(
+        self, tracking_id: str | UUID, request: models.InvalidateRequest
+    ) -> models.InvalidateResponse:
+        return ops.parse_invalidate_resource(
+            await self._send_async(ops.build_invalidate_resource(tracking_id, request))
+        )
+
+    def list_book_entries(
+        self, book_id: str, *, limit: int | None = None, cursor: str | None = None
+    ) -> models.BookEntriesResponse:
+        return ops.parse_list_book_entries(
+            self._send(ops.build_list_book_entries(book_id, limit=limit, cursor=cursor))
+        )
+
+    async def list_book_entries_async(
+        self, book_id: str, *, limit: int | None = None, cursor: str | None = None
+    ) -> models.BookEntriesResponse:
+        return ops.parse_list_book_entries(
+            await self._send_async(ops.build_list_book_entries(book_id, limit=limit, cursor=cursor))
+        )
+
+    def list_books(
+        self,
+        *,
+        volume: str | None = None,
+        version: str | None = None,
+        status: str | None = None,
+        latest_only: bool | None = None,
+        producer_version: str | None = None,
+        config_hash: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> models.BookListResponse:
+        return ops.parse_list_books(
+            self._send(
+                ops.build_list_books(
+                    volume=volume,
+                    version=version,
+                    status=status,
+                    latest_only=latest_only,
+                    producer_version=producer_version,
+                    config_hash=config_hash,
+                    limit=limit,
+                    offset=offset,
+                )
+            )
+        )
+
+    async def list_books_async(
+        self,
+        *,
+        volume: str | None = None,
+        version: str | None = None,
+        status: str | None = None,
+        latest_only: bool | None = None,
+        producer_version: str | None = None,
+        config_hash: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> models.BookListResponse:
+        return ops.parse_list_books(
+            await self._send_async(
+                ops.build_list_books(
+                    volume=volume,
+                    version=version,
+                    status=status,
+                    latest_only=latest_only,
+                    producer_version=producer_version,
+                    config_hash=config_hash,
+                    limit=limit,
+                    offset=offset,
                 )
             )
         )
