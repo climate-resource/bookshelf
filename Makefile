@@ -81,7 +81,10 @@ changelog-draft:  ## compile a draft of the next changelog
 licence-check:  ## Check that licences of the dependencies are suitable
 	# Will likely fail on Windows, but Makefiles are in general not Windows
 	# compatible so we're not too worried
-	uv export --without=tests --without=docs --without=dev > $(TEMP_FILE)
+	uv export --no-group dev --no-emit-workspace > $(TEMP_FILE)
+	# liccheck needs pip and pkg_resources in its own environment, so the dev group
+	# carries both. setuptools is pinned below 81 because later versions dropped
+	# pkg_resources, which liccheck still imports.
 	uv run liccheck -r $(TEMP_FILE) -R licence-check.txt
 	rm -f $(TEMP_FILE)
 
