@@ -45,6 +45,28 @@ def test_round_trip_with_file_permissions(isolated_store: Path) -> None:
     assert mode == 0o600
 
 
+def test_save_leaves_no_temporary_file_behind(isolated_store: Path) -> None:
+    credentials.save_credentials("tok", api_url="https://api.test")
+    assert isolated_store.exists()
+    assert stat.S_IMODE(isolated_store.stat().st_mode) == 0o600
+    leftovers = [
+        entry.name for entry in isolated_store.parent.iterdir() if entry.name.endswith(".tmp")
+    ]
+    assert leftovers == []
+
+
+def test_second_save_replaces_the_store_without_losing_records(isolated_store: Path) -> None:
+    credentials.save_credentials("a", api_url="https://api.test")
+    credentials.save_credentials("b", api_url="https://staging.test")
+
+    data = json.loads(isolated_store.read_text())
+    assert set(data["records"]) == {
+        credentials.record_key("https://api.test", "user"),
+        credentials.record_key("https://staging.test", "user"),
+    }
+    assert stat.S_IMODE(isolated_store.stat().st_mode) == 0o600
+
+
 def test_existing_store_permissions_are_tightened_before_write(
     isolated_store: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -129,20 +129,29 @@ def _read_store() -> dict[str, Any]:
 
 
 def _write_store(store: dict[str, Any]) -> None:
+    """Replace the store file atomically, so a partial write cannot destroy it.
+
+    The temporary file is a sibling of the real one,
+    because ``os.replace`` is only atomic within a single filesystem.
+    """
     creds_path = credentials_path()
     creds_path.parent.mkdir(parents=True, exist_ok=True)
-    # Created 0600 up front.
-    # A chmod after the write would leave a window
-    # where the secrets are world readable.
-    fd = os.open(creds_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, stat.S_IRUSR | stat.S_IWUSR)
+    temporary = creds_path.with_name(f"{creds_path.name}.{os.getpid()}.tmp")
     try:
-        os.fchmod(fd, stat.S_IRUSR | stat.S_IWUSR)
-    except OSError:
-        os.close(fd)
-        raise
-    with os.fdopen(fd, "w") as f:
-        json.dump(store, f, indent=2)
-    creds_path.chmod(stat.S_IRUSR | stat.S_IWUSR)
+        # Created 0600 up front.
+        # A chmod after the write would leave a window
+        # where the secrets are world readable.
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, stat.S_IRUSR | stat.S_IWUSR)
+        try:
+            os.fchmod(fd, stat.S_IRUSR | stat.S_IWUSR)
+        except OSError:
+            os.close(fd)
+            raise
+        with os.fdopen(fd, "w") as f:
+            json.dump(store, f, indent=2)
+        os.replace(temporary, creds_path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def _record_to_credentials(key: str, record: dict[str, Any]) -> StoredCredentials | None:
