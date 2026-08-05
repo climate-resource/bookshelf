@@ -11,7 +11,7 @@ PublishKind = Literal["no-op", "would-publish", "published"]
 """What a publish did: nothing, nothing yet, or a replay through to publication."""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class PublishOutcome:
     """What publishing a bundle resolved to.
 
@@ -49,11 +49,26 @@ def publish_bundle(bundle: Bundle, bs: Bookshelf, *, dry_run: bool = False) -> P
     resources = len(bundle.manifest.resources)
     drafted = draft_bundle_book_sync(bundle, bs)
     if drafted.status == "published":
-        return PublishOutcome("no-op", drafted.metadata.edition, 0, bundle_hash)
+        return PublishOutcome(
+            kind="no-op",
+            edition=drafted.metadata.edition,
+            resources=0,
+            bundle_hash=bundle_hash,
+        )
     if dry_run:
-        return PublishOutcome("would-publish", drafted.metadata.edition, resources, bundle_hash)
+        return PublishOutcome(
+            kind="would-publish",
+            edition=drafted.metadata.edition,
+            resources=resources,
+            bundle_hash=bundle_hash,
+        )
     published = replay_bundle_sync(bundle, bs, draft=drafted)
-    return PublishOutcome("published", published.metadata.edition, resources, bundle_hash)
+    return PublishOutcome(
+        kind="published",
+        edition=published.metadata.edition,
+        resources=resources,
+        bundle_hash=bundle_hash,
+    )
 
 
 __all__ = ["PublishKind", "PublishOutcome", "publish_bundle"]

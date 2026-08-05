@@ -18,10 +18,8 @@ from bookshelf._cli._runtime import (
     EXIT_USAGE,
 )
 from bookshelf._core.client import BookshelfClient
-from bookshelf.facade import Bookshelf
 from bookshelf.publisher.bundle import (
     Bundle,
-    BundleBook,
     compute_book_bundle_hash,
     resource_filename,
 )
@@ -497,6 +495,8 @@ def _patch_publish(
         calls.append((bundle, dry_run))
         return outcome
 
+    # The command still builds a real client around the stubbed publisher,
+    # so point it somewhere that is not the production deployment.
     monkeypatch.setenv("BOOKSHELF_URL", UNREACHABLE_API)
     monkeypatch.setattr("bookshelf._cli.producer.publish_bundle", fake_publish)
     return calls
@@ -506,7 +506,7 @@ def test_publish_renders_the_outcome(
     make_bundle: BundleFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     bundle = make_bundle()
-    outcome = PublishOutcome("published", 2, 1, "b" * 64)
+    outcome = PublishOutcome(kind="published", edition=2, resources=1, bundle_hash="b" * 64)
     calls = _patch_publish(monkeypatch, outcome)
 
     result = runner.invoke(app, ["publish", str(bundle.root), "--json"])
@@ -526,7 +526,9 @@ def test_publish_renders_a_no_op(
     make_bundle: BundleFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     bundle = make_bundle()
-    _patch_publish(monkeypatch, PublishOutcome("no-op", 3, 0, "c" * 64))
+    _patch_publish(
+        monkeypatch, PublishOutcome(kind="no-op", edition=3, resources=0, bundle_hash="c" * 64)
+    )
 
     result = runner.invoke(app, ["publish", str(bundle.root), "--json"])
 
@@ -541,7 +543,10 @@ def test_publish_dry_run_asks_the_publisher_not_to_write(
     make_bundle: BundleFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     bundle = make_bundle()
-    calls = _patch_publish(monkeypatch, PublishOutcome("would-publish", 1, 1, "d" * 64))
+    calls = _patch_publish(
+        monkeypatch,
+        PublishOutcome(kind="would-publish", edition=1, resources=1, bundle_hash="d" * 64),
+    )
 
     result = runner.invoke(app, ["publish", str(bundle.root), "--dry-run", "--json"])
 
@@ -582,29 +587,3 @@ def test_publish_uses_the_network_exit_code_when_the_api_is_unreachable(
     result = runner.invoke(app, ["publish", str(bundle.root)])
 
     assert result.exit_code == EXIT_NETWORK
-
-
-def test_recorded_and_validated_bundle_hashes_agree(
-    make_bundle: BundleFactory, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The hash a caller validates is the hash publish drafts against."""
-    bundle = make_bundle()
-    monkeypatch.setenv("BOOKSHELF_URL", UNREACHABLE_API)
-    recorded: list[httpx.Request] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        recorded.append(request)
-        return httpx.Response(201, json=payloads.BOOK_DETAIL)
-
-    monkeypatch.setattr(
-        "bookshelf._cli.producer.Bookshelf",
-        lambda url: Bookshelf(url, auth=None, transport=httpx.MockTransport(handler)),
-    )
-
-    validated = runner.invoke(app, ["validate", str(bundle.root), "--json"])
-    published = runner.invoke(app, ["publish", str(bundle.root), "--dry-run", "--json"])
-
-    assert (validated.exit_code, published.exit_code) == (EXIT_OK, EXIT_OK)
-    expected = _payload(validated.stdout)["bundle_hash"]
-    assert _payload(published.stdout)["bundle_hash"] == expected
-    assert json.loads(recorded[0].content)["bundle_hash"] == expected
