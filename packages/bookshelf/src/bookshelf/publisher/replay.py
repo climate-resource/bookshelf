@@ -12,6 +12,7 @@ from bookshelf._produce.types import Used, UsedInput
 from bookshelf.facade import AsyncBookshelf, Bookshelf
 from bookshelf.publisher.bundle import (
     Bundle,
+    BundleBook,
     BundleResource,
     BundleUsedRef,
     book_data_dictionary,
@@ -19,9 +20,68 @@ from bookshelf.publisher.bundle import (
 )
 
 
+def _book_framing(bundle: Bundle) -> BundleBook:
+    book = bundle.manifest.book
+    if book is None:
+        raise ValueError("bundle has no book framing")
+    return book
+
+
+async def draft_bundle_book(bundle: Bundle, bs: AsyncBookshelf) -> AsyncDraftBook:
+    """Draft the bundle's book through an asynchronous Bookshelf client.
+
+    The draft is keyed on the bundle hash,
+    so drafting is how a caller learns whether the edition already exists.
+    The data dictionary has to travel on this call or it never reaches the book.
+
+    Args:
+        bundle: Loaded bundle carrying the book framing.
+        bs: Open asynchronous client used for the draft.
+
+    Returns:
+        The existing published book or the draft to replay into.
+
+    Raises:
+        ValueError: The bundle has no book framing.
+    """
+    book = _book_framing(bundle)
+    return await bs.draft_book(
+        book.volume,
+        version=book.version,
+        description=book.description,
+        citation_doi=book.citation_doi,
+        visibility=book.visibility,
+        license=book.license,
+        metadata=book.metadata,
+        data_dictionary=book_data_dictionary(book),
+        bundle_hash=compute_book_bundle_hash(bundle.manifest),
+    )
+
+
+def draft_bundle_book_sync(bundle: Bundle, bs: Bookshelf) -> DraftBook:
+    """Draft the bundle's book through a synchronous Bookshelf client.
+
+    This is the synchronous counterpart to :func:`draft_bundle_book`.
+    """
+    book = _book_framing(bundle)
+    return bs.draft_book(
+        book.volume,
+        version=book.version,
+        description=book.description,
+        citation_doi=book.citation_doi,
+        visibility=book.visibility,
+        license=book.license,
+        metadata=book.metadata,
+        data_dictionary=book_data_dictionary(book),
+        bundle_hash=compute_book_bundle_hash(bundle.manifest),
+    )
+
+
 async def replay_bundle(
     bundle: Path | Bundle,
     bs: AsyncBookshelf,
+    *,
+    draft: AsyncDraftBook | None = None,
 ) -> AsyncDraftBook:
     """Replay a recorded bundle through an asynchronous Bookshelf client.
 
@@ -39,6 +99,8 @@ async def replay_bundle(
     Args:
         bundle: Bundle directory or an already loaded bundle.
         bs: Open asynchronous client used for all replay writes.
+        draft: Draft already resolved by :func:`draft_bundle_book`, so a caller that
+            drafted to decide what to do does not draft a second time.
 
     Returns:
         The existing published book or the draft populated by this replay.
@@ -48,22 +110,10 @@ async def replay_bundle(
     """
     recorded = Bundle.read(bundle) if isinstance(bundle, Path) else bundle
     manifest = recorded.manifest
-    book = manifest.book
-    if book is None:
-        raise ValueError("bundle has no book framing")
-    draft = await bs.draft_book(
-        book.volume,
-        version=book.version,
-        description=book.description,
-        citation_doi=book.citation_doi,
-        visibility=book.visibility,
-        license=book.license,
-        metadata=book.metadata,
-        data_dictionary=book_data_dictionary(book),
-        bundle_hash=compute_book_bundle_hash(manifest),
-    )
-    if draft.status == "published":
-        return draft
+    book = _book_framing(recorded)
+    resolved = draft if draft is not None else await draft_bundle_book(recorded, bs)
+    if resolved.status == "published":
+        return resolved
 
     resources: dict[UUID, AsyncResource] = {}
     generated = [resource for resource in manifest.resources if resource.generated]
@@ -129,20 +179,23 @@ async def replay_bundle(
         raise ValueError("generated bundle resources require a recorded activity")
 
     for entry in book.entries:
-        await draft.attach(resources[entry.tracking_id], name_in_book=entry.name_in_book)
+        await resolved.attach(resources[entry.tracking_id], name_in_book=entry.name_in_book)
     if book.published:
-        await draft.publish()
-    return draft
+        await resolved.publish()
+    return resolved
 
 
 def replay_bundle_sync(
     bundle: Path | Bundle,
     bs: Bookshelf,
+    *,
+    draft: DraftBook | None = None,
 ) -> DraftBook:
     """Replay a recorded bundle through a synchronous Bookshelf client.
 
     This is the synchronous counterpart to :func:`replay_bundle`.
-    It accepts the same path or loaded bundle forms.
+    It accepts the same path or loaded bundle forms,
+    and the same already-resolved draft.
     It preserves the same identifiers,
     lineage,
     draft-resume,
@@ -150,22 +203,10 @@ def replay_bundle_sync(
     """
     recorded = Bundle.read(bundle) if isinstance(bundle, Path) else bundle
     manifest = recorded.manifest
-    book = manifest.book
-    if book is None:
-        raise ValueError("bundle has no book framing")
-    draft = bs.draft_book(
-        book.volume,
-        version=book.version,
-        description=book.description,
-        citation_doi=book.citation_doi,
-        visibility=book.visibility,
-        license=book.license,
-        metadata=book.metadata,
-        data_dictionary=book_data_dictionary(book),
-        bundle_hash=compute_book_bundle_hash(manifest),
-    )
-    if draft.status == "published":
-        return draft
+    book = _book_framing(recorded)
+    resolved = draft if draft is not None else draft_bundle_book_sync(recorded, bs)
+    if resolved.status == "published":
+        return resolved
 
     resources: dict[UUID, Resource] = {}
     generated = [resource for resource in manifest.resources if resource.generated]
@@ -231,10 +272,10 @@ def replay_bundle_sync(
         raise ValueError("generated bundle resources require a recorded activity")
 
     for entry in book.entries:
-        draft.attach(resources[entry.tracking_id], name_in_book=entry.name_in_book)
+        resolved.attach(resources[entry.tracking_id], name_in_book=entry.name_in_book)
     if book.published:
-        draft.publish()
-    return draft
+        resolved.publish()
+    return resolved
 
 
 def _resource_used(
@@ -289,4 +330,4 @@ def _used_value(reference: BundleUsedRef) -> Used | UUID:
     raise ValueError("recorded used reference has no coordinate")
 
 
-__all__ = ["replay_bundle", "replay_bundle_sync"]
+__all__ = ["draft_bundle_book", "draft_bundle_book_sync", "replay_bundle", "replay_bundle_sync"]
