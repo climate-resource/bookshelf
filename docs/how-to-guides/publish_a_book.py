@@ -14,11 +14,7 @@
 # %% [markdown]
 # # Publishing a book
 #
-# This guide covers the producer side of the SDK:
-# deriving data from something already published,
-# registering it with its lineage,
-# and assembling it into a book.
-#
+# This guide covers the publication side of the SDK.
 # Publishing splits into two halves.
 #
 # - **Recording** runs the processing and captures what would be published into a bundle.

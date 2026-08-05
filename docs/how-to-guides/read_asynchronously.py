@@ -14,12 +14,55 @@
 # %% [markdown]
 # # Reading asynchronously
 #
-# `AsyncBookshelf` mirrors `Bookshelf`.
-# Every call that reaches the API is awaited,
-# and everything else behaves the same way.
+# `AsyncBookshelf` mirrors `Bookshelf` with the same functionality,
+# except that every call reaching the API is awaited.
+# Everything else behaves the same way.
 #
-# Reach for it when fetching several books concurrently,
+# Use this when fetching several books concurrently,
 # or when the SDK is embedded in an async service.
+
+# %% [markdown]
+# > **Note: If you have not written async Python before**
+# >
+# > Fetching a book is mostly waiting.
+# > The request goes out, the server does its work, and the bytes come back.
+# > During that wait the program has nothing to do.
+# >
+# > Ordinary synchronous code waits with the whole program stopped.
+# > Four books fetched one after another cost four waits back to back.
+# >
+# > `async` code hands that waiting time back.
+# > `await` marks a point where the function pauses,
+# > lets other work run, and resumes when its answer arrives.
+# > An **event loop** does the swapping between paused functions.
+# >
+# > Two consequences follow, and both matter here.
+# >
+# > - Requests can be **in flight at the same time**, so four fetches take
+# >   roughly as long as the slowest one rather than the sum of all four.
+# > - Any code you run inside a loop must not block it.
+# >   One synchronous call that stalls for a second stalls everything else on that loop too.
+# >
+# > This is concurrency, not parallelism.
+# > It is still one thread doing one thing at a time.
+# > It just stops sitting idle while the network works.
+# > That is why it speeds up waiting on many requests and does nothing
+# > for a single request, or for heavy computation on data already in memory.
+# >
+# > Three pieces of syntax cover everything below.
+# >
+# > - `async def` declares a function that is allowed to pause.
+# > - `await` pauses until one result is ready.
+# > - `asyncio.gather(...)` starts several at once and waits for all of them.
+# >
+# > Calling an `async def` function does not run it.
+# > It returns a coroutine that does nothing until awaited,
+# > which is the usual first surprise.
+# >
+# > Notebooks run inside an event loop already,
+# > so `await` works at the top level of a cell as it does below.
+# > A plain `.py` script has no loop running,
+# > so it needs `asyncio.run(main())` as its entry point.
 
 # %%
 import asyncio
@@ -30,7 +73,7 @@ os.environ.setdefault("BOOKSHELF_URL", "https://bookshelf-staging.ovh.climateres
 from bookshelf import AsyncBookshelf
 
 # %% [markdown]
-# ## The same work, awaited
+# ## awaiting
 #
 # Resolving the book and converting its data are both awaited.
 # Indexing the book is not, because it is a local lookup over entries already fetched.
@@ -54,8 +97,8 @@ await latest_co2()
 # %% [markdown]
 # ## Fetching concurrently
 #
-# This is the reason to use the async facade for analysis work.
-# One client, many requests in flight.
+# This is the reason to use the async workflows for analysis work.
+# With a single client, you can fetch many requests in parallel.
 
 # %%
 COORDINATES = [

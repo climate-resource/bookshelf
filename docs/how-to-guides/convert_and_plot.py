@@ -136,10 +136,10 @@ path.stat().st_size
 # ```
 
 # %% [markdown]
-# !!! warning "Prefer the book entry for timeseries"
-#
-#     `entry.as_resource()` drops the book context and returns the lean resource handle.
-#     That handle accepts the richer `col.op` filter grammar,
-#     but `as_df()` on a lean **timeseries** resource does not currently
-#     reassemble the year columns correctly.
-#     Read timeseries through the book entry, as this guide does.
+# > **Warning: Prefer the book entry for timeseries**
+# >
+# > `entry.as_resource()` drops the book context and returns the lean resource handle.
+# > That handle accepts the richer `col.op` filter grammar,
+# > but `as_df()` on a lean **timeseries** resource does not currently
+# > reassemble the year columns correctly.
+# > Read timeseries through the book entry, as this guide does.

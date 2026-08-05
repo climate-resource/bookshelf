@@ -163,13 +163,13 @@ world = entry.as_df(region="World", year_min=2020, year_max=2100)
 world.shape
 
 # %% [markdown]
-# !!! warning "Filter syntax differs by path"
-#
-#     A book entry accepts bare `column=value` filters only.
-#     The richer `col.op` grammar (`region.in`, `variable.neq` and friends)
-#     is **silently ignored** here rather than rejected,
-#     so a mistyped filter returns the full unfiltered result.
-#     Check the row count when a filter is meant to narrow something.
+# > **Warning: Filter syntax differs by path**
+# >
+# > A book entry accepts bare `column=value` filters only.
+# > The richer `col.op` grammar (`region.in`, `variable.neq` and friends)
+# > is **silently ignored** here rather than rejected,
+# > so a mistyped filter returns the full unfiltered result.
+# > Check the row count when a filter is meant to narrow something.
 
 # %% [markdown]
 # `top_n` keeps only the largest series,
@@ -181,14 +181,14 @@ top = entry.as_df(top_n=5, year_min=2020, year_max=2100)
 top.shape
 
 # %% [markdown]
-# !!! warning "Trimming can drop index dimensions"
-#
-#     When `top_n` or `limit` narrows the result to rows sharing a value,
-#     the server drops that column from the index rather than repeating it.
-#     The frame above has fewer index levels than the untrimmed one.
-#     That is fine for a chart, and it breaks `as_scmrun()`,
-#     which requires `region`, `unit`, `variable`, `model` and `scenario` to be present.
-#     Use a year window and filters when the index has to stay whole.
+# > **Warning: Trimming can drop index dimensions**
+# >
+# > When `top_n` or `limit` narrows the result to rows sharing a value,
+# > the server drops that column from the index rather than repeating it.
+# > The frame above has fewer index levels than the untrimmed one.
+# > That is fine for a chart, and it breaks `as_scmrun()`,
+# > which requires `region`, `unit`, `variable`, `model` and `scenario` to be present.
+# > Use a year window and filters when the index has to stay whole.
 
 # %%
 top.index.names
