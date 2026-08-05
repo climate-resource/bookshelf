@@ -68,8 +68,7 @@ the manifest, the recorded bytes, and the hash of each.
 :meth:`Bundle.validate` asserts them and raises :class:`InvalidBundleError`,
 so every caller refuses the same bundles for the same reasons.
 
-Serialisation reuses :func:`~bookshelf.publisher.lock._dump_sorted_yaml`.
-The manifest therefore has the same on-disk shape as ``bookshelf.lock``.
+Serialisation is deterministic.
 It uses sorted keys,
 LF newlines,
 and no timestamps.
@@ -89,7 +88,6 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from bookshelf._core.errors import BookshelfError
 from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
 from bookshelf._generated import models
-from bookshelf.publisher.lock import _dump_sorted_yaml
 
 BUNDLE_SCHEMA_VERSION = "1.0"
 
@@ -472,6 +470,38 @@ def compute_book_bundle_hash(manifest: BundleManifest) -> str:
         "visibility": manifest.book.visibility,
     }
     return hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
+
+
+def _sort_recursive(obj: Any) -> Any:  # noqa: ANN401
+    """Recursively sort every mapping by key, preserving list order."""
+    if isinstance(obj, dict):
+        return {k: _sort_recursive(v) for k, v in sorted(obj.items())}
+    if isinstance(obj, list):
+        return [_sort_recursive(item) for item in obj]
+    return obj
+
+
+def _dump_sorted_yaml(model: BaseModel) -> bytes:
+    """Serialise a manifest model to deterministic YAML bytes (LF, UTF-8).
+
+    Output is byte-identical across runs with unchanged inputs.
+    It omits ``None`` values,
+    sorts every mapping by key,
+    preserves list order,
+    carries no timestamps,
+    and never line-wraps.
+    """
+    text = yaml.dump(
+        _sort_recursive(model.model_dump(mode="json", exclude_none=True)),
+        allow_unicode=True,
+        default_flow_style=False,
+        sort_keys=True,
+        width=10000,  # do not line-wrap long strings
+    )
+    # yaml.dump uses LF on all platforms in PyYAML >= 6, but be explicit.
+    text_str: str = str(text)
+    normalized = text_str.replace("\r\n", "\n").replace("\r", "\n")
+    return normalized.encode("utf-8")
 
 
 class Bundle:
