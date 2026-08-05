@@ -20,7 +20,6 @@ from bookshelf._consume.resources import (
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import UNSET, AuthInput
 from bookshelf._core.errors import BookshelfError, NotFoundError
-from bookshelf._core.retry import RetryPolicy
 from bookshelf._generated import models
 from bookshelf._produce import (
     Activity,
@@ -139,18 +138,16 @@ class Bookshelf(ProduceFacade):
         *,
         auth: AuthInput = UNSET,
         timeout: float = 30.0,
-        retry: RetryPolicy | None = None,
+        # The transport is the test seam: production always leaves it None.
         transport: httpx.BaseTransport | None = None,
-        cache: ContentCache | None = None,
     ) -> None:
         self._client = BookshelfClient(
             base_url,
             auth=auth,
             timeout=timeout,
-            retry=retry,
             transport=transport,
         )
-        self._cache = cache if cache is not None else ContentCache()
+        self._cache = ContentCache()
         self._produce_sink = LiveSink(self._client, self._cache)
 
     def __enter__(self) -> Self:
@@ -317,18 +314,16 @@ class AsyncBookshelf(AsyncProduceFacade):
         *,
         auth: AuthInput = UNSET,
         timeout: float = 30.0,
-        retry: RetryPolicy | None = None,
+        # The transport is the test seam: production always leaves it None.
         async_transport: httpx.AsyncBaseTransport | None = None,
-        cache: ContentCache | None = None,
     ) -> None:
         self._client = BookshelfClient(
             base_url,
             auth=auth,
             timeout=timeout,
-            retry=retry,
             async_transport=async_transport,
         )
-        self._cache = cache if cache is not None else ContentCache()
+        self._cache = ContentCache()
         self._produce_sink = AsyncLiveSink(self._client, self._cache)
 
     async def __aenter__(self) -> Self:

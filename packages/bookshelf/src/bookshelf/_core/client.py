@@ -53,14 +53,14 @@ class BookshelfClient:
         *,
         auth: AuthInput = UNSET,
         timeout: float = 30.0,
-        retry: RetryPolicy | None = None,
+        # The transports are the test seam: production always leaves them None.
         transport: httpx.BaseTransport | None = None,
         async_transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self._base_url = resolve_base_url(base_url).rstrip("/")
         self._auth = resolve_auth(auth, base_url=self._base_url)
         self._timeout = timeout
-        self._retry = retry if retry is not None else RetryPolicy()
+        self._retry = RetryPolicy()
         self._transport = transport
         self._async_transport = async_transport
         self._sync: httpx.Client | None = None

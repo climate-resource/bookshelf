@@ -19,8 +19,7 @@ class RetryPolicy:
     def should_retry_status(self, status_code: int) -> bool:
         return status_code >= 500
 
-    def delay(self, attempt: int, *, rand: random.Random | None = None) -> float:
+    def delay(self, attempt: int) -> float:
         """Sleep seconds before retry ``attempt`` (1-based: the first retry is attempt 1)."""
         ceiling = min(self.backoff_cap, self.backoff_base * (2 ** (attempt - 1)))
-        uniform = rand.uniform if rand is not None else random.uniform
-        return uniform(0.0, ceiling)
+        return random.uniform(0.0, ceiling)
