@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import importlib
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from bookshelf._core.frames import DataFrameSupportError
+from bookshelf._core.frames import require_extra
 from bookshelf._generated import models
 
 if TYPE_CHECKING:
@@ -55,23 +54,13 @@ def timeseries_frame(response: models.TimeseriesResponse) -> pd.DataFrame:
     return pd.DataFrame(response.data, index=index, columns=response.years)
 
 
-def _require(module: str, caller: str) -> Any:
-    """Import an optional dependency, reporting a missing extra as a typed error."""
-    try:
-        return importlib.import_module(module)
-    except ImportError as exc:
-        raise DataFrameSupportError(
-            f"{caller} requires the 'dataframes' extra: pip install 'bookshelf[dataframes]'"
-        ) from exc
-
-
 def polars_converter() -> Callable[[pd.DataFrame], pl.DataFrame]:
     """Import Polars and return a converter that keeps the index columns.
 
     Callers resolve the converter before fetching any data,
     so an install without the optional extra fails without making a request.
     """
-    polars = _require("polars", "as_polars()")
+    polars = require_extra("polars", "as_polars()")
 
     def convert(frame: pd.DataFrame) -> pl.DataFrame:
         return polars.from_pandas(frame, include_index=True)  # type: ignore[no-any-return]
@@ -85,7 +74,7 @@ def arrow_converter() -> Callable[[pd.DataFrame], pa.Table]:
     Callers resolve the converter before fetching any data,
     so an install without the optional extra fails without making a request.
     """
-    pyarrow = _require("pyarrow", "as_arrow()")
+    pyarrow = require_extra("pyarrow", "as_arrow()")
 
     def convert(frame: pd.DataFrame) -> pa.Table:
         return pyarrow.Table.from_pandas(frame, preserve_index=True)

@@ -4,6 +4,7 @@ Lives in the parse layer because generators cannot reach binary content negotiat
 pandas and pyarrow are optional (``bookshelf[dataframes]``), so imports are deferred.
 """
 
+import importlib
 import io
 import json
 from typing import TYPE_CHECKING, Any
@@ -19,15 +20,18 @@ class DataFrameSupportError(BookshelfError):
     """Raised when frame conversion is requested without the ``dataframes`` extra installed."""
 
 
-def _pandas() -> Any:
+def require_extra(module: str, caller: str) -> Any:
+    """Import a module from the ``dataframes`` extra, reporting a missing one as a typed error.
+
+    ``caller`` names what the user was trying to do, so the message points at their call
+    rather than at the import.
+    """
     try:
-        import pandas
-    except ImportError as exc:  # pragma: no cover
+        return importlib.import_module(module)
+    except ImportError as exc:
         raise DataFrameSupportError(
-            "DataFrame conversion requires the 'dataframes' extra: "
-            "pip install 'bookshelf[dataframes]'"
+            f"{caller} requires the 'dataframes' extra: pip install 'bookshelf[dataframes]'"
         ) from exc
-    return pandas
 
 
 def require_payload(result: DataPayload | NotModified) -> DataPayload:
@@ -39,7 +43,7 @@ def require_payload(result: DataPayload | NotModified) -> DataPayload:
 
 def to_pandas(payload: DataPayload) -> "pd.DataFrame":
     """Convert a ``/data`` payload to a pandas DataFrame, dispatching on the negotiated format."""
-    pandas = _pandas()
+    pandas = require_extra("pandas", "DataFrame conversion")
     if payload.format == "json":
         rows = json.loads(payload.content)
         frame: pd.DataFrame = pandas.DataFrame(rows)
