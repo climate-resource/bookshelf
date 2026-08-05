@@ -51,16 +51,16 @@ from bookshelf.publisher import (
 )
 from bookshelf.publisher.bundle import InvalidBundleError
 
-_RECORD_REQUIREMENTS = ("papermill", "nbconvert")
+_RECORD_REQUIREMENTS = ("nbformat", "nbconvert")
 _PAGE_SIZE = 100
 _MAX_PAGES = 1000
 
 
 def _require_publish_extra() -> None:
-    """Refuse to record when the notebook execution dependencies are absent.
+    """Refuse to record when the notebook capture dependencies are absent.
 
     ``find_spec`` rather than an import,
-    so a broken dependency of papermill surfaces as itself
+    so a broken dependency of the renderer surfaces as itself
     rather than as a missing extra.
     """
     missing = [name for name in _RECORD_REQUIREMENTS if importlib.util.find_spec(name) is None]

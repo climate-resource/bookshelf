@@ -9,7 +9,7 @@ import httpx
 import pytest
 from typer.testing import CliRunner
 
-from bookshelf._cli import app
+from bookshelf._cli import app, producer
 from bookshelf._cli._runtime import (
     EXIT_INVALID_BUNDLE,
     EXIT_NETWORK,
@@ -279,6 +279,16 @@ def test_record_reports_a_missing_publish_extra_as_usage(
 
     assert result.exit_code == EXIT_USAGE
     assert "bookshelf[publish]" in _plain(result.stderr)
+
+
+def test_record_gates_only_on_what_the_capture_imports(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A library the capture never imports must not stand between a producer and a record."""
+    monkeypatch.setattr(
+        "bookshelf._cli.producer.importlib.util.find_spec",
+        lambda name: None if name == "papermill" else object(),
+    )
+
+    producer._require_publish_extra()
 
 
 def test_record_passes_parameters_and_paths_through(
