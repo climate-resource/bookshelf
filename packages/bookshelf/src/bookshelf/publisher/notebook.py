@@ -1,33 +1,14 @@
-"""Notebook capture for the bookshelf publish flow.
+"""Notebook capture for a recorded build.
 
-When a recipe declares ``books[].notebook``, the executed notebook and its
-rendered HTML are captured as first-class ``DOCUMENT`` resources and attached
-as Book Entries alongside the data outputs.
+A recorded build executes a standalone Jupytext Python file
+and captures the run as an executed ``.ipynb`` plus its ``nbconvert``-rendered HTML.
+The recorder attaches both as ``DOCUMENT`` book entries alongside the data outputs.
 
-**Requires the** ``[publish]`` **extra**: ``papermill`` and ``nbconvert`` are
-*not* installed with the base package.
+**Requires the** ``[publish]`` **extra** for the HTML render:
+``nbformat`` and ``nbconvert`` are *not* installed with the base package.
 Install them with::
 
     pip install bookshelf[publish]
-
-Two resources are produced per notebook:
-
-- The executed ``.ipynb`` (``metadata.kind = "notebook"``).
-- An ``nbconvert``-rendered ``.html`` (``metadata.kind = "notebook-html"``).
-
-Both carry ``metadata.notebook_name`` so consumers can pair them.
-Both are registered with ``dedupe=False`` (per the dedupe contract in the
-team plan): each book edition must produce a *distinct* entry resource,
-even if the bytes happen to be identical to a previous edition.
-
-Usage (called by the pipeline wiring in ``publish.py``)::
-
-    from bookshelf.publisher.notebook import execute_notebook, prepare_notebook_items
-
-    executed = execute_notebook(notebook_path, params=book.activity.params, workdir=cwd)
-    items, paths = prepare_notebook_items(executed)
-    # items: list[RegisterResourceItem] ready for bs.register_outputs()
-    # paths: list[Path]: the local files in the same order
 """
 
 import ast
@@ -42,119 +23,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from bookshelf._core.hashing import sha256_file
-from bookshelf.publisher._models import RegisterResourceItem
-
-
-def _require_publish_extra() -> None:
-    """Raise ``RuntimeError`` when the ``[publish]`` extra is not installed.
-
-    Called at the top of every public function so the error surfaces
-    immediately rather than on an attribute access deep inside a library.
-    """
-    missing: list[str] = []
-    try:
-        import papermill  # noqa: F401
-    except ImportError:
-        missing.append("papermill")
-    try:
-        import nbconvert  # noqa: F401
-    except ImportError:
-        missing.append("nbconvert")
-
-    if missing:
-        raise RuntimeError(
-            f"Notebook capture requires {', '.join(missing)}, which are not installed.\n"
-            "Install the publish extra with:\n\n"
-            "    pip install bookshelf[publish]\n"
-        )
-
 
 @dataclass
 class ExecutedNotebook:
-    """Paths produced by a successful papermill + nbconvert run.
+    """Paths produced by a successful build execution and render.
 
-    ``name`` is a short identifier derived from the notebook file stem
-    (used as ``metadata.notebook_name`` to pair the two resources).
-    ``ipynb_path`` is the *executed* notebook (papermill output).
+    ``name`` is a short identifier derived from the build file stem.
+    ``ipynb_path`` is the executed notebook.
     ``html_path`` is the ``nbconvert``-rendered HTML.
     """
 
     name: str
     ipynb_path: Path
     html_path: Path
-
-
-def execute_notebook(
-    notebook_path: Path,
-    params: dict[str, Any] | None = None,
-    workdir: Path | None = None,
-) -> ExecutedNotebook:
-    """Execute ``notebook_path`` via papermill and render it to HTML with nbconvert.
-
-    Parameters
-    ----------
-    notebook_path:
-        Path to the source ``.ipynb`` file (before execution).
-    params:
-        Papermill parameters injected into the notebook
-        (corresponds to ``books[].activity.params`` in the recipe).
-    workdir:
-        Working directory for the notebook kernel.
-        Defaults to the directory containing ``notebook_path``.
-
-    Returns
-    -------
-    ExecutedNotebook
-        Paths to the executed ``.ipynb`` and the rendered ``.html``.
-
-    Raises
-    ------
-    RuntimeError
-        If ``bookshelf[publish]`` is not installed,
-        or if papermill / nbconvert fail.
-    """
-    _require_publish_extra()
-
-    import nbformat  # noqa: PLC0415
-    import papermill as pm  # noqa: PLC0415
-    from nbconvert import HTMLExporter  # noqa: PLC0415
-
-    if workdir is None:
-        workdir = notebook_path.parent
-
-    notebook_path = notebook_path.resolve()
-    stem = notebook_path.stem
-    executed_path = workdir / f"{stem}_executed.ipynb"
-    html_path = workdir / f"{stem}_executed.html"
-
-    # Run the notebook via papermill, injecting parameters.
-    try:
-        pm.execute_notebook(
-            str(notebook_path),
-            str(executed_path),
-            parameters=params or {},
-            cwd=str(workdir),
-        )
-    except Exception as exc:
-        raise RuntimeError(f"papermill execution of {notebook_path} failed: {exc}") from exc
-
-    # Render the executed notebook to HTML via the nbconvert Python API.
-    try:
-        with executed_path.open("r", encoding="utf-8") as fh:
-            nb = nbformat.read(fh, as_version=4)  # type: ignore[no-untyped-call]
-
-        exporter = HTMLExporter()  # type: ignore[no-untyped-call]
-        html_body, _resources = exporter.from_notebook_node(nb)
-        html_path.write_text(html_body, encoding="utf-8")
-    except Exception as exc:
-        raise RuntimeError(f"nbconvert HTML render of {executed_path} failed: {exc}") from exc
-
-    return ExecutedNotebook(
-        name=stem,
-        ipynb_path=executed_path,
-        html_path=html_path,
-    )
 
 
 # Serialises the cwd and sys.path window below, which is process global.
@@ -306,59 +187,7 @@ def _render_executed_notebook(ipynb_path: Path, html_path: Path) -> None:
     html_path.write_text(html_body, encoding="utf-8")
 
 
-def prepare_notebook_items(
-    executed: ExecutedNotebook,
-) -> tuple[list[RegisterResourceItem], list[Path]]:
-    """Build :class:`RegisterResourceItem` objects for the two notebook artifacts.
-
-    Returns a ``(items, paths)`` pair.
-    Each ``items[i]`` corresponds to ``paths[i]``.
-    The caller passes ``items`` to ``bs.register_outputs()``
-    and later calls ``bs.attach_entry()`` for each.
-
-    **Dedupe contract**: both items carry ``dedupe=False``
-    so the backend skips alias detection.
-    Each book edition must produce a *distinct* entry resource even when
-    the notebook bytes are identical to a previous edition.
-
-    Parameters
-    ----------
-    executed:
-        An :class:`ExecutedNotebook` returned by :func:`execute_notebook`.
-
-    Returns
-    -------
-    tuple[list[RegisterResourceItem], list[Path]]
-        ``items``: two registration items (ipynb first, html second).
-        ``paths``: corresponding local file paths in the same order.
-    """
-    ipynb_item = RegisterResourceItem(
-        type="document",
-        hash=sha256_file(executed.ipynb_path),
-        visibility="hidden",
-        metadata={
-            "kind": "notebook",
-            "notebook_name": executed.name,
-        },
-        dedupe=False,
-    )
-    html_item = RegisterResourceItem(
-        type="document",
-        hash=sha256_file(executed.html_path),
-        visibility="hidden",
-        metadata={
-            "kind": "notebook-html",
-            "notebook_name": executed.name,
-        },
-        dedupe=False,
-    )
-
-    return [ipynb_item, html_item], [executed.ipynb_path, executed.html_path]
-
-
 __all__ = [
     "ExecutedNotebook",
     "execute_python_build",
-    "execute_notebook",
-    "prepare_notebook_items",
 ]
