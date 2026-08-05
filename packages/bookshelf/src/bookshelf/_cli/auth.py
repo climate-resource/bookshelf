@@ -35,23 +35,7 @@ CLAIM_GRANT = "urn:workos:agent-auth:grant-type:claim"
 
 _AGENT_PLATFORM = "bookshelf-cli"
 
-# Test seams:
-# polling waits,
-# the poll clock,
-# and the moment the ceremony instructions are out.
-_sleep = time.sleep
-_monotonic = time.monotonic
-
-
-def _claim_started(registration: models.ServiceAuthRegistrationResponse) -> None:
-    """Hook invoked once the ceremony instructions have been emitted."""
-
-
 auth_app = typer.Typer(help="Manage authentication for the Bookshelf API.", no_args_is_help=True)
-
-
-def _base_url(api_url: str | None) -> str:
-    return resolve_base_url(api_url)
 
 
 def _now() -> datetime:
@@ -97,7 +81,7 @@ def auth_login(
     json_output: bool = typer.Option(False, "--json", help="Emit the credential summary as JSON."),
 ) -> None:
     """Log in: through WorkOS as a human, or as an agent with --agent."""
-    base = _base_url(api_url)
+    base = resolve_base_url(api_url)
     with command_errors():
         if not agent:
             if claim or email is not None:
@@ -243,7 +227,6 @@ def _login_agent_claim(base: str, *, email: str, json_output: bool) -> None:
         note(f"  Enter code  {ceremony.user_code}")
         note("")
         note(f"Waiting for approval (expires in {max(ceremony.expires_in // 60, 1)} minutes)...")
-        _claim_started(registration)
         grant = _poll_claim(
             client,
             claim_token=registration.claim_token,
@@ -288,7 +271,7 @@ def _login_agent_claim(base: str, *, email: str, json_output: bool) -> None:
 def _poll_claim(
     client: BookshelfClient, *, claim_token: str, interval: int, expires_in: int
 ) -> models.TokenResponse:
-    deadline = _monotonic() + expires_in
+    deadline = time.monotonic() + expires_in
     wait = max(interval, 1)
     while True:
         try:
@@ -306,13 +289,13 @@ def _poll_claim(
                     "Run 'bookshelf auth login --agent --claim --email you@org.com' to retry.",
                     exit_code=EXIT_AUTH_REQUIRED,
                 ) from exc
-        if _monotonic() >= deadline:
+        if time.monotonic() >= deadline:
             raise CliError(
                 "claim ceremony expired before approval. "
                 "Run 'bookshelf auth login --agent --claim --email you@org.com' to retry.",
                 exit_code=EXIT_AUTH_REQUIRED,
             )
-        _sleep(wait)
+        time.sleep(wait)
 
 
 def _identity_for_token(base: str, access_token: str) -> models.UserResponse:
@@ -327,7 +310,7 @@ def auth_token(
     ),
 ) -> None:
     """Print the current access token to stdout and nothing else."""
-    base = _base_url(api_url)
+    base = resolve_base_url(api_url)
     with command_errors():
         source, stored = config.resolve_ambient_credential(base)
         if source is CredentialSource.ENV_TOKEN:
@@ -441,7 +424,7 @@ def auth_whoami(
     json_output: bool = typer.Option(False, "--json", help="Emit the report as JSON."),
 ) -> None:
     """Report the identity in play and which resolution step supplied it."""
-    base = _base_url(api_url)
+    base = resolve_base_url(api_url)
     with command_errors():
         source, stored = config.resolve_ambient_credential(base)
         if source in (CredentialSource.ENV_TOKEN, CredentialSource.CLIENT_CREDENTIALS):
@@ -585,7 +568,7 @@ def auth_logout(
     with command_errors():
         records = credentials.list_credentials()
         if not all_deployments:
-            base = _base_url(api_url)
+            base = resolve_base_url(api_url)
             records = [record for record in records if record.api_url == base]
             if not records:
                 note(f"Not logged in to {base}.")
@@ -669,7 +652,7 @@ def auth_switch(
             record for record in credentials.list_credentials() if record.subject == identity
         ]
         if api_url is not None:
-            base = _base_url(api_url)
+            base = resolve_base_url(api_url)
             records = [record for record in records if record.api_url == base]
         if not records:
             raise CliError(
