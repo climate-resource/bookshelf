@@ -7,6 +7,7 @@ See https://oprypin.github.io/mkdocs-literate-nav/
 * [Getting Started](getting_started.md)
 * [Configuration](configuration.md)
 * [How-to guides](how-to-guides/index.md)
+    * [Finding volumes and books](how-to-guides/find_volumes_and_books.py)
     * [Reading a published book](how-to-guides/read_a_book.py)
     * [Converting and plotting](how-to-guides/convert_and_plot.py)
     * [Reading asynchronously](how-to-guides/read_asynchronously.py)

@@ -22,7 +22,7 @@
 # %% [markdown]
 # ## Connecting
 #
-# `Bookshelf` is the synchronous facade.
+# `Bookshelf` provides a number of high-level functions on top of the bookshelf API.
 # The deployment it talks to resolves from the `base_url` argument,
 # then `$BOOKSHELF_URL`, then the production URL.
 # These guides pin the staging deployment so they are reproducible.
@@ -41,8 +41,7 @@ bs = Bookshelf()
 # Token state lives in the credential provider and each surface pools connections,
 # so build one client and keep it.
 # A notebook can construct it plainly and never close it.
-# A script or service should use it as a context manager,
-# or call `bs.close()` at shutdown.
+# A script or service should use it as a context manager, or call `bs.close()` at shutdown.
 
 # %% [markdown]
 # ## Addressing a book

@@ -46,6 +46,16 @@ The `bookshelf` package provides synchronous and asynchronous facades.
 Book coordinates resolve the latest published edition unless `edition=` pins one.
 Indexing a `Book` returns a `BookEntry` with book scoped exploration helpers.
 
+`search_volumes()` finds volumes by free text plus discovery filters,
+and `list_books()` returns every book in one volume with versions ordered numerically.
+Both are available on either facade, and neither needs credentials for public data.
+
+```python
+with Bookshelf() as bs:
+    found = bs.search_volumes("emissions", deprecated=False)
+    books = bs.list_books("primap-hist")
+```
+
 ```python
 from bookshelf import Bookshelf
 

@@ -7,6 +7,8 @@ We'll go over how to solve common tasks.
 
 Reading public, published data needs no credentials.
 
+- [Finding volumes and books](find_volumes_and_books) searches the catalogue,
+  filters it, and lists every book in a volume.
 - [Reading a published book](read_a_book) addresses a book, pins an edition,
   explores an entry before downloading it, and trims a query on the server.
 - [Converting and plotting](convert_and_plot) covers the pandas, Polars, PyArrow and `ScmRun`

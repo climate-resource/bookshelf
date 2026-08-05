@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any, Self
 from uuid import UUID
@@ -126,6 +127,19 @@ def _book_update(
     return models.BookUpdate(**fields)
 
 
+def _book_order(item: models.BookListItem) -> tuple[Any, ...]:
+    """Order books by version, then edition.
+
+    A version is compared component by component,
+    with each numeric run compared as a number so ``v2.10`` follows ``v2.9``.
+    Anything that does not parse falls back to its text, which keeps the order total.
+    """
+    parts: list[tuple[int, Any]] = []
+    for part in re.split(r"[._-]", item.version.lstrip("vV")):
+        parts.append((0, int(part)) if part.isdigit() else (1, part))
+    return (parts, item.edition)
+
+
 def _missing_book(volume: str, version: str, edition: int | None) -> NotFoundError:
     coordinate = version if edition is None else f"{version}_e{edition:03}"
     return NotFoundError(
@@ -176,6 +190,60 @@ class Bookshelf:
         """Resolve an exact tracking id into a lean Resource."""
         metadata = self._client.get_resource(tracking_id)
         return Resource(self._client, self._cache, tracking_id, metadata=metadata)
+
+    def search_volumes(
+        self,
+        q: str | None = None,
+        *,
+        topic: Sequence[str] | None = None,
+        keyword: Sequence[str] | None = None,
+        region: Sequence[str] | None = None,
+        publisher: str | None = None,
+        license: str | None = None,
+        coverage_year: int | None = None,
+        resource_type: str | None = None,
+        deprecated: bool | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> models.VolumeListResponse:
+        """Find volumes by free text over name, title and summary, plus discovery filters.
+
+        Every filter combines with AND, and omitting all of them lists the catalogue.
+        The response carries pagination, so a caller wanting everything reads
+        ``has_more`` and pages with ``offset``.
+        """
+        return self._client.list_volumes(
+            q=q,
+            topic=topic,
+            keyword=keyword,
+            region=region,
+            publisher=publisher,
+            license=license,
+            coverage_year=coverage_year,
+            resource_type=resource_type,
+            deprecated=deprecated,
+            limit=limit,
+            offset=offset,
+        )
+
+    def list_books(self, volume: str, *, status: str = "published") -> list[models.BookListItem]:
+        """List every book in one volume, newest edition of each version last.
+
+        This walks the pages itself,
+        because a volume holds few enough books that a caller should not have to.
+        """
+        books: list[models.BookListItem] = []
+        for page in range(_MAX_PAGES):
+            response = self._client.list_books(
+                volume=volume,
+                status=status,
+                limit=_PAGE_SIZE,
+                offset=page * _PAGE_SIZE,
+            )
+            books.extend(response.items)
+            if not response.has_more:
+                return sorted(books, key=_book_order)
+        raise BookshelfError("book listing exceeded the pagination safety cap")
 
     def create_volume(
         self,
@@ -358,6 +426,62 @@ class AsyncBookshelf:
         """Resolve an exact tracking id into a lean async Resource."""
         metadata = await self._client.get_resource_async(tracking_id)
         return AsyncResource(self._client, self._cache, tracking_id, metadata=metadata)
+
+    async def search_volumes(
+        self,
+        q: str | None = None,
+        *,
+        topic: Sequence[str] | None = None,
+        keyword: Sequence[str] | None = None,
+        region: Sequence[str] | None = None,
+        publisher: str | None = None,
+        license: str | None = None,
+        coverage_year: int | None = None,
+        resource_type: str | None = None,
+        deprecated: bool | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> models.VolumeListResponse:
+        """Find volumes by free text over name, title and summary, plus discovery filters.
+
+        Every filter combines with AND, and omitting all of them lists the catalogue.
+        The response carries pagination, so a caller wanting everything reads
+        ``has_more`` and pages with ``offset``.
+        """
+        return await self._client.list_volumes_async(
+            q=q,
+            topic=topic,
+            keyword=keyword,
+            region=region,
+            publisher=publisher,
+            license=license,
+            coverage_year=coverage_year,
+            resource_type=resource_type,
+            deprecated=deprecated,
+            limit=limit,
+            offset=offset,
+        )
+
+    async def list_books(
+        self, volume: str, *, status: str = "published"
+    ) -> list[models.BookListItem]:
+        """List every book in one volume, newest edition of each version last.
+
+        This walks the pages itself,
+        because a volume holds few enough books that a caller should not have to.
+        """
+        books: list[models.BookListItem] = []
+        for page in range(_MAX_PAGES):
+            response = await self._client.list_books_async(
+                volume=volume,
+                status=status,
+                limit=_PAGE_SIZE,
+                offset=page * _PAGE_SIZE,
+            )
+            books.extend(response.items)
+            if not response.has_more:
+                return sorted(books, key=_book_order)
+        raise BookshelfError("book listing exceeded the pagination safety cap")
 
     async def create_volume(
         self,
