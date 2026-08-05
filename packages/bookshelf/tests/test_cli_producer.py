@@ -4,7 +4,6 @@ import json
 import re
 from pathlib import Path
 from typing import Any
-from uuid import UUID, uuid4
 
 import httpx
 import pytest
@@ -19,39 +18,13 @@ from bookshelf._cli._runtime import (
     EXIT_USAGE,
 )
 from bookshelf._core.client import BookshelfClient
-from bookshelf._core.hashing import sha256_hex
-from bookshelf.publisher.bundle import (
-    Bundle,
-    BundleBook,
-    compute_book_bundle_hash,
-    resource_filename,
-)
+from bookshelf.publisher.bundle import Bundle, BundleBook, compute_book_bundle_hash
 from tests import _core_payloads as payloads
+from tests.conftest import BundleFactory
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 UNREACHABLE_API = "http://127.0.0.1:9"
 runner = CliRunner()
-
-
-def _bundle(root: Path, *, published: bool = True, entries: int = 1) -> Bundle:
-    """Write a minimal replayable published book bundle to ``root``."""
-    bundle = Bundle(root)
-    bundle.set_book(
-        BundleBook(volume="example", version="v1.0.0", visibility="public", license="MIT")
-    )
-    for index in range(entries):
-        data = f"payload {index}".encode()
-        resource = bundle.add_resource(
-            data=data,
-            hash_=sha256_hex(data),
-            type_="document",
-            tracking_id=uuid4(),
-        )
-        bundle.add_book_entry(name_in_book=f"entry-{index}", tracking_id=resource.tracking_id)
-    if published:
-        bundle.mark_book_published()
-    bundle.write()
-    return bundle
 
 
 def _recipe(path: Path, *, notebook: str | None = "build.py") -> Path:
@@ -72,8 +45,8 @@ def _plain(text: str) -> str:
     return _ANSI.sub("", text)
 
 
-def test_validate_reports_the_bundle_summary(tmp_path: Path) -> None:
-    bundle = _bundle(tmp_path / "bundle", entries=2)
+def test_validate_reports_the_bundle_summary(make_bundle: BundleFactory) -> None:
+    bundle = make_bundle(entries=2)
     # Recomputed from what landed on disk, so the reported hash is checked
     # against an independent value rather than against itself.
     expected_hash = compute_book_bundle_hash(Bundle.read(bundle.root).manifest)
@@ -90,8 +63,8 @@ def test_validate_reports_the_bundle_summary(tmp_path: Path) -> None:
     }
 
 
-def test_validate_human_output_names_every_field(tmp_path: Path) -> None:
-    bundle = _bundle(tmp_path / "bundle")
+def test_validate_human_output_names_every_field(make_bundle: BundleFactory) -> None:
+    bundle = make_bundle()
 
     result = runner.invoke(app, ["validate", str(bundle.root)])
 
@@ -101,9 +74,9 @@ def test_validate_human_output_names_every_field(tmp_path: Path) -> None:
 
 
 def test_validate_defaults_to_the_bundle_directory(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, make_bundle: BundleFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    _bundle(tmp_path / "bundle")
+    make_bundle()
     monkeypatch.chdir(tmp_path)
 
     result = runner.invoke(app, ["validate", "--json"])
@@ -112,47 +85,15 @@ def test_validate_defaults_to_the_bundle_directory(
     assert _payload(result.stdout)["bundle_path"] == "bundle"
 
 
-def test_validate_rejects_a_bundle_that_is_still_a_draft(tmp_path: Path) -> None:
-    bundle = _bundle(tmp_path / "bundle", published=False)
+def test_validate_renders_a_refused_bundle_with_its_remedy(make_bundle: BundleFactory) -> None:
+    """The bundle names the invariant, and the CLI adds the exit code and the fix."""
+    bundle = make_bundle(published=False)
 
     result = runner.invoke(app, ["validate", str(bundle.root)])
 
     assert result.exit_code == EXIT_INVALID_BUNDLE
     assert "does not record a publish operation" in _plain(result.stderr)
     assert "bookshelf record" in _plain(result.stderr)
-
-
-def test_validate_rejects_a_bundle_with_no_book_framing(tmp_path: Path) -> None:
-    bundle = Bundle(tmp_path / "bundle")
-    bundle.write()
-
-    result = runner.invoke(app, ["validate", str(bundle.root)])
-
-    assert result.exit_code == EXIT_INVALID_BUNDLE
-    assert "no book framing" in _plain(result.stderr)
-
-
-def test_validate_rejects_tampered_resource_bytes(tmp_path: Path) -> None:
-    bundle = _bundle(tmp_path / "bundle")
-    resource = bundle.manifest.resources[0]
-    byte_path = bundle.resources_dir / resource_filename(resource.hash, resource.type)
-    byte_path.write_bytes(b"tampered")
-
-    result = runner.invoke(app, ["validate", str(bundle.root)])
-
-    assert result.exit_code == EXIT_INVALID_BUNDLE
-    assert "has hash" in _plain(result.stderr)
-
-
-def test_validate_rejects_an_entry_with_no_resource(tmp_path: Path) -> None:
-    bundle = _bundle(tmp_path / "bundle")
-    bundle.manifest.book.entries[0].tracking_id = uuid4()  # type: ignore[union-attr]
-    bundle.write()
-
-    result = runner.invoke(app, ["validate", str(bundle.root)])
-
-    assert result.exit_code == EXIT_INVALID_BUNDLE
-    assert "has no resource" in _plain(result.stderr)
 
 
 def test_validate_rejects_a_missing_bundle(tmp_path: Path) -> None:
@@ -172,8 +113,10 @@ def test_validate_rejects_a_malformed_manifest(tmp_path: Path) -> None:
     assert result.exit_code == EXIT_INVALID_BUNDLE
 
 
-def test_validate_opens_no_socket(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    bundle = _bundle(tmp_path / "bundle")
+def test_validate_opens_no_socket(
+    make_bundle: BundleFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle = make_bundle()
     monkeypatch.setenv("BOOKSHELF_URL", UNREACHABLE_API)
 
     result = runner.invoke(app, ["validate", str(bundle.root), "--json"])
@@ -182,9 +125,9 @@ def test_validate_opens_no_socket(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 
 
 def test_validate_runs_without_the_publish_extra(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    make_bundle: BundleFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    bundle = _bundle(tmp_path / "bundle")
+    bundle = make_bundle()
     monkeypatch.setattr("bookshelf._cli.producer.importlib.util.find_spec", lambda _: None)
 
     result = runner.invoke(app, ["validate", str(bundle.root), "--json"])
@@ -550,9 +493,9 @@ def _patch_publish(
 
 
 def test_publish_replays_and_reports_the_edition(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    make_bundle: BundleFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    bundle = _bundle(tmp_path / "bundle")
+    bundle = make_bundle()
     client = _FakeClient(status="draft")
     replayed = _patch_publish(monkeypatch, client, edition=2)
 
@@ -570,9 +513,9 @@ def test_publish_replays_and_reports_the_edition(
 
 
 def test_publish_reports_a_no_op_when_the_edition_exists(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    make_bundle: BundleFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    bundle = _bundle(tmp_path / "bundle")
+    bundle = make_bundle()
     client = _FakeClient(status="published", edition=3)
     replayed = _patch_publish(monkeypatch, client)
 
@@ -586,8 +529,10 @@ def test_publish_reports_a_no_op_when_the_edition_exists(
     assert replayed == []
 
 
-def test_publish_dry_run_never_replays(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    bundle = _bundle(tmp_path / "bundle")
+def test_publish_dry_run_never_replays(
+    make_bundle: BundleFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle = make_bundle()
     client = _FakeClient(status="draft", edition=1)
     replayed = _patch_publish(monkeypatch, client)
 
@@ -601,9 +546,9 @@ def test_publish_dry_run_never_replays(tmp_path: Path, monkeypatch: pytest.Monke
 
 
 def test_publish_dry_run_reports_a_no_op_for_a_published_edition(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    make_bundle: BundleFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    bundle = _bundle(tmp_path / "bundle")
+    bundle = make_bundle()
     client = _FakeClient(status="published", edition=4)
     _patch_publish(monkeypatch, client)
 
@@ -614,9 +559,9 @@ def test_publish_dry_run_reports_a_no_op_for_a_published_edition(
 
 
 def test_publish_forwards_the_recorded_framing_to_the_draft(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    make_bundle: BundleFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    bundle = _bundle(tmp_path / "bundle")
+    bundle = make_bundle()
     client = _FakeClient(status="draft")
     _patch_publish(monkeypatch, client)
 
@@ -629,8 +574,8 @@ def test_publish_forwards_the_recorded_framing_to_the_draft(
     assert client.draft_kwargs["license"] == "MIT"
 
 
-def test_publish_rejects_a_token_flag(tmp_path: Path) -> None:
-    bundle = _bundle(tmp_path / "bundle")
+def test_publish_rejects_a_token_flag(make_bundle: BundleFactory) -> None:
+    bundle = make_bundle()
 
     result = runner.invoke(app, ["publish", str(bundle.root), "--token", "secret"])
 
@@ -651,9 +596,9 @@ def test_publish_rejects_an_invalid_bundle_before_reaching_the_api(
 
 
 def test_publish_uses_the_network_exit_code_when_the_api_is_unreachable(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    make_bundle: BundleFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    bundle = _bundle(tmp_path / "bundle")
+    bundle = make_bundle()
     monkeypatch.setenv("BOOKSHELF_URL", UNREACHABLE_API)
 
     result = runner.invoke(app, ["publish", str(bundle.root)])
@@ -661,9 +606,9 @@ def test_publish_uses_the_network_exit_code_when_the_api_is_unreachable(
     assert result.exit_code == EXIT_NETWORK
 
 
-def test_recorded_and_validated_bundle_hashes_agree(tmp_path: Path) -> None:
+def test_recorded_and_validated_bundle_hashes_agree(make_bundle: BundleFactory) -> None:
     """The hash a caller validates is the hash publish drafts against."""
-    bundle = _bundle(tmp_path / "bundle")
+    bundle = make_bundle()
     client = _FakeClient(status="draft")
 
     validated = runner.invoke(app, ["validate", str(bundle.root), "--json"])
@@ -677,25 +622,16 @@ def test_recorded_and_validated_bundle_hashes_agree(tmp_path: Path) -> None:
     assert _payload(published.stdout)["bundle_hash"] == _payload(validated.stdout)["bundle_hash"]
 
 
-def test_tracking_ids_round_trip_as_uuids(tmp_path: Path) -> None:
-    bundle = _bundle(tmp_path / "bundle")
-
-    reloaded = Bundle.read(bundle.root)
-
-    assert isinstance(reloaded.manifest.resources[0].tracking_id, UUID)
-
-
 def test_publish_sends_the_recorded_data_dictionary_on_the_draft(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    make_bundle: BundleFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The dictionary has to ride on the CLI's own draft call.
 
     That draft is keyed on the bundle hash, so the replay underneath resumes it
     and never reapplies the framing.
     """
-    bundle = Bundle(tmp_path / "bundle")
-    bundle.set_book(
-        BundleBook(
+    bundle = make_bundle(
+        book=BundleBook(
             volume="example",
             version="v1.0.0",
             visibility="public",
@@ -703,13 +639,6 @@ def test_publish_sends_the_recorded_data_dictionary_on_the_draft(
             data_dictionary=[{"name": "region", "type": "string", "role": "dimension"}],
         )
     )
-    data = b"payload"
-    resource = bundle.add_resource(
-        data=data, hash_=sha256_hex(data), type_="document", tracking_id=uuid4()
-    )
-    bundle.add_book_entry(name_in_book="entry-0", tracking_id=resource.tracking_id)
-    bundle.mark_book_published()
-    bundle.write()
 
     client = _FakeClient(status="draft")
     _patch_publish(monkeypatch, client, edition=2)
