@@ -55,13 +55,13 @@ def timeseries_frame(response: models.TimeseriesResponse) -> pd.DataFrame:
     return pd.DataFrame(response.data, index=index, columns=response.years)
 
 
-def _require(module: str, method: str) -> Any:
+def _require(module: str, caller: str) -> Any:
     """Import an optional dependency, reporting a missing extra as a typed error."""
     try:
         return importlib.import_module(module)
     except ImportError as exc:
         raise DataFrameSupportError(
-            f"{method} requires the 'dataframes' extra: pip install 'bookshelf[dataframes]'"
+            f"{caller} requires the 'dataframes' extra: pip install 'bookshelf[dataframes]'"
         ) from exc
 
 

@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 import pytest
 
+from bookshelf._core import client as client_module
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import NotFoundError, ServerError, TransportError
 from bookshelf._core.retry import RetryPolicy
@@ -14,6 +15,17 @@ from tests import _core_payloads as payloads
 
 BASE_URL = "https://bookshelf.test"
 ATTEMPTS = RetryPolicy().max_attempts
+
+
+@pytest.fixture(autouse=True)
+def no_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Take the retry backoff out of the wall clock."""
+
+    async def no_async_sleep(_seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr(client_module.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(client_module.asyncio, "sleep", no_async_sleep)
 
 
 def make_client(handler: Any, **kwargs: Any) -> BookshelfClient:
