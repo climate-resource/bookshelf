@@ -120,8 +120,7 @@ class InvalidBundleError(BookshelfError):
 
     The message names the invariant that failed
     and carries the detail a caller needs to render it.
-    It is raised by :meth:`Bundle.validate`,
-    so a caller either holds a bundle that keeps its contract
+    A caller therefore either holds a bundle that keeps its contract
     or holds an error explaining why it does not.
     """
 
@@ -699,8 +698,8 @@ class Bundle:
             raise InvalidBundleError("bundle has no book framing")
         return self.manifest.book
 
-    def validate(self) -> BundleBook:
-        """Assert this bundle is a replayable published book, and return its framing.
+    def validate(self) -> None:
+        """Assert this bundle is a replayable published book.
 
         The contract is:
 
@@ -708,7 +707,8 @@ class Bundle:
         - that book is marked for publication
         - the book has at least one entry
         - every entry references a resource recorded in the same manifest
-        - every managed resource's bytes are present and still hash to the recorded hash
+        - every managed resource's bytes are present and still hash to the recorded hash,
+          which a non-canonical hash cannot satisfy because it names no byte file
 
         The bytes are re-hashed rather than trusted,
         so a bundle edited between record and replay is refused here
@@ -731,6 +731,10 @@ class Bundle:
                 continue
             try:
                 data = self.resource_bytes(resource)
+            except ValueError as exc:
+                raise InvalidBundleError(
+                    f"resource {resource.tracking_id} has a non-canonical hash {resource.hash!r}"
+                ) from exc
             except OSError as exc:
                 raise InvalidBundleError(
                     f"resource {resource.tracking_id} has no bytes in the bundle: {exc}"
@@ -740,7 +744,6 @@ class Bundle:
                 raise InvalidBundleError(
                     f"resource {resource.tracking_id} has hash {resource.hash}, got {actual}"
                 )
-        return framing
 
     def write(self) -> None:
         """Flush the manifest to ``manifest.lock`` (deterministic YAML)."""

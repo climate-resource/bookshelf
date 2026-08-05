@@ -19,10 +19,10 @@ from tests.conftest import BundleFactory
 def test_a_recorded_published_book_validates(make_bundle: BundleFactory) -> None:
     bundle = make_bundle(entries=2)
 
-    framing = bundle.validate()
+    bundle.validate()
 
-    assert framing.volume == "example"
-    assert len(framing.entries) == 2
+    assert bundle.require_framing().volume == "example"
+    assert len(bundle.require_framing().entries) == 2
 
 
 def test_a_bundle_with_no_book_framing_is_invalid(tmp_path: Path) -> None:
@@ -80,6 +80,15 @@ def test_a_managed_resource_with_no_bytes_is_invalid(make_bundle: BundleFactory)
         bundle.validate()
 
 
+def test_a_crafted_hash_is_invalid_rather_than_unreadable(make_bundle: BundleFactory) -> None:
+    """A hash that names no byte file is a refusal, not an attempt to read a traversed path."""
+    bundle = make_bundle()
+    bundle.manifest.resources[0].hash = "sha256:../../etc/passwd"
+
+    with pytest.raises(InvalidBundleError, match="non-canonical hash"):
+        bundle.validate()
+
+
 def test_a_pointer_is_not_re_hashed(tmp_path: Path) -> None:
     """A pointer has no byte file, so hashing one would fail on a valid bundle."""
     bundle = Bundle(tmp_path / "bundle")
@@ -95,7 +104,7 @@ def test_a_pointer_is_not_re_hashed(tmp_path: Path) -> None:
     bundle.add_book_entry(name_in_book="entry-0", tracking_id=pointer.tracking_id)
     bundle.mark_book_published()
 
-    assert bundle.validate().entries[0].name_in_book == "entry-0"
+    bundle.validate()
 
 
 def test_require_framing_returns_the_recorded_book(make_bundle: BundleFactory) -> None:

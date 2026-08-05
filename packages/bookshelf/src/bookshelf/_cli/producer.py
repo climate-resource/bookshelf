@@ -134,7 +134,7 @@ def _resolve_build(build: Path | None, recipe: Path) -> Path:
 
 @contextmanager
 def _bundle_errors(root: Path) -> Generator[None]:
-    """Render a bundle that refuses itself, and one that will not load at all.
+    """Map a bundle that refuses itself, and one that will not load, onto the invalid-bundle code.
 
     A malformed manifest is a distinct outcome from a crash,
     so a caller can branch on it.

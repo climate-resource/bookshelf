@@ -115,6 +115,19 @@ def test_validate_reports_absent_resource_bytes_as_an_invalid_bundle(
     assert "has no bytes in the bundle" in _plain(result.stderr)
 
 
+def test_validate_reports_a_crafted_hash_as_an_invalid_bundle(make_bundle: BundleFactory) -> None:
+    """The manifest read fine, so the refusal must not be rendered as an unreadable bundle."""
+    bundle = make_bundle()
+    bundle.manifest.resources[0].hash = "sha256:../../etc/passwd"
+    bundle.write()
+
+    result = runner.invoke(app, ["validate", str(bundle.root)])
+
+    assert result.exit_code == EXIT_INVALID_BUNDLE
+    assert "non-canonical hash" in _plain(result.stderr)
+    assert "cannot read a bundle" not in _plain(result.stderr)
+
+
 def test_validate_rejects_a_missing_bundle(tmp_path: Path) -> None:
     result = runner.invoke(app, ["validate", str(tmp_path / "absent")])
 
