@@ -498,10 +498,9 @@ def _dump_sorted_yaml(model: BaseModel) -> bytes:
         sort_keys=True,
         width=10000,  # do not line-wrap long strings
     )
-    # yaml.dump uses LF on all platforms in PyYAML >= 6, but be explicit.
-    text_str: str = str(text)
-    normalized = text_str.replace("\r\n", "\n").replace("\r", "\n")
-    return normalized.encode("utf-8")
+    # The manifest is LF regardless of the platform it was written on.
+    normalised = str(text).replace("\r\n", "\n").replace("\r", "\n")
+    return normalised.encode("utf-8")
 
 
 class Bundle:
