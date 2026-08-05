@@ -7,10 +7,15 @@ from uuid import uuid4
 import pytest
 
 from bookshelf._core.client import BookshelfClient
+from bookshelf._generated import models
 from bookshelf._produce.types import RegisterItem
 from bookshelf.cache import ContentCache
 from bookshelf.publisher.bundle import Bundle
-from bookshelf.publisher.record import RecordingActivity
+from bookshelf.publisher.recording import RecordingActivity, RecordingSink
+
+
+def _sink(bundle: Bundle, cache_path: Path) -> RecordingSink:
+    return RecordingSink(bundle, Mock(spec=BookshelfClient), ContentCache(cache_path))
 
 
 def _activity(bundle: Bundle, cache_path: Path) -> RecordingActivity:
@@ -88,3 +93,24 @@ def test_a_later_batch_does_not_rewrite_earlier_lineage(tmp_path: Path) -> None:
     assert raw_used == [], "the raw input consumed nothing and must not cite itself"
     assert derived_used == [raw.tracking_id]
     assert document_used == [raw.tracking_id]
+
+
+def test_drafting_a_book_reseeds_the_sinks_default_tier(tmp_path: Path) -> None:
+    """The book's declared tier is what the resources registered after it record as."""
+    sink = _sink(Bundle(tmp_path / "bundle"), tmp_path / "cache")
+
+    assert sink.default_visibility is models.Visibility.hidden
+
+    sink.draft_book("my-dataset", version="v1.0.0", license="MIT", visibility="public")
+
+    assert sink.default_visibility is models.Visibility.public
+
+
+def test_a_book_that_declares_no_tier_leaves_the_default_alone(tmp_path: Path) -> None:
+    sink = _sink(Bundle(tmp_path / "bundle"), tmp_path / "cache")
+    sink.default_visibility = models.Visibility.org
+
+    book = sink.draft_book("my-dataset", version="v1.0.0", license="MIT")
+
+    assert book.metadata.visibility is models.Visibility.org
+    assert sink.default_visibility is models.Visibility.org

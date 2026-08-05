@@ -17,7 +17,7 @@ from bookshelf._generated import models
 from bookshelf._produce.facade import LiveSink
 from bookshelf.facade import AsyncBookshelf, Bookshelf
 from bookshelf.publisher.bundle import Bundle
-from bookshelf.publisher.record import RecordingBookshelf, RecordingSink
+from bookshelf.publisher.recording import RecordingBookshelf, RecordingSink
 from tests import _core_payloads as payloads
 
 BASE_URL = "https://bookshelf.test"
