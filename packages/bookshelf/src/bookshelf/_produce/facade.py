@@ -45,7 +45,7 @@ from bookshelf._produce.visibility import INHERIT, VisibilityInput
 from bookshelf.cache import ContentCache
 
 
-def _wrapped[T: RootModel[str]](model: type[T], value: str | None) -> T | None:
+def _as_model[T: RootModel[str]](model: type[T], value: str | None) -> T | None:
     """Wrap an optional string in the model its request field takes.
 
     An omitted value stays ``None`` so it never reaches the wire.
@@ -96,12 +96,12 @@ def _draft_request(
         series_name=volume,
         version=version,
         description=description,
-        citation_doi=_wrapped(models.CitationDoi, citation_doi),
-        license=_wrapped(models.License, license),
+        citation_doi=_as_model(models.CitationDoi, citation_doi),
+        license=_as_model(models.License, license),
         visibility=visibility,
         metadata=dict(metadata or {}),
         data_dictionary=list(data_dictionary or []),
-        bundle_hash=_wrapped(models.BundleHash, bundle_hash),
+        bundle_hash=_as_model(models.BundleHash, bundle_hash),
     )
 
 
@@ -196,9 +196,9 @@ class LiveSink:
     ) -> DraftBook:
         """Create a mutable draft whose membership changes remain intentional calls.
 
-        ``data_dictionary=`` describes the columns of the book's tabular and
-        timeseries entries. It is applied when the draft is created, so a call
-        that resumes an existing book through ``bundle_hash`` leaves the stored
+        ``data_dictionary=`` describes the columns of the book's tabular and timeseries entries.
+        It is applied when the draft is created,
+        so a call that resumes an existing book through ``bundle_hash`` leaves the stored
         dictionary untouched.
         """
         detail = self._client.draft_book(
@@ -308,9 +308,9 @@ class AsyncLiveSink:
     ) -> AsyncDraftBook:
         """Create an asynchronous mutable draft book handle.
 
-        ``data_dictionary=`` describes the columns of the book's tabular and
-        timeseries entries. It is applied when the draft is created, so a call
-        that resumes an existing book through ``bundle_hash`` leaves the stored
+        ``data_dictionary=`` describes the columns of the book's tabular and timeseries entries.
+        It is applied when the draft is created,
+        so a call that resumes an existing book through ``bundle_hash`` leaves the stored
         dictionary untouched.
         """
         detail = await self._client.draft_book_async(

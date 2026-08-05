@@ -2,6 +2,7 @@
 
 import inspect
 import json
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -12,7 +13,8 @@ from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf._produce.facade import AsyncLiveSink, LiveSink
 from bookshelf.facade import AsyncBookshelf, Bookshelf
-from bookshelf.publisher.record import RecordingSink
+from bookshelf.publisher.bundle import Bundle
+from bookshelf.publisher.record import RecordingBookshelf, RecordingSink
 from tests import _core_payloads as payloads
 
 BASE_URL = "https://bookshelf.test"
@@ -164,27 +166,31 @@ def test_the_facade_binds_the_activity_call_to_the_sink() -> None:
     assert recorded == []
 
 
+def _parameters(adapter: type, call: str) -> list[tuple[str, Any, Any]]:
+    """Name, kind and default of every parameter an adapter's call takes."""
+    signature = inspect.signature(getattr(adapter, call))
+    return [
+        (name, parameter.kind, parameter.default)
+        for name, parameter in signature.parameters.items()
+    ]
+
+
 @pytest.mark.parametrize("call", ["activity", "register_external", "draft_book"])
 def test_the_live_and_recording_adapters_declare_the_same_call(call: str) -> None:
     """The two adapters substitute for each other, so a caller cannot tell them apart."""
-    live = inspect.signature(getattr(LiveSink, call))
-    recording = inspect.signature(getattr(RecordingSink, call))
-
-    assert [
-        (name, parameter.kind, parameter.default) for name, parameter in live.parameters.items()
-    ] == [
-        (name, parameter.kind, parameter.default)
-        for name, parameter in recording.parameters.items()
-    ]
+    assert _parameters(LiveSink, call) == _parameters(RecordingSink, call)
 
 
 @pytest.mark.parametrize("call", ["activity", "register_external", "draft_book"])
 def test_the_two_live_adapters_declare_the_same_call(call: str) -> None:
-    sync = inspect.signature(getattr(LiveSink, call))
-    async_ = inspect.signature(getattr(AsyncLiveSink, call))
+    assert _parameters(LiveSink, call) == _parameters(AsyncLiveSink, call)
 
-    assert [
-        (name, parameter.kind, parameter.default) for name, parameter in sync.parameters.items()
-    ] == [
-        (name, parameter.kind, parameter.default) for name, parameter in async_.parameters.items()
-    ]
+
+def test_a_recording_facade_binds_every_producer_call_to_its_bundle(tmp_path: Path) -> None:
+    """A recorded build keeps live reads, so only the three producer calls move to the bundle."""
+    bundle = Bundle(tmp_path / "bundle")
+
+    with RecordingBookshelf(bundle) as recording:
+        bound = [recording.activity, recording.register_external, recording.draft_book]
+
+    assert [call.__self__ for call in bound] == [recording.recording_sink] * 3

@@ -153,16 +153,13 @@ class Bookshelf:
             transport=transport,
         )
         self._cache = ContentCache()
-        self._bind_produce_sink(LiveSink(self._client, self._cache))
-
-    def _bind_produce_sink(self, sink: ProduceSink) -> None:
-        """Point the producer surface at an adapter.
-
-        A recording build swaps the adapter after construction, so the bound calls move with it.
-        """
+        sink: ProduceSink = LiveSink(self._client, self._cache)
         self.activity = sink.activity
+        """Open an ambient producer activity with deterministic provenance."""
         self.register_external = sink.register_external
+        """Catalogue an external pointer without attributing it to an activity."""
         self.draft_book = sink.draft_book
+        """Create a mutable draft whose membership changes remain intentional calls."""
 
     def __enter__(self) -> Self:
         return self
@@ -338,13 +335,13 @@ class AsyncBookshelf:
             async_transport=async_transport,
         )
         self._cache = ContentCache()
-        self._bind_produce_sink(AsyncLiveSink(self._client, self._cache))
-
-    def _bind_produce_sink(self, sink: AsyncProduceSink) -> None:
-        """Point the producer surface at an adapter."""
+        sink: AsyncProduceSink = AsyncLiveSink(self._client, self._cache)
         self.activity = sink.activity
+        """Open an ambient asynchronous producer activity."""
         self.register_external = sink.register_external
+        """Catalogue an external pointer without attributing it to an activity."""
         self.draft_book = sink.draft_book
+        """Create an asynchronous mutable draft book handle."""
 
     async def __aenter__(self) -> Self:
         return self

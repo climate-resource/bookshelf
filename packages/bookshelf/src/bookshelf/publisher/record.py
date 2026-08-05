@@ -637,7 +637,11 @@ class RecordingBookshelf(Bookshelf):
             self._cache,
             authors=authors,
         )
-        self._bind_produce_sink(self.recording_sink)
+        # Every producer call moves to the recording adapter, so reads stay live and writes
+        # land in the bundle.
+        self.activity = self.recording_sink.activity
+        self.register_external = self.recording_sink.register_external
+        self.draft_book = self.recording_sink.draft_book
 
 
 @dataclass(slots=True)
