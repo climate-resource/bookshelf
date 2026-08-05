@@ -88,7 +88,6 @@ def _draft_request(
     license: str | None,
     visibility: models.Visibility,
     metadata: Mapping[str, Any] | None,
-    data_dictionary: Sequence[models.DataDictionaryEntry] | None,
     bundle_hash: str | None,
 ) -> models.BookDraftRequest:
     """Build the draft request, wrapping each optional string the API takes as a model."""
@@ -100,7 +99,6 @@ def _draft_request(
         license=_as_model(models.License, license),
         visibility=visibility,
         metadata=dict(metadata or {}),
-        data_dictionary=list(data_dictionary or []),
         bundle_hash=_as_model(models.BundleHash, bundle_hash),
     )
 
@@ -191,16 +189,9 @@ class LiveSink:
         license: str | None = None,
         visibility: VisibilityInput = INHERIT,
         metadata: Mapping[str, Any] | None = None,
-        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         bundle_hash: str | None = None,
     ) -> DraftBook:
-        """Create a mutable draft whose membership changes remain intentional calls.
-
-        ``data_dictionary=`` describes the columns of the book's tabular and timeseries entries.
-        It is applied when the draft is created,
-        so a call that resumes an existing book through ``bundle_hash``
-        leaves the stored dictionary untouched.
-        """
+        """Create a mutable draft whose membership changes remain intentional calls."""
         detail = self._client.draft_book(
             _draft_request(
                 volume,
@@ -210,7 +201,6 @@ class LiveSink:
                 license=license,
                 visibility=_visibility(visibility, self.default_visibility),
                 metadata=metadata,
-                data_dictionary=data_dictionary,
                 bundle_hash=bundle_hash,
             )
         )
@@ -303,16 +293,9 @@ class AsyncLiveSink:
         license: str | None = None,
         visibility: VisibilityInput = INHERIT,
         metadata: Mapping[str, Any] | None = None,
-        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         bundle_hash: str | None = None,
     ) -> AsyncDraftBook:
-        """Create an asynchronous mutable draft book handle.
-
-        ``data_dictionary=`` describes the columns of the book's tabular and timeseries entries.
-        It is applied when the draft is created,
-        so a call that resumes an existing book through ``bundle_hash``
-        leaves the stored dictionary untouched.
-        """
+        """Create an asynchronous mutable draft book handle."""
         detail = await self._client.draft_book_async(
             _draft_request(
                 volume,
@@ -322,7 +305,6 @@ class AsyncLiveSink:
                 license=license,
                 visibility=_visibility(visibility, self.default_visibility),
                 metadata=metadata,
-                data_dictionary=data_dictionary,
                 bundle_hash=bundle_hash,
             )
         )
@@ -371,7 +353,6 @@ class _ProduceSink[ActivityT, ResourceT, DraftT](Protocol):
         license: str | None = None,
         visibility: VisibilityInput = INHERIT,
         metadata: Mapping[str, Any] | None = None,
-        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         bundle_hash: str | None = None,
     ) -> DraftT: ...
 

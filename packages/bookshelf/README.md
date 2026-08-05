@@ -89,7 +89,7 @@ Bare strings and UUIDs in `used=` are tracking ids.
 Use `Used(logical_key=...)` when key based resolution is intentional.
 
 ```python
-from bookshelf import Bookshelf, Used
+from bookshelf import Bookshelf, Used, models
 
 with Bookshelf() as bs:
     source = bs.book("rcmip-emissions", "v5.1.0")["magicc-rcmip"]
@@ -102,7 +102,14 @@ with Bookshelf() as bs:
         )
 
     draft = bs.draft_book("model-results", version="v1.0.0")
-    draft.attach(output, name_in_book="ssp245")
+    draft.attach(
+        output,
+        name_in_book="ssp245",
+        data_dictionary=[
+            models.DataDictionaryEntry(name="region", role="dimension"),
+            models.DataDictionaryEntry(name="value", type="number", role="measure"),
+        ],
+    )
     draft.publish()
 ```
 
@@ -110,6 +117,10 @@ with Bookshelf() as bs:
 The former catalogues an existing pointer.
 The latter attributes an external output to the current run.
 Book drafting, attachment, and publication remain separate editorial calls.
+Each tabular or timeseries entry can declare its own column descriptions through
+``draft.attach(..., data_dictionary=...)``.
+Omitting the argument preserves the entry's existing dictionary on re-attach,
+while an empty list clears it.
 
 Use `activity.register_many()` with `RegisterItem` values for a batch.
 An atomic batch over 1000 items raises before any upload begins.

@@ -69,7 +69,6 @@ def test_draft_book_wraps_the_optional_strings_the_api_takes_as_models() -> None
             citation_doi="10.5281/zenodo.1",
             license="CC-BY-4.0",
             bundle_hash="a" * 64,
-            data_dictionary=[models.DataDictionaryEntry(name="region", role="dimension")],
         )
 
     assert draft.metadata.series_name == "primap-hist"
@@ -79,7 +78,46 @@ def test_draft_book_wraps_the_optional_strings_the_api_takes_as_models() -> None
     assert body["citation_doi"] == "10.5281/zenodo.1"
     assert body["license"] == "CC-BY-4.0"
     assert body["bundle_hash"] == "a" * 64
-    assert body["data_dictionary"] == [{"name": "region", "role": "dimension"}]
+    assert "data_dictionary" not in body
+
+
+@pytest.mark.parametrize(
+    ("data_dictionary", "expected"),
+    [
+        (None, None),
+        ([], []),
+        (
+            [models.DataDictionaryEntry(name="region", role="dimension")],
+            [{"name": "region", "role": "dimension"}],
+        ),
+    ],
+)
+def test_attach_preserves_the_difference_between_omitting_and_clearing_a_dictionary(
+    data_dictionary: list[models.DataDictionaryEntry] | None,
+    expected: list[dict[str, str]] | None,
+) -> None:
+    recorded: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        recorded.append(request)
+        payload = (
+            payloads.BOOK_DETAIL if request.url.path == "/v1/books" else payloads.ENTRY_ATTACHED
+        )
+        return httpx.Response(201, json=payload)
+
+    with Bookshelf(BASE_URL, auth=None, transport=httpx.MockTransport(handler)) as client:
+        draft = client.draft_book("primap-hist", version="1.0.0")
+        draft.attach(
+            TRACKING_ID,
+            name_in_book="by_country",
+            data_dictionary=data_dictionary,
+        )
+
+    body = _body(recorded[1])
+    if expected is None:
+        assert "data_dictionary" not in body
+    else:
+        assert body["data_dictionary"] == expected
 
 
 def test_draft_book_sends_no_wrapper_for_an_omitted_string() -> None:

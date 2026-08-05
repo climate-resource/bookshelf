@@ -178,16 +178,20 @@ This field is specific to the Bookshelf and is optional.
 | `description`     | optional | absent   | free prose                                                                       |
 | `citation_doi`    | optional | absent   | a DOI for the dataset                                                            |
 | `metadata`        | optional | `{}`     | free-form metadata                                                               |
-| `data_dictionary` | optional | `[]`     | column-level descriptions                                                        |
 | `entries`         | optional | `[]`     | the book's membership                                                            |
 | `published`       | optional | `false`  | whether the book should be published, or left a draft                            |
 
-Each entry in `entries` is a pair:
+Each entry in `entries` carries the membership and its own optional column descriptions:
 
-| Field          | Required | Meaning                                            |
-| -------------- | -------- | -------------------------------------------------- |
-| `name_in_book` | required | the stable name the resource takes inside the book |
-| `tracking_id`  | required | a resource recorded in this same manifest          |
+| Field             | Required | Default | Meaning                                                       |
+| ----------------- | -------- | ------- | ------------------------------------------------------------- |
+| `name_in_book`    | required |         | the stable name the resource takes inside the book            |
+| `tracking_id`     | required |         | a resource recorded in this same manifest                     |
+| `data_dictionary` | optional | absent  | column-level descriptions that apply to this entry            |
+
+An absent `data_dictionary` leaves the entry's existing dictionary unchanged on replay.
+An empty list explicitly clears it,
+which is the declaration used for notebooks and rendered pages.
 
 An entry must reference a resource recorded in the same manifest,
 which is what keeps a bundle self-contained.
@@ -302,12 +306,15 @@ book:
   authors:
   - email: ada@example.com
     name: Ada Lovelace
-  data_dictionary: []
   description: A worked example bundle.
   entries:
   - name_in_book: upstream.csv
     tracking_id: 0197a000-0000-7000-8000-00000000b001
   - name_in_book: emissions.parquet
+    data_dictionary:
+    - name: region
+      role: dimension
+      type: string
     tracking_id: 0197a000-0000-7000-8000-00000000b002
   license: CC-BY-4.0
   metadata: {}

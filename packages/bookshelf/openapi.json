@@ -1836,6 +1836,68 @@
         }
       }
     },
+    "/v1/books/{book_id}/archive": {
+      "get": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "Download Book Archive",
+        "description": "Download several resources of a book as one zip.",
+        "operationId": "resourcesDownloadBookArchive",
+        "security": [
+          {},
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "book_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Book Id"
+            }
+          },
+          {
+            "name": "resources",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Resource names within the book. Repeat for each one.",
+              "title": "Resources"
+            },
+            "description": "Resource names within the book. Repeat for each one."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Zip archive of the selected resources.",
+            "content": {
+              "application/zip": {}
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
     "/v1/books/{book_id}/resources/{resource_name}/timeseries/metadata": {
       "get": {
         "tags": [
@@ -5255,14 +5317,6 @@
             "type": "object",
             "title": "Metadata",
             "description": "Arbitrary JSON metadata"
-          },
-          "data_dictionary": {
-            "items": {
-              "$ref": "#/components/schemas/DataDictionaryEntry"
-            },
-            "type": "array",
-            "title": "Data Dictionary",
-            "description": "Schema describing expected data format"
           }
         },
         "type": "object",
@@ -5351,14 +5405,6 @@
             "type": "object",
             "title": "Metadata",
             "description": "Free-form metadata blob."
-          },
-          "data_dictionary": {
-            "items": {
-              "$ref": "#/components/schemas/DataDictionaryEntry"
-            },
-            "type": "array",
-            "title": "Data Dictionary",
-            "description": "Column descriptions for the book's tabular and timeseries entries."
           },
           "hash": {
             "anyOf": [
@@ -5478,14 +5524,6 @@
             "title": "Metadata",
             "description": "Optional metadata blob copied onto the new book."
           },
-          "data_dictionary": {
-            "items": {
-              "$ref": "#/components/schemas/DataDictionaryEntry"
-            },
-            "type": "array",
-            "title": "Data Dictionary",
-            "description": "Column descriptions for the book's tabular and timeseries entries. Applied when the draft is created. A request that resumes an existing book through ``bundle_hash`` returns that book unchanged, so use ``PATCH /v1/books/{book_id}`` to revise a draft's dictionary."
-          },
           "bundle_hash": {
             "anyOf": [
               {
@@ -5560,6 +5598,21 @@
             "minLength": 1,
             "title": "Name In Book",
             "description": "Stable name inside the book."
+          },
+          "data_dictionary": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DataDictionaryEntry"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Dictionary",
+            "description": "Column descriptions for this entry. Omitting the field leaves whatever the entry already carries in place, so a re-attach never drops a dictionary. Send an empty list to clear it, which is what a notebook or a rendered page wants."
           }
         },
         "additionalProperties": false,
@@ -5605,6 +5658,14 @@
       },
       "BookEntryItem": {
         "properties": {
+          "data_dictionary": {
+            "items": {
+              "$ref": "#/components/schemas/DataDictionaryEntry"
+            },
+            "type": "array",
+            "title": "Data Dictionary",
+            "description": "Column descriptions for this entry, empty when it has none to describe (a notebook, a rendered page)."
+          },
           "entry_id": {
             "type": "string",
             "format": "uuid",
@@ -5908,13 +5969,6 @@
             "type": "object",
             "title": "Metadata"
           },
-          "data_dictionary": {
-            "items": {
-              "$ref": "#/components/schemas/DataDictionaryEntry"
-            },
-            "type": "array",
-            "title": "Data Dictionary"
-          },
           "hash": {
             "anyOf": [
               {
@@ -5980,7 +6034,6 @@
           "visibility",
           "private",
           "metadata",
-          "data_dictionary",
           "hash",
           "created_at",
           "updated_at",
@@ -6025,21 +6078,6 @@
             ],
             "title": "Metadata",
             "description": "Updated metadata (replaces existing)"
-          },
-          "data_dictionary": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/DataDictionaryEntry"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Data Dictionary",
-            "description": "Updated data dictionary"
           }
         },
         "type": "object",
@@ -6747,7 +6785,7 @@
           "name"
         ],
         "title": "DataDictionaryEntry",
-        "description": "One column of a book's data dictionary.\n\nDescribes an index (dimension) column of a timeseries or dataframe resource:\nwhat it means, its type, and -- where the values are controlled --\nthe allowed vocabulary with a description per value.\nSerialises to a Frictionless Table Schema field via\n:mod:`bookshelf_api.services.data_dictionary`.\nThe shape mirrors ``bookshelf.schema.Dimension`` in the consumer library\nso the two definitions converge.\nSee ``docs/architecture/data-dictionary.md``."
+        "description": "One column of a book entry's data dictionary.\n\nDescribes an index (dimension) column of a timeseries or dataframe resource:\nwhat it means, its type, and -- where the values are controlled --\nthe allowed vocabulary with a description per value.\nSerialises to a Frictionless Table Schema field via\n:mod:`bookshelf_api.services.data_dictionary`.\nThe shape mirrors ``bookshelf.schema.Dimension`` in the consumer library\nso the two definitions converge.\nSee ``docs/architecture/data-dictionary.md``."
       },
       "DatasetConfig": {
         "properties": {
@@ -8528,6 +8566,16 @@
           "storage": {
             "type": "string",
             "title": "Storage"
+          },
+          "cache": {
+            "type": "string",
+            "enum": [
+              "disabled",
+              "healthy",
+              "unhealthy"
+            ],
+            "title": "Cache",
+            "default": "disabled"
           }
         },
         "type": "object",
@@ -9276,6 +9324,14 @@
       },
       "ResourceSummary": {
         "properties": {
+          "data_dictionary": {
+            "items": {
+              "$ref": "#/components/schemas/DataDictionaryEntry"
+            },
+            "type": "array",
+            "title": "Data Dictionary",
+            "description": "Column descriptions for this entry, empty when it has none to describe (a notebook, a rendered page)."
+          },
           "id": {
             "type": "string",
             "title": "Id"

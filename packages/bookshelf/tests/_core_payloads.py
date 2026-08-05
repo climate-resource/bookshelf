@@ -28,7 +28,6 @@ BOOK_RESPONSE: dict[str, Any] = {
     "visibility": "hidden",
     "private": True,
     "metadata": {},
-    "data_dictionary": [],
     "hash": None,
     "created_at": TS,
     "updated_at": TS,

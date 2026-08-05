@@ -78,3 +78,19 @@ def test_problem_and_book_draft_contracts() -> None:
     request = models.BookDraftRequest.model_validate({"version": "v1", "series_name": "series"})
     assert request.visibility is models.Visibility.hidden
     assert isinstance(request.visibility, models.Visibility)
+
+
+def test_data_dictionary_hangs_only_from_book_entries() -> None:
+    book_models = (
+        models.BookCreate,
+        models.BookUpdate,
+        models.BookDraftRequest,
+        models.BookResponse,
+        models.BookDetail,
+    )
+    assert all("data_dictionary" not in model.model_fields for model in book_models)
+    assert "data_dictionary" in models.BookEntryAttach.model_fields
+    assert "data_dictionary" in models.BookEntryItem.model_fields
+    assert "data_dictionary" in models.ResourceSummary.model_fields
+    assert "data_dictionary_source" not in models.BookEntryItem.model_fields
+    assert "data_dictionary_source" not in models.ResourceSummary.model_fields

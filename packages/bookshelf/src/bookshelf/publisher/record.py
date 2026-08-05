@@ -192,7 +192,7 @@ def _record_executed_documents(
             logical_key=f"document/{name_in_book}",
             metadata={"kind": kind, "notebook_name": executed.name},
         )
-        context.book.attach(resource, name_in_book=name_in_book)
+        context.book.attach(resource, name_in_book=name_in_book, data_dictionary=[])
 
 
 def _replace_bundle(staging: Path, target: Path) -> None:
