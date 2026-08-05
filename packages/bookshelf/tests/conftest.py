@@ -28,7 +28,12 @@ def make_bundle(tmp_path: Path) -> BundleFactory:
 
     ``published``, ``entries`` and ``book`` each relax one part of it,
     so a test can name the single invariant it is about.
+    The first bundle lands at ``tmp_path / "bundle"``,
+    which is the directory the CLI defaults to.
+    Each later one takes its own directory,
+    so two bundles in one test never share a ``resources/``.
     """
+    made = 0
 
     def factory(
         *,
@@ -36,7 +41,9 @@ def make_bundle(tmp_path: Path) -> BundleFactory:
         entries: int = 1,
         book: BundleBook | None = None,
     ) -> Bundle:
-        bundle = Bundle(tmp_path / "bundle")
+        nonlocal made
+        bundle = Bundle(tmp_path / (f"bundle-{made}" if made else "bundle"))
+        made += 1
         bundle.set_book(
             book
             if book is not None
