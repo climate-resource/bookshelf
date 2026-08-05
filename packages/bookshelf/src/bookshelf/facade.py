@@ -32,7 +32,12 @@ from bookshelf._produce import (
     RegistrationSuccess,
     Used,
 )
-from bookshelf._produce.facade import AsyncLiveSink, AsyncProduceFacade, LiveSink, ProduceFacade
+from bookshelf._produce.facade import (
+    AsyncLiveSink,
+    AsyncProduceSink,
+    LiveSink,
+    ProduceSink,
+)
 from bookshelf.cache import ContentCache
 
 _PAGE_SIZE = 100
@@ -129,7 +134,7 @@ def _missing_book(volume: str, version: str, edition: int | None) -> NotFoundErr
     )
 
 
-class Bookshelf(ProduceFacade):
+class Bookshelf:
     """Synchronous facade for consuming, cataloguing, and curating resources."""
 
     def __init__(
@@ -148,7 +153,16 @@ class Bookshelf(ProduceFacade):
             transport=transport,
         )
         self._cache = ContentCache()
-        self._produce_sink = LiveSink(self._client, self._cache)
+        self._bind_produce_sink(LiveSink(self._client, self._cache))
+
+    def _bind_produce_sink(self, sink: ProduceSink) -> None:
+        """Point the producer surface at an adapter.
+
+        A recording build swaps the adapter after construction, so the bound calls move with it.
+        """
+        self.activity = sink.activity
+        self.register_external = sink.register_external
+        self.draft_book = sink.draft_book
 
     def __enter__(self) -> Self:
         return self
@@ -305,7 +319,7 @@ class Bookshelf(ProduceFacade):
         raise BookshelfError("book entry lookup exceeded the pagination safety cap")
 
 
-class AsyncBookshelf(AsyncProduceFacade):
+class AsyncBookshelf:
     """Asynchronous facade for consuming, cataloguing, and curating resources."""
 
     def __init__(
@@ -324,7 +338,13 @@ class AsyncBookshelf(AsyncProduceFacade):
             async_transport=async_transport,
         )
         self._cache = ContentCache()
-        self._produce_sink = AsyncLiveSink(self._client, self._cache)
+        self._bind_produce_sink(AsyncLiveSink(self._client, self._cache))
+
+    def _bind_produce_sink(self, sink: AsyncProduceSink) -> None:
+        """Point the producer surface at an adapter."""
+        self.activity = sink.activity
+        self.register_external = sink.register_external
+        self.draft_book = sink.draft_book
 
     async def __aenter__(self) -> Self:
         return self

@@ -637,7 +637,7 @@ class RecordingBookshelf(Bookshelf):
             self._cache,
             authors=authors,
         )
-        self._produce_sink = self.recording_sink
+        self._bind_produce_sink(self.recording_sink)
 
 
 @dataclass(slots=True)
