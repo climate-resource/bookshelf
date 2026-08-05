@@ -1,6 +1,7 @@
 """Tests for auth and base-URL resolution: explicit beats ambient, machine beats human."""
 
 import time
+from dataclasses import replace
 from datetime import UTC, datetime
 
 import httpx
@@ -129,6 +130,42 @@ def test_stored_refresh_exchange_persists_rotations(monkeypatch: pytest.MonkeyPa
         client.get("https://bookshelf.test/v1/books")
     assert saved["access_token"] == "new-tok"
     assert saved["refresh_token"] == "rt-2"
+
+
+def test_an_agent_record_without_an_assertion_rotates_as_a_user(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The rotation follows the provider that was built, not the record's own kind.
+
+    An agent record with no assertion is served by the refresh-token provider,
+    so what comes back is a refresh token and it has to be stored as one.
+    """
+    agent_record = replace(stored(monkeypatch), kind="agent", identity_assertion=None)
+    monkeypatch.setattr(credentials, "load_credentials", lambda _api_url=None: agent_record)
+    saved: dict[str, object] = {}
+
+    def fake_save(access_token: str, **kwargs: object) -> None:
+        saved.update(kwargs)
+
+    monkeypatch.setattr(credentials, "save_credentials", fake_save)
+    auth = config.resolve_auth(config.UNSET)
+    assert isinstance(auth, RefreshTokenExchange)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/authenticate"):
+            return httpx.Response(
+                200,
+                json={"access_token": "new-tok", "refresh_token": "rt-2", "expires_in": 3600},
+            )
+        return httpx.Response(200, json={"ok": True})
+
+    auth._expires_at = 0.0
+    with httpx.Client(transport=httpx.MockTransport(handler), auth=auth) as client:
+        client.get("https://bookshelf.test/v1/books")
+
+    assert saved["kind"] == "user"
+    assert saved["refresh_token"] == "rt-2"
+    assert "identity_assertion" not in saved
 
 
 def test_stored_without_workos_client_id_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
