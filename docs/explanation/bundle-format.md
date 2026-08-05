@@ -26,13 +26,15 @@ bundle/
     7198966a1a10c93fe40255d2c8e49b750e2cc7d3c9f56e4d06ac7e595e9afaa0.parquet
 ```
 
-- `manifest.lock` is a YAML document. It is the whole description of the bundle.
+- `manifest.lock` is a YAML document.
+  It is the whole description of the bundle.
 - `resources/` holds the bytes of every **managed** resource, keyed on content.
 
 A byte file name is derived from the resource's hash and its type:
 
 - Take the recorded `hash`, which is always `sha256:` followed by exactly 64 lowercase hex characters.
-- Drop the `sha256:` prefix. The 64 hex characters are the file's stem.
+- Drop the `sha256:` prefix.
+  The 64 hex characters are the file's stem.
 - The extension is `parquet` when the resource `type` is `timeseries` or `tabular`, and `bin` otherwise.
 
 So a `timeseries` resource with hash `sha256:7198...faa0` is stored at
@@ -69,7 +71,7 @@ Every entry in `resources` has these fields.
 |---|---|---|---|---|
 | `tracking_id` | required | UUID | | the identity of this resource within the bundle |
 | `hash` | required | `sha256:<64 lowercase hex>` | | the content hash, and the replay idempotency key |
-| `type` | required | string | | one of `timeseries`, `tabular`, `geospatial`, `document`, `binary` |
+| `type` | required | string | | what sort of resource this is, see below |
 | `kind` | optional | `managed` or `pointer` | `managed` | which of the two variants this record is |
 | `logical_key` | optional | string | absent | the stable name lineage refers to this resource by |
 | `format` | optional | string | absent | the declared storage format, absent when it is not known |
@@ -81,6 +83,11 @@ Every entry in `resources` has these fields.
 | `external_uri` | pointer only | string | absent | the external target |
 | `generated` | optional | boolean | `false` | whether an activity produced this resource |
 | `used` | optional | list of references | `[]` | what this resource was derived from |
+
+The `type` values in use are `timeseries`, `tabular`, `geospatial`, `document` and `binary`.
+The field is a plain string and the set is not closed,
+so a reader must carry a type it does not recognise rather than refuse the bundle.
+Only `timeseries` and `tabular` change how a byte file is named.
 
 ### `managed` versus `pointer`
 
@@ -139,7 +146,8 @@ so a later output can cite more than an earlier one and never rewrites what the 
 
 ### The activity envelope
 
-`activity` describes the run. It is optional.
+`activity` describes the run.
+It is optional.
 A bundle with managed resources and no activity is valid,
 and a reader must load it unchanged.
 
@@ -148,9 +156,13 @@ and a reader must load it unchanged.
 | `activity_id` | required | UUID minted by the producer, stable across replays of the same bundle |
 | `kind` | required | what sort of run this was, for instance `build` |
 | `code_ref` | required | the code that ran, conventionally `<git remote>@<sha>` |
-| `config_hash` | required | a `sha256:<hex>` digest over the run's parameters |
+| `config_hash` | required | a `sha256:<hex>` digest identifying the run's configuration |
 | `parameters` | optional, defaults to `{}` | the parameters the run was given |
 | `runner` | optional | what executed the run |
+
+`config_hash` is what says two runs were configured the same way.
+A producer that has a better digest records it.
+Otherwise it is the digest of the canonical JSON of `parameters`.
 
 A bundle records **one** activity.
 Recording a second envelope that differs in any field is an error.
@@ -161,7 +173,8 @@ Nothing in a bundle is a timestamp (see [Determinism](#determinism)).
 
 ### The book framing
 
-`book` frames a book to draft and publish. It is optional.
+`book` frames a book to draft and publish.
+It is optional.
 
 | Field | Required | Default | Meaning |
 |---|---|---|---|
@@ -184,19 +197,23 @@ Each entry in `entries` is a pair:
 | `name_in_book` | required | the stable name the resource takes inside the book |
 | `tracking_id` | required | a resource recorded in this same manifest |
 
-`name_in_book` is unique within a book.
-An entry must reference a resource in the same manifest,
+An entry must reference a resource recorded in the same manifest,
 which is what keeps a bundle self-contained.
+`name_in_book` is unique within a book.
+A writer enforces both when it appends an entry.
+Validation checks the reference and not the uniqueness,
+so an implementation that reads a hand-edited manifest should check the names itself.
 
 ## Determinism
 
 The manifest is written deterministically.
 The same content produces byte-identical output on any machine, on any run.
 
-- Every mapping is sorted by key, recursively. List order is preserved as recorded.
+- Every mapping is sorted by key, recursively.
+  List order is preserved as recorded.
 - Fields with no value are omitted rather than written as null.
 - Newlines are LF, and the encoding is UTF-8, whatever the platform.
-- Long strings are never line-wrapped.
+- Long strings are not wrapped to a column width.
 - Nothing is a timestamp, a hostname, a path from the producing machine, or a random id minted at write time.
 
 This is what makes a bundle reviewable.
@@ -221,7 +238,8 @@ A reader models one major version, and this specification describes major 1.
 - An absent `schema_version` is read as the current version.
 
 Tolerance is one-directional by design.
-Ignoring an unknown field is safe. Guessing at a changed one is not.
+Ignoring an unknown field is safe.
+Guessing at a changed one is not.
 
 ## Validation
 
@@ -246,7 +264,8 @@ so a consumer that is about to publish refuses it and says which rule failed.
 
 Pointers are not fetched during validation.
 Nothing checks that an `external_uri` resolves, and nothing verifies an external digest.
-A pointer is a claim about somewhere else, and validating it would need the network that the format is designed to avoid.
+A pointer is a claim about somewhere else,
+and validating it would need the network that the format is designed to avoid.
 
 ## What a bundle does not carry
 
@@ -259,7 +278,8 @@ A pointer is a claim about somewhere else, and validating it would need the netw
   What identifies a generation of processing is the activity's `code_ref` and `config_hash`.
 - **A derived seal.**
   Replay keys a draft on a hash computed over the book's licence, visibility and sorted membership.
-  That value is derived from the manifest when it is needed. It is not stored in the bundle.
+  That value is derived from the manifest when it is needed.
+  It is not stored in the bundle.
 - **Timestamps and machine state.**
   See [Determinism](#determinism).
 - **The volume.**
@@ -339,7 +359,8 @@ schema_version: '1.0'
 Reading it back:
 
 - The pointer carries no bytes and no `size`, so `resources/` holds one file, not two.
-- Its hash was synthesised from its type, logical key and URI, because the producer did not know the upstream digest.
+- Its hash was synthesised from its type, logical key and URI,
+  because the producer did not know the upstream digest.
 - The managed resource cites the pointer by `tracking_id`, which is the lineage edge.
 - The book publishes both under names of its own choosing, and carries no edition.
 

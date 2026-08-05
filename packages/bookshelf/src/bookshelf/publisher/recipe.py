@@ -11,7 +11,7 @@ import yaml
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf._produce.helpers import visibility as _visibility
-from bookshelf._produce.visibility import VisibilityInput
+from bookshelf._produce.visibility import INHERIT, VisibilityInput
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,20 +66,15 @@ def resolve_book_visibility(
 ) -> models.Visibility:
     """Resolve the tier a recorded book takes, which is also the default its resources take.
 
-    One rule, applied at the two points a recorded build passes through:
+    The rule is: the caller, then the recipe, then ``default``.
+    ``None`` and :data:`~bookshelf._produce.visibility.INHERIT` both mean the caller said nothing.
+    An empty string is invalid input to reject, never a signal to inherit the recipe's value.
 
-    - The build file's ``bookshelf.setup`` resolves the book's tier from the caller,
-      then the recipe, then ``hidden``.
-      ``declared is None`` means the caller said nothing.
-      An empty string is invalid input to reject, never a signal to inherit the recipe's value.
-    - Drafting the book then makes that tier the default for every resource the build records
-      afterwards, so declaring the book public is enough to publish public data.
-      A registration that passes its own ``visibility=`` narrows or widens that one resource.
-
-    A build that drafts its book directly rather than through ``setup`` has no recipe,
-    so an omitted tier resolves to ``default``, which is the drafting sink's current default.
+    Drafting the book then makes the resolved tier the default for every resource the build
+    records afterwards, so declaring the book public is enough to publish public data.
+    A registration that passes its own ``visibility=`` narrows or widens that one resource.
     """
-    if declared is None:
+    if declared is None or declared is INHERIT:
         declared = (recipe.visibility if recipe is not None else None) or default
     return _visibility(declared, default)
 
