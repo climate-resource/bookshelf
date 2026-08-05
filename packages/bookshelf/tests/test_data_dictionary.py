@@ -3,8 +3,6 @@
 from pathlib import Path
 from uuid import UUID, uuid4
 
-import yaml
-
 from bookshelf._generated import models
 from bookshelf.publisher import RecordingBookshelf
 from bookshelf.publisher.bundle import Bundle, BundleBook
@@ -111,30 +109,3 @@ def test_replay_sends_the_recorded_dictionary_on_attach(tmp_path: Path) -> None:
     sent = client.draft.attach_kwargs["data_dictionary"]
     assert [entry.name for entry in sent] == ["region"]
     assert sent[0].role == "dimension"
-
-
-def test_read_migrates_a_legacy_book_dictionary_to_its_data_entries(tmp_path: Path) -> None:
-    """A schema-v1 bundle recorded before the move keeps its dictionary on replay."""
-    bundle = Bundle(tmp_path / "bundle")
-    bundle.set_book(BundleBook(volume="example", version="v1.0.0", license="MIT"))
-    for name, type_ in (("data", "tabular"), ("report", "document")):
-        tracking_id = uuid4()
-        bundle.add_pointer(
-            external_uri=f"https://example.invalid/{name}",
-            hash_="sha256:" + "a" * 64,
-            type_=type_,
-            tracking_id=tracking_id,
-        )
-        bundle.add_book_entry(name_in_book=name, tracking_id=tracking_id)
-    bundle.write()
-
-    raw = yaml.safe_load(bundle.manifest_path.read_text())
-    raw["book"]["data_dictionary"] = [{"name": "region", "role": "dimension"}]
-    bundle.manifest_path.write_text(yaml.safe_dump(raw))
-
-    loaded = Bundle.read(bundle.root)
-
-    assert loaded.manifest.book is not None
-    data, report = loaded.manifest.book.entries
-    assert data.data_dictionary == [{"name": "region", "role": "dimension"}]
-    assert report.data_dictionary == []

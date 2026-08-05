@@ -11,6 +11,25 @@ from bookshelf._generated import models
 from bookshelf._produce.types import HasTrackingId
 
 
+def _attach_request(
+    resource: HasTrackingId | str | UUID,
+    *,
+    name_in_book: str,
+    data_dictionary: Sequence[models.DataDictionaryEntry] | None,
+) -> models.BookEntryAttach:
+    """Build an attachment while preserving an omitted dictionary field."""
+    tracking_id = (
+        UUID(str(resource)) if isinstance(resource, str | UUID) else UUID(str(resource.tracking_id))
+    )
+    if data_dictionary is None:
+        return models.BookEntryAttach(tracking_id=tracking_id, name_in_book=name_in_book)
+    return models.BookEntryAttach(
+        tracking_id=tracking_id,
+        name_in_book=name_in_book,
+        data_dictionary=list(data_dictionary),
+    )
+
+
 class DraftBook:
     """Mutable synchronous draft-book handle."""
 
@@ -38,19 +57,10 @@ class DraftBook:
         Omitting ``data_dictionary`` preserves the dictionary on an existing entry.
         Pass an empty sequence to clear it.
         """
-        tracking_id = (
-            UUID(str(resource))
-            if isinstance(resource, str | UUID)
-            else UUID(str(resource.tracking_id))
-        )
-        request = (
-            models.BookEntryAttach(tracking_id=tracking_id, name_in_book=name_in_book)
-            if data_dictionary is None
-            else models.BookEntryAttach(
-                tracking_id=tracking_id,
-                name_in_book=name_in_book,
-                data_dictionary=list(data_dictionary),
-            )
+        request = _attach_request(
+            resource,
+            name_in_book=name_in_book,
+            data_dictionary=data_dictionary,
         )
         return self._client.attach_entry(str(self.book_id), request)
 
@@ -87,19 +97,10 @@ class AsyncDraftBook:
         Omitting ``data_dictionary`` preserves the dictionary on an existing entry.
         Pass an empty sequence to clear it.
         """
-        tracking_id = (
-            UUID(str(resource))
-            if isinstance(resource, str | UUID)
-            else UUID(str(resource.tracking_id))
-        )
-        request = (
-            models.BookEntryAttach(tracking_id=tracking_id, name_in_book=name_in_book)
-            if data_dictionary is None
-            else models.BookEntryAttach(
-                tracking_id=tracking_id,
-                name_in_book=name_in_book,
-                data_dictionary=list(data_dictionary),
-            )
+        request = _attach_request(
+            resource,
+            name_in_book=name_in_book,
+            data_dictionary=data_dictionary,
         )
         return await self._client.attach_entry_async(str(self.book_id), request)
 

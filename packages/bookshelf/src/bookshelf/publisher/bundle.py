@@ -394,41 +394,6 @@ def _check_schema_major(raw: dict[str, Any]) -> None:
         )
 
 
-def _migrate_legacy_book_dictionary(raw: dict[str, Any]) -> None:
-    """Move a schema-v1 book dictionary onto the entries it described.
-
-    Early schema-v1 bundles recorded one dictionary on ``book``.
-    The platform migration copied that dictionary to tabular and timeseries entries
-    and gave non-tabular entries an explicit empty dictionary.
-    Apply the same rule before validation so an old replay does not silently lose meaning.
-    A per-entry dictionary wins when a manifest contains both shapes.
-    """
-    book = raw.get("book")
-    resources = raw.get("resources")
-    if (
-        not isinstance(book, dict)
-        or "data_dictionary" not in book
-        or not isinstance(resources, list)
-    ):
-        return
-    legacy = book.pop("data_dictionary")
-    if not isinstance(legacy, list) or not all(isinstance(item, dict) for item in legacy):
-        raise ValueError("legacy book data_dictionary must be a list of mappings")
-    resource_types = {
-        str(resource.get("tracking_id")): resource.get("type")
-        for resource in resources
-        if isinstance(resource, dict)
-    }
-    entries = book.get("entries")
-    if not isinstance(entries, list):
-        return
-    for entry in entries:
-        if not isinstance(entry, dict) or "data_dictionary" in entry:
-            continue
-        resource_type = resource_types.get(str(entry.get("tracking_id")))
-        entry["data_dictionary"] = legacy if resource_type in _PARQUET_TYPES else []
-
-
 def resource_filename(hash_: str, type_: str) -> str:
     """Return the content-addressed byte-file name for ``hash_`` of ``type_``.
 
@@ -846,7 +811,6 @@ class Bundle:
         """
         raw: dict[str, Any] = yaml.safe_load((root / MANIFEST_NAME).read_bytes()) or {}
         _check_schema_major(raw)
-        _migrate_legacy_book_dictionary(raw)
         manifest = BundleManifest.model_validate(raw)
         return cls(root=root, manifest=manifest)
 
