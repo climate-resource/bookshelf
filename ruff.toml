@@ -39,8 +39,12 @@ ignore = [
 ]
 "docs/*" = [
     "D100",  # Missing docstring at the top of file
+    "D103",  # Missing docstring in public function
     "E402",  # Module level import not at top of file
     "S101",  # Use of `assert` detected
+    # The how-to guides are executed as notebooks, where top-level await is valid.
+    "F704",  # `await` statement outside of a function
+    "PLE1142",  # `await` should be used within an async function
 ]
 "notebooks/*" = [
     "D100",  # Missing docstring at the top of file

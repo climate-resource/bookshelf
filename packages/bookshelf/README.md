@@ -50,21 +50,26 @@ Indexing a `Book` returns a `BookEntry` with book scoped exploration helpers.
 from bookshelf import Bookshelf
 
 with Bookshelf() as bs:
-    entry = bs.book("rcmip-emissions", "v5.1.0")["magicc-rcmip"]
+    entry = bs.book("rcmip-emissions", "v5.1.0")["magicc"]
     frame = entry.as_df(
         year_min=2020,
         year_max=2100,
         drop_constant=True,
-        top_n=20,
-        **{"region.in": "World,R5ASIA"},
+        region="World",
     )
     facets = entry.facets()
 ```
 
 `as_df()` returns pandas and uses wide indexed form for timeseries resources.
 The converter family also includes `as_long_df()`, `as_scmrun()`, `as_polars()`, and `as_arrow()`.
-Book timeseries queries accept server side year bounds, constant dimension removal, top N selection, row limits, and arbitrary `col.op` filters.
-Lean resource and tabular queries accept `select`, `order`, `limit`, and `offset` plus the same filter vocabulary.
+Book timeseries queries accept server side year bounds, constant dimension removal, top N selection, and row limits.
+Their filters are bare `column=value` keywords, and repeating a column ORs its values.
+The richer `col.op` grammar is not applied on this path and an unrecognised key is ignored rather than rejected.
+Lean resource and tabular queries accept `select`, `order`, `limit`, and `offset`,
+plus the full `col.op` filter vocabulary.
+
+Note that `top_n` and `limit` let the server drop index columns that carry a single value
+across the trimmed result, which is why `as_scmrun()` needs a year window and filters instead.
 
 Use `bs.resource(tracking_id)` for an exact machine or provenance path.
 `fetch()` verifies the declared SHA256 before storing bytes in the local content cache.
@@ -77,7 +82,7 @@ from bookshelf import AsyncBookshelf
 
 async with AsyncBookshelf() as bs:
     book = await bs.book("rcmip-emissions", "v5.1.0", edition=2)
-    frame = await book["magicc-rcmip"].as_df()
+    frame = await book["magicc"].as_df()
 ```
 
 ## Producing and curating data
@@ -92,7 +97,7 @@ Use `Used(logical_key=...)` when key based resolution is intentional.
 from bookshelf import Bookshelf, Used
 
 with Bookshelf() as bs:
-    source = bs.book("rcmip-emissions", "v5.1.0")["magicc-rcmip"]
+    source = bs.book("rcmip-emissions", "v5.1.0")["magicc"]
     with bs.activity(code_ref="github.com/example/model@abc123", config={"scenario": "ssp245"}) as activity:
         output = activity.register(
             transform(source.as_df()),
