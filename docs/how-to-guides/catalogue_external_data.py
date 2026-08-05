@@ -85,21 +85,14 @@ pointer.tracking_id
 # and two runs would have nothing to distinguish their provenance.
 # A build needing two distinct envelopes needs two bundles.
 #
-# So everything this run produces goes in one block:
-# an attributed external pointer, and a batch of managed outputs.
-
-# %% [markdown]
-# ### Attributing an external output to a run
+# So everything this run produces goes in one block,
+# which here means an attributed external pointer alongside a batch of managed outputs.
 #
-# Inside an activity, `register_external()` records that this run produced the pointer,
+# Called inside an activity, `register_external()` records that this run produced the pointer,
 # and `used=` records what it consumed.
-
-# %% [markdown]
-# ### Registering a batch
-#
-# `register_many()` takes `RegisterItem` values and registers them together.
-# It is the right call whenever a run produces more than one output,
-# because live it is a single round trip and one lineage record.
+# `register_many()` then takes `RegisterItem` values and registers them together,
+# which is the right call whenever a run produces more than one output,
+# because against a live API it is a single round trip and one lineage record.
 
 # %%
 years = [str(year) for year in range(2020, 2031)]

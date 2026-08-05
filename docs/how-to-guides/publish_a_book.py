@@ -22,9 +22,8 @@
 # - **Replay** takes that bundle and performs the writes.
 #   This is the half that needs credentials.
 #
-# This guide records.
-# It runs unauthenticated on every docs build,
-# and the replay step is shown but not executed.
+# This guide records, so it runs unauthenticated on every docs build,
+# and the replay step below is shown rather than executed.
 #
 # The split is worth having in its own right.
 # A recorded bundle can be reviewed, diffed, and archived before anything is written,
@@ -49,11 +48,11 @@ VERSION = "v1.0.0"
 # of every resource the run registers.
 #
 # `RecordingBookshelf` is the ordinary `Bookshelf` facade with the producer seam rebound.
-# Reads stay live.
-# `activity()`, `draft_book()` and `register_external()` land in the bundle instead of the API.
+# Reads stay live, while `activity()`, `draft_book()` and `register_external()`
+# land in the bundle instead of reaching the API.
 #
-# `auth=None` is passed here to prove the point.
-# It keeps the client unauthenticated, so nothing in this guide can depend on a credential.
+# Passing `auth=None` keeps the client unauthenticated,
+# so nothing in this guide can quietly come to depend on a credential.
 
 # %%
 bundle_root = Path(tempfile.mkdtemp()) / "bundle"
@@ -250,5 +249,5 @@ print((bundle_root / "manifest.lock").read_text())
 # %% [markdown]
 # ## Where to next
 #
-# - [Cataloguing external data](catalogue_external_data) covers pointers to data
-#   the platform does not store, and batch registration.
+# - [Cataloguing external data](catalogue_external_data) covers pointers to data the platform
+#   does not store, along with batch registration.

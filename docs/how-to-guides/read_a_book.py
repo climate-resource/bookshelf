@@ -17,8 +17,7 @@
 # This guide covers the consumer side of the SDK:
 # addressing a book, choosing an edition, and pulling data out of it.
 #
-# Reading published data needs no credentials.
-# Everything below runs unauthenticated.
+# Reading published data needs no credentials, so everything below runs unauthenticated.
 
 # %% [markdown]
 # ## Connecting
@@ -74,8 +73,7 @@ pinned.metadata.version, pinned.metadata.edition
 # %% [markdown]
 # ## Book entries
 #
-# A book holds one or more named entries.
-# Index the book to get a `BookEntry`.
+# A book holds one or more named entries, and indexing it returns a `BookEntry`.
 
 # %%
 entry = book["magicc"]
@@ -94,34 +92,36 @@ except KeyError as exc:
 # %% [markdown]
 # ## Exploring before pulling data
 #
-# `magicc` is a large entry.
-# Explore its shape first rather than downloading it to find out.
+# `magicc` is a large entry, so explore its shape first rather than downloading it to find out.
+# Three helpers describe an entry without pulling any of it:
+# `facets()` returns each index column and its distinct values,
+# `schema()` describes the timeseries structure,
+# and `preview()` returns a small tabular sample.
 #
-# `facets()` returns each index column and its distinct values.
-# `total_unique` is the count across the whole entry.
+# Start with `facets()`, where `total_unique` counts across the whole entry.
 
 # %%
 facets = entry.facets()
 [(facet.column, facet.total_unique) for facet in facets.facets]
 
 # %% [markdown]
-# The values themselves are on each facet, each with the number of series carrying it.
-# This is how to discover what is worth filtering on.
+# The values themselves hang off each facet, carrying the number of series that use them,
+# which is how to work out what is worth filtering on.
 
 # %%
 scenarios = next(facet for facet in facets.facets if facet.column == "scenario")
 sorted((value.value, value.count) for value in scenarios.values)[:10]
 
 # %% [markdown]
-# `schema()` describes the timeseries structure without returning any values.
-# `total_rows` is the number of series in the entry.
+# `schema()` reports the same structure without any values at all,
+# so `total_rows` is the number of series waiting behind it.
 
 # %%
 schema = entry.schema()
 schema.columns, schema.total_rows
 
 # %% [markdown]
-# `preview()` returns a small tabular sample.
+# When none of that substitutes for looking at the data, `preview()` returns a sample.
 
 # %%
 entry.preview(limit=5)
@@ -155,8 +155,8 @@ window.shape
 
 # %% [markdown]
 # Filters select rows.
-# On a book entry a filter is a plain `column=value` keyword.
-# Multiple values for one column are OR'd.
+# On a book entry a filter is a plain `column=value` keyword,
+# and repeating a column ORs its values together.
 
 # %%
 world = entry.as_df(region="World", year_min=2020, year_max=2100)

@@ -68,8 +68,8 @@ entry.as_arrow(**selection).schema.names[:8]
 # so the query has to leave those index dimensions intact.
 #
 # A year window and row filters are safe.
-# `top_n` and `limit` are not, because the server drops index columns
-# that carry a single value across the trimmed result.
+# `top_n` and `limit` are not,
+# because the server drops index columns that carry a single value across the trimmed result.
 
 # %%
 run = entry.as_scmrun(year_min=1900, year_max=2100)

@@ -7,26 +7,22 @@ We'll go over how to solve common tasks.
 
 Reading public, published data needs no credentials.
 
-* ["Reading a published book"](read_a_book):
-  addressing a book, pinning an edition, exploring an entry, and trimming a query on the server.
-* ["Converting and plotting"](convert_and_plot):
-  the pandas, Polars, PyArrow and `ScmRun` converters,
-  the verified content cache, and getting a chart on screen.
-* ["Reading asynchronously"](read_asynchronously):
-  the awaited facade, fetching concurrently, and how long to keep a client alive.
+- [Reading a published book](read_a_book) addresses a book, pins an edition,
+  explores an entry before downloading it, and trims a query on the server.
+- [Converting and plotting](convert_and_plot) covers the pandas, Polars, PyArrow and `ScmRun`
+  converters, the verified content cache, and getting a chart on screen.
+- [Reading asynchronously](read_asynchronously) covers the awaited facade, fetching several books
+  at once, and how long a client should live.
 
 ## Producing data
 
-Producing splits in two.
-Recording captures what would be published into a local bundle and needs no credentials.
-Replay performs the writes and needs `bookshelf:write`,
-so run `bookshelf auth login` first.
+Producing splits into two halves.
+Recording captures what would be published into a local bundle, so it needs no credentials.
+Replay performs the writes and needs `bookshelf:write`, so run `bookshelf auth login` first.
 
-Both guides record, and show the replay step without running it.
+Both guides record, and both show the replay step without running it.
 
-* ["Publishing a book"](publish_a_book):
-  framing a book, registering a derived resource with its lineage,
-  and reading the recorded manifest before anything is written.
-* ["Cataloguing external data"](catalogue_external_data):
-  pointers to data the platform does not store,
-  batch registration, partial failure, and deduplication.
+- [Publishing a book](publish_a_book) frames a book, registers a derived resource with its lineage,
+  and reads the recorded manifest back before anything is written.
+- [Cataloguing external data](catalogue_external_data) covers pointers to data the platform does not
+  store, batch registration, partial failure, and deduplication.

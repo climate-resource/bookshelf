@@ -22,47 +22,45 @@
 # or when the SDK is embedded in an async service.
 
 # %% [markdown]
-# > **Note: If you have not written async Python before**
-# >
-# > Fetching a book is mostly waiting.
-# > The request goes out, the server does its work, and the bytes come back.
-# > During that wait the program has nothing to do.
-# >
-# > Ordinary synchronous code waits with the whole program stopped.
-# > Four books fetched one after another cost four waits back to back.
-# >
-# > `async` code hands that waiting time back.
-# > `await` marks a point where the function pauses,
-# > lets other work run, and resumes when its answer arrives.
-# > An **event loop** does the swapping between paused functions.
-# >
-# > Two consequences follow, and both matter here.
-# >
-# > - Requests can be **in flight at the same time**, so four fetches take
-# >   roughly as long as the slowest one rather than the sum of all four.
-# > - Any code you run inside a loop must not block it.
-# >   One synchronous call that stalls for a second stalls everything else on that loop too.
-# >
-# > This is concurrency, not parallelism.
-# > It is still one thread doing one thing at a time.
-# > It just stops sitting idle while the network works.
-# > That is why it speeds up waiting on many requests and does nothing
-# > for a single request, or for heavy computation on data already in memory.
-# >
-# > Three pieces of syntax cover everything below.
-# >
-# > - `async def` declares a function that is allowed to pause.
-# > - `await` pauses until one result is ready.
-# > - `asyncio.gather(...)` starts several at once and waits for all of them.
-# >
-# > Calling an `async def` function does not run it.
-# > It returns a coroutine that does nothing until awaited,
-# > which is the usual first surprise.
-# >
-# > Notebooks run inside an event loop already,
-# > so `await` works at the top level of a cell as it does below.
-# > A plain `.py` script has no loop running,
-# > so it needs `asyncio.run(main())` as its entry point.
+# ## What async buys you
+#
+# Skip this section if you have written async Python before.
+#
+# Fetching a book is mostly waiting.
+# The request goes out, the server does its work, and eventually the bytes come back.
+# Ordinary synchronous code spends that wait with the whole program stopped,
+# so four books fetched one after another cost four waits back to back.
+#
+# Async code hands that waiting time back.
+# `await` marks a point where a function pauses and lets other work run,
+# resuming once its own answer arrives,
+# and an event loop does the swapping between the functions that are paused.
+#
+# Two consequences follow, and both matter here.
+#
+# - Requests can be in flight at the same time,
+#   so four fetches take roughly as long as the slowest one rather than the sum of all four.
+# - Code running inside a loop must not block it,
+#   because one synchronous call that stalls for a second stalls everything else on that loop too.
+#
+# This is concurrency rather than parallelism.
+# It is still one thread doing one thing at a time, just no longer sitting idle while the network works.
+# So it pays off when you are waiting on many requests,
+# and does nothing at all for a single request or for heavy computation on data already in memory.
+#
+# Three pieces of syntax cover everything below.
+#
+# - `async def` declares a function that is allowed to pause.
+# - `await` pauses until one result is ready.
+# - `asyncio.gather(...)` starts several at once and waits for all of them.
+#
+# The usual first surprise is that calling an `async def` function does not run it.
+# It returns a coroutine, which does nothing until it is awaited.
+#
+# Notebooks run inside an event loop already,
+# so `await` works at the top level of a cell exactly as it does below.
+# A plain `.py` script has no loop running,
+# so it needs `asyncio.run(main())` as its entry point.
 
 # %%
 import asyncio
@@ -97,8 +95,9 @@ await latest_co2()
 # %% [markdown]
 # ## Fetching concurrently
 #
-# This is the reason to use the async workflows for analysis work.
-# With a single client, you can fetch many requests in parallel.
+# This is the reason to reach for the async facade in analysis work.
+# One client keeps many requests in flight at once,
+# so the whole set costs about as long as its slowest member.
 
 # %%
 COORDINATES = [
