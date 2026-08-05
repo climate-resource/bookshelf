@@ -78,6 +78,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID
@@ -275,6 +276,9 @@ class BundleBookEntry(BaseModel):
     recorded in the same manifest.
     ``name_in_book`` is the stable name
     that the resource takes inside the book.
+    ``data_dictionary`` describes this entry's columns.
+    ``None`` records omission so replay preserves an existing dictionary,
+    while an empty list records an explicit clear.
     This pair feeds the bundle-hash seal
     as a sorted ``[name_in_book, sha256_hex]`` member.
     It is both the unit replay attaches
@@ -287,6 +291,7 @@ class BundleBookEntry(BaseModel):
 
     name_in_book: str
     tracking_id: UUID
+    data_dictionary: list[dict[str, Any]] | None = None
 
 
 class BundleBook(BaseModel):
@@ -325,7 +330,6 @@ class BundleBook(BaseModel):
     description: str | None = None
     citation_doi: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
-    data_dictionary: list[dict[str, Any]] = Field(default_factory=list)
     entries: list[BundleBookEntry] = Field(default_factory=list)
     published: bool = False
 
@@ -390,6 +394,41 @@ def _check_schema_major(raw: dict[str, Any]) -> None:
         )
 
 
+def _migrate_legacy_book_dictionary(raw: dict[str, Any]) -> None:
+    """Move a schema-v1 book dictionary onto the entries it described.
+
+    Early schema-v1 bundles recorded one dictionary on ``book``.
+    The platform migration copied that dictionary to tabular and timeseries entries
+    and gave non-tabular entries an explicit empty dictionary.
+    Apply the same rule before validation so an old replay does not silently lose meaning.
+    A per-entry dictionary wins when a manifest contains both shapes.
+    """
+    book = raw.get("book")
+    resources = raw.get("resources")
+    if (
+        not isinstance(book, dict)
+        or "data_dictionary" not in book
+        or not isinstance(resources, list)
+    ):
+        return
+    legacy = book.pop("data_dictionary")
+    if not isinstance(legacy, list) or not all(isinstance(item, dict) for item in legacy):
+        raise ValueError("legacy book data_dictionary must be a list of mappings")
+    resource_types = {
+        str(resource.get("tracking_id")): resource.get("type")
+        for resource in resources
+        if isinstance(resource, dict)
+    }
+    entries = book.get("entries")
+    if not isinstance(entries, list):
+        return
+    for entry in entries:
+        if not isinstance(entry, dict) or "data_dictionary" in entry:
+            continue
+        resource_type = resource_types.get(str(entry.get("tracking_id")))
+        entry["data_dictionary"] = legacy if resource_type in _PARQUET_TYPES else []
+
+
 def resource_filename(hash_: str, type_: str) -> str:
     """Return the content-addressed byte-file name for ``hash_`` of ``type_``.
 
@@ -403,11 +442,6 @@ def resource_filename(hash_: str, type_: str) -> str:
     hex_digest = _sha256_hex(hash_)
     extension = "parquet" if type_ in _PARQUET_TYPES else "bin"
     return f"{hex_digest}.{extension}"
-
-
-def book_data_dictionary(book: BundleBook) -> list[models.DataDictionaryEntry]:
-    """Return a recorded book's data dictionary as validated entries."""
-    return [models.DataDictionaryEntry.model_validate(entry) for entry in book.data_dictionary]
 
 
 def compute_book_bundle_hash(manifest: BundleManifest) -> str:
@@ -564,11 +598,20 @@ class Bundle:
             raise ValueError("bundle already has a book recorded")
         self.manifest.book = book
 
-    def add_book_entry(self, *, name_in_book: str, tracking_id: UUID) -> BundleBookEntry:
+    def add_book_entry(
+        self,
+        *,
+        name_in_book: str,
+        tracking_id: UUID,
+        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
+    ) -> BundleBookEntry:
         """Append a ``name_in_book -> resource`` entry to the recorded book.
 
         ``tracking_id`` must reference a resource
         already recorded in this manifest.
+        ``data_dictionary`` belongs to this attachment rather than the book framing.
+        Omit it to preserve an existing entry dictionary,
+        or pass an empty sequence to clear one.
         The bundle therefore stays self-contained,
         and its membership always determines the bundle hash.
         ``name_in_book`` must be unique within the book.
@@ -587,7 +630,15 @@ class Bundle:
                 f"book entry {name_in_book!r} references resource {tracking_id} "
                 "that is not recorded in this bundle"
             )
-        entry = BundleBookEntry(name_in_book=name_in_book, tracking_id=tracking_id)
+        entry = BundleBookEntry(
+            name_in_book=name_in_book,
+            tracking_id=tracking_id,
+            data_dictionary=(
+                None
+                if data_dictionary is None
+                else [item.model_dump(mode="json") for item in data_dictionary]
+            ),
+        )
         self.manifest.book.entries.append(entry)
         return entry
 
@@ -795,6 +846,7 @@ class Bundle:
         """
         raw: dict[str, Any] = yaml.safe_load((root / MANIFEST_NAME).read_bytes()) or {}
         _check_schema_major(raw)
+        _migrate_legacy_book_dictionary(raw)
         manifest = BundleManifest.model_validate(raw)
         return cls(root=root, manifest=manifest)
 

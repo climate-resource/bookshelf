@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from uuid import UUID
 
+from bookshelf._generated import models
 from bookshelf._produce.books import AsyncDraftBook, DraftBook
 from bookshelf._produce.resources import AsyncResource, Resource
 from bookshelf._produce.types import Used, UsedInput
@@ -13,11 +14,20 @@ from bookshelf.facade import AsyncBookshelf, Bookshelf
 from bookshelf.publisher.bundle import (
     Bundle,
     BundleBook,
+    BundleBookEntry,
     BundleResource,
     BundleUsedRef,
-    book_data_dictionary,
     compute_book_bundle_hash,
 )
+
+
+def _entry_dictionary(
+    entry: BundleBookEntry,
+) -> list[models.DataDictionaryEntry] | None:
+    """Validate a recorded dictionary while preserving omission versus clearing."""
+    if entry.data_dictionary is None:
+        return None
+    return [models.DataDictionaryEntry.model_validate(item) for item in entry.data_dictionary]
 
 
 def _book_framing(bundle: Bundle) -> BundleBook:
@@ -32,7 +42,6 @@ async def draft_bundle_book(bundle: Bundle, bs: AsyncBookshelf) -> AsyncDraftBoo
 
     The draft is keyed on the bundle hash,
     so drafting is how a caller learns whether the edition already exists.
-    The data dictionary has to travel on this call or it never reaches the book.
 
     Args:
         bundle: Loaded bundle carrying the book framing.
@@ -53,7 +62,6 @@ async def draft_bundle_book(bundle: Bundle, bs: AsyncBookshelf) -> AsyncDraftBoo
         visibility=book.visibility,
         license=book.license,
         metadata=book.metadata,
-        data_dictionary=book_data_dictionary(book),
         bundle_hash=compute_book_bundle_hash(bundle.manifest),
     )
 
@@ -72,7 +80,6 @@ def draft_bundle_book_sync(bundle: Bundle, bs: Bookshelf) -> DraftBook:
         visibility=book.visibility,
         license=book.license,
         metadata=book.metadata,
-        data_dictionary=book_data_dictionary(book),
         bundle_hash=compute_book_bundle_hash(bundle.manifest),
     )
 
@@ -179,7 +186,11 @@ async def replay_bundle(
         raise ValueError("generated bundle resources require a recorded activity")
 
     for entry in book.entries:
-        await resolved.attach(resources[entry.tracking_id], name_in_book=entry.name_in_book)
+        await resolved.attach(
+            resources[entry.tracking_id],
+            name_in_book=entry.name_in_book,
+            data_dictionary=_entry_dictionary(entry),
+        )
     if book.published:
         await resolved.publish()
     return resolved
@@ -272,7 +283,11 @@ def replay_bundle_sync(
         raise ValueError("generated bundle resources require a recorded activity")
 
     for entry in book.entries:
-        resolved.attach(resources[entry.tracking_id], name_in_book=entry.name_in_book)
+        resolved.attach(
+            resources[entry.tracking_id],
+            name_in_book=entry.name_in_book,
+            data_dictionary=_entry_dictionary(entry),
+        )
     if book.published:
         resolved.publish()
     return resolved

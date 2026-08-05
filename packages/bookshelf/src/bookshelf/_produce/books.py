@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Self
 from uuid import UUID
 
@@ -26,18 +27,32 @@ class DraftBook:
         return self.metadata.status
 
     def attach(
-        self, resource: HasTrackingId | str | UUID, *, name_in_book: str
+        self,
+        resource: HasTrackingId | str | UUID,
+        *,
+        name_in_book: str,
+        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
     ) -> models.BookEntryAttachResponse:
-        """Attach an existing resource under an intentional book-local name."""
+        """Attach a resource under a book-local name and optional entry dictionary.
+
+        Omitting ``data_dictionary`` preserves the dictionary on an existing entry.
+        Pass an empty sequence to clear it.
+        """
         tracking_id = (
             UUID(str(resource))
             if isinstance(resource, str | UUID)
             else UUID(str(resource.tracking_id))
         )
-        return self._client.attach_entry(
-            str(self.book_id),
-            models.BookEntryAttach(tracking_id=tracking_id, name_in_book=name_in_book),
+        request = (
+            models.BookEntryAttach(tracking_id=tracking_id, name_in_book=name_in_book)
+            if data_dictionary is None
+            else models.BookEntryAttach(
+                tracking_id=tracking_id,
+                name_in_book=name_in_book,
+                data_dictionary=list(data_dictionary),
+            )
         )
+        return self._client.attach_entry(str(self.book_id), request)
 
     def publish(self) -> Self:
         """Publish the assembled draft and update this handle in place."""
@@ -61,18 +76,32 @@ class AsyncDraftBook:
         return self.metadata.status
 
     async def attach(
-        self, resource: HasTrackingId | str | UUID, *, name_in_book: str
+        self,
+        resource: HasTrackingId | str | UUID,
+        *,
+        name_in_book: str,
+        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
     ) -> models.BookEntryAttachResponse:
-        """Attach an existing resource under an intentional book-local name."""
+        """Attach a resource under a book-local name and optional entry dictionary.
+
+        Omitting ``data_dictionary`` preserves the dictionary on an existing entry.
+        Pass an empty sequence to clear it.
+        """
         tracking_id = (
             UUID(str(resource))
             if isinstance(resource, str | UUID)
             else UUID(str(resource.tracking_id))
         )
-        return await self._client.attach_entry_async(
-            str(self.book_id),
-            models.BookEntryAttach(tracking_id=tracking_id, name_in_book=name_in_book),
+        request = (
+            models.BookEntryAttach(tracking_id=tracking_id, name_in_book=name_in_book)
+            if data_dictionary is None
+            else models.BookEntryAttach(
+                tracking_id=tracking_id,
+                name_in_book=name_in_book,
+                data_dictionary=list(data_dictionary),
+            )
         )
+        return await self._client.attach_entry_async(str(self.book_id), request)
 
     async def publish(self) -> Self:
         """Publish the assembled draft and update this handle in place."""

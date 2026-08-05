@@ -33,8 +33,8 @@ class _FakeDraft:
         self.attached: list[UUID] = []
         self.published = False
 
-    def attach(self, resource, *, name_in_book: str) -> None:
-        del name_in_book
+    def attach(self, resource, *, name_in_book: str, data_dictionary=None) -> None:
+        del name_in_book, data_dictionary
         self.attached.append(resource.tracking_id)
 
     def publish(self) -> None:

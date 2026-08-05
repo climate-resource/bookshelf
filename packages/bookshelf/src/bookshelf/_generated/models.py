@@ -114,6 +114,24 @@ class Description(RootModel[str]):
     ]
 
 
+class BookCreate(BaseModel):
+    version: Annotated[
+        str,
+        Field(
+            description="Semantic version string (e.g., 'v1.0.0')",
+            max_length=50,
+            min_length=1,
+            title="Version",
+        ),
+    ]
+    description: Annotated[
+        Description | None, Field(description="Optional long-form description", title="Description")
+    ] = None
+    metadata: Annotated[
+        dict[str, Any] | None, Field(description="Arbitrary JSON metadata", title="Metadata")
+    ] = None
+
+
 class CitationDoi(RootModel[str]):
     root: Annotated[
         str,
@@ -143,24 +161,6 @@ class BundleHash(RootModel[str]):
             min_length=64,
             pattern="^[0-9a-f]{64}$",
             title="Bundle Hash",
-        ),
-    ]
-
-
-class BookEntryAttach(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    tracking_id: Annotated[
-        UUID, Field(description="Tracking id of the resource to attach.", title="Tracking Id")
-    ]
-    name_in_book: Annotated[
-        str,
-        Field(
-            description="Stable name inside the book.",
-            max_length=200,
-            min_length=1,
-            title="Name In Book",
         ),
     ]
 
@@ -203,6 +203,16 @@ class Description1(RootModel[str]):
     root: Annotated[
         str, Field(description="Updated description", max_length=5000, title="Description")
     ]
+
+
+class BookUpdate(BaseModel):
+    description: Annotated[
+        Description1 | None, Field(description="Updated description", title="Description")
+    ] = None
+    metadata: Annotated[
+        dict[str, Any] | None,
+        Field(description="Updated metadata (replaces existing)", title="Metadata"),
+    ] = None
 
 
 class Direction(StrEnum):
@@ -820,10 +830,17 @@ class ProvDocument(BaseModel):
     bundle: Annotated[dict[str, dict[str, Any]] | None, Field(title="Bundle")] = None
 
 
+class Cache(StrEnum):
+    disabled = "disabled"
+    healthy = "healthy"
+    unhealthy = "unhealthy"
+
+
 class ReadinessResponse(BaseModel):
     status: Annotated[str, Field(title="Status")]
     database: Annotated[str, Field(title="Database")]
     storage: Annotated[str, Field(title="Storage")]
+    cache: Annotated[Cache | None, Field(title="Cache")] = Cache.disabled
 
 
 class RegistrationEventItem(BaseModel):
@@ -931,6 +948,13 @@ class ResourceLocationsResponse(BaseModel):
 
 
 class ResourceSummary(BaseModel):
+    data_dictionary: Annotated[
+        list[DataDictionaryEntry] | None,
+        Field(
+            description="Column descriptions for this entry, empty when it has none to describe (a notebook, a rendered page).",
+            title="Data Dictionary",
+        ),
+    ] = None
     id: Annotated[str, Field(title="Id")]
     name: Annotated[str, Field(title="Name")]
     type: Annotated[str, Field(title="Type")]
@@ -1313,28 +1337,6 @@ class ActivityEnvelope(BaseModel):
     ] = None
 
 
-class BookCreate(BaseModel):
-    version: Annotated[
-        str,
-        Field(
-            description="Semantic version string (e.g., 'v1.0.0')",
-            max_length=50,
-            min_length=1,
-            title="Version",
-        ),
-    ]
-    description: Annotated[
-        Description | None, Field(description="Optional long-form description", title="Description")
-    ] = None
-    metadata: Annotated[
-        dict[str, Any] | None, Field(description="Arbitrary JSON metadata", title="Metadata")
-    ] = None
-    data_dictionary: Annotated[
-        list[DataDictionaryEntry] | None,
-        Field(description="Schema describing expected data format", title="Data Dictionary"),
-    ] = None
-
-
 class BookDraftRequest(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -1364,13 +1366,6 @@ class BookDraftRequest(BaseModel):
         dict[str, Any] | None,
         Field(description="Optional metadata blob copied onto the new book.", title="Metadata"),
     ] = None
-    data_dictionary: Annotated[
-        list[DataDictionaryEntry] | None,
-        Field(
-            description="Column descriptions for the book's tabular and timeseries entries. Applied when the draft is created. A request that resumes an existing book through ``bundle_hash`` returns that book unchanged, so use ``PATCH /v1/books/{book_id}`` to revise a draft's dictionary.",
-            title="Data Dictionary",
-        ),
-    ] = None
     bundle_hash: Annotated[
         BundleHash | None,
         Field(
@@ -1389,7 +1384,39 @@ class BookDraftRequest(BaseModel):
     ]
 
 
+class BookEntryAttach(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    tracking_id: Annotated[
+        UUID, Field(description="Tracking id of the resource to attach.", title="Tracking Id")
+    ]
+    name_in_book: Annotated[
+        str,
+        Field(
+            description="Stable name inside the book.",
+            max_length=200,
+            min_length=1,
+            title="Name In Book",
+        ),
+    ]
+    data_dictionary: Annotated[
+        list[DataDictionaryEntry] | None,
+        Field(
+            description="Column descriptions for this entry. Omitting the field leaves whatever the entry already carries in place, so a re-attach never drops a dictionary. Send an empty list to clear it, which is what a notebook or a rendered page wants.",
+            title="Data Dictionary",
+        ),
+    ] = None
+
+
 class BookEntryItem(BaseModel):
+    data_dictionary: Annotated[
+        list[DataDictionaryEntry] | None,
+        Field(
+            description="Column descriptions for this entry, empty when it has none to describe (a notebook, a rendered page).",
+            title="Data Dictionary",
+        ),
+    ] = None
     entry_id: Annotated[UUID, Field(description="Book-entry row id.", title="Entry Id")]
     name_in_book: Annotated[
         str, Field(description="The entry's name within the book.", title="Name In Book")
@@ -1464,27 +1491,12 @@ class BookResponse(BaseModel):
     visibility: Visibility
     private: Annotated[bool, Field(title="Private")]
     metadata: Annotated[dict[str, Any], Field(title="Metadata")]
-    data_dictionary: Annotated[list[DataDictionaryEntry], Field(title="Data Dictionary")]
     hash: Annotated[str | None, Field(title="Hash")]
     created_at: Annotated[AwareDatetime, Field(title="Created At")]
     updated_at: Annotated[AwareDatetime, Field(title="Updated At")]
     published_at: Annotated[AwareDatetime | None, Field(title="Published At")]
     invalidated_at: Annotated[AwareDatetime | None, Field(title="Invalidated At")] = None
     resources: Annotated[list[ResourceSummary] | None, Field(title="Resources")] = None
-
-
-class BookUpdate(BaseModel):
-    description: Annotated[
-        Description1 | None, Field(description="Updated description", title="Description")
-    ] = None
-    metadata: Annotated[
-        dict[str, Any] | None,
-        Field(description="Updated metadata (replaces existing)", title="Metadata"),
-    ] = None
-    data_dictionary: Annotated[
-        list[DataDictionaryEntry] | None,
-        Field(description="Updated data dictionary", title="Data Dictionary"),
-    ] = None
 
 
 class BookWalkResponse(BaseModel):
@@ -2251,13 +2263,6 @@ class BookDetail(BaseModel):
     ] = None
     metadata: Annotated[
         dict[str, Any] | None, Field(description="Free-form metadata blob.", title="Metadata")
-    ] = None
-    data_dictionary: Annotated[
-        list[DataDictionaryEntry] | None,
-        Field(
-            description="Column descriptions for the book's tabular and timeseries entries.",
-            title="Data Dictionary",
-        ),
     ] = None
     hash: Annotated[
         str | None, Field(description="Bundle SHA256 hash; only set after publish.", title="Hash")

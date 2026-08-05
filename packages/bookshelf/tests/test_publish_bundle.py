@@ -8,6 +8,7 @@ from uuid import UUID, uuid4
 import httpx
 import pytest
 
+from bookshelf._generated import models
 from bookshelf.facade import Bookshelf
 from bookshelf.publisher.bundle import Bundle, BundleBook, compute_book_bundle_hash
 from bookshelf.publisher.publish import publish_bundle
@@ -28,7 +29,6 @@ def _bundle(
             version="v1.0.0",
             visibility="public",
             license="MIT",
-            data_dictionary=data_dictionary or [],
         )
     )
     bundle.add_pointer(
@@ -37,7 +37,15 @@ def _bundle(
         type_="document",
         tracking_id=tracking_id,
     )
-    bundle.add_book_entry(name_in_book="data", tracking_id=tracking_id)
+    bundle.add_book_entry(
+        name_in_book="data",
+        tracking_id=tracking_id,
+        data_dictionary=(
+            None
+            if data_dictionary is None
+            else [models.DataDictionaryEntry.model_validate(entry) for entry in data_dictionary]
+        ),
+    )
     bundle.mark_book_published()
     bundle.write()
     return bundle
@@ -88,6 +96,10 @@ def _drafts(recorded: list[httpx.Request]) -> list[httpx.Request]:
         for request in recorded
         if request.method == "POST" and request.url.path == "/v1/books"
     ]
+
+
+def _attachments(recorded: list[httpx.Request]) -> list[httpx.Request]:
+    return [request for request in recorded if request.url.path.endswith("/entries")]
 
 
 def test_publishing_replays_the_bundle_and_reports_the_edition(tmp_path: Path) -> None:
@@ -156,8 +168,7 @@ def test_the_draft_carries_the_recorded_framing_and_the_bundle_hash(tmp_path: Pa
     assert outcome.bundle_hash == compute_book_bundle_hash(bundle.manifest)
 
 
-def test_the_draft_carries_the_recorded_data_dictionary(tmp_path: Path) -> None:
-    """The dictionary is applied when the draft is created, so it has to ride on that call."""
+def test_the_attachment_carries_the_recorded_data_dictionary(tmp_path: Path) -> None:
     bundle = _bundle(
         tmp_path / "bundle",
         tracking_id=uuid4(),
@@ -166,9 +177,11 @@ def test_the_draft_carries_the_recorded_data_dictionary(tmp_path: Path) -> None:
     recorded: list[httpx.Request] = []
 
     with _client(recorded) as client:
-        publish_bundle(bundle, client, dry_run=True)
+        publish_bundle(bundle, client)
 
-    sent = json.loads(_drafts(recorded)[0].content)["data_dictionary"]
+    draft_body = json.loads(_drafts(recorded)[0].content)
+    assert "data_dictionary" not in draft_body
+    sent = json.loads(_attachments(recorded)[0].content)["data_dictionary"]
     assert [entry["name"] for entry in sent] == ["region"]
     assert sent[0]["role"] == "dimension"
 

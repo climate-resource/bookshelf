@@ -389,7 +389,6 @@ class RecordedDraftBook(DraftBook):
         description: str | None,
         citation_doi: str | None,
         metadata: Mapping[str, Any] | None,
-        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
     ) -> None:
         self._bundle = bundle
         super().__init__(
@@ -406,7 +405,6 @@ class RecordedDraftBook(DraftBook):
                 license=license,
                 citation_doi=citation_doi,
                 metadata=dict(metadata or {}),
-                data_dictionary=list(data_dictionary or []),
             ),
         )
 
@@ -415,6 +413,7 @@ class RecordedDraftBook(DraftBook):
         resource: HasTrackingId | str | UUID,
         *,
         name_in_book: str,
+        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
     ) -> models.BookEntryAttachResponse:
         """Record a book-local name for a resource in this bundle."""
         tracking_id = (
@@ -422,7 +421,11 @@ class RecordedDraftBook(DraftBook):
             if isinstance(resource, str | UUID)
             else UUID(str(resource.tracking_id))
         )
-        self._bundle.add_book_entry(name_in_book=name_in_book, tracking_id=tracking_id)
+        self._bundle.add_book_entry(
+            name_in_book=name_in_book,
+            tracking_id=tracking_id,
+            data_dictionary=data_dictionary,
+        )
         return models.BookEntryAttachResponse(
             entry_id=uuid7(),
             book_id=self.book_id,
@@ -502,7 +505,6 @@ class RecordingSink:
         license: str | None = None,
         visibility: VisibilityInput = INHERIT,
         metadata: Mapping[str, Any] | None = None,
-        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         bundle_hash: str | None = None,
     ) -> RecordedDraftBook:
         """Record pre-edition book framing and return its local handle.
@@ -515,7 +517,6 @@ class RecordingSink:
             raise ValueError("recorded books require an explicit license")
         book_visibility = _visibility(visibility, self.default_visibility)
         self.default_visibility = book_visibility
-        dictionary_entries = list(data_dictionary or [])
         self.bundle.set_book(
             BundleBook(
                 volume=volume,
@@ -526,7 +527,6 @@ class RecordingSink:
                 description=description,
                 citation_doi=citation_doi,
                 metadata=dict(metadata or {}),
-                data_dictionary=[entry.model_dump(mode="json") for entry in dictionary_entries],
             )
         )
         return RecordedDraftBook(
@@ -539,7 +539,6 @@ class RecordingSink:
             description=description,
             citation_doi=citation_doi,
             metadata=metadata,
-            data_dictionary=dictionary_entries,
         )
 
     def register_external(
@@ -855,7 +854,7 @@ def _record_executed_documents(
             logical_key=f"document/{name_in_book}",
             metadata={"kind": kind, "notebook_name": executed.name},
         )
-        context.book.attach(resource, name_in_book=name_in_book)
+        context.book.attach(resource, name_in_book=name_in_book, data_dictionary=[])
 
 
 def _replace_bundle(staging: Path, target: Path) -> None:

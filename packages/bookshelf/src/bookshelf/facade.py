@@ -111,7 +111,6 @@ def _book_update(
     *,
     description: str | None,
     metadata: Mapping[str, Any] | None,
-    data_dictionary: Sequence[Mapping[str, Any]] | None,
 ) -> models.BookUpdate:
     """Build a draft patch carrying only the fields the caller named."""
     fields: dict[str, Any] = {}
@@ -119,10 +118,6 @@ def _book_update(
         fields["description"] = models.Description1(root=description)
     if metadata is not None:
         fields["metadata"] = dict(metadata)
-    if data_dictionary is not None:
-        fields["data_dictionary"] = [
-            models.DataDictionaryEntry.model_validate(dict(entry)) for entry in data_dictionary
-        ]
     return models.BookUpdate(**fields)
 
 
@@ -257,7 +252,6 @@ class Bookshelf:
         *,
         description: str | None = None,
         metadata: Mapping[str, Any] | None = None,
-        data_dictionary: Sequence[Mapping[str, Any]] | None = None,
     ) -> models.BookResponse:
         """Update a draft book's metadata, replacing each field named.
 
@@ -269,7 +263,6 @@ class Bookshelf:
             _book_update(
                 description=description,
                 metadata=metadata,
-                data_dictionary=data_dictionary,
             ),
         )
 
@@ -439,7 +432,6 @@ class AsyncBookshelf:
         *,
         description: str | None = None,
         metadata: Mapping[str, Any] | None = None,
-        data_dictionary: Sequence[Mapping[str, Any]] | None = None,
     ) -> models.BookResponse:
         """Update a draft book's metadata, replacing each field named.
 
@@ -451,7 +443,6 @@ class AsyncBookshelf:
             _book_update(
                 description=description,
                 metadata=metadata,
-                data_dictionary=data_dictionary,
             ),
         )
 
