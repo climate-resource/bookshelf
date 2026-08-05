@@ -11,7 +11,7 @@ import pytest
 
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
-from bookshelf._produce.facade import AsyncLiveSink, LiveSink
+from bookshelf._produce.facade import LiveSink
 from bookshelf.facade import AsyncBookshelf, Bookshelf
 from bookshelf.publisher.bundle import Bundle
 from bookshelf.publisher.record import RecordingBookshelf, RecordingSink
@@ -179,11 +179,6 @@ def _parameters(adapter: type, call: str) -> list[tuple[str, Any, Any]]:
 def test_the_live_and_recording_adapters_declare_the_same_call(call: str) -> None:
     """The two adapters substitute for each other, so a caller cannot tell them apart."""
     assert _parameters(LiveSink, call) == _parameters(RecordingSink, call)
-
-
-@pytest.mark.parametrize("call", ["activity", "register_external", "draft_book"])
-def test_the_two_live_adapters_declare_the_same_call(call: str) -> None:
-    assert _parameters(LiveSink, call) == _parameters(AsyncLiveSink, call)
 
 
 def test_a_recording_facade_binds_every_producer_call_to_its_bundle(tmp_path: Path) -> None:
