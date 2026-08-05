@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from bookshelf._core.frames import require_extra
 from bookshelf._generated import models
 
 if TYPE_CHECKING:
@@ -59,10 +60,10 @@ def polars_converter() -> Callable[[pd.DataFrame], pl.DataFrame]:
     Callers resolve the converter before fetching any data,
     so an install without the optional extra fails without making a request.
     """
-    import polars as pl
+    polars = require_extra("polars", "as_polars()")
 
     def convert(frame: pd.DataFrame) -> pl.DataFrame:
-        return pl.from_pandas(frame, include_index=True)
+        return polars.from_pandas(frame, include_index=True)  # type: ignore[no-any-return]
 
     return convert
 
@@ -73,10 +74,10 @@ def arrow_converter() -> Callable[[pd.DataFrame], pa.Table]:
     Callers resolve the converter before fetching any data,
     so an install without the optional extra fails without making a request.
     """
-    import pyarrow as pa
+    pyarrow = require_extra("pyarrow", "as_arrow()")
 
     def convert(frame: pd.DataFrame) -> pa.Table:
-        return pa.Table.from_pandas(frame, preserve_index=True)
+        return pyarrow.Table.from_pandas(frame, preserve_index=True)
 
     return convert
 

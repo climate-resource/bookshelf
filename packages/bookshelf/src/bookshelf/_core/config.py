@@ -17,7 +17,9 @@ and an explicit ``auth=None`` stays unauthenticated.
 
 import enum
 import os
+from collections.abc import Callable
 from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 
@@ -152,20 +154,6 @@ def auth_from_stored(stored: credentials.StoredCredentials) -> httpx.Auth:
         )
 
     workos_base = os.environ.get("BOOKSHELF_WORKOS_BASE_URL", _DEFAULT_WORKOS_BASE_URL)
-    api_url = stored.api_url
-
-    def persist(access_token: str, refresh_token: str | None, expires_at: float | None) -> None:
-        credentials.save_credentials(
-            access_token,
-            refresh_token=refresh_token,
-            expires_at=(
-                datetime.fromtimestamp(expires_at, tz=UTC) if expires_at is not None else None
-            ),
-            api_url=api_url,
-            kind="user",
-            subject=stored.subject,
-            organization_id=stored.organization_id,
-        )
 
     return RefreshTokenExchange(
         stored.access_token,
@@ -173,36 +161,56 @@ def auth_from_stored(stored: credentials.StoredCredentials) -> httpx.Auth:
         token_url=f"{workos_base}/user_management/authenticate",
         client_id=workos_client_id,
         expires_at=stored.expires_at.timestamp() if stored.expires_at is not None else None,
-        on_rotate=persist,
+        on_rotate=_rotation_sink(stored, kind="user"),
     )
 
 
 def _agent_auth_from_stored(stored: credentials.StoredCredentials) -> BsatAssertion:
-    api_url = stored.api_url
     assert stored.identity_assertion is not None
+    return BsatAssertion(
+        stored.identity_assertion,
+        base_url=stored.api_url,
+        access_token=stored.access_token,
+        expires_at=stored.expires_at.timestamp() if stored.expires_at is not None else None,
+        on_rotate=_rotation_sink(stored, kind="agent"),
+    )
 
-    def persist(access_token: str, assertion: str, expires_at: float | None) -> None:
+
+def _rotation_sink(
+    stored: credentials.StoredCredentials, *, kind: str
+) -> Callable[[str, str | None, float | None], None]:
+    """Build the callback that writes a rotated credential back over the record it came from.
+
+    Both providers rotate one secret alongside the access token,
+    a refresh token for a user and a reissued identity assertion for an agent,
+    so they hand it over in the same position.
+    ``kind`` names the provider that was built, which is not always the record's own kind:
+    an agent record with no assertion is served by the refresh-token provider.
+    """
+
+    def persist(access_token: str, secret: str | None, expires_at: float | None) -> None:
+        rotated: dict[str, Any] = (
+            {
+                "identity_assertion": secret,
+                "assertion_expires_at": stored.assertion_expires_at,
+                "claimed": stored.claimed,
+            }
+            if kind == "agent"
+            else {"refresh_token": secret}
+        )
         credentials.save_credentials(
             access_token,
-            api_url=api_url,
-            kind="agent",
+            api_url=stored.api_url,
+            kind=kind,
             expires_at=(
                 datetime.fromtimestamp(expires_at, tz=UTC) if expires_at is not None else None
             ),
-            identity_assertion=assertion,
-            assertion_expires_at=stored.assertion_expires_at,
             subject=stored.subject,
             organization_id=stored.organization_id,
-            claimed=stored.claimed,
+            **rotated,
         )
 
-    return BsatAssertion(
-        stored.identity_assertion,
-        base_url=api_url,
-        access_token=stored.access_token,
-        expires_at=stored.expires_at.timestamp() if stored.expires_at is not None else None,
-        on_rotate=persist,
-    )
+    return persist
 
 
 def _workos_client_id(api_url: str) -> str | None:

@@ -24,10 +24,6 @@ _LEADING_DIGITS = re.compile(r"^([0-9]+)(.*)$")
 _ASCII_DIGITS = re.compile(r"^[0-9]+$")
 
 
-def _client(api_url: str | None) -> BookshelfClient:
-    return BookshelfClient(resolve_base_url(api_url))
-
-
 def search(
     query: str | None = typer.Argument(
         None, help="Free text over name, title and summary. Optional."
@@ -56,7 +52,7 @@ def search(
 ) -> None:
     """Search volumes with free text and filters, which combine with AND."""
     with command_errors():
-        with _client(api_url) as client:
+        with BookshelfClient(resolve_base_url(api_url)) as client:
             if facets:
                 _emit_facets(client.get_catalogue_facets(), json_output)
                 return
@@ -140,7 +136,7 @@ def show(
     """Resolve one address and describe what is there, at whatever depth it is given."""
     with command_errors():
         parsed = parse_address(address)
-        with _client(api_url) as client:
+        with BookshelfClient(resolve_base_url(api_url)) as client:
             if parsed.version is None and parsed.entry is None:
                 _show_volume(client, parsed, json_output)
             else:

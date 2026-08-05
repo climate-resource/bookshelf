@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 import pytest
 
+from bookshelf._core import client as client_module
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import NotFoundError, ServerError, TransportError
 from bookshelf._core.retry import RetryPolicy
@@ -13,14 +14,23 @@ from bookshelf._generated import models
 from tests import _core_payloads as payloads
 
 BASE_URL = "https://bookshelf.test"
-NO_RETRY = RetryPolicy(max_attempts=1)
-FAST_RETRY = RetryPolicy(max_attempts=3, backoff_base=0.0, backoff_cap=0.0)
+ATTEMPTS = RetryPolicy().max_attempts
 
 
-def make_client(handler: Any, *, retry: RetryPolicy = NO_RETRY, **kwargs: Any) -> BookshelfClient:
+@pytest.fixture(autouse=True)
+def no_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Take the retry backoff out of the wall clock."""
+
+    async def no_async_sleep(_seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr(client_module.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(client_module.asyncio, "sleep", no_async_sleep)
+
+
+def make_client(handler: Any, **kwargs: Any) -> BookshelfClient:
     return BookshelfClient(
         BASE_URL,
-        retry=retry,
         transport=httpx.MockTransport(handler),
         async_transport=httpx.MockTransport(handler),
         **kwargs,
@@ -163,13 +173,13 @@ def test_transient_5xx_is_retried_then_succeeds() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         calls["count"] += 1
-        if calls["count"] < 3:
+        if calls["count"] < ATTEMPTS:
             return httpx.Response(503, text="unavailable")
         return httpx.Response(200, json=payloads.BOOK_LIST)
 
-    with make_client(handler, retry=FAST_RETRY) as client:
+    with make_client(handler) as client:
         response = client.list_books()
-    assert calls["count"] == 3
+    assert calls["count"] == ATTEMPTS
     assert response.total == 0
 
 
@@ -180,9 +190,9 @@ def test_5xx_after_exhausted_retries_raises_server_error() -> None:
         calls["count"] += 1
         return httpx.Response(500, text="boom")
 
-    with make_client(handler, retry=FAST_RETRY) as client, pytest.raises(ServerError):
+    with make_client(handler) as client, pytest.raises(ServerError):
         client.list_books()
-    assert calls["count"] == 3
+    assert calls["count"] == ATTEMPTS
 
 
 async def test_network_failure_retries_then_raises_transport_error() -> None:
@@ -192,10 +202,10 @@ async def test_network_failure_retries_then_raises_transport_error() -> None:
         calls["count"] += 1
         raise httpx.ConnectError("connection refused")
 
-    async with make_client(handler, retry=FAST_RETRY) as client:
+    async with make_client(handler) as client:
         with pytest.raises(TransportError):
             await client.list_books_async()
-    assert calls["count"] == 3
+    assert calls["count"] == ATTEMPTS
 
 
 def test_4xx_is_never_retried() -> None:
@@ -210,7 +220,7 @@ def test_4xx_is_never_retried() -> None:
         )
 
     with (
-        make_client(handler, retry=FAST_RETRY) as client,
+        make_client(handler) as client,
         pytest.raises(NotFoundError, match="gone"),
     ):
         client.get_book("b1")
