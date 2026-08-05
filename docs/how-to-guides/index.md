@@ -17,12 +17,16 @@ Reading public, published data needs no credentials.
 
 ## Producing data
 
-Producing data needs credentials with `bookshelf:write`.
-Run `bookshelf auth login` first to login.
+Producing splits in two.
+Recording captures what would be published into a local bundle and needs no credentials.
+Replay performs the writes and needs `bookshelf:write`,
+so run `bookshelf auth login` first.
+
+Both guides record, and show the replay step without running it.
 
 * ["Publishing a book"](publish_a_book):
-  creating a volume, registering a derived resource with its lineage,
-  then drafting, attaching and publishing.
+  framing a book, registering a derived resource with its lineage,
+  and reading the recorded manifest before anything is written.
 * ["Cataloguing external data"](catalogue_external_data):
   pointers to data the platform does not store,
   batch registration, partial failure, and deduplication.
