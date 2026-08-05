@@ -32,7 +32,12 @@ from bookshelf._produce import (
     RegistrationSuccess,
     Used,
 )
-from bookshelf._produce.facade import AsyncLiveSink, AsyncProduceFacade, LiveSink, ProduceFacade
+from bookshelf._produce.facade import (
+    AsyncLiveSink,
+    AsyncProduceSink,
+    LiveSink,
+    ProduceSink,
+)
 from bookshelf.cache import ContentCache
 
 _PAGE_SIZE = 100
@@ -129,7 +134,7 @@ def _missing_book(volume: str, version: str, edition: int | None) -> NotFoundErr
     )
 
 
-class Bookshelf(ProduceFacade):
+class Bookshelf:
     """Synchronous facade for consuming, cataloguing, and curating resources."""
 
     def __init__(
@@ -148,7 +153,14 @@ class Bookshelf(ProduceFacade):
             transport=transport,
         )
         self._cache = ContentCache()
-        self._produce_sink = LiveSink(self._client, self._cache)
+        # A subclass changes these by rebinding them after this runs, not by redefining them.
+        sink: ProduceSink = LiveSink(self._client, self._cache)
+        self.activity = sink.activity
+        """Open an ambient producer activity with deterministic provenance."""
+        self.register_external = sink.register_external
+        """Catalogue an external pointer without attributing it to an activity."""
+        self.draft_book = sink.draft_book
+        """Create a mutable draft whose membership changes remain intentional calls."""
 
     def __enter__(self) -> Self:
         return self
@@ -305,7 +317,7 @@ class Bookshelf(ProduceFacade):
         raise BookshelfError("book entry lookup exceeded the pagination safety cap")
 
 
-class AsyncBookshelf(AsyncProduceFacade):
+class AsyncBookshelf:
     """Asynchronous facade for consuming, cataloguing, and curating resources."""
 
     def __init__(
@@ -324,7 +336,13 @@ class AsyncBookshelf(AsyncProduceFacade):
             async_transport=async_transport,
         )
         self._cache = ContentCache()
-        self._produce_sink = AsyncLiveSink(self._client, self._cache)
+        sink: AsyncProduceSink = AsyncLiveSink(self._client, self._cache)
+        self.activity = sink.activity
+        """Open an ambient asynchronous producer activity."""
+        self.register_external = sink.register_external
+        """Catalogue an external pointer without attributing it to an activity."""
+        self.draft_book = sink.draft_book
+        """Create an asynchronous mutable draft book handle."""
 
     async def __aenter__(self) -> Self:
         return self

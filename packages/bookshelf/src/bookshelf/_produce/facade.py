@@ -1,10 +1,12 @@
-"""Producer methods mixed into the public Bookshelf facades."""
+"""Producer write adapters and the seam the public facades bind to."""
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Mapping, Sequence
 from typing import Any, Protocol
 from uuid import UUID
+
+from pydantic import RootModel
 
 from bookshelf._core.client import BookshelfClient
 from bookshelf._generated import models
@@ -41,6 +43,66 @@ from bookshelf._produce.provenance import derive_code_ref
 from bookshelf._produce.resources import AsyncResource, Resource
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
 from bookshelf.cache import ContentCache
+
+
+def _as_model[T: RootModel[str]](model: type[T], value: str | None) -> T | None:
+    """Wrap an optional string in the model its request field takes.
+
+    An omitted value stays ``None`` so it never reaches the wire.
+    """
+    return None if value is None else model(value)
+
+
+def _register_item(
+    *,
+    type: str | models.ResourceType,
+    uri: str,
+    hash: str | None,
+    logical_key: str | None,
+    visibility: models.Visibility,
+    tags: Sequence[str],
+    metadata: Mapping[str, Any] | None,
+    tracking_id: UUID | None,
+    dedupe: bool,
+) -> models.RegisterResourceItem:
+    """Build the single-item registration an external pointer becomes."""
+    return models.RegisterResourceItem(
+        tracking_id=tracking_id or _uuid7(),
+        type=_resource_type(type),
+        hash=hash,
+        logical_key=logical_key,
+        visibility=visibility,
+        tags=list(tags),
+        metadata=dict(metadata or {}),
+        external_uri=uri,
+        dedupe=dedupe,
+    )
+
+
+def _draft_request(
+    volume: str,
+    *,
+    version: str,
+    description: str | None,
+    citation_doi: str | None,
+    license: str | None,
+    visibility: models.Visibility,
+    metadata: Mapping[str, Any] | None,
+    data_dictionary: Sequence[models.DataDictionaryEntry] | None,
+    bundle_hash: str | None,
+) -> models.BookDraftRequest:
+    """Build the draft request, wrapping each optional string the API takes as a model."""
+    return models.BookDraftRequest(
+        series_name=volume,
+        version=version,
+        description=description,
+        citation_doi=_as_model(models.CitationDoi, citation_doi),
+        license=_as_model(models.License, license),
+        visibility=visibility,
+        metadata=dict(metadata or {}),
+        data_dictionary=list(data_dictionary or []),
+        bundle_hash=_as_model(models.BundleHash, bundle_hash),
+    )
 
 
 class LiveSink:
@@ -94,16 +156,15 @@ class LiveSink:
         dedupe: bool = True,
     ) -> Resource:
         """Catalogue an external pointer without attributing it to an activity."""
-        resource_type = _resource_type(type)
-        item = models.RegisterResourceItem(
-            tracking_id=tracking_id or _uuid7(),
-            type=resource_type,
+        item = _register_item(
+            type=type,
+            uri=uri,
             hash=hash,
             logical_key=logical_key,
             visibility=_visibility(visibility, self.default_visibility),
-            tags=list(tags),
-            metadata=dict(metadata or {}),
-            external_uri=uri,
+            tags=tags,
+            metadata=metadata,
+            tracking_id=tracking_id,
             dedupe=dedupe,
         )
         response = self._client.register_resources(
@@ -116,7 +177,7 @@ class LiveSink:
             self._client,
             self._cache,
             _registered_tracking_id(outcome),
-            resource_type=_registered_resource_type(outcome, resource_type),
+            resource_type=_registered_resource_type(outcome, item.type),
             registration_outcome=outcome,
         )
 
@@ -128,27 +189,29 @@ class LiveSink:
         description: str | None = None,
         citation_doi: str | None = None,
         license: str | None = None,
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         metadata: Mapping[str, Any] | None = None,
         data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         bundle_hash: str | None = None,
     ) -> DraftBook:
-        """Create a mutable draft whose membership changes remain intentional calls."""
+        """Create a mutable draft whose membership changes remain intentional calls.
+
+        ``data_dictionary=`` describes the columns of the book's tabular and timeseries entries.
+        It is applied when the draft is created,
+        so a call that resumes an existing book through ``bundle_hash``
+        leaves the stored dictionary untouched.
+        """
         detail = self._client.draft_book(
-            models.BookDraftRequest(
-                series_name=volume,
+            _draft_request(
+                volume,
                 version=version,
                 description=description,
-                citation_doi=(
-                    models.CitationDoi(root=citation_doi) if citation_doi is not None else None
-                ),
-                license=models.License(root=license) if license is not None else None,
-                visibility=_visibility(visibility),
-                metadata=dict(metadata or {}),
-                data_dictionary=list(data_dictionary or []),
-                bundle_hash=(
-                    models.BundleHash(root=bundle_hash) if bundle_hash is not None else None
-                ),
+                citation_doi=citation_doi,
+                license=license,
+                visibility=_visibility(visibility, self.default_visibility),
+                metadata=metadata,
+                data_dictionary=data_dictionary,
+                bundle_hash=bundle_hash,
             )
         )
         return DraftBook(self._client, detail)
@@ -205,16 +268,15 @@ class AsyncLiveSink:
         dedupe: bool = True,
     ) -> AsyncResource:
         """Catalogue an external pointer without attributing it to an activity."""
-        resource_type = _resource_type(type)
-        item = models.RegisterResourceItem(
-            tracking_id=tracking_id or _uuid7(),
-            type=resource_type,
+        item = _register_item(
+            type=type,
+            uri=uri,
             hash=hash,
             logical_key=logical_key,
             visibility=_visibility(visibility, self.default_visibility),
-            tags=list(tags),
-            metadata=dict(metadata or {}),
-            external_uri=uri,
+            tags=tags,
+            metadata=metadata,
+            tracking_id=tracking_id,
             dedupe=dedupe,
         )
         response = await self._client.register_resources_async(
@@ -227,7 +289,7 @@ class AsyncLiveSink:
             self._client,
             self._cache,
             _registered_tracking_id(outcome),
-            resource_type=_registered_resource_type(outcome, resource_type),
+            resource_type=_registered_resource_type(outcome, item.type),
             registration_outcome=outcome,
         )
 
@@ -239,34 +301,40 @@ class AsyncLiveSink:
         description: str | None = None,
         citation_doi: str | None = None,
         license: str | None = None,
-        visibility: str | models.Visibility = models.Visibility.hidden,
+        visibility: VisibilityInput = INHERIT,
         metadata: Mapping[str, Any] | None = None,
         data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         bundle_hash: str | None = None,
     ) -> AsyncDraftBook:
-        """Create an asynchronous mutable draft book handle."""
+        """Create an asynchronous mutable draft book handle.
+
+        ``data_dictionary=`` describes the columns of the book's tabular and timeseries entries.
+        It is applied when the draft is created,
+        so a call that resumes an existing book through ``bundle_hash``
+        leaves the stored dictionary untouched.
+        """
         detail = await self._client.draft_book_async(
-            models.BookDraftRequest(
-                series_name=volume,
+            _draft_request(
+                volume,
                 version=version,
                 description=description,
-                citation_doi=(
-                    models.CitationDoi(root=citation_doi) if citation_doi is not None else None
-                ),
-                license=models.License(root=license) if license is not None else None,
-                visibility=_visibility(visibility),
-                metadata=dict(metadata or {}),
-                data_dictionary=list(data_dictionary or []),
-                bundle_hash=(
-                    models.BundleHash(root=bundle_hash) if bundle_hash is not None else None
-                ),
+                citation_doi=citation_doi,
+                license=license,
+                visibility=_visibility(visibility, self.default_visibility),
+                metadata=metadata,
+                data_dictionary=data_dictionary,
+                bundle_hash=bundle_hash,
             )
         )
         return AsyncDraftBook(self._client, detail)
 
 
-class ProduceSink(Protocol):
-    """Adapter interface for synchronous producer writes."""
+class _ProduceSink[ActivityT, ResourceT, DraftT](Protocol):
+    """Adapter interface for producer writes, parameterised by what each call hands back.
+
+    The synchronous adapters return their handles directly.
+    The asynchronous ones return an awaitable for the two calls that reach the API.
+    """
 
     def activity(
         self,
@@ -277,7 +345,7 @@ class ProduceSink(Protocol):
         runner: str | None = None,
         activity_id: UUID | None = None,
         config_hash: str | None = None,
-    ) -> Activity: ...
+    ) -> ActivityT: ...
 
     def register_external(
         self,
@@ -291,7 +359,7 @@ class ProduceSink(Protocol):
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
         dedupe: bool = True,
-    ) -> Resource: ...
+    ) -> ResourceT: ...
 
     def draft_book(
         self,
@@ -301,229 +369,23 @@ class ProduceSink(Protocol):
         description: str | None = None,
         citation_doi: str | None = None,
         license: str | None = None,
-        visibility: str | models.Visibility = models.Visibility.hidden,
-        metadata: Mapping[str, Any] | None = None,
-        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
-        bundle_hash: str | None = None,
-    ) -> DraftBook: ...
-
-
-class AsyncProduceSink(Protocol):
-    """Adapter interface for asynchronous producer writes."""
-
-    def activity(
-        self,
-        *,
-        code_ref: str | None = None,
-        config: Mapping[str, Any] | None = None,
-        kind: str = "run",
-        runner: str | None = None,
-        activity_id: UUID | None = None,
-        config_hash: str | None = None,
-    ) -> AsyncActivity: ...
-
-    async def register_external(
-        self,
-        *,
-        type: str | models.ResourceType,
-        uri: str,
-        hash: str | None = None,
-        logical_key: str | None = None,
         visibility: VisibilityInput = INHERIT,
-        tags: Sequence[str] = (),
-        metadata: Mapping[str, Any] | None = None,
-        tracking_id: UUID | None = None,
-        dedupe: bool = True,
-    ) -> AsyncResource: ...
-
-    async def draft_book(
-        self,
-        volume: str,
-        *,
-        version: str,
-        description: str | None = None,
-        citation_doi: str | None = None,
-        license: str | None = None,
-        visibility: str | models.Visibility = models.Visibility.hidden,
         metadata: Mapping[str, Any] | None = None,
         data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         bundle_hash: str | None = None,
-    ) -> AsyncDraftBook: ...
+    ) -> DraftT: ...
 
 
-class ProduceFacade:
-    """Synchronous producer operations layered onto the consume facade."""
+ProduceSink = _ProduceSink[Activity, Resource, DraftBook]
+"""The synchronous producer seam, satisfied by :class:`LiveSink` and the recording adapter."""
 
-    _produce_sink: ProduceSink
-
-    def activity(
-        self,
-        *,
-        code_ref: str | None = None,
-        config: Mapping[str, Any] | None = None,
-        kind: str = "run",
-        runner: str | None = None,
-        activity_id: UUID | None = None,
-        config_hash: str | None = None,
-    ) -> Activity:
-        """Open an ambient producer activity."""
-        return self._produce_sink.activity(
-            code_ref=code_ref,
-            config=config,
-            kind=kind,
-            runner=runner,
-            activity_id=activity_id,
-            config_hash=config_hash,
-        )
-
-    def register_external(
-        self,
-        *,
-        type: str | models.ResourceType,
-        uri: str,
-        hash: str | None = None,
-        logical_key: str | None = None,
-        visibility: VisibilityInput = INHERIT,
-        tags: Sequence[str] = (),
-        metadata: Mapping[str, Any] | None = None,
-        tracking_id: UUID | None = None,
-        dedupe: bool = True,
-    ) -> Resource:
-        """Catalogue an external pointer through the active sink."""
-        return self._produce_sink.register_external(
-            type=type,
-            uri=uri,
-            hash=hash,
-            logical_key=logical_key,
-            visibility=visibility,
-            tags=tags,
-            metadata=metadata,
-            tracking_id=tracking_id,
-            dedupe=dedupe,
-        )
-
-    def draft_book(
-        self,
-        volume: str,
-        *,
-        version: str,
-        description: str | None = None,
-        citation_doi: str | None = None,
-        license: str | None = None,
-        visibility: str | models.Visibility = models.Visibility.hidden,
-        metadata: Mapping[str, Any] | None = None,
-        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
-        bundle_hash: str | None = None,
-    ) -> DraftBook:
-        """Create a draft through the active sink.
-
-        ``data_dictionary=`` describes the columns of the book's tabular and
-        timeseries entries. It is applied when the draft is created, so a call
-        that resumes an existing book through ``bundle_hash`` leaves the stored
-        dictionary untouched.
-        """
-        return self._produce_sink.draft_book(
-            volume,
-            version=version,
-            description=description,
-            citation_doi=citation_doi,
-            license=license,
-            visibility=visibility,
-            metadata=metadata,
-            data_dictionary=data_dictionary,
-            bundle_hash=bundle_hash,
-        )
-
-
-class AsyncProduceFacade:
-    """Asynchronous producer operations layered onto the consume facade."""
-
-    _produce_sink: AsyncProduceSink
-
-    def activity(
-        self,
-        *,
-        code_ref: str | None = None,
-        config: Mapping[str, Any] | None = None,
-        kind: str = "run",
-        runner: str | None = None,
-        activity_id: UUID | None = None,
-        config_hash: str | None = None,
-    ) -> AsyncActivity:
-        """Open an ambient asynchronous producer activity."""
-        return self._produce_sink.activity(
-            code_ref=code_ref,
-            config=config,
-            kind=kind,
-            runner=runner,
-            activity_id=activity_id,
-            config_hash=config_hash,
-        )
-
-    async def register_external(
-        self,
-        *,
-        type: str | models.ResourceType,
-        uri: str,
-        hash: str | None = None,
-        logical_key: str | None = None,
-        visibility: VisibilityInput = INHERIT,
-        tags: Sequence[str] = (),
-        metadata: Mapping[str, Any] | None = None,
-        tracking_id: UUID | None = None,
-        dedupe: bool = True,
-    ) -> AsyncResource:
-        """Catalogue an external pointer through the active sink."""
-        return await self._produce_sink.register_external(
-            type=type,
-            uri=uri,
-            hash=hash,
-            logical_key=logical_key,
-            visibility=visibility,
-            tags=tags,
-            metadata=metadata,
-            tracking_id=tracking_id,
-            dedupe=dedupe,
-        )
-
-    async def draft_book(
-        self,
-        volume: str,
-        *,
-        version: str,
-        description: str | None = None,
-        citation_doi: str | None = None,
-        license: str | None = None,
-        visibility: str | models.Visibility = models.Visibility.hidden,
-        metadata: Mapping[str, Any] | None = None,
-        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
-        bundle_hash: str | None = None,
-    ) -> AsyncDraftBook:
-        """Create a draft through the active sink.
-
-        ``data_dictionary=`` describes the columns of the book's tabular and
-        timeseries entries. It is applied when the draft is created, so a call
-        that resumes an existing book through ``bundle_hash`` leaves the stored
-        dictionary untouched.
-        """
-        return await self._produce_sink.draft_book(
-            volume,
-            version=version,
-            description=description,
-            citation_doi=citation_doi,
-            license=license,
-            visibility=visibility,
-            metadata=metadata,
-            data_dictionary=data_dictionary,
-            bundle_hash=bundle_hash,
-        )
+AsyncProduceSink = _ProduceSink[AsyncActivity, Awaitable[AsyncResource], Awaitable[AsyncDraftBook]]
+"""The asynchronous producer seam."""
 
 
 __all__ = [
     "AsyncLiveSink",
-    "AsyncProduceFacade",
     "AsyncProduceSink",
     "LiveSink",
-    "ProduceFacade",
     "ProduceSink",
 ]

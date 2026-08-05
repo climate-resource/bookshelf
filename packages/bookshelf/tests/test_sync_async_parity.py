@@ -27,8 +27,6 @@ from bookshelf._produce import facade as produce
 CLASS_PAIRS = [
     (facade.Bookshelf, facade.AsyncBookshelf),
     (produce.LiveSink, produce.AsyncLiveSink),
-    (produce.ProduceSink, produce.AsyncProduceSink),
-    (produce.ProduceFacade, produce.AsyncProduceFacade),
     (resources.Resource, resources.AsyncResource),
     (resources.BookEntry, resources.AsyncBookEntry),
 ]
