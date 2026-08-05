@@ -46,10 +46,10 @@ from bookshelf.publisher import (
     compute_book_bundle_hash,
     load_record_recipe,
     parse_parameters,
-    replay_bundle_sync,
+    publish_bundle,
     run_record,
 )
-from bookshelf.publisher.bundle import InvalidBundleError, book_data_dictionary
+from bookshelf.publisher.bundle import InvalidBundleError
 
 _RECORD_REQUIREMENTS = ("papermill", "nbconvert")
 _PAGE_SIZE = 100
@@ -263,44 +263,17 @@ def publish(
         with _bundle_errors(bundle):
             loaded = Bundle.read(bundle)
             framing = loaded.require_framing()
-        bundle_hash = compute_book_bundle_hash(loaded.manifest)
 
         with Bookshelf(resolve_base_url(api_url)) as client:
-            drafted = client.draft_book(
-                framing.volume,
-                version=framing.version,
-                description=framing.description,
-                citation_doi=framing.citation_doi,
-                license=framing.license,
-                visibility=framing.visibility,
-                metadata=framing.metadata,
-                # This draft is keyed on the bundle hash, so the replay below
-                # resumes it rather than reapplying the framing. The dictionary
-                # has to travel on this call or it never reaches the book.
-                data_dictionary=book_data_dictionary(framing),
-                bundle_hash=bundle_hash,
-            )
-            # Drafting is the only way to learn whether the edition already exists,
-            # and it is keyed on the bundle hash, so a dry run adds no edition of its own.
-            if drafted.status == "published":
-                outcome, edition, resources = "no-op", drafted.metadata.edition, 0
-            elif dry_run:
-                outcome = "would-publish"
-                edition = drafted.metadata.edition
-                resources = len(loaded.manifest.resources)
-            else:
-                published = replay_bundle_sync(loaded, client)
-                outcome = "published"
-                edition = published.metadata.edition
-                resources = len(loaded.manifest.resources)
+            outcome = publish_bundle(loaded, client, dry_run=dry_run)
 
         summary = {
-            "outcome": outcome,
+            "outcome": outcome.kind,
             "volume": framing.volume,
             "version": framing.version,
-            "edition": edition,
-            "bundle_hash": bundle_hash,
-            "resources": resources,
+            "edition": outcome.edition,
+            "bundle_hash": outcome.bundle_hash,
+            "resources": outcome.resources,
         }
         _emit_summary(summary, _PUBLISH_LABELS, json_output=json_output)
 
