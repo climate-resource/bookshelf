@@ -1,75 +1,28 @@
-"""The record/replay bundle is an on-disk, replayable lock using manifest schema v1.
+"""The bundle: an on-disk, replayable record of a run, using manifest schema v1.
 
-A bundle extends the ADR-0007 lock so it is self-contained and replayable.
-It holds a manifest and the content-addressed bytes of every referenced resource.
-A recorded publish can therefore be reviewed offline and replayed byte-for-byte.
+A bundle holds a manifest and the content-addressed bytes of every managed resource,
+so it is self-contained.
+It can be produced, reviewed and validated with no server involved,
+and replayed byte-for-byte when it is published.
+It extends the ADR-0007 lock, and it is pre-edition:
+the server assigns the edition during replay.
 
-Layout
-------
-::
+The bytes on disk are specified in ``docs/explanation/bundle-format.md``.
+That document is the contract, and an implementation in another language is written against it.
+This module implements it:
 
-    bundle/
-      manifest.lock          # realised PROV state: the ADR-0007 lock, extended
-      resources/
-        <sha256>.parquet     # content-addressed serialised resource bytes
+- :class:`Bundle` owns the directory, its ``resources/`` bytes, and the reads and writes over both.
+- The ``Bundle*`` models mirror the manifest structure field for field.
+  Each uses ``extra="ignore"``, which is the forward-compatibility contract.
+  A manifest from a newer *minor* loads and keeps the fields this version models.
+  :meth:`Bundle.read` refuses a newer *major* rather than reinterpreting it.
+- :meth:`Bundle.validate` asserts the rules that decide whether a bundle is a replayable
+  published book, because the bundle already holds everything those rules need.
+  It raises :class:`InvalidBundleError`,
+  so every caller refuses the same bundles for the same reasons.
 
-The byte file name contains only the hex digest,
-with the ``sha256:`` prefix removed and an extension added from the resource type.
-The directory is content addressed,
-so identical bytes share one file.
-
-Manifest schema
----------------
-The manifest is intentionally **minimal**: only what record/replay needs:
-
-- A header carrying ``schema_version`` (``BUNDLE_SCHEMA_VERSION``).
-- ``resources`` contains one :class:`BundleResource` per registration.
-  Each record has ``tracking_id``, ``hash``, ``type``, and ``logical_key``.
-  Each record carries an explicit ``kind`` discriminator:
-
-  - ``"managed"`` means the platform re-hosts the bytes.
-    The record carries ``size`` and stores bytes at ``resources/<hex>.<ext>``.
-    For an activity output,
-    ``generated`` marks the output and ``used`` records its input references.
-  - ``"pointer"`` means the platform must not re-host the external resource.
-    The record carries ``external_uri`` and no byte file or ``size``.
-    A hashless pointer receives the same synthetic hash that the backend computes.
-
-  The discriminator is **explicit**, never inferred from a missing field.
-
-- ``activity``: the optional :class:`BundleActivity` envelope (``activity_id``,
-  ``kind``, ``code_ref``, ``config_hash``, ``parameters``, ``runner``) captured
-  on the first activity-wrapped register.
-
-The activity envelope is optional.
-A managed-only bundle with no activity still loads and replays unchanged.
-The ``used`` references are recorded by ``tracking_id`` or ``logical_key``.
-Replay does not resolve them again,
-so the edition's lineage is exactly what the notebook expressed.
-
-- ``book`` contains the optional :class:`BundleBook` framing.
-  Replay keys the draft on the content bundle hash,
-  attaches each entry,
-  and publishes.
-  Two replays of the same bundle therefore converge on one published edition.
-
-The bundle is pre-edition.
-The server assigns the edition during replay,
-and the book framing never carries one.
-Within the supported major,
-the reader tolerates unknown fields from a newer minor version.
-A newer major version is refused rather than reinterpreted.
-
-Validation
-----------
-The rules that decide whether a bundle is a replayable published book live here,
-because the bundle already holds everything they need:
-the manifest, the recorded bytes, and the hash of each.
-:meth:`Bundle.validate` asserts them and raises :class:`InvalidBundleError`,
-so every caller refuses the same bundles for the same reasons.
-
-Serialisation is deterministic.
-It uses sorted keys,
+Serialisation is deterministic:
+sorted keys,
 LF newlines,
 and no timestamps.
 """
