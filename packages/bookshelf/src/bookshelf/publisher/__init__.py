@@ -1,4 +1,4 @@
-"""Public record, replay, recipe, and lock surface.
+"""Public record, replay and publish surface.
 
 Use :func:`replay_bundle` with a bundle directory when replay is part of an async Python workflow::
 
@@ -53,15 +53,7 @@ from bookshelf.publisher.bundle import (
     BundleManifest,
     compute_book_bundle_hash,
 )
-from bookshelf.publisher.lock import (
-    AggregateLock,
-    build_aggregate_lock,
-    build_lock,
-    mask_aggregate_lock,
-    mask_lock,
-)
 from bookshelf.publisher.publish import PublishOutcome, publish_bundle
-from bookshelf.publisher.recipe import Recipe, RecipeBook, load_recipe
 from bookshelf.publisher.record import (
     RecordedDraftBook,
     RecordedResource,
@@ -78,26 +70,18 @@ from bookshelf.publisher.record import (
 from bookshelf.publisher.replay import replay_bundle, replay_bundle_sync
 
 __all__ = [
-    "AggregateLock",
     "Bundle",
     "BundleManifest",
     "PublishOutcome",
     "RecordRecipe",
-    "Recipe",
-    "RecipeBook",
     "RecordedDraftBook",
     "RecordedResource",
     "RecordingActivity",
     "RecordingBookshelf",
     "RecordingSink",
     "SetupResult",
-    "build_aggregate_lock",
-    "build_lock",
     "compute_book_bundle_hash",
     "load_record_recipe",
-    "load_recipe",
-    "mask_aggregate_lock",
-    "mask_lock",
     "parse_parameters",
     "publish_bundle",
     "replay_bundle",

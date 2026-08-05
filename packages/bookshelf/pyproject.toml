@@ -32,10 +32,8 @@ dataframes = [
 ]
 scmrun = ["scmdata>=0.18"]
 publish = [
-    "papermill>=2.5",
     "nbconvert>=7.0",
-    "jupyter-client>=8.0",
-    "ipykernel>=6.0",
+    "nbformat>=5.0",
 ]
 test = [
     "pytest>=8",
@@ -104,13 +102,10 @@ plugins = ["pydantic.mypy"]
 [[tool.mypy.overrides]]
 module = [
     "keyring.*",
-    "papermill.*",
     "nbconvert.*",
     "nbformat.*",
     "pandas",
     "pandas.*",
-    "ipykernel.*",
-    "jupyter_client.*",
     "pyarrow",
     "pyarrow.*",
 ]
