@@ -60,6 +60,14 @@ Within the supported major,
 the reader tolerates unknown fields from a newer minor version.
 A newer major version is refused rather than reinterpreted.
 
+Validation
+----------
+The rules that decide whether a bundle is a replayable published book live here,
+because the bundle already holds everything they need:
+the manifest, the recorded bytes, and the hash of each.
+:meth:`Bundle.validate` asserts them and raises :class:`InvalidBundleError`,
+so every caller refuses the same bundles for the same reasons.
+
 Serialisation reuses :func:`~bookshelf.publisher.lock._dump_sorted_yaml`.
 The manifest therefore has the same on-disk shape as ``bookshelf.lock``.
 It uses sorted keys,
@@ -78,6 +86,7 @@ from uuid import UUID
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from bookshelf._core.errors import BookshelfError
 from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
 from bookshelf._generated import models
 from bookshelf.publisher.lock import _dump_sorted_yaml
@@ -104,6 +113,17 @@ _PARQUET_TYPES = frozenset({"timeseries", "tabular"})
 # with no ``:``, ``/``, or ``.`` characters.
 # A crafted manifest hash therefore cannot traverse out of ``resources/``.
 _SHA256_RE = re.compile(r"^sha256:([0-9a-f]{64})$")
+
+
+class InvalidBundleError(BookshelfError):
+    """A bundle on disk breaks the contract a bundle promises.
+
+    The message names the invariant that failed
+    and carries the detail a caller needs to render it.
+    It is raised by :meth:`Bundle.validate`,
+    so a caller either holds a bundle that keeps its contract
+    or holds an error explaining why it does not.
+    """
 
 
 def _sha256_hex(hash_: str) -> str:
@@ -229,7 +249,7 @@ class BundleResource(BaseModel):
 class BundleActivity(BaseModel):
     """The activity envelope recorded in the bundle manifest.
 
-    Mirrors the wire :class:`~bookshelf.publisher._models.ActivityCreate`,
+    Mirrors the wire :class:`~bookshelf._generated.models.ActivityEnvelope`,
     minus build-level ``used`` references,
     which are recorded per resource.
     It contains the client-minted ``activity_id``
@@ -463,6 +483,13 @@ class Bundle:
     and appends a manifest record.
     :meth:`write` flushes the manifest.
     :meth:`read` loads an existing bundle.
+
+    A bundle also owns the rules that decide whether it is a replayable published book.
+    :meth:`validate` asserts the whole contract,
+    :meth:`require_framing` asserts the framing alone,
+    and :meth:`read_validated` reads and asserts in one call.
+    Each raises :class:`InvalidBundleError`,
+    so a caller never has to rediscover a rule the bundle already knows.
     """
 
     def __init__(self, root: Path, manifest: BundleManifest | None = None) -> None:
@@ -662,6 +689,53 @@ class Bundle:
         byte_path = self.resources_dir / resource_filename(record.hash, record.type)
         return byte_path.read_bytes()
 
+    def require_framing(self) -> BundleBook:
+        """Return the recorded book framing, or raise :class:`InvalidBundleError`.
+
+        A resources-only bundle records no book,
+        so replay has nothing to draft.
+        """
+        if self.manifest.book is None:
+            raise InvalidBundleError("bundle has no book framing")
+        return self.manifest.book
+
+    def validate(self) -> BundleBook:
+        """Assert this bundle is a replayable published book, and return its framing.
+
+        The contract is:
+
+        - the bundle records a book framing
+        - that book is marked for publication
+        - the book has at least one entry
+        - every entry references a resource recorded in the same manifest
+        - every managed resource's bytes still hash to the recorded hash
+
+        The bytes are re-hashed rather than trusted,
+        so a bundle edited between record and replay is refused here
+        instead of publishing content that no reviewer saw.
+        Raises :class:`InvalidBundleError` naming the first invariant that fails.
+        """
+        framing = self.require_framing()
+        if not framing.published:
+            raise InvalidBundleError("bundle does not record a publish operation")
+        if not framing.entries:
+            raise InvalidBundleError("bundle has no book entries")
+
+        recorded = {resource.tracking_id for resource in self.manifest.resources}
+        for entry in framing.entries:
+            if entry.tracking_id not in recorded:
+                raise InvalidBundleError(f"book entry {entry.name_in_book!r} has no resource")
+
+        for resource in self.manifest.resources:
+            if resource.kind != "managed":
+                continue
+            actual = sha256_hex(self.resource_bytes(resource))
+            if actual != resource.hash:
+                raise InvalidBundleError(
+                    f"resource {resource.tracking_id} has hash {resource.hash}, got {actual}"
+                )
+        return framing
+
     def write(self) -> None:
         """Flush the manifest to ``manifest.lock`` (deterministic YAML)."""
         self.root.mkdir(parents=True, exist_ok=True)
@@ -677,11 +751,26 @@ class Bundle:
         and keeps only the fields this schema models.
         A newer major raises :class:`ValueError`
         instead of being reinterpreted under the current semantics.
+
+        The read is structural.
+        A bundle recorded as a draft loads here and replays as a draft,
+        so use :meth:`read_validated` when the caller needs a published book.
         """
         raw: dict[str, Any] = yaml.safe_load((root / MANIFEST_NAME).read_bytes()) or {}
         _check_schema_major(raw)
         manifest = BundleManifest.model_validate(raw)
         return cls(root=root, manifest=manifest)
+
+    @classmethod
+    def read_validated(cls, root: Path) -> Bundle:
+        """Load a bundle directory and assert its contract in one call.
+
+        Raises whatever :meth:`read` raises for an unreadable manifest,
+        and :class:`InvalidBundleError` for a bundle that is not a replayable published book.
+        """
+        bundle = cls.read(root)
+        bundle.validate()
+        return bundle
 
 
 __all__ = [
@@ -695,6 +784,7 @@ __all__ = [
     "BundleManifest",
     "BundleResource",
     "BundleUsedRef",
+    "InvalidBundleError",
     "compute_book_bundle_hash",
     "resource_filename",
     "synthesise_pointer_hash",
