@@ -24,8 +24,6 @@ from bookshelf import facade
 from bookshelf._consume import resources
 from bookshelf._produce import facade as produce
 
-# ``ProduceSink`` and ``AsyncProduceSink`` are two parameterisations of one declaration,
-# so there is no twin here that could drift.
 CLASS_PAIRS = [
     (facade.Bookshelf, facade.AsyncBookshelf),
     (produce.LiveSink, produce.AsyncLiveSink),
