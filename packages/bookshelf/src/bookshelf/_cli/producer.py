@@ -15,6 +15,8 @@ so an abandoned attempt leaves an edition behind until it is deleted.
 """
 
 import importlib.util
+from collections.abc import Generator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -36,7 +38,6 @@ from bookshelf._cli._runtime import (
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import resolve_base_url
 from bookshelf._core.errors import BookshelfError
-from bookshelf._core.hashing import sha256_hex
 from bookshelf._generated import models
 from bookshelf.facade import Bookshelf
 from bookshelf.publisher import (
@@ -48,7 +49,7 @@ from bookshelf.publisher import (
     replay_bundle_sync,
     run_record,
 )
-from bookshelf.publisher.bundle import BundleBook, book_data_dictionary
+from bookshelf.publisher.bundle import InvalidBundleError, book_data_dictionary
 
 _RECORD_REQUIREMENTS = ("papermill", "nbconvert")
 _PAGE_SIZE = 100
@@ -131,8 +132,9 @@ def _resolve_build(build: Path | None, recipe: Path) -> Path:
     return resolved
 
 
-def _read_bundle(root: Path) -> Bundle:
-    """Load a bundle directory, mapping an unreadable one onto its own exit code.
+@contextmanager
+def _bundle_errors(root: Path) -> Generator[None]:
+    """Map a bundle that refuses itself, and one that will not load, onto the invalid-bundle code.
 
     A malformed manifest is a distinct outcome from a crash,
     so a caller can branch on it.
@@ -140,52 +142,17 @@ def _read_bundle(root: Path) -> Bundle:
     and the pydantic validation failure.
     """
     try:
-        return Bundle.read(root)
+        yield
+    except InvalidBundleError as exc:
+        raise CliError(
+            f"{exc}. Run 'bookshelf record' to rebuild the bundle.",
+            exit_code=EXIT_INVALID_BUNDLE,
+        ) from exc
     except (OSError, ValueError) as exc:
         raise CliError(
             f"cannot read a bundle at {root}: {exc}. Run 'bookshelf record' to build one.",
             exit_code=EXIT_INVALID_BUNDLE,
         ) from exc
-
-
-def _invalid(message: str) -> CliError:
-    return CliError(
-        f"{message}. Run 'bookshelf record' to rebuild the bundle.",
-        exit_code=EXIT_INVALID_BUNDLE,
-    )
-
-
-def _require_framing(bundle: Bundle) -> BundleBook:
-    """Return the recorded book framing, or fail as an invalid bundle."""
-    framing = bundle.manifest.book
-    if framing is None:
-        raise _invalid("bundle has no book framing")
-    return framing
-
-
-def _check_bundle(bundle: Bundle) -> BundleBook:
-    """Assert a bundle is a replayable published book, re-hashing its managed bytes."""
-    framing = _require_framing(bundle)
-    if not framing.published:
-        raise _invalid("bundle does not record a publish operation")
-    if not framing.entries:
-        raise _invalid("bundle has no book entries")
-
-    resources = {resource.tracking_id for resource in bundle.manifest.resources}
-    for entry in framing.entries:
-        if entry.tracking_id not in resources:
-            raise _invalid(f"book entry {entry.name_in_book!r} has no resource")
-
-    for resource in bundle.manifest.resources:
-        if resource.kind != "managed":
-            continue
-        actual = sha256_hex(bundle.resource_bytes(resource))
-        if actual != resource.hash:
-            raise _invalid(
-                f"resource {resource.tracking_id} has hash {resource.hash}, got {actual}"
-            )
-
-    return framing
 
 
 def _emit_summary(summary: dict[str, Any], labels: dict[str, str], *, json_output: bool) -> None:
@@ -264,8 +231,9 @@ def validate(
 ) -> None:
     """Assert a recorded bundle is a replayable published book, and hash it."""
     with command_errors():
-        loaded = _read_bundle(bundle)
-        framing = _check_bundle(loaded)
+        with _bundle_errors(bundle):
+            loaded = Bundle.read_validated(bundle)
+            framing = loaded.require_framing()
         summary = {
             "bundle_path": str(bundle),
             "bundle_hash": compute_book_bundle_hash(loaded.manifest),
@@ -290,8 +258,11 @@ def publish(
     # Credentials resolve through the usual chain, so there is no token flag
     # to leave a secret in a process list or a CI log.
     with command_errors():
-        loaded = _read_bundle(bundle)
-        framing = _require_framing(loaded)
+        # Publishing asks only for the framing,
+        # because a bundle recorded as a draft replays as a draft.
+        with _bundle_errors(bundle):
+            loaded = Bundle.read(bundle)
+            framing = loaded.require_framing()
         bundle_hash = compute_book_bundle_hash(loaded.manifest)
 
         with Bookshelf(resolve_base_url(api_url)) as client:
