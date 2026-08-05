@@ -179,9 +179,6 @@ def test_a_hidden_book_still_records_hidden_resources(tmp_path: Path) -> None:
     assert recorded == ["hidden"]
 
 
-# ----------------------------------------------------------------------
-# The precedence rule itself, reached directly rather than through a build.
-# ----------------------------------------------------------------------
 def _recipe(visibility: str | None) -> RecordRecipe:
     return RecordRecipe(
         collection="my-dataset",

@@ -1,7 +1,5 @@
 """Run-invariant framing for a recorded build, and the visibility precedence it takes part in."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any

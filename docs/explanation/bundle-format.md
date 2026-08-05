@@ -2,22 +2,20 @@
 
 A bundle is a directory holding a set of scientific outputs
 together with a description of the run that produced them.
-It is self-contained.
-Producing one, reviewing one and validating one need no server,
-no credentials and no network.
+It is self-contained and does not require credentials or network access.
 
-That is the point of the format.
 A project that keeps its own outputs on its own disk can write a bundle
 and get a reviewable, diffable, content-addressed record of what was produced and what it came from.
-Publishing it to the Bookshelf platform is one thing you can do with a bundle.
-It is not what a bundle is for.
+Generally these bundles are then published to the Bookshelf platform,
+but they could also be shared via other means.
 
 This page specifies what is written to disk.
 It is written so that an implementation in another language can produce and read bundles
 without reading the Python that implements this one.
+
 The format in force is manifest schema version **1.0**.
 
-## The directory
+## Bundle directory
 
 ```text
 bundle/
@@ -26,11 +24,10 @@ bundle/
     7198966a1a10c93fe40255d2c8e49b750e2cc7d3c9f56e4d06ac7e595e9afaa0.parquet
 ```
 
-- `manifest.lock` is a YAML document.
-  It is the whole description of the bundle.
+- `manifest.lock` is a YAML document that describes the bundle and its contents.
 - `resources/` holds the bytes of every **managed** resource, keyed on content.
 
-A byte file name is derived from the resource's hash and its type:
+The filenames of the resources are derived from their hash and type:
 
 - Take the recorded `hash`, which is always `sha256:` followed by exactly 64 lowercase hex characters.
 - Drop the `sha256:` prefix.
@@ -42,23 +39,20 @@ So a `timeseries` resource with hash `sha256:7198...faa0` is stored at
 
 The directory is content addressed,
 so two resources with identical bytes and the same extension share one file.
-A resource whose `hash` is not in the canonical form has no byte file name at all,
-and a reader must refuse it rather than derive a path from it.
-This is what stops a crafted manifest from naming a path outside `resources/`.
-
-Nothing else belongs in a bundle directory.
-A reader should ignore what it does not recognise rather than fail on it.
+The `manifest.lock` shall not refer to any files outside of the `resources/` directory,
+in order to make the bundle portable.
+Readers should ignore additional resources not included in the manifest.
 
 ## The manifest
 
 `manifest.lock` is a mapping with four keys at the top level.
 
-| Field | Required | Meaning |
-|---|---|---|
+| Field            | Required                      | Meaning                                             |
+| ---------------- | ----------------------------- | --------------------------------------------------- |
 | `schema_version` | optional, defaults to `"1.0"` | the manifest schema this bundle was written against |
-| `resources` | optional, defaults to `[]` | one record per registered resource |
-| `activity` | optional | the envelope describing the run that produced the outputs |
-| `book` | optional | the pre-edition framing of a book to publish |
+| `resources`      | optional, defaults to `[]`    | one record per registered resource                  |
+| `activity`       | optional                      | a description of the run that produced the outputs  |
+| `book`           | optional                      | the pre-edition framing of a book to publish        |
 
 A bundle carrying only `resources` is valid.
 Each of `activity` and `book` is additive.
@@ -67,31 +61,39 @@ Each of `activity` and `book` is additive.
 
 Every entry in `resources` has these fields.
 
-| Field | Required | Type | Default | Meaning |
-|---|---|---|---|---|
-| `tracking_id` | required | UUID | | the identity of this resource within the bundle |
-| `hash` | required | `sha256:<64 lowercase hex>` | | the content hash, and the replay idempotency key |
-| `type` | required | string | | what sort of resource this is, see below |
-| `kind` | optional | `managed` or `pointer` | `managed` | which of the two variants this record is |
-| `logical_key` | optional | string | absent | the stable name lineage refers to this resource by |
-| `format` | optional | string | absent | the declared storage format, absent when it is not known |
-| `visibility` | optional | `hidden`, `org` or `public` | `hidden` | the tier this resource records as |
-| `tags` | optional | list of strings | `[]` | free-form labels |
-| `metadata` | optional | mapping | `{}` | free-form metadata |
-| `dedupe` | optional | boolean | `true` | whether byte-identical resources may collapse to one canonical resource |
-| `size` | managed only | integer | absent | the byte length of the stored bytes |
-| `external_uri` | pointer only | string | absent | the external target |
-| `generated` | optional | boolean | `false` | whether an activity produced this resource |
-| `used` | optional | list of references | `[]` | what this resource was derived from |
+| Field          | Required     | Type                        | Default   | Meaning                                                                 |
+| -------------- | ------------ | --------------------------- | --------- | ----------------------------------------------------------------------- |
+| `tracking_id`  | required     | UUID                        |           | the identity of this resource within the bundle                         |
+| `hash`         | required     | `sha256:<64 lowercase hex>` |           | the content hash, and the replay idempotency key                        |
+| `type`         | required     | string                      |           | what sort of resource this is, see below                                |
+| `kind`         | optional     | `managed` or `pointer`      | `managed` | which of the two variants this record is                                |
+| `logical_key`  | optional     | string                      | absent    | the stable name lineage refers to this resource by                      |
+| `format`       | optional     | string                      | absent    | the declared storage format, absent when it is not known                |
+| `visibility`   | optional     | `hidden`, `org` or `public` | `hidden`  | the tier this resource records as                                       |
+| `tags`         | optional     | list of strings             | `[]`      | free-form labels                                                        |
+| `metadata`     | optional     | mapping                     | `{}`      | free-form metadata                                                      |
+| `dedupe`       | optional     | boolean                     | `true`    | whether byte-identical resources may collapse to one canonical resource |
+| `size`         | managed only | integer                     | absent    | the byte length of the stored bytes                                     |
+| `external_uri` | pointer only | string                      | absent    | the external target                                                     |
+| `generated`    | optional     | boolean                     | `false`   | whether an activity produced this resource                              |
+| `used`         | optional     | list of references          | `[]`      | what this resource was derived from                                     |
 
-The `type` values in use are `timeseries`, `tabular`, `geospatial`, `document` and `binary`.
+The `type` values currently in use are:
+
+- `timeseries`
+- `tabular`
+- `geospatial`
+- `document`
+- `binary`
+
 The field is a plain string and the set is not closed,
 so a reader must carry a type it does not recognise rather than refuse the bundle.
 Only `timeseries` and `tabular` change how a byte file is named.
 
 ### `managed` versus `pointer`
 
-`kind` is the discriminator between the two variants, and it is written explicitly.
+`kind` is the discriminator between the two variants.
+This allows referencing files that are stored elsewhere.
 
 - `managed` means the bytes belong to the bundle.
   The record carries `size`, and `resources/<hex>.<ext>` holds bytes that hash to `hash`.
@@ -100,13 +102,6 @@ Only `timeseries` and `tabular` change how a byte file is named.
   A pointer says "this resource exists at that URI, and nothing may re-host it".
 
 A reader must branch on `kind` and never infer the variant from a missing field.
-This is the field an implementation is most likely to get wrong,
-because absence looks like it should be enough.
-It is not.
-A `managed` record whose byte file is missing is a broken bundle that must be refused,
-and a reader that inferred `pointer` from the missing bytes would silently accept it.
-Inferring the other way is worse.
-A `pointer` read as `managed` re-hosts data that the producer said must not be copied.
 
 A pointer still carries a `hash`, so lineage and identity work the same for both variants.
 When the producer knows the external content's digest, it records it.
@@ -146,19 +141,16 @@ so a later output can cite more than an earlier one and never rewrites what the 
 
 ### The activity envelope
 
-`activity` describes the run.
-It is optional.
-A bundle with managed resources and no activity is valid,
-and a reader must load it unchanged.
+The optional `activity` describes the run that produced the bundle.
 
-| Field | Required | Meaning |
-|---|---|---|
-| `activity_id` | required | UUID minted by the producer, stable across replays of the same bundle |
-| `kind` | required | what sort of run this was, for instance `build` |
-| `code_ref` | required | the code that ran, conventionally `<git remote>@<sha>` |
-| `config_hash` | required | a `sha256:<hex>` digest identifying the run's configuration |
-| `parameters` | optional, defaults to `{}` | the parameters the run was given |
-| `runner` | optional | what executed the run |
+| Field         | Required                   | Meaning                                                               |
+| ------------- | -------------------------- | --------------------------------------------------------------------- |
+| `activity_id` | required                   | UUID minted by the producer, stable across replays of the same bundle |
+| `kind`        | required                   | what sort of run this was, for instance `build`                       |
+| `code_ref`    | required                   | the code that ran, conventionally `<git remote>@<sha>`                |
+| `config_hash` | required                   | a `sha256:<hex>` digest identifying the run's configuration           |
+| `parameters`  | optional, defaults to `{}` | the parameters the run was given                                      |
+| `runner`      | optional                   | what executed the run                                                 |
 
 `config_hash` is what says two runs were configured the same way.
 A producer that has a better digest records it.
@@ -174,28 +166,28 @@ Nothing in a bundle is a timestamp (see [Determinism](#determinism)).
 ### The book framing
 
 `book` frames a book to draft and publish.
-It is optional.
+This field is specific to the Bookshelf and is optional.
 
-| Field | Required | Default | Meaning |
-|---|---|---|---|
-| `volume` | required | | the volume the book belongs to, referenced by name and never created by a bundle |
-| `version` | required | | the consumer-facing data version |
-| `visibility` | optional | `hidden` | the tier of the book |
-| `license` | optional | absent | the SPDX licence |
-| `authors` | optional | `[]` | recorded for provenance only |
-| `description` | optional | absent | free prose |
-| `citation_doi` | optional | absent | a DOI for the dataset |
-| `metadata` | optional | `{}` | free-form metadata |
-| `data_dictionary` | optional | `[]` | column-level descriptions |
-| `entries` | optional | `[]` | the book's membership |
-| `published` | optional | `false` | whether the book should be published, or left a draft |
+| Field             | Required | Default  | Meaning                                                                          |
+| ----------------- | -------- | -------- | -------------------------------------------------------------------------------- |
+| `volume`          | required |          | the volume the book belongs to, referenced by name and never created by a bundle |
+| `version`         | required |          | the consumer-facing data version                                                 |
+| `visibility`      | optional | `hidden` | the tier of the book                                                             |
+| `license`         | optional | absent   | the SPDX licence                                                                 |
+| `authors`         | optional | `[]`     | recorded for provenance only                                                     |
+| `description`     | optional | absent   | free prose                                                                       |
+| `citation_doi`    | optional | absent   | a DOI for the dataset                                                            |
+| `metadata`        | optional | `{}`     | free-form metadata                                                               |
+| `data_dictionary` | optional | `[]`     | column-level descriptions                                                        |
+| `entries`         | optional | `[]`     | the book's membership                                                            |
+| `published`       | optional | `false`  | whether the book should be published, or left a draft                            |
 
 Each entry in `entries` is a pair:
 
-| Field | Required | Meaning |
-|---|---|---|
+| Field          | Required | Meaning                                            |
+| -------------- | -------- | -------------------------------------------------- |
 | `name_in_book` | required | the stable name the resource takes inside the book |
-| `tracking_id` | required | a resource recorded in this same manifest |
+| `tracking_id`  | required | a resource recorded in this same manifest          |
 
 An entry must reference a resource recorded in the same manifest,
 which is what keeps a bundle self-contained.
@@ -238,13 +230,11 @@ A reader models one major version, and this specification describes major 1.
 - An absent `schema_version` is read as the current version.
 
 Tolerance is one-directional by design.
-Ignoring an unknown field is safe.
-Guessing at a changed one is not.
 
 ## Validation
 
 These are the rules an implementation checks to decide that a bundle is a **replayable published book**.
-They are rules about the bytes on disk, so any implementation can check them.
+A replayable book contains all the required information to later be streamed to the Bookshelf API.
 
 1. The manifest records a `book`.
 2. That book has `published: true`.
@@ -271,7 +261,6 @@ and validating it would need the network that the format is designed to avoid.
 
 - **The edition.**
   A bundle is pre-edition.
-  There is no `edition` field, and there is nowhere to put one.
   The identity of a published edition is assigned by the server when the bundle is replayed,
   and it is the Nth reprocessing of that `(volume, version)` and nothing more.
   An offline consumer must not synthesise an edition or treat `version` as one.
