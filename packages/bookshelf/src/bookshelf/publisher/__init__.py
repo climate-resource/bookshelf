@@ -40,6 +40,12 @@ Synchronous applications use :func:`replay_bundle_sync` with :class:`bookshelf.B
 
     with Bookshelf() as bs:
         book = replay_bundle_sync(Path("bundle"), bs)
+
+Use :func:`publish_bundle` to publish a recorded bundle rather than to replay one.
+It returns a :class:`PublishOutcome` saying what the publish resolved to::
+
+    with Bookshelf() as bs:
+        outcome = publish_bundle(Bundle.read(Path("bundle")), bs)
 """
 
 from bookshelf.publisher.bundle import (
@@ -54,6 +60,7 @@ from bookshelf.publisher.lock import (
     mask_aggregate_lock,
     mask_lock,
 )
+from bookshelf.publisher.publish import PublishOutcome, publish_bundle
 from bookshelf.publisher.recipe import Recipe, RecipeBook, load_recipe
 from bookshelf.publisher.record import (
     RecordedDraftBook,
@@ -74,6 +81,7 @@ __all__ = [
     "AggregateLock",
     "Bundle",
     "BundleManifest",
+    "PublishOutcome",
     "RecordRecipe",
     "Recipe",
     "RecipeBook",
@@ -91,6 +99,7 @@ __all__ = [
     "mask_aggregate_lock",
     "mask_lock",
     "parse_parameters",
+    "publish_bundle",
     "replay_bundle",
     "replay_bundle_sync",
     "run_record",

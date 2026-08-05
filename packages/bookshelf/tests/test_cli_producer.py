@@ -20,10 +20,10 @@ from bookshelf._cli._runtime import (
 from bookshelf._core.client import BookshelfClient
 from bookshelf.publisher.bundle import (
     Bundle,
-    BundleBook,
     compute_book_bundle_hash,
     resource_filename,
 )
+from bookshelf.publisher.publish import PublishOutcome
 from tests import _core_payloads as payloads
 from tests.conftest import BundleFactory
 
@@ -485,51 +485,29 @@ def test_discard_rejects_an_address_that_is_not_one_edition(
     assert recorded == []
 
 
-class _FakeDraft:
-    def __init__(self, status: str, edition: int) -> None:
-        self.status = status
-        self.metadata = type("Detail", (), {"edition": edition})()
-
-
-class _FakeClient:
-    """Stands in for the facade, recording whether replay was reached."""
-
-    def __init__(self, status: str = "draft", edition: int = 1) -> None:
-        self._status = status
-        self._edition = edition
-        self.draft_kwargs: dict[str, Any] = {}
-
-    def __enter__(self) -> "_FakeClient":
-        return self
-
-    def __exit__(self, *exc_info: object) -> None:
-        return None
-
-    def draft_book(self, volume: str, **kwargs: Any) -> _FakeDraft:
-        self.draft_kwargs = {"volume": volume, **kwargs}
-        return _FakeDraft(self._status, self._edition)
-
-
 def _patch_publish(
-    monkeypatch: pytest.MonkeyPatch, client: _FakeClient, *, edition: int = 2
-) -> list[Bundle]:
-    replayed: list[Bundle] = []
+    monkeypatch: pytest.MonkeyPatch, outcome: PublishOutcome
+) -> list[tuple[Bundle, bool]]:
+    """Answer the publisher with ``outcome``, recording the bundle and flag the command passed."""
+    calls: list[tuple[Bundle, bool]] = []
 
-    def fake_replay(bundle: Bundle, _client: Any) -> Any:
-        replayed.append(bundle)
-        return _FakeDraft("published", edition)
+    def fake_publish(bundle: Bundle, _client: Any, *, dry_run: bool = False) -> PublishOutcome:
+        calls.append((bundle, dry_run))
+        return outcome
 
-    monkeypatch.setattr("bookshelf._cli.producer.Bookshelf", lambda _url: client)
-    monkeypatch.setattr("bookshelf._cli.producer.replay_bundle_sync", fake_replay)
-    return replayed
+    # The command still builds a real client around the stubbed publisher,
+    # so point it somewhere that is not the production deployment.
+    monkeypatch.setenv("BOOKSHELF_URL", UNREACHABLE_API)
+    monkeypatch.setattr("bookshelf._cli.producer.publish_bundle", fake_publish)
+    return calls
 
 
-def test_publish_replays_and_reports_the_edition(
+def test_publish_renders_the_outcome(
     make_bundle: BundleFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     bundle = make_bundle()
-    client = _FakeClient(status="draft")
-    replayed = _patch_publish(monkeypatch, client, edition=2)
+    outcome = PublishOutcome(kind="published", edition=2, resources=1, bundle_hash="b" * 64)
+    calls = _patch_publish(monkeypatch, outcome)
 
     result = runner.invoke(app, ["publish", str(bundle.root), "--json"])
 
@@ -540,16 +518,17 @@ def test_publish_replays_and_reports_the_edition(
     assert summary["version"] == "v1.0.0"
     assert summary["edition"] == 2
     assert summary["resources"] == 1
-    assert len(replayed) == 1
-    assert client.draft_kwargs["bundle_hash"] == summary["bundle_hash"]
+    assert summary["bundle_hash"] == "b" * 64
+    assert [dry_run for _bundle_arg, dry_run in calls] == [False]
 
 
-def test_publish_reports_a_no_op_when_the_edition_exists(
+def test_publish_renders_a_no_op(
     make_bundle: BundleFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     bundle = make_bundle()
-    client = _FakeClient(status="published", edition=3)
-    replayed = _patch_publish(monkeypatch, client)
+    _patch_publish(
+        monkeypatch, PublishOutcome(kind="no-op", edition=3, resources=0, bundle_hash="c" * 64)
+    )
 
     result = runner.invoke(app, ["publish", str(bundle.root), "--json"])
 
@@ -558,15 +537,16 @@ def test_publish_reports_a_no_op_when_the_edition_exists(
     assert summary["outcome"] == "no-op"
     assert summary["edition"] == 3
     assert summary["resources"] == 0
-    assert replayed == []
 
 
-def test_publish_dry_run_never_replays(
+def test_publish_dry_run_asks_the_publisher_not_to_write(
     make_bundle: BundleFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     bundle = make_bundle()
-    client = _FakeClient(status="draft", edition=1)
-    replayed = _patch_publish(monkeypatch, client)
+    calls = _patch_publish(
+        monkeypatch,
+        PublishOutcome(kind="would-publish", edition=1, resources=1, bundle_hash="d" * 64),
+    )
 
     result = runner.invoke(app, ["publish", str(bundle.root), "--dry-run", "--json"])
 
@@ -574,36 +554,7 @@ def test_publish_dry_run_never_replays(
     summary = _payload(result.stdout)
     assert summary["outcome"] == "would-publish"
     assert summary["edition"] == 1
-    assert replayed == []
-
-
-def test_publish_dry_run_reports_a_no_op_for_a_published_edition(
-    make_bundle: BundleFactory, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    bundle = make_bundle()
-    client = _FakeClient(status="published", edition=4)
-    _patch_publish(monkeypatch, client)
-
-    result = runner.invoke(app, ["publish", str(bundle.root), "--dry-run", "--json"])
-
-    assert result.exit_code == EXIT_OK
-    assert _payload(result.stdout)["outcome"] == "no-op"
-
-
-def test_publish_forwards_the_recorded_framing_to_the_draft(
-    make_bundle: BundleFactory, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    bundle = make_bundle()
-    client = _FakeClient(status="draft")
-    _patch_publish(monkeypatch, client)
-
-    result = runner.invoke(app, ["publish", str(bundle.root), "--json"])
-
-    assert result.exit_code == EXIT_OK
-    assert client.draft_kwargs["volume"] == "example"
-    assert client.draft_kwargs["version"] == "v1.0.0"
-    assert client.draft_kwargs["visibility"] == "public"
-    assert client.draft_kwargs["license"] == "MIT"
+    assert [dry_run for _bundle_arg, dry_run in calls] == [True]
 
 
 def test_publish_rejects_a_token_flag(make_bundle: BundleFactory) -> None:
@@ -636,48 +587,3 @@ def test_publish_uses_the_network_exit_code_when_the_api_is_unreachable(
     result = runner.invoke(app, ["publish", str(bundle.root)])
 
     assert result.exit_code == EXIT_NETWORK
-
-
-def test_recorded_and_validated_bundle_hashes_agree(make_bundle: BundleFactory) -> None:
-    """The hash a caller validates is the hash publish drafts against."""
-    bundle = make_bundle()
-    client = _FakeClient(status="draft")
-
-    validated = runner.invoke(app, ["validate", str(bundle.root), "--json"])
-    assert validated.exit_code == EXIT_OK
-
-    with pytest.MonkeyPatch.context() as patch:
-        _patch_publish(patch, client)
-        published = runner.invoke(app, ["publish", str(bundle.root), "--json"])
-
-    assert published.exit_code == EXIT_OK
-    assert _payload(published.stdout)["bundle_hash"] == _payload(validated.stdout)["bundle_hash"]
-
-
-def test_publish_sends_the_recorded_data_dictionary_on_the_draft(
-    make_bundle: BundleFactory, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The dictionary has to ride on the CLI's own draft call.
-
-    That draft is keyed on the bundle hash, so the replay underneath resumes it
-    and never reapplies the framing.
-    """
-    bundle = make_bundle(
-        book=BundleBook(
-            volume="example",
-            version="v1.0.0",
-            visibility="public",
-            license="MIT",
-            data_dictionary=[{"name": "region", "type": "string", "role": "dimension"}],
-        )
-    )
-
-    client = _FakeClient(status="draft")
-    _patch_publish(monkeypatch, client, edition=2)
-
-    result = runner.invoke(app, ["publish", str(bundle.root), "--json"])
-
-    assert result.exit_code == EXIT_OK
-    sent = client.draft_kwargs["data_dictionary"]
-    assert [entry.name for entry in sent] == ["region"]
-    assert sent[0].role == "dimension"
