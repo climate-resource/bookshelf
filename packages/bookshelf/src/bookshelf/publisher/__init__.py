@@ -54,18 +54,19 @@ from bookshelf.publisher.bundle import (
     compute_book_bundle_hash,
 )
 from bookshelf.publisher.publish import PublishOutcome, publish_bundle
+from bookshelf.publisher.recipe import RecordRecipe, load_record_recipe
 from bookshelf.publisher.record import (
+    SetupResult,
+    parse_parameters,
+    run_record,
+    setup,
+)
+from bookshelf.publisher.recording import (
     RecordedDraftBook,
     RecordedResource,
     RecordingActivity,
     RecordingBookshelf,
     RecordingSink,
-    RecordRecipe,
-    SetupResult,
-    load_record_recipe,
-    parse_parameters,
-    run_record,
-    setup,
 )
 from bookshelf.publisher.replay import replay_bundle, replay_bundle_sync
 

@@ -10,11 +10,16 @@ import pytest
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf._produce.types import RegisterItem
+from bookshelf._produce.visibility import INHERIT
 from bookshelf.publisher.bundle import Bundle
+from bookshelf.publisher.recipe import (
+    RecordRecipe,
+    load_record_recipe,
+    resolve_book_visibility,
+)
 from bookshelf.publisher.record import (
     _ACTIVE_RECORDING,
     _RecordingContext,
-    load_record_recipe,
     setup,
 )
 
@@ -172,3 +177,49 @@ def test_a_hidden_book_still_records_hidden_resources(tmp_path: Path) -> None:
         recorded = [r.visibility for r in bs.bundle.manifest.resources]
 
     assert recorded == ["hidden"]
+
+
+def _recipe(visibility: str | None) -> RecordRecipe:
+    return RecordRecipe(
+        collection="my-dataset",
+        license="MIT",
+        authors=(),
+        visibility=visibility,
+    )
+
+
+def test_the_caller_outranks_the_recipe() -> None:
+    resolved = resolve_book_visibility("org", recipe=_recipe("public"))
+
+    assert resolved is models.Visibility.org
+
+
+def test_the_recipe_applies_when_the_caller_says_nothing() -> None:
+    resolved = resolve_book_visibility(None, recipe=_recipe("public"))
+
+    assert resolved is models.Visibility.public
+
+
+def test_silence_everywhere_resolves_to_hidden() -> None:
+    assert resolve_book_visibility(None, recipe=_recipe(None)) is models.Visibility.hidden
+    assert resolve_book_visibility(None) is models.Visibility.hidden
+
+
+def test_an_empty_tier_is_rejected_rather_than_read_as_an_omission() -> None:
+    """The one outcome this rule must never produce by accident is a silent widening."""
+    with pytest.raises(ValueError):
+        resolve_book_visibility("", recipe=_recipe("public"))
+
+
+def test_an_omitted_tier_on_a_direct_draft_takes_the_sinks_default() -> None:
+    """Drafting without a recipe inherits whatever the sink already defaults to."""
+    resolved = resolve_book_visibility(INHERIT, default=models.Visibility.org)
+
+    assert resolved is models.Visibility.org
+
+
+def test_the_recipe_is_ignored_once_a_tier_is_declared_directly() -> None:
+    """A recipe reaches the rule only through setup, never through a direct draft."""
+    resolved = resolve_book_visibility(models.Visibility.hidden, recipe=_recipe("public"))
+
+    assert resolved is models.Visibility.hidden
