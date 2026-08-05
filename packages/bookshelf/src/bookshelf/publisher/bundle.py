@@ -708,7 +708,7 @@ class Bundle:
         - that book is marked for publication
         - the book has at least one entry
         - every entry references a resource recorded in the same manifest
-        - every managed resource's bytes still hash to the recorded hash
+        - every managed resource's bytes are present and still hash to the recorded hash
 
         The bytes are re-hashed rather than trusted,
         so a bundle edited between record and replay is refused here
@@ -729,7 +729,13 @@ class Bundle:
         for resource in self.manifest.resources:
             if resource.kind != "managed":
                 continue
-            actual = sha256_hex(self.resource_bytes(resource))
+            try:
+                data = self.resource_bytes(resource)
+            except OSError as exc:
+                raise InvalidBundleError(
+                    f"resource {resource.tracking_id} has no bytes in the bundle: {exc}"
+                ) from exc
+            actual = sha256_hex(data)
             if actual != resource.hash:
                 raise InvalidBundleError(
                     f"resource {resource.tracking_id} has hash {resource.hash}, got {actual}"
@@ -753,8 +759,7 @@ class Bundle:
         instead of being reinterpreted under the current semantics.
 
         The read is structural.
-        A bundle recorded as a draft loads here and replays as a draft,
-        so use :meth:`read_validated` when the caller needs a published book.
+        A bundle recorded as a draft loads here and replays as a draft.
         """
         raw: dict[str, Any] = yaml.safe_load((root / MANIFEST_NAME).read_bytes()) or {}
         _check_schema_major(raw)

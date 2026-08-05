@@ -11,11 +11,10 @@ from bookshelf.publisher.bundle import Bundle, BundleBook
 
 
 class BundleFactory(Protocol):
-    """Builds a bundle on disk and returns it."""
+    """Builds a bundle under ``tmp_path`` and returns it."""
 
     def __call__(
         self,
-        root: Path | None = None,
         *,
         published: bool = True,
         entries: int = 1,
@@ -32,13 +31,12 @@ def make_bundle(tmp_path: Path) -> BundleFactory:
     """
 
     def factory(
-        root: Path | None = None,
         *,
         published: bool = True,
         entries: int = 1,
         book: BundleBook | None = None,
     ) -> Bundle:
-        bundle = Bundle(root if root is not None else tmp_path / "bundle")
+        bundle = Bundle(tmp_path / "bundle")
         bundle.set_book(
             book
             if book is not None

@@ -70,6 +70,16 @@ def test_managed_bytes_are_re_hashed_against_the_manifest(make_bundle: BundleFac
     )
 
 
+def test_a_managed_resource_with_no_bytes_is_invalid(make_bundle: BundleFactory) -> None:
+    """A manifest record whose byte file is gone is a refusal, not a crash."""
+    bundle = make_bundle()
+    resource = bundle.manifest.resources[0]
+    (bundle.resources_dir / resource_filename(resource.hash, resource.type)).unlink()
+
+    with pytest.raises(InvalidBundleError, match="has no bytes in the bundle"):
+        bundle.validate()
+
+
 def test_a_pointer_is_not_re_hashed(tmp_path: Path) -> None:
     """A pointer has no byte file, so hashing one would fail on a valid bundle."""
     bundle = Bundle(tmp_path / "bundle")

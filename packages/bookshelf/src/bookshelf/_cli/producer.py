@@ -15,6 +15,8 @@ so an abandoned attempt leaves an edition behind until it is deleted.
 """
 
 import importlib.util
+from collections.abc import Generator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -47,7 +49,7 @@ from bookshelf.publisher import (
     replay_bundle_sync,
     run_record,
 )
-from bookshelf.publisher.bundle import BundleBook, InvalidBundleError, book_data_dictionary
+from bookshelf.publisher.bundle import InvalidBundleError, book_data_dictionary
 
 _RECORD_REQUIREMENTS = ("papermill", "nbconvert")
 _PAGE_SIZE = 100
@@ -130,20 +132,17 @@ def _resolve_build(build: Path | None, recipe: Path) -> Path:
     return resolved
 
 
-def _read_bundle(root: Path, *, validated: bool = False) -> tuple[Bundle, BundleBook]:
-    """Load a bundle and its book framing, rendering every refusal as an invalid bundle.
+@contextmanager
+def _bundle_errors(root: Path) -> Generator[None]:
+    """Render a bundle that refuses itself, and one that will not load at all.
 
     A malformed manifest is a distinct outcome from a crash,
     so a caller can branch on it.
     ``ValueError`` covers both the schema-major refusal
     and the pydantic validation failure.
-    ``validated`` asks the bundle for the whole replayable-published-book contract.
-    Publishing asks only for the framing,
-    because a bundle recorded as a draft replays as a draft.
     """
     try:
-        loaded = Bundle.read_validated(root) if validated else Bundle.read(root)
-        return loaded, loaded.require_framing()
+        yield
     except InvalidBundleError as exc:
         raise CliError(
             f"{exc}. Run 'bookshelf record' to rebuild the bundle.",
@@ -232,7 +231,9 @@ def validate(
 ) -> None:
     """Assert a recorded bundle is a replayable published book, and hash it."""
     with command_errors():
-        loaded, framing = _read_bundle(bundle, validated=True)
+        with _bundle_errors(bundle):
+            loaded = Bundle.read_validated(bundle)
+            framing = loaded.require_framing()
         summary = {
             "bundle_path": str(bundle),
             "bundle_hash": compute_book_bundle_hash(loaded.manifest),
@@ -257,7 +258,11 @@ def publish(
     # Credentials resolve through the usual chain, so there is no token flag
     # to leave a secret in a process list or a CI log.
     with command_errors():
-        loaded, framing = _read_bundle(bundle)
+        # Publishing asks only for the framing,
+        # because a bundle recorded as a draft replays as a draft.
+        with _bundle_errors(bundle):
+            loaded = Bundle.read(bundle)
+            framing = loaded.require_framing()
         bundle_hash = compute_book_bundle_hash(loaded.manifest)
 
         with Bookshelf(resolve_base_url(api_url)) as client:

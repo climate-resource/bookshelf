@@ -18,7 +18,12 @@ from bookshelf._cli._runtime import (
     EXIT_USAGE,
 )
 from bookshelf._core.client import BookshelfClient
-from bookshelf.publisher.bundle import Bundle, BundleBook, compute_book_bundle_hash
+from bookshelf.publisher.bundle import (
+    Bundle,
+    BundleBook,
+    compute_book_bundle_hash,
+    resource_filename,
+)
 from tests import _core_payloads as payloads
 from tests.conftest import BundleFactory
 
@@ -94,6 +99,20 @@ def test_validate_renders_a_refused_bundle_with_its_remedy(make_bundle: BundleFa
     assert result.exit_code == EXIT_INVALID_BUNDLE
     assert "does not record a publish operation" in _plain(result.stderr)
     assert "bookshelf record" in _plain(result.stderr)
+
+
+def test_validate_reports_absent_resource_bytes_as_an_invalid_bundle(
+    make_bundle: BundleFactory,
+) -> None:
+    """A manifest record whose byte file is gone exits 7 rather than raising through."""
+    bundle = make_bundle()
+    resource = bundle.manifest.resources[0]
+    (bundle.resources_dir / resource_filename(resource.hash, resource.type)).unlink()
+
+    result = runner.invoke(app, ["validate", str(bundle.root)])
+
+    assert result.exit_code == EXIT_INVALID_BUNDLE
+    assert "has no bytes in the bundle" in _plain(result.stderr)
 
 
 def test_validate_rejects_a_missing_bundle(tmp_path: Path) -> None:
