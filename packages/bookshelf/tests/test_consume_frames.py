@@ -1,8 +1,19 @@
 """Tests for the consumed-resource frame conversions (``bookshelf._consume.frames``)."""
 
-import pandas as pd
+import sys
 
-from bookshelf._consume.frames import long_timeseries, timeseries_frame, wide_timeseries
+import pandas as pd
+import pytest
+
+from bookshelf._consume.frames import (
+    arrow_converter,
+    long_timeseries,
+    polars_converter,
+    timeseries_frame,
+    wide_timeseries,
+)
+from bookshelf._core.errors import BookshelfError
+from bookshelf._core.frames import DataFrameSupportError
 from bookshelf._generated import models
 
 
@@ -38,3 +49,27 @@ def test_long_timeseries_handles_a_response_without_an_index() -> None:
 def test_wide_timeseries_leaves_a_year_only_frame_alone() -> None:
     wide = pd.DataFrame({"2000": [1.5]})
     assert list(wide_timeseries(wide).columns) == ["2000"]
+
+
+@pytest.mark.parametrize(
+    ("module", "converter", "method"),
+    [
+        ("polars", polars_converter, "as_polars()"),
+        ("pyarrow", arrow_converter, "as_arrow()"),
+    ],
+)
+def test_a_missing_extra_is_reported_as_a_bookshelf_error(
+    monkeypatch: pytest.MonkeyPatch,
+    module: str,
+    converter: object,
+    method: str,
+) -> None:
+    """A caller catching BookshelfError should not have to catch ImportError as well."""
+    monkeypatch.setitem(sys.modules, module, None)
+
+    with pytest.raises(DataFrameSupportError) as raised:
+        converter()  # type: ignore[operator]
+
+    assert isinstance(raised.value, BookshelfError)
+    assert method in str(raised.value)
+    assert "pip install 'bookshelf[dataframes]'" in str(raised.value)

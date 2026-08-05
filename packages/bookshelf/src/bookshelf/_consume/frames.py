@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from bookshelf._core.frames import DataFrameSupportError
 from bookshelf._generated import models
 
 if TYPE_CHECKING:
@@ -59,7 +60,12 @@ def polars_converter() -> Callable[[pd.DataFrame], pl.DataFrame]:
     Callers resolve the converter before fetching any data,
     so an install without the optional extra fails without making a request.
     """
-    import polars as pl
+    try:
+        import polars as pl
+    except ImportError as exc:
+        raise DataFrameSupportError(
+            "as_polars() requires the 'dataframes' extra: pip install 'bookshelf[dataframes]'"
+        ) from exc
 
     def convert(frame: pd.DataFrame) -> pl.DataFrame:
         return pl.from_pandas(frame, include_index=True)
@@ -73,7 +79,12 @@ def arrow_converter() -> Callable[[pd.DataFrame], pa.Table]:
     Callers resolve the converter before fetching any data,
     so an install without the optional extra fails without making a request.
     """
-    import pyarrow as pa
+    try:
+        import pyarrow as pa
+    except ImportError as exc:
+        raise DataFrameSupportError(
+            "as_arrow() requires the 'dataframes' extra: pip install 'bookshelf[dataframes]'"
+        ) from exc
 
     def convert(frame: pd.DataFrame) -> pa.Table:
         return pa.Table.from_pandas(frame, preserve_index=True)
