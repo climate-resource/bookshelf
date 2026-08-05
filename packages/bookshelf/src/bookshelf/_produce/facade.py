@@ -198,8 +198,8 @@ class LiveSink:
 
         ``data_dictionary=`` describes the columns of the book's tabular and timeseries entries.
         It is applied when the draft is created,
-        so a call that resumes an existing book through ``bundle_hash`` leaves the stored
-        dictionary untouched.
+        so a call that resumes an existing book through ``bundle_hash``
+        leaves the stored dictionary untouched.
         """
         detail = self._client.draft_book(
             _draft_request(
@@ -310,8 +310,8 @@ class AsyncLiveSink:
 
         ``data_dictionary=`` describes the columns of the book's tabular and timeseries entries.
         It is applied when the draft is created,
-        so a call that resumes an existing book through ``bundle_hash`` leaves the stored
-        dictionary untouched.
+        so a call that resumes an existing book through ``bundle_hash``
+        leaves the stored dictionary untouched.
         """
         detail = await self._client.draft_book_async(
             _draft_request(

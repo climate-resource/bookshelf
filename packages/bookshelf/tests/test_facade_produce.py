@@ -1,6 +1,8 @@
 """The producer surface the public facades bind to, reached through the facade itself."""
 
+import ast
 import inspect
+import itertools
 import json
 from pathlib import Path
 from typing import Any
@@ -9,6 +11,7 @@ from uuid import UUID
 import httpx
 import pytest
 
+import bookshelf.facade
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf._produce.facade import LiveSink
@@ -155,8 +158,8 @@ async def test_the_async_producer_surface_matches_the_sync_one() -> None:
     assert _body(registered[0])["items"][0]["external_uri"] == "https://example.invalid/data.csv"
 
 
-def test_the_facade_binds_the_activity_call_to_the_sink() -> None:
-    """``bs.activity`` is the sink's own call, so a swapped adapter takes the traffic."""
+def test_opening_an_activity_reaches_no_api() -> None:
+    """An activity is an ambient envelope, so nothing is written until a registration lands."""
     recorded: list[httpx.Request] = []
 
     with _sync(recorded, 201, payloads.BOOK_DETAIL) as client:
@@ -189,3 +192,27 @@ def test_a_recording_facade_binds_every_producer_call_to_its_bundle(tmp_path: Pa
         bound = [recording.activity, recording.register_external, recording.draft_book]
 
     assert [call.__self__ for call in bound] == [recording.recording_sink] * 3
+
+
+@pytest.mark.parametrize("facade", ["Bookshelf", "AsyncBookshelf"])
+def test_every_bound_producer_call_carries_a_docstring(facade: str) -> None:
+    """The API reference reads the binding in ``__init__``, so an undocumented one goes missing."""
+    source = Path(bookshelf.facade.__file__).read_text()
+    constructor = next(
+        node
+        for cls in ast.parse(source).body
+        if isinstance(cls, ast.ClassDef) and cls.name == facade
+        for node in cls.body
+        if isinstance(node, ast.FunctionDef) and node.name == "__init__"
+    )
+    documented = {
+        target.attr: after.value.value
+        for assignment, after in itertools.pairwise(constructor.body)
+        if isinstance(assignment, ast.Assign)
+        for target in assignment.targets
+        if isinstance(target, ast.Attribute)
+        if isinstance(after, ast.Expr) and isinstance(after.value, ast.Constant)
+    }
+
+    assert {"activity", "register_external", "draft_book"} <= documented.keys()
+    assert all(documented[name].strip() for name in ("activity", "register_external", "draft_book"))

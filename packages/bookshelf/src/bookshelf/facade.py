@@ -153,6 +153,7 @@ class Bookshelf:
             transport=transport,
         )
         self._cache = ContentCache()
+        # A subclass changes these by rebinding them after this runs, not by redefining them.
         sink: ProduceSink = LiveSink(self._client, self._cache)
         self.activity = sink.activity
         """Open an ambient producer activity with deterministic provenance."""
