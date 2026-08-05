@@ -8,7 +8,7 @@ Omitting `edition=` resolves the latest published edition.
 from bookshelf import Bookshelf
 
 with Bookshelf() as bs:
-    entry = bs.book("rcmip-emissions", "v5.1.0")["magicc-rcmip"]
+    entry = bs.book("rcmip-emissions", "v5.1.0")["magicc"]
     frame = entry.as_df(year_min=2020, year_max=2100)
 ```
 
@@ -18,8 +18,8 @@ Use `AsyncBookshelf` for awaited I/O:
 from bookshelf import AsyncBookshelf
 
 async with AsyncBookshelf() as bs:
-    book = await bs.book("rcmip-emissions", "v5.1.0", edition=2)
-    frame = await book["magicc-rcmip"].as_df()
+    book = await bs.book("rcmip-emissions", "v5.1.0", edition=1)
+    frame = await book["magicc"].as_df()
 ```
 
 Publishing capabilities are part of the same SDK.
@@ -29,9 +29,10 @@ Install the `publish` extra when notebook execution is required:
 uv add "bookshelf[publish]"
 ```
 
+The [how-to guides](how-to-guides/index.md) go further on both sides.
+Each one is a notebook executed against a live deployment when these docs are built,
+so its output is real.
+
 See the repository's
 [package README](https://github.com/climate-resource/bookshelf/tree/main/packages/bookshelf#readme)
-for complete consuming,
-publishing,
-authentication,
-and code generation examples.
+for authentication and code generation.

@@ -37,7 +37,7 @@ The SDK requires Python 3.12 or newer.
 from bookshelf import Bookshelf
 
 with Bookshelf() as bs:
-    entry = bs.book("rcmip-emissions", "v5.1.0")["magicc-rcmip"]
+    entry = bs.book("rcmip-emissions", "v5.1.0")["magicc"]
     frame = entry.as_df(year_min=2020, year_max=2100)
 ```
 
