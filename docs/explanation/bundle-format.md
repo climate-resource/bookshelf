@@ -41,7 +41,7 @@ So a `timeseries` resource with hash `sha256:7198...faa0` is stored at
 `resources/7198...faa0.parquet`.
 
 The directory is content addressed,
-so two resources with identical bytes share one file.
+so two resources with identical bytes and the same extension share one file.
 A resource whose `hash` is not in the canonical form has no byte file name at all,
 and a reader must refuse it rather than derive a path from it.
 This is what stops a crafted manifest from naming a path outside `resources/`.
@@ -213,7 +213,7 @@ The same content produces byte-identical output on any machine, on any run.
   List order is preserved as recorded.
 - Fields with no value are omitted rather than written as null.
 - Newlines are LF, and the encoding is UTF-8, whatever the platform.
-- Long strings are not wrapped to a column width.
+- Strings are written on one line, up to a bound of 10000 characters.
 - Nothing is a timestamp, a hostname, a path from the producing machine, or a random id minted at write time.
 
 This is what makes a bundle reviewable.
