@@ -13,7 +13,7 @@ This page specifies what is written to disk.
 It is written so that an implementation in another language can produce and read bundles
 without reading the Python that implements this one.
 
-The format in force is manifest schema version **1.0**.
+The format in force is manifest schema version **1.1**.
 
 ## Bundle directory
 
@@ -45,17 +45,36 @@ Readers should ignore additional resources not included in the manifest.
 
 ## The manifest
 
-`manifest.lock` is a mapping with four keys at the top level.
+`manifest.lock` is a mapping with five keys at the top level.
 
 | Field            | Required                      | Meaning                                             |
 | ---------------- | ----------------------------- | --------------------------------------------------- |
-| `schema_version` | optional, defaults to `"1.0"` | the manifest schema this bundle was written against |
+| `schema_version` | always written                | the manifest schema this bundle was written against |
+| `writer`         | optional                      | the library versions that wrote the resource bytes  |
 | `resources`      | optional, defaults to `[]`    | one record per registered resource                  |
 | `activity`       | optional                      | a description of the run that produced the outputs  |
 | `book`           | optional                      | the pre-edition framing of a book to publish        |
 
 A bundle carrying only `resources` is valid.
-Each of `activity` and `book` is additive.
+Each of `writer`, `activity` and `book` is additive.
+
+### The writer header
+
+`writer` records the versions of the libraries that produced the bytes under `resources/`.
+It carries one field.
+
+| Field     | Required | Type   | Meaning                                    |
+| --------- | -------- | ------ | ------------------------------------------ |
+| `pyarrow` | optional | string | the pyarrow that wrote the parquet bytes   |
+
+Parquet output is not stable across pyarrow versions,
+so the same frame written by two pyarrow versions has two content hashes.
+Recording the version makes that difference explain itself
+rather than surfacing as an unattributed change in the recorded hashes.
+
+The whole block is absent when pyarrow was not installed on the machine that wrote the bundle.
+It is also absent from any bundle written against schema `1.0`,
+because the field did not exist then.
 
 ### A resource record
 
@@ -130,10 +149,14 @@ used:
 
 An entry with both, or with neither, is invalid.
 
-References are recorded verbatim and are not resolved again later.
-A reference by `logical_key` stays a reference by `logical_key`.
-Whatever consumes the bundle mints exactly the edges the run expressed,
-so lineage cannot drift between what the code did and what was recorded.
+A recorded reference is resolved again when the bundle is replayed.
+A `tracking_id` is rewritten by the client to the id the server returned for that input,
+because a registration may be answered with a resource the server already holds.
+A `logical_key` is resolved by the server at registration time,
+so the edge it mints depends on what the server holds when the replay happens.
+
+A recorded reference is therefore the run's claim about its inputs,
+and the minted edge names the resource that claim resolved to.
 
 Inputs accumulate within a run.
 A resource records the inputs known at the moment it was registered,
@@ -349,7 +372,9 @@ resources:
   used:
   - tracking_id: 0197a000-0000-7000-8000-00000000b001
   visibility: public
-schema_version: '1.0'
+schema_version: '1.1'
+writer:
+  pyarrow: 23.0.0
 ```
 
 Reading it back:

@@ -175,6 +175,10 @@ def run_record(
     }
 
 
+# The kinds stamped on the two evidence documents every recorded book carries.
+DOCUMENT_KINDS = ("notebook", "notebook-html")
+
+
 def _record_executed_documents(
     context: _RecordingContext,
     executed: ExecutedNotebook,
@@ -182,9 +186,10 @@ def _record_executed_documents(
     """Record executed notebook evidence and attach it to the drafted book."""
     if context.bookshelf is None or context.book is None:
         raise BookshelfError("build file must call bookshelf.setup explicitly")
+    notebook_kind, html_kind = DOCUMENT_KINDS
     documents = [
-        (executed.ipynb_path, f"{executed.name}.ipynb", "notebook"),
-        (executed.html_path, f"{executed.name}.html", "notebook-html"),
+        (executed.ipynb_path, f"{executed.name}.ipynb", notebook_kind),
+        (executed.html_path, f"{executed.name}.html", html_kind),
     ]
     for path, name_in_book, kind in documents:
         resource = context.bookshelf.recording_sink.record_document(
