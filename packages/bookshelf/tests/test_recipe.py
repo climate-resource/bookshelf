@@ -1,5 +1,6 @@
 """Tests for the sectioned recipe, and the framing the recorder resolves from it."""
 
+import re
 import textwrap
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -233,6 +234,14 @@ def test_the_split_form_loads_to_the_same_recipe_as_the_single_file(tmp_path: Pa
     assert single == split
 
 
+def test_the_split_form_orders_its_releases_by_filename(tmp_path: Path) -> None:
+    """Model equality ignores mapping order, so the order is asserted on its own."""
+    split = load_record_recipe(_form_b(tmp_path / "split"))
+
+    assert split.versions == ("v2.6", "v2.7")
+    assert [split.release(version).sequence for version in split.versions] == [0, 1]
+
+
 def test_declaring_releases_in_both_places_is_rejected_naming_both(tmp_path: Path) -> None:
     path = _write(tmp_path, _FULL)
     (tmp_path / "releases").mkdir()
@@ -240,6 +249,28 @@ def test_declaring_releases_in_both_places_is_rejected_naming_both(tmp_path: Pat
 
     with pytest.raises(BookshelfError, match="declares 'releases:'.*also holds release files"):
         load_record_recipe(path)
+
+
+def test_a_releases_directory_holding_no_release_leaves_the_inline_key_alone(
+    tmp_path: Path,
+) -> None:
+    """A placeholder such as `.keep` is not a layout choice, so it must not shadow the key."""
+    path = _write(tmp_path, _FULL)
+    (tmp_path / "releases").mkdir()
+    (tmp_path / "releases" / ".keep").write_text("")
+
+    assert load_record_recipe(path).versions == ("v2.6", "v2.7")
+
+
+def test_a_releases_directory_holding_only_other_files_does_not_load_zero_releases(
+    tmp_path: Path,
+) -> None:
+    """Silently loading nothing would leave every version unknown for no stated reason."""
+    path = _write(tmp_path, _FULL)
+    (tmp_path / "releases").mkdir()
+    (tmp_path / "releases" / "README.md").write_text("Releases live in bookshelf.yaml.\n")
+
+    assert load_record_recipe(path).versions == ("v2.6", "v2.7")
 
 
 # ----------------------------------------------------------------------
@@ -280,6 +311,34 @@ def test_an_unquoted_numeric_release_key_is_rejected_telling_the_author_to_quote
     message = str(excinfo.value)
     assert 'Quote it as "2.6"' in message
     assert "2.70 and 2.7 would collide" in message
+
+
+@pytest.mark.parametrize(
+    ("key", "read_as"),
+    [("yes", "bool"), ("2025-08-22", "date"), ("2", "int"), ("null", "NoneType")],
+)
+def test_a_release_key_that_is_not_a_string_names_what_yaml_read_it_as(
+    tmp_path: Path, key: str, read_as: str
+) -> None:
+    """The float advice would be wrong here, so the message says what actually happened."""
+    path = _write(
+        tmp_path,
+        f"""\
+        volume:
+          name: my-dataset
+          license: MIT
+        releases:
+          {key}: {{}}
+        """,
+    )
+
+    with pytest.raises(BookshelfError) as excinfo:
+        load_record_recipe(path)
+
+    message = str(excinfo.value)
+    assert f"YAML read it as a {read_as}" in message
+    assert "Quote the key exactly as you wrote it" in message
+    assert "would collide" not in message
 
 
 @pytest.mark.parametrize(
@@ -359,6 +418,92 @@ def test_an_unknown_key_is_rejected_at_every_level(tmp_path: Path, where: str, r
         load_record_recipe(path)
 
     assert where in str(excinfo.value)
+
+
+def test_two_problems_in_one_section_are_listed_one_per_line(tmp_path: Path) -> None:
+    """Running them together would repeat the allowed keys mid-sentence and bury the second."""
+    path = _write(
+        tmp_path,
+        """\
+        volume:
+          name: my-dataset
+          license: MIT
+          surplus: 1
+          spare: 2
+        """,
+    )
+
+    with pytest.raises(BookshelfError) as excinfo:
+        load_record_recipe(path)
+
+    lines = str(excinfo.value).splitlines()
+    assert lines[0].endswith("has 2 problems:")
+    assert lines[1].startswith("- volume.surplus is not a recipe key")
+    assert lines[2].startswith("- volume.spare is not a recipe key")
+
+
+@pytest.mark.parametrize(
+    ("where", "recipe"),
+    [
+        (
+            "volume.license",
+            """\
+            volume:
+              name: my-dataset
+              license: ""
+            """,
+        ),
+        (
+            'releases."v1.0".license',
+            """\
+            volume:
+              name: my-dataset
+              license: MIT
+            releases:
+              "v1.0":
+                license: ""
+            """,
+        ),
+        (
+            'releases."v1.0".sources.raw.uri',
+            """\
+            volume:
+              name: my-dataset
+              license: MIT
+            releases:
+              "v1.0":
+                sources:
+                  raw:
+                    type: tabular
+                    uri: ""
+                    sha256: 77834f5f16197a463fe3df7e0eb3adda62a9e48355c9481926133986e35a9019
+            """,
+        ),
+    ],
+)
+def test_a_value_that_is_declared_but_empty_is_rejected(
+    tmp_path: Path, where: str, recipe: str
+) -> None:
+    """Declaring a key and leaving it blank says nothing, so it is a mistake rather than silence."""
+    path = _write(tmp_path, recipe)
+
+    with pytest.raises(BookshelfError, match=f"{re.escape(where)} must not be empty"):
+        load_record_recipe(path)
+
+
+@pytest.mark.parametrize("value", ["/etc/passwd", "../outside/raw.csv", "nested/../../raw.csv"])
+def test_a_path_source_that_leaves_the_feedstock_is_rejected(tmp_path: Path, value: str) -> None:
+    """The check is structural, because the loader touches no filesystem."""
+    path = _one_release(tmp_path, f"sources:\n  raw:\n    type: tabular\n    path: {value}")
+
+    with pytest.raises(BookshelfError, match="is relative to the recipe and stays beside it"):
+        load_record_recipe(path)
+
+
+def test_a_path_source_may_sit_in_a_subdirectory_of_the_feedstock(tmp_path: Path) -> None:
+    path = _one_release(tmp_path, "sources:\n  raw:\n    type: tabular\n    path: data/raw.csv")
+
+    assert load_record_recipe(path).release("v1.0").sources["raw"].path == Path("data/raw.csv")
 
 
 def _one_release(tmp_path: Path, body: str) -> Path:

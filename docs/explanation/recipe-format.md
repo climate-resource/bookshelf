@@ -70,6 +70,13 @@ and a book keeps the metadata it was published with.
 `releases:` holds one entry per upstream version.
 A release may override any discovery field, and it declares its own `sources`.
 
+`build.visibility:` is the tier the recorded book takes,
+and it becomes the default for every resource the build records,
+so declaring the book public is enough to publish public data.
+It sits under `build:` because it is a property of what a build publishes
+rather than of the volume's identity.
+The same volume can hold a hidden book and a public one.
+
 Nothing in the recipe describes the data itself.
 `spatial_coverage`, `temporal_coverage`, `variables`, `units`, `scenarios` and `frequency`
 are computed per resource by the platform and rolled up.
@@ -99,6 +106,10 @@ because merging would make the file that states a release depend on which one lo
 
 - **Release keys are quoted strings.**
   An unquoted `2.6` is a YAML float, and `2.70` would then collide with `2.7`.
+- **Every release resolves a licence**,
+  from `volume.license` or from its own `license` override.
+  A recipe where some release would resolve neither does not load,
+  whichever release is being built.
 - **Releases do not inherit from each other.**
   Each restates its sources in full.
   There is no `extends` and no carry-forward, so reading one release tells the whole story.

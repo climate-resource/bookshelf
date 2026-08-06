@@ -90,7 +90,7 @@ class VolumeSection(_Section):
     """
 
     name: str = Field(min_length=1)
-    license: str | None = None
+    license: str | None = Field(default=None, min_length=1)
     maintainers: list[dict[str, Any]] = Field(default_factory=list)
     topics: list[str] = Field(default_factory=list)
     keywords: list[str] = Field(default_factory=list)
@@ -142,9 +142,24 @@ class SourceSpec(_Section):
     """
 
     type: str = Field(min_length=1)
-    uri: str | None = None
+    uri: str | None = Field(default=None, min_length=1)
     path: Path | None = None
     sha256: str | None = None
+
+    @field_validator("path")
+    @classmethod
+    def _a_path_beside_the_recipe(cls, value: Path | None) -> Path | None:
+        """Keep a path source inside the feedstock, as a structural check rather than a lookup.
+
+        The loader touches no filesystem, so this rejects the shapes that could never be
+        checked in beside the recipe rather than asking whether the file is there.
+        """
+        if value is not None and (value.is_absolute() or ".." in value.parts):
+            raise ValueError(
+                "a path source is relative to the recipe and stays beside it. "
+                "Check the file in next to bookshelf.yaml, or use uri for something remote"
+            )
+        return value
 
     @field_validator("sha256")
     @classmethod
@@ -177,7 +192,7 @@ class ReleaseSpec(DiscoveryFields):
     so a reader never has to walk backwards through the file to learn what a release is built from.
     """
 
-    license: str | None = None
+    license: str | None = Field(default=None, min_length=1)
     sources: dict[str, SourceSpec] = Field(default_factory=dict)
 
 
@@ -305,6 +320,8 @@ def _render(error: ErrorDetails, *, model: type[BaseModel], where: str) -> str:
         return f"{at} is not a recipe key. The keys of {container} are: {allowed}"
     if error["type"] == "missing":
         return f"{at} is required"
+    if error["type"] == "string_too_short":
+        return f"{at} must not be empty"
     return f"{at}: {error['msg'].removeprefix('Value error, ')}"
 
 
@@ -315,7 +332,12 @@ def _section[SectionT: BaseModel](
     path: Path,
     where: str,
 ) -> SectionT:
-    """Validate one section of a recipe, reporting every problem it has at once."""
+    """Validate one section of a recipe, reporting every problem it has at once.
+
+    Several problems are listed one per line.
+    Running them into a sentence would repeat a whole list of allowed keys mid-clause,
+    and an author fixing two typos would have to read past the first to find the second.
+    """
     if raw is None:
         raw = {}
     if not isinstance(raw, dict):
@@ -323,8 +345,11 @@ def _section[SectionT: BaseModel](
     try:
         return model.model_validate(raw)
     except ValidationError as exc:
-        problems = ", ".join(_render(error, model=model, where=where) for error in exc.errors())
-        raise BookshelfError(f"{path} {problems}") from exc
+        problems = [_render(error, model=model, where=where) for error in exc.errors()]
+        if len(problems) == 1:
+            raise BookshelfError(f"{path} {problems[0]}") from exc
+        listed = "\n".join(f"- {problem}" for problem in problems)
+        raise BookshelfError(f"{path} has {len(problems)} problems:\n{listed}") from exc
 
 
 def _release_documents(path: Path, raw: dict[str, Any]) -> dict[str, Any]:
@@ -335,13 +360,16 @@ def _release_documents(path: Path, raw: dict[str, Any]) -> dict[str, Any]:
     """
     directory = path.parent / RELEASES_DIRNAME
     declared = raw.get(RELEASES_DIRNAME)
-    if directory.is_dir():
+    # A directory that holds no release file is not a layout choice.
+    # It is a placeholder such as `.keep`, so it neither shadows the key nor loads zero releases.
+    from_directory = _releases_from_directory(directory) if directory.is_dir() else {}
+    if from_directory:
         if declared is not None:
             raise BookshelfError(
                 f"{path} declares 'releases:' and {directory} also holds release files. "
                 "Keep the releases in one place: drop the key, or delete the directory"
             )
-        return _releases_from_directory(directory)
+        return from_directory
     if declared is None:
         return {}
     if not isinstance(declared, dict):
@@ -349,13 +377,29 @@ def _release_documents(path: Path, raw: dict[str, Any]) -> dict[str, Any]:
     documents: dict[str, Any] = {}
     for key, body in declared.items():
         if not isinstance(key, str):
-            raise BookshelfError(
-                f'{path} release key {key} is a number. Quote it as "{key}", '
-                "because an unquoted version is read as a YAML float "
-                "and 2.70 and 2.7 would collide"
-            )
+            raise BookshelfError(f"{path} {_unquoted_release_key(key)}")
         documents[key] = body
     return documents
+
+
+def _unquoted_release_key(key: Any) -> str:  # noqa: ANN401
+    """Name the fix for a release key YAML did not read as a string.
+
+    A float gets the collision reasoning, because that is the case where quoting changes meaning
+    rather than only type.
+    Everything else names what YAML made of the key, because the author cannot see that from
+    the file.
+    """
+    if isinstance(key, float):
+        return (
+            f'release key {key} is a number. Quote it as "{key}", '
+            "because an unquoted version is read as a YAML float "
+            "and 2.70 and 2.7 would collide"
+        )
+    return (
+        f"release key {key} is not a string, because YAML read it as a {type(key).__name__}. "
+        "Quote the key exactly as you wrote it, because a version is a string"
+    )
 
 
 def _releases_from_directory(directory: Path) -> dict[str, Any]:
