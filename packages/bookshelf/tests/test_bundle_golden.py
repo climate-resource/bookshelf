@@ -79,12 +79,20 @@ def _without_executed_documents(manifest: BundleManifest) -> BundleManifest:
     return filtered
 
 
-def _resource_filenames(manifest: BundleManifest) -> bytes:
-    """Return the sorted byte-file names of every managed resource, one per line."""
-    names = sorted(
+def _resource_filenames(bundle: Bundle) -> bytes:
+    """Return the sorted on-disk byte-file names under ``resources/``, one per line.
+
+    The names come from the directory listing rather than from the manifest,
+    so a recorder that wrote a byte file under a diverging name would fail the golden.
+    The two executed documents are subtracted, matching the manifest golden.
+    """
+    documents = {
         resource_filename(resource.hash, resource.type)
-        for resource in manifest.resources
-        if resource.kind == "managed"
+        for resource in bundle.manifest.resources
+        if resource.metadata.get("kind") in _DOCUMENT_KINDS
+    }
+    names = sorted(
+        path.name for path in bundle.resources_dir.iterdir() if path.name not in documents
     )
     return ("\n".join(names) + "\n").encode("utf-8")
 
@@ -114,7 +122,7 @@ def test_the_recorded_manifest_matches_the_golden_bytes(tmp_path: Path) -> None:
 def test_the_recorded_resource_filenames_match_the_golden(tmp_path: Path) -> None:
     bundle = _record_golden_bundle(tmp_path)
 
-    actual = _resource_filenames(_without_executed_documents(bundle.manifest))
+    actual = _resource_filenames(bundle)
 
     _assert_matches_golden(actual, SIMPLE_GOLDEN / "resources.txt")
 

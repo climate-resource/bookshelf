@@ -374,7 +374,7 @@ resources:
   visibility: public
 schema_version: '1.1'
 writer:
-  pyarrow: 21.0.0
+  pyarrow: 23.0.0
 ```
 
 Reading it back:
