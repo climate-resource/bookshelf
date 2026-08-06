@@ -13,8 +13,8 @@ They are asserted separately, by name, so their disappearance is still caught.
 
 An intended format change is regenerated rather than hand-edited::
 
-    UPDATE_BUNDLE_GOLDENS=1 uv run --package bookshelf --locked --all-extras --python 3.13 pytest packages/bookshelf/tests/test_bundle_golden.py -r a -v
-"""  # noqa: E501
+    make test-golden-update
+"""
 
 import os
 from pathlib import Path
@@ -24,25 +24,19 @@ import pytest
 from bookshelf.publisher.bundle import (
     Bundle,
     BundleManifest,
-    _dump_sorted_yaml,
+    BundleResource,
     resource_filename,
 )
-from bookshelf.publisher.record import run_record
+from bookshelf.publisher.record import DOCUMENT_KINDS, run_record
 
 UPDATE_GOLDENS = os.environ.get("UPDATE_BUNDLE_GOLDENS") == "1"
 
-REGENERATE = (
-    "UPDATE_BUNDLE_GOLDENS=1 uv run --package bookshelf --locked --all-extras "
-    "--python 3.13 pytest packages/bookshelf/tests/test_bundle_golden.py -r a -v"
-)
+REGENERATE = "make test-golden-update"
 
 GOLDEN_DIR = Path(__file__).parent / "golden"
 BUILD_PATH = GOLDEN_DIR / "simple_build.py"
 RECIPE_PATH = GOLDEN_DIR / "bookshelf.yaml"
 SIMPLE_GOLDEN = GOLDEN_DIR / "simple"
-
-# The two documents ``run_record`` attaches to every recorded book.
-_DOCUMENT_KINDS = frozenset({"notebook", "notebook-html"})
 
 
 def _record_golden_bundle(tmp_path: Path) -> Bundle:
@@ -57,18 +51,19 @@ def _record_golden_bundle(tmp_path: Path) -> Bundle:
     return Bundle.read_validated(bundle_path)
 
 
-def _without_executed_documents(manifest: BundleManifest) -> BundleManifest:
-    """Return the manifest with the executed-document resources and entries dropped.
+def _documents(manifest: BundleManifest) -> list[BundleResource]:
+    """Return the executed-document resources, identified by the ``kind`` their recorder stamps."""
+    return [
+        resource
+        for resource in manifest.resources
+        if resource.metadata.get("kind") in DOCUMENT_KINDS
+    ]
 
-    The documents are identified by the ``kind`` their recorder stamps on them,
-    so the filter names exactly two records rather than guessing at their names.
-    """
+
+def _without_executed_documents(manifest: BundleManifest) -> BundleManifest:
+    """Return the manifest with the executed-document resources and entries dropped."""
     filtered = manifest.model_copy(deep=True)
-    excluded = {
-        resource.tracking_id
-        for resource in filtered.resources
-        if resource.metadata.get("kind") in _DOCUMENT_KINDS
-    }
+    excluded = {resource.tracking_id for resource in _documents(filtered)}
     filtered.resources = [
         resource for resource in filtered.resources if resource.tracking_id not in excluded
     ]
@@ -87,9 +82,7 @@ def _resource_filenames(bundle: Bundle) -> bytes:
     The two executed documents are subtracted, matching the manifest golden.
     """
     documents = {
-        resource_filename(resource.hash, resource.type)
-        for resource in bundle.manifest.resources
-        if resource.metadata.get("kind") in _DOCUMENT_KINDS
+        resource_filename(resource.hash, resource.type) for resource in _documents(bundle.manifest)
     }
     names = sorted(
         path.name for path in bundle.resources_dir.iterdir() if path.name not in documents
@@ -114,9 +107,11 @@ def _assert_matches_golden(actual: bytes, golden: Path, *, update: bool = UPDATE
 def test_the_recorded_manifest_matches_the_golden_bytes(tmp_path: Path) -> None:
     bundle = _record_golden_bundle(tmp_path)
 
-    actual = _dump_sorted_yaml(_without_executed_documents(bundle.manifest))
+    # Written through Bundle.write, so the golden covers the real serialisation path.
+    filtered = Bundle(tmp_path / "filtered", manifest=_without_executed_documents(bundle.manifest))
+    filtered.write()
 
-    _assert_matches_golden(actual, SIMPLE_GOLDEN / "manifest.lock")
+    _assert_matches_golden(filtered.manifest_path.read_bytes(), SIMPLE_GOLDEN / "manifest.lock")
 
 
 def test_the_recorded_resource_filenames_match_the_golden(tmp_path: Path) -> None:
@@ -130,11 +125,7 @@ def test_the_recorded_resource_filenames_match_the_golden(tmp_path: Path) -> Non
 def test_the_executed_notebook_and_its_html_are_attached_to_the_book(tmp_path: Path) -> None:
     """The documents are excluded from the golden, so their absence needs its own assertion."""
     bundle = _record_golden_bundle(tmp_path)
-    excluded = {
-        resource.tracking_id
-        for resource in bundle.manifest.resources
-        if resource.metadata.get("kind") in _DOCUMENT_KINDS
-    }
+    excluded = {resource.tracking_id for resource in _documents(bundle.manifest)}
 
     names = sorted(
         entry.name_in_book
@@ -159,5 +150,5 @@ def test_a_mismatch_names_the_regeneration_command(tmp_path: Path) -> None:
     golden = tmp_path / "manifest.lock"
     golden.write_bytes(b"stale bytes\n")
 
-    with pytest.raises(AssertionError, match="UPDATE_BUNDLE_GOLDENS=1"):
+    with pytest.raises(AssertionError, match="make test-golden-update"):
         _assert_matches_golden(b"fresh bytes\n", golden, update=False)

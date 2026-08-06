@@ -179,26 +179,27 @@ def test_a_written_bundle_records_the_pyarrow_that_wrote_its_bytes(
     assert reloaded.manifest.writer.pyarrow == importlib.metadata.version("pyarrow")
 
 
-def test_a_manifest_with_no_writer_block_loads_with_writer_none(tmp_path: Path) -> None:
-    """A bundle written before the header existed must still load."""
+def _read_manifest_text(tmp_path: Path, text: str) -> Bundle:
+    """Write a hand-rolled manifest and read it back as a bundle."""
     root = tmp_path / "bundle"
     root.mkdir()
-    (root / "manifest.lock").write_text("schema_version: '1.0'\nresources: []\n")
+    (root / "manifest.lock").write_text(text)
+    return Bundle.read(root)
 
-    loaded = Bundle.read(root)
+
+def test_a_manifest_with_no_writer_block_loads_with_writer_none(tmp_path: Path) -> None:
+    """A bundle written before the header existed must still load."""
+    loaded = _read_manifest_text(tmp_path, "schema_version: '1.0'\nresources: []\n")
 
     assert loaded.manifest.writer is None
 
 
 def test_an_unknown_key_inside_writer_is_ignored(tmp_path: Path) -> None:
     """The header is additive, so a later client may record more than pyarrow."""
-    root = tmp_path / "bundle"
-    root.mkdir()
-    (root / "manifest.lock").write_text(
-        "schema_version: '1.1'\nresources: []\nwriter:\n  pyarrow: 1.2.3\n  polars: 9.9.9\n"
+    loaded = _read_manifest_text(
+        tmp_path,
+        "schema_version: '1.1'\nresources: []\nwriter:\n  pyarrow: 1.2.3\n  polars: 9.9.9\n",
     )
-
-    loaded = Bundle.read(root)
 
     assert loaded.manifest.writer is not None
     assert loaded.manifest.writer.pyarrow == "1.2.3"
@@ -206,10 +207,6 @@ def test_an_unknown_key_inside_writer_is_ignored(tmp_path: Path) -> None:
 
 def test_a_manifest_declaring_the_previous_minor_still_loads(tmp_path: Path) -> None:
     """The minor bump is additive, so the reader refuses only a newer major."""
-    root = tmp_path / "bundle"
-    root.mkdir()
-    (root / "manifest.lock").write_text("schema_version: '1.0'\nresources: []\n")
-
-    loaded = Bundle.read(root)
+    loaded = _read_manifest_text(tmp_path, "schema_version: '1.0'\nresources: []\n")
 
     assert loaded.manifest.schema_version == "1.0"

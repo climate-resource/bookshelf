@@ -49,7 +49,7 @@ test-sdk:  ## run the tests for the SDK package
 
 .PHONY: test-golden-update
 test-golden-update:  ## rewrite the bundle goldens after an intended format change
-	UPDATE_BUNDLE_GOLDENS=1 uv run --package bookshelf --locked --all-extras \
+	UPDATE_BUNDLE_GOLDENS=1 uv run --package bookshelf --locked --all-extras --python 3.13 \
 		pytest packages/bookshelf/tests/test_bundle_golden.py \
 		-r a -v
 

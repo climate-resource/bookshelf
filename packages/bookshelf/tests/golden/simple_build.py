@@ -30,11 +30,7 @@ import bookshelf
 #
 # `code_ref` is normally derived from git and `runner` from the hostname,
 # so both are passed explicitly to keep the recorded manifest identical everywhere.
-#
-# The hand-pinned UUIDs are a temporary crutch.
-# They exist only because a bundle currently carries client-minted ids at all.
-# Delete them once a producer names its outputs and the server assigns identity,
-# at which point a recorded bundle carries no minted UUIDs.
+# The UUIDs are pinned for the same reason.
 
 # %%
 CODE_REF = "https://example.invalid/golden@0000000000000000000000000000000000000000"
@@ -86,6 +82,8 @@ with bs.activity(
         tracking_id=EMISSIONS_ID,
         used=[upstream],
     )
+    # Inputs accumulate within a run,
+    # so the recorded summary cites the upstream pointer as well as the frame passed here.
     summary_resource = activity.register(
         summary,
         type="tabular",

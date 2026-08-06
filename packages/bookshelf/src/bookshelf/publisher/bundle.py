@@ -511,13 +511,15 @@ class Bundle:
 
     def __init__(self, root: Path, manifest: BundleManifest | None = None) -> None:
         self.root = root
-        # A fresh bundle records the writer versions of the machine writing it.
+        # A fresh bundle records the writer versions of the machine writing it,
+        # and the whole block is absent when pyarrow is not installed.
         # A manifest handed in came from disk, so it keeps whatever header it was written with.
-        self.manifest = (
-            manifest
-            if manifest is not None
-            else BundleManifest(writer=BundleWriter(pyarrow=_pyarrow_version()))
-        )
+        if manifest is None:
+            version = _pyarrow_version()
+            manifest = BundleManifest(
+                writer=BundleWriter(pyarrow=version) if version is not None else None
+            )
+        self.manifest = manifest
 
     @property
     def resources_dir(self) -> Path:
