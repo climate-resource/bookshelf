@@ -50,6 +50,7 @@ from bookshelf.publisher import (
     run_record,
 )
 from bookshelf.publisher.bundle import InvalidBundleError
+from bookshelf.publisher.recipe import available_releases
 
 _RECORD_REQUIREMENTS = ("nbformat", "nbconvert")
 _PAGE_SIZE = 100
@@ -97,7 +98,28 @@ def _load_recipe(path: Path) -> RecordRecipe:
         ) from exc
 
 
-def _resolve_build(build: Path | None, recipe: Path) -> Path:
+def _resolve_version(version: str | None, loaded: RecordRecipe) -> str:
+    """Resolve which release to build, naming the ones the recipe declares either way.
+
+    ``--version`` is required rather than defaulted,
+    because a default in the recipe would be a second place a version is stated.
+    Both the omitted case and the unknown case list the releases,
+    so the message is the answer rather than a prompt to go and read the recipe.
+    """
+    if version is None:
+        raise CliError(
+            f"record needs --version naming the release to build. "
+            f"{available_releases(loaded.versions)}",
+            exit_code=EXIT_USAGE,
+        )
+    try:
+        loaded.release(version)
+    except BookshelfError as exc:
+        raise CliError(str(exc), exit_code=EXIT_USAGE) from exc
+    return version
+
+
+def _resolve_build(build: Path | None, loaded: RecordRecipe, recipe: Path) -> Path:
     """Resolve which build file to execute, naming the fix for each caller mistake.
 
     ``run_record`` repeats these checks and raises the base ``BookshelfError`` for them,
@@ -105,14 +127,11 @@ def _resolve_build(build: Path | None, recipe: Path) -> Path:
     A caller's typo is not an unexpected failure,
     so the resolution happens here and ``run_record`` receives a path it has already accepted.
     """
-    # Always load the recipe, even when BUILD is given.
-    # run_record loads it either way, so a malformed one must fail here rather than there.
-    notebook = _load_recipe(recipe).notebook
-    selected = build or notebook
+    selected = build or loaded.build.notebook
     if selected is None:
         raise CliError(
             f"no build file given and {recipe} sets no notebook. "
-            "Run 'bookshelf record BUILD', or set 'notebook:' in the recipe.",
+            "Run 'bookshelf record BUILD', or set 'notebook:' under 'build:' in the recipe.",
             exit_code=EXIT_USAGE,
         )
 
@@ -194,8 +213,15 @@ def record(
         None,
         help="Standalone Jupytext build file. Defaults to the recipe's notebook.",
     ),
-    recipe: Path = typer.Option(Path("bookshelf.yaml"), "--recipe", help="Slim Bookshelf recipe."),
+    recipe: Path = typer.Option(
+        Path("bookshelf.yaml"), "--recipe", help="Sectioned Bookshelf recipe."
+    ),
     bundle: Path = typer.Option(Path("bundle"), "--bundle", help="Bundle directory to write."),
+    version: str | None = typer.Option(
+        None,
+        "--version",
+        help="Required. Release to build, naming a key under 'releases:' in the recipe.",
+    ),
     parameter: list[str] = typer.Option(
         [],
         "--parameter",
@@ -215,11 +241,16 @@ def record(
                 f"Run 'bookshelf record --force --bundle {bundle}' to replace it.",
                 exit_code=EXIT_USAGE,
             )
-        resolved_build = _resolve_build(build, recipe)
+        # Load the recipe here, even when BUILD is given.
+        # run_record loads it either way, so a malformed one must fail here rather than there.
+        loaded = _load_recipe(recipe)
+        selected = _resolve_version(version, loaded)
+        resolved_build = _resolve_build(build, loaded, recipe)
         summary = run_record(
             build_path=resolved_build,
             recipe_path=recipe,
             bundle_path=bundle,
+            version=selected,
             parameters=_parameters(parameter),
         )
         _emit_summary(summary, _RECORD_LABELS, json_output=json_output)

@@ -20,13 +20,19 @@ from bookshelf._produce.helpers import uuid7
 from bookshelf.facade import Bookshelf
 from bookshelf.publisher.bundle import Bundle
 from bookshelf.publisher.notebook import ExecutedNotebook, execute_python_build
-from bookshelf.publisher.recipe import RecordRecipe, load_record_recipe, resolve_book_visibility
+from bookshelf.publisher.recipe import (
+    RecordRecipe,
+    ResolvedRelease,
+    load_record_recipe,
+    resolve_book_visibility,
+)
 from bookshelf.publisher.recording import RecordedDraftBook, RecordingBookshelf
 
 
 @dataclass(slots=True)
 class _RecordingContext:
     recipe: RecordRecipe
+    release: ResolvedRelease
     bundle: Bundle
     bookshelf: RecordingBookshelf | None = None
     book: RecordedDraftBook | None = None
@@ -60,7 +66,7 @@ class SetupResult:
 
 def setup(
     *,
-    version: str,
+    version: str | None = None,
     visibility: str | models.Visibility | None = None,
     license: str | None = None,
     collection: str | None = None,
@@ -69,39 +75,56 @@ def setup(
 ) -> SetupResult:
     """Construct live or recording handles for a standalone build file.
 
-    Under an active recording, ``visibility`` and ``license`` fall back to the recipe when omitted,
+    Under an active recording the version comes from ``bookshelf record --version``,
+    so a build file names no version and the two can never disagree.
+    Passing one that contradicts the recorder is an error rather than an override.
+    ``visibility`` and ``license`` likewise fall back to the recipe when omitted,
     so a recorded build declares its framing in ``bookshelf.yaml`` rather than in the build file.
     :func:`~bookshelf.publisher.recipe.resolve_book_visibility` states the tier that resolves,
     and the default it then imposes on every resource the build records.
-    Direct use has no recipe, so an omitted visibility is ``hidden`` and an omitted licence stays unset.
+
+    Direct use has no recipe, so ``version`` is required,
+    an omitted visibility is ``hidden`` and an omitted licence stays unset.
     """
     book: DraftBook | RecordedDraftBook
     context = _ACTIVE_RECORDING.get()
     if context is not None:
         if context.setup_called:
             raise BookshelfError("a recorded build must call bookshelf.setup once")
-        if collection is not None and collection != context.recipe.collection:
+        if collection is not None and collection != context.recipe.volume.name:
             raise BookshelfError(
-                f"build collection {collection!r} does not match recipe collection "
-                f"{context.recipe.collection!r}"
+                f"build collection {collection!r} does not match recipe volume "
+                f"{context.recipe.volume.name!r}"
+            )
+        if version is not None and version != context.release.version:
+            raise BookshelfError(
+                f"build version {version!r} does not match the recorded version "
+                f"{context.release.version!r}. "
+                "Drop version= from the build file, because 'bookshelf record --version' states it"
             )
         context.bookshelf = RecordingBookshelf(
             context.bundle,
             base_url,
             auth=auth,
-            authors=context.recipe.authors,
+            authors=context.release.authors,
         )
         book = context.bookshelf.draft_book(
-            collection or context.recipe.collection,
-            version=version,
+            collection or context.recipe.volume.name,
+            version=context.release.version,
             visibility=resolve_book_visibility(visibility, recipe=context.recipe),
-            license=license or context.recipe.license,
+            license=license or context.release.license,
         )
         if not isinstance(book, RecordedDraftBook):
             raise TypeError("recording sink returned a live draft book")
         context.book = book
         context.setup_called = True
         return SetupResult(context.bookshelf, book)
+    if version is None:
+        raise BookshelfError(
+            "bookshelf.setup found no active recording, and no version was passed. "
+            "The recorder takes the version from 'bookshelf record --version'. "
+            "Pass version= to build against the API directly instead."
+        )
     if collection is None:
         raise BookshelfError(
             "bookshelf.setup found no active recording, and no collection was passed. "
@@ -124,15 +147,22 @@ def run_record(
     build_path: Path | None,
     recipe_path: Path,
     bundle_path: Path,
+    version: str,
     parameters: Mapping[str, Any] | None = None,
     cwd: Path | None = None,
 ) -> dict[str, Any]:
-    """Execute a standalone Jupytext build file into a reviewable bundle."""
+    """Execute a standalone Jupytext build file into a reviewable bundle.
+
+    ``version`` selects the release from the recipe, and it is the only place a version is stated.
+    It reaches the build through the recording context rather than through ``parameters``,
+    so a build file cannot shadow it with a top-level assignment.
+    """
     workdir = cwd or Path.cwd()
     recipe = load_record_recipe(recipe_path)
-    selected = build_path or recipe.notebook
+    release = recipe.release(version)
+    selected = build_path or recipe.build.notebook
     if selected is None:
-        raise BookshelfError("pass a build file or set notebook in bookshelf.yaml")
+        raise BookshelfError("pass a build file or set notebook under 'build:' in bookshelf.yaml")
     build = selected if selected.is_absolute() else workdir / selected
     build = build.resolve()
     if build.suffix.lower() != ".py":
@@ -147,7 +177,7 @@ def run_record(
         dir=target.parent,
     ) as staging_dir:
         bundle = Bundle(Path(staging_dir))
-        context = _RecordingContext(recipe=recipe, bundle=bundle)
+        context = _RecordingContext(recipe=recipe, release=release, bundle=bundle)
         token = _ACTIVE_RECORDING.set(context)
         try:
             with tempfile.TemporaryDirectory(prefix="bookshelf-executed-") as artifacts:

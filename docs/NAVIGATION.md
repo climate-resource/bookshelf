@@ -16,6 +16,7 @@ See https://oprypin.github.io/mkdocs-literate-nav/
 * [Tutorials](tutorials.md)
 * Further background
     * [Explanation](explanation.md)
+    * [The recipe format](explanation/recipe-format.md)
     * [The bundle format](explanation/bundle-format.md)
 * [API reference](api/)
 * [Development](development.md)
