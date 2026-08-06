@@ -1,0 +1,69 @@
+activity:
+  activity_id: 0197a000-0000-7000-8000-00000000a001
+  code_ref: https://example.invalid/golden@0000000000000000000000000000000000000000
+  config_hash: sha256:f3e79c0d3519a88e46c963f13bf28ecb6130f8f91db14a1c25832b76ac67bc79
+  kind: run
+  parameters:
+    source: golden/upstream
+    statistic: regional-sum
+  runner: golden
+book:
+  authors:
+  - email: golden@example.invalid
+    name: Golden Fixture
+  entries:
+  - name_in_book: emissions
+    tracking_id: 0197a000-0000-7000-8000-00000000b002
+  - name_in_book: summary
+    tracking_id: 0197a000-0000-7000-8000-00000000b003
+  license: CC-BY-4.0
+  metadata: {}
+  published: true
+  version: v1.0.0
+  visibility: public
+  volume: golden-example
+resources:
+- dedupe: true
+  external_uri: https://example.invalid/golden/upstream-v1.0.0.csv
+  generated: true
+  hash: sha256:bdbae6943e4a1c88c71cb6a44dc783cb0d81270cdae658d3253b4a346392a732
+  kind: pointer
+  logical_key: golden/upstream
+  metadata: {}
+  tags: []
+  tracking_id: 0197a000-0000-7000-8000-00000000b001
+  type: tabular
+  used: []
+  visibility: public
+- dedupe: true
+  format: parquet
+  generated: true
+  hash: sha256:ea6c596787f6a204b23bfa40d53aeb0385c09dea0d92c788b559cd4ef11267cf
+  kind: managed
+  logical_key: golden/emissions
+  metadata: {}
+  size: 1251
+  tags: []
+  tracking_id: 0197a000-0000-7000-8000-00000000b002
+  type: timeseries
+  used:
+  - tracking_id: 0197a000-0000-7000-8000-00000000b001
+  visibility: public
+- dedupe: true
+  format: parquet
+  generated: true
+  hash: sha256:76f2a9c81692ea9816ec55e4c78334fdf976d788b8cf7f47c6a7fa2d46e31876
+  kind: managed
+  logical_key: golden/summary
+  metadata: {}
+  size: 614
+  tags: []
+  tracking_id: 0197a000-0000-7000-8000-00000000b003
+  type: tabular
+  used:
+  - tracking_id: 0197a000-0000-7000-8000-00000000b001
+  - tracking_id: 0197a000-0000-7000-8000-00000000b002
+  visibility: public
+schema_version: '1.1'
+writer:
+  pyarrow: 23.0.0

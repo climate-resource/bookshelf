@@ -1,0 +1,7 @@
+collection: golden-example
+license: CC-BY-4.0
+visibility: public
+authors:
+  - name: "Golden Fixture"
+    email: golden@example.invalid
+notebook: simple_build.py
