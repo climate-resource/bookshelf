@@ -49,7 +49,7 @@ Readers should ignore additional resources not included in the manifest.
 
 | Field            | Required                      | Meaning                                             |
 | ---------------- | ----------------------------- | --------------------------------------------------- |
-| `schema_version` | always written                | the manifest schema this bundle was written against. A reader treats an absent field as the current version, so only a hand-built manifest should ever omit it |
+| `schema_version` | always written                | the manifest schema this bundle was written against |
 | `writer`         | optional                      | the library versions that wrote the resource bytes  |
 | `resources`      | optional, defaults to `[]`    | one record per registered resource                  |
 | `activity`       | optional                      | a description of the run that produced the outputs  |
