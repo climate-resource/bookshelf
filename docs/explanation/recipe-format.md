@@ -62,6 +62,10 @@ depending on which edition happened to match.
 The effective value is the volume's default plus the release's override,
 resolved when the release is recorded and baked onto the book.
 A publish never mutates the volume.
+This split matters in practice.
+The PRIMAP citation is dated and its publisher has moved between organisations over the years,
+so neither can be a volume fact,
+and a book keeps the metadata it was published with.
 
 `releases:` holds one entry per upstream version.
 A release may override any discovery field, and it declares its own `sources`.
@@ -127,3 +131,22 @@ Backfilling an older release is the same command with an older version.
 A version the recipe does not define is refused, and the message names the ones it does define.
 `-p KEY=VALUE` is unchanged and remains for genuine build parameters.
 The version is not one of them and never reaches the build as a global.
+
+## The build file this shape is heading towards
+
+With the recipe carrying the facts, the build file keeps only the processing:
+
+```python
+bs, book = bookshelf.setup()          # the version comes from --version
+raw = bs.source("raw")                # fetched, verified against the declared sha256, registered
+
+data = pd.read_csv(raw.path)
+...
+book.write("by_country", by_country, used=[raw])
+book.write("by_region", by_region, used=[raw])
+```
+
+The uuid derivations, hand rolled fetches, digest checks and version parameters
+that build files carry today are recipe facts wearing Python clothes, and they all move out.
+`bs.source()` and `book.write()` are not part of this change.
+The recipe schema and the single `--version` entry point are what they will build on.
