@@ -1,5 +1,6 @@
 """Tests for the bundle contract, through the :class:`Bundle` interface."""
 
+import importlib.metadata
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -164,3 +165,51 @@ def test_an_invalid_bundle_is_a_bookshelf_error(make_bundle: BundleFactory) -> N
 
     with pytest.raises(BookshelfError):
         bundle.validate()
+
+
+def test_a_written_bundle_records_the_pyarrow_that_wrote_its_bytes(
+    make_bundle: BundleFactory,
+) -> None:
+    """Parquet is not stable across pyarrow versions, so the writer explains a hash change."""
+    written = make_bundle()
+
+    reloaded = Bundle.read(written.root)
+
+    assert reloaded.manifest.writer is not None
+    assert reloaded.manifest.writer.pyarrow == importlib.metadata.version("pyarrow")
+
+
+def test_a_manifest_with_no_writer_block_loads_with_writer_none(tmp_path: Path) -> None:
+    """A bundle written before the header existed must still load."""
+    root = tmp_path / "bundle"
+    root.mkdir()
+    (root / "manifest.lock").write_text("schema_version: '1.0'\nresources: []\n")
+
+    loaded = Bundle.read(root)
+
+    assert loaded.manifest.writer is None
+
+
+def test_an_unknown_key_inside_writer_is_ignored(tmp_path: Path) -> None:
+    """The header is additive, so a later client may record more than pyarrow."""
+    root = tmp_path / "bundle"
+    root.mkdir()
+    (root / "manifest.lock").write_text(
+        "schema_version: '1.1'\nresources: []\nwriter:\n  pyarrow: 1.2.3\n  polars: 9.9.9\n"
+    )
+
+    loaded = Bundle.read(root)
+
+    assert loaded.manifest.writer is not None
+    assert loaded.manifest.writer.pyarrow == "1.2.3"
+
+
+def test_a_manifest_declaring_the_previous_minor_still_loads(tmp_path: Path) -> None:
+    """The minor bump is additive, so the reader refuses only a newer major."""
+    root = tmp_path / "bundle"
+    root.mkdir()
+    (root / "manifest.lock").write_text("schema_version: '1.0'\nresources: []\n")
+
+    loaded = Bundle.read(root)
+
+    assert loaded.manifest.schema_version == "1.0"

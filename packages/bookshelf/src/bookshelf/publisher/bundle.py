@@ -30,6 +30,7 @@ and no timestamps.
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
 import re
 from collections.abc import Sequence
 from pathlib import Path
@@ -43,7 +44,7 @@ from bookshelf._core.errors import BookshelfError
 from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
 from bookshelf._generated import models
 
-BUNDLE_SCHEMA_VERSION = "1.0"
+BUNDLE_SCHEMA_VERSION = "1.1"
 
 # The major this reader models.
 # A newer *minor* is additive and loads
@@ -97,9 +98,15 @@ class BundleUsedRef(BaseModel):
     Mirrors the wire ``UsedRef`` union.
     A ``used`` input is referenced **either** by ``tracking_id``
     **or** by ``logical_key``.
-    The reference is recorded verbatim and replayed as-is.
-    It is *not* re-resolved at replay,
-    so the lineage edges the backend mints are exactly what was recorded.
+    The reference is recorded as the run expressed it,
+    and it is resolved again when the bundle is replayed.
+    A recorded ``tracking_id`` is rewritten client-side
+    to the id the server returned for that input,
+    because the server may answer a registration
+    with a resource it already holds.
+    A ``logical_key`` is resolved by the server at registration time.
+    The recorded reference is therefore the run's claim about its inputs,
+    not the identity of the edge the backend finally mints.
 
     ``extra="ignore"`` keeps the record tolerant.
     ``exclude_none`` on dump keeps the unused coordinate off the wire,
@@ -287,10 +294,42 @@ class BundleBook(BaseModel):
     published: bool = False
 
 
+def _pyarrow_version() -> str | None:
+    """Return the installed pyarrow version, or ``None`` when it is not installed.
+
+    pyarrow arrives with the optional extras,
+    so a bundle can legitimately be written on a machine without it.
+    The version is read from the installed distribution metadata
+    rather than by importing pyarrow,
+    because the import is slow and the package may be absent.
+    """
+    try:
+        return importlib.metadata.version("pyarrow")
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+
+class BundleWriter(BaseModel):
+    """The library versions that produced the bytes under ``resources/``.
+
+    Parquet output is not stable across pyarrow versions,
+    so the same frame written by two pyarrow versions has two content hashes.
+    Recording the writer version makes that difference explain itself,
+    rather than surfacing as an unattributed change in the recorded hashes.
+
+    ``extra="ignore"`` tolerates fields added by a later client.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    pyarrow: str | None = None
+
+
 class BundleManifest(BaseModel):
     """The bundle's ``manifest.lock`` document.
 
     Carries the schema version,
+    the optional ``writer`` header,
     the optional ``activity`` envelope,
     the optional ``book`` framing,
     and the managed ``resources``.
@@ -314,12 +353,10 @@ class BundleManifest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     schema_version: str = BUNDLE_SCHEMA_VERSION
+    writer: BundleWriter | None = None
     activity: BundleActivity | None = None
     book: BundleBook | None = None
     resources: list[BundleResource] = Field(default_factory=list)
-    # TODO(#210 follow-up):
-    # capture the pyarrow version in the manifest header,
-    # so replay can flag a writer-version mismatch that would break byte parity.
 
 
 def _check_schema_major(raw: dict[str, Any]) -> None:
@@ -474,7 +511,13 @@ class Bundle:
 
     def __init__(self, root: Path, manifest: BundleManifest | None = None) -> None:
         self.root = root
-        self.manifest = manifest if manifest is not None else BundleManifest()
+        # A fresh bundle records the writer versions of the machine writing it.
+        # A manifest handed in came from disk, so it keeps whatever header it was written with.
+        self.manifest = (
+            manifest
+            if manifest is not None
+            else BundleManifest(writer=BundleWriter(pyarrow=_pyarrow_version()))
+        )
 
     @property
     def resources_dir(self) -> Path:
@@ -790,6 +833,7 @@ __all__ = [
     "BundleManifest",
     "BundleResource",
     "BundleUsedRef",
+    "BundleWriter",
     "InvalidBundleError",
     "compute_book_bundle_hash",
     "resource_filename",
