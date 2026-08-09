@@ -72,7 +72,7 @@ def _volume_create(
     if maintainers is not None:
         fields["maintainers"] = _people(maintainers)
     if citation is not None:
-        fields["citation"] = models.Citation(root=citation)
+        fields["citation"] = models.Citation1(root=citation)
     if discovery is not None:
         fields["discovery"] = discovery
     return models.VolumeCreate(**fields)
@@ -102,7 +102,7 @@ def _volume_update(
     if maintainers is not None:
         fields["maintainers"] = _people(maintainers)
     if citation is not None:
-        fields["citation"] = models.Citation1(root=citation)
+        fields["citation"] = models.Citation2(root=citation)
     if discovery is not None:
         fields["discovery"] = discovery
     return models.VolumeUpdate(**fields)
