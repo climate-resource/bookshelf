@@ -7098,6 +7098,19 @@
             "title": "Repository Url",
             "description": "Source code repository"
           },
+          "release_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Url",
+            "description": "Landing page for this specific release"
+          },
           "update_cadence": {
             "anyOf": [
               {
@@ -7163,6 +7176,19 @@
             ],
             "title": "Doi",
             "description": "DOI for the dataset"
+          },
+          "citation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation",
+            "description": "Citation string for referencing this release"
           },
           "intended_uses": {
             "anyOf": [
