@@ -195,6 +195,85 @@ def test_5xx_after_exhausted_retries_raises_server_error() -> None:
     assert calls["count"] == ATTEMPTS
 
 
+def test_a_write_is_not_replayed_after_a_5xx() -> None:
+    calls = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["count"] += 1
+        return httpx.Response(502, text="bad gateway")
+
+    with make_client(handler) as client, pytest.raises(ServerError):
+        client.register_resources(models.RegisterResourcesRequest(items=[]))
+    assert calls["count"] == 1
+
+
+async def test_a_write_is_not_replayed_after_a_5xx_async() -> None:
+    calls = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["count"] += 1
+        return httpx.Response(504, text="gateway timeout")
+
+    async with make_client(handler) as client:
+        with pytest.raises(ServerError):
+            await client.publish_book_async("b1")
+    assert calls["count"] == 1
+
+
+def test_a_write_is_not_replayed_after_a_read_timeout() -> None:
+    calls = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["count"] += 1
+        raise httpx.ReadTimeout("timed out waiting for the response")
+
+    with make_client(handler) as client, pytest.raises(TransportError):
+        client.register_resources(models.RegisterResourcesRequest(items=[]))
+    assert calls["count"] == 1
+
+
+def test_a_write_is_retried_when_the_connection_never_came_up() -> None:
+    calls = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["count"] += 1
+        if calls["count"] < ATTEMPTS:
+            raise httpx.ConnectError("connection refused")
+        return httpx.Response(200, json=payloads.REGISTERED)
+
+    with make_client(handler) as client:
+        response = client.register_resources(models.RegisterResourcesRequest(items=[]))
+    assert calls["count"] == ATTEMPTS
+    assert response.atomic is True
+
+
+def test_presigned_put_is_still_retried() -> None:
+    calls = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["count"] += 1
+        if calls["count"] < ATTEMPTS:
+            return httpx.Response(503, text="unavailable")
+        return httpx.Response(200, headers={"etag": '"p1"'})
+
+    with make_client(handler) as client:
+        etag = client.put_presigned("https://s3.test/part1?sig=abc", b"bytes")
+    assert calls["count"] == ATTEMPTS
+    assert etag == '"p1"'
+
+
+def test_permanent_5xx_is_not_retried() -> None:
+    calls = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["count"] += 1
+        return httpx.Response(501, text="not implemented")
+
+    with make_client(handler) as client, pytest.raises(ServerError):
+        client.list_books()
+    assert calls["count"] == 1
+
+
 async def test_network_failure_retries_then_raises_transport_error() -> None:
     calls = {"count": 0}
 
