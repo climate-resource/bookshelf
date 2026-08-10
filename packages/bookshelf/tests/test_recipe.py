@@ -150,9 +150,6 @@ def _one_book(tmp_path: Path, body: str, *, defaults: str = "") -> Path:
     return path
 
 
-# ----------------------------------------------------------------------
-# One sectioned file.
-# ----------------------------------------------------------------------
 def test_a_full_recipe_populates_every_section(tmp_path: Path) -> None:
     recipe = load_record_recipe(_write(tmp_path, _FULL))
 
@@ -223,9 +220,6 @@ def test_an_unknown_version_names_the_versions_the_recipe_declares(tmp_path: Pat
         recipe.resolve("v9.9")
 
 
-# ----------------------------------------------------------------------
-# What ``defaults:`` supplies, and what a book overrides.
-# ----------------------------------------------------------------------
 def test_a_resource_default_supplies_the_type_the_book_leaves_out(tmp_path: Path) -> None:
     """The type does not move between books, so it is stated once."""
     book = load_record_recipe(_write(tmp_path, _FULL)).resolve("v2.7")
@@ -346,9 +340,6 @@ def test_a_resource_default_naming_an_unknown_type_is_rejected(tmp_path: Path) -
         load_record_recipe(path)
 
 
-# ----------------------------------------------------------------------
-# The rules the loader enforces.
-# ----------------------------------------------------------------------
 def test_the_removed_flat_form_is_rejected_naming_the_new_shape(tmp_path: Path) -> None:
     """The message a feedstock author sees is the whole migration guide they get."""
     path = _write(tmp_path, _FLAT)
@@ -857,9 +848,6 @@ def test_a_recipe_with_no_volume_names_the_section_it_needs(tmp_path: Path) -> N
         load_record_recipe(_write(tmp_path, "build:\n  notebook: build.py\n"))
 
 
-# ----------------------------------------------------------------------
-# Visibility, which a book declares or takes from the defaults.
-# ----------------------------------------------------------------------
 def test_visibility_is_optional(tmp_path: Path) -> None:
     assert load_record_recipe(_write_recipe(tmp_path)).resolve(_VERSION).visibility is None
 
@@ -959,7 +947,7 @@ def _recording(recipe_path: Path, bundle_path: Path) -> Iterator[None]:
 def test_a_recorded_build_takes_its_version_from_the_recorder(tmp_path: Path) -> None:
     """The build file names no version, so there is no second place one can be stated."""
     with _recording(_write_recipe(tmp_path), tmp_path / "bundle"):
-        _, book = setup()
+        book = setup().book
 
     assert book.metadata.version == _VERSION
 
@@ -975,14 +963,14 @@ def test_a_build_that_contradicts_the_recorded_version_is_rejected(tmp_path: Pat
 def test_a_build_that_repeats_the_recorded_version_is_accepted(tmp_path: Path) -> None:
     """Agreeing is not a contradiction, so an explicit repeat still records."""
     with _recording(_write_recipe(tmp_path), tmp_path / "bundle"):
-        _, book = setup(version=_VERSION)
+        book = setup(version=_VERSION).book
 
     assert book.metadata.version == _VERSION
 
 
 def test_a_recorded_build_takes_its_licence_from_the_resolved_book(tmp_path: Path) -> None:
     with _recording(_write_recipe(tmp_path), tmp_path / "bundle"):
-        _, book = setup()
+        book = setup().book
 
     assert book.metadata.license == "MIT"
 
@@ -991,7 +979,7 @@ def test_a_recorded_build_takes_its_visibility_from_the_recipe(tmp_path: Path) -
     recipe = _write_recipe(tmp_path, "visibility: public")
 
     with _recording(recipe, tmp_path / "bundle"):
-        _, book = setup()
+        book = setup().book
 
     assert book.metadata.visibility is models.Visibility.public
 
@@ -1000,7 +988,7 @@ def test_an_explicit_argument_still_overrides_the_recipe(tmp_path: Path) -> None
     recipe = _write_recipe(tmp_path, "visibility: public")
 
     with _recording(recipe, tmp_path / "bundle"):
-        _, book = setup(visibility="org")
+        book = setup(visibility="org").book
 
     assert book.metadata.visibility is models.Visibility.org
 
@@ -1020,18 +1008,15 @@ def test_an_explicit_empty_visibility_never_inherits_the_recipe(tmp_path: Path) 
 def test_a_recipe_that_is_silent_leaves_the_book_hidden(tmp_path: Path) -> None:
     """Neither caller nor recipe saying anything must not widen a book."""
     with _recording(_write_recipe(tmp_path), tmp_path / "bundle"):
-        _, book = setup()
+        book = setup().book
 
     assert book.metadata.visibility is models.Visibility.hidden
 
 
-# ----------------------------------------------------------------------
-# The book's tier is the default for the resources the build records.
-# ----------------------------------------------------------------------
 def test_recorded_resources_take_the_books_visibility(tmp_path: Path) -> None:
     """A public book records public resources, so a generated feedstock can publish."""
     with _recording(_write_recipe(tmp_path, "visibility: public"), tmp_path / "bundle"):
-        bs, _ = setup()
+        bs = setup().bs
         with bs.activity(kind="build", code_ref="test") as activity:
             activity.register(b"data", type="tabular")
             activity.register_many([RegisterItem(b"batched", type="tabular")])
@@ -1045,7 +1030,7 @@ def test_recorded_resources_take_the_books_visibility(tmp_path: Path) -> None:
 def test_a_recorded_resource_can_be_narrowed_below_the_book(tmp_path: Path) -> None:
     """Narrowing one member of a public book is a deliberate per-resource act."""
     with _recording(_write_recipe(tmp_path, "visibility: public"), tmp_path / "bundle"):
-        bs, _ = setup()
+        bs = setup().bs
         with bs.activity(kind="build", code_ref="test") as activity:
             activity.register(b"open", type="tabular")
             activity.register(b"embargoed", type="tabular", visibility="hidden")
@@ -1057,7 +1042,7 @@ def test_a_recorded_resource_can_be_narrowed_below_the_book(tmp_path: Path) -> N
 def test_a_hidden_book_still_records_hidden_resources(tmp_path: Path) -> None:
     """The pre-existing default is unchanged when nothing declares a wider tier."""
     with _recording(_write_recipe(tmp_path), tmp_path / "bundle"):
-        bs, _ = setup()
+        bs = setup().bs
         with bs.activity(kind="build", code_ref="test") as activity:
             activity.register(b"data", type="tabular")
         recorded = [r.visibility for r in bs.bundle.manifest.resources]
@@ -1065,9 +1050,6 @@ def test_a_hidden_book_still_records_hidden_resources(tmp_path: Path) -> None:
     assert recorded == ["hidden"]
 
 
-# ----------------------------------------------------------------------
-# The recorder, driving a real build file.
-# ----------------------------------------------------------------------
 def _run(
     tmp_path: Path,
     resource: str,
@@ -1095,8 +1077,8 @@ def test_the_recorder_hands_the_selected_version_to_the_build(tmp_path: Path) ->
         """\
         import bookshelf
 
-        bs, book = bookshelf.setup()
-        with bs.activity(kind="build", code_ref="test") as activity:
+        build = bookshelf.setup()
+        with build.bs.activity(kind="build", code_ref="test") as activity:
             activity.register(b"data", type="tabular")
         """,
     )
@@ -1112,8 +1094,8 @@ def test_the_version_never_becomes_a_build_parameter(tmp_path: Path) -> None:
         import bookshelf
 
         assert "version" not in globals(), "the version leaked into the build's globals"
-        bs, book = bookshelf.setup()
-        with bs.activity(kind="build", code_ref="test") as activity:
+        build = bookshelf.setup()
+        with build.bs.activity(kind="build", code_ref="test") as activity:
             activity.register(b"data", type="tabular")
         """,
     )
@@ -1128,8 +1110,8 @@ def test_a_build_parameter_still_reaches_the_build(tmp_path: Path) -> None:
 
         tag = "default"
         assert tag == "supplied", tag
-        bs, book = bookshelf.setup()
-        with bs.activity(kind="build", code_ref="test") as activity:
+        build = bookshelf.setup()
+        with build.bs.activity(kind="build", code_ref="test") as activity:
             activity.register(b"data", type="tabular")
         """,
         parameters={"tag": "supplied"},
@@ -1141,9 +1123,6 @@ def test_the_recorder_refuses_a_version_the_recipe_does_not_define(tmp_path: Pat
         _run(tmp_path, "import bookshelf\n", version="v9.9")
 
 
-# ----------------------------------------------------------------------
-# The visibility precedence rule on its own.
-# ----------------------------------------------------------------------
 def _resolved(visibility: str | None) -> ResolvedBook:
     return RecordRecipe.model_validate(
         {

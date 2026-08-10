@@ -110,9 +110,6 @@ def test_serialise_rejects_dataframe_for_opaque_type() -> None:
         serialise(_frame(), type="document")
 
 
-# ----------------------------------------------------------------------
-# Declared format: filled only when known with certainty.
-# ----------------------------------------------------------------------
 def test_serialise_dataframe_declares_parquet_format() -> None:
     """A client-encoded DataFrame is definitively parquet."""
     assert serialise(_frame(), type="timeseries").format == "parquet"

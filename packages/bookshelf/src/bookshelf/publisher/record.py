@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import shutil
 import tempfile
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,6 +30,7 @@ from bookshelf.publisher.recipe import (
     resolve_book_visibility,
 )
 from bookshelf.publisher.recording import RecordedDraftBook, RecordingBookshelf
+from bookshelf.publisher.resource import ResolvedResource
 
 
 @dataclass(slots=True)
@@ -37,6 +38,7 @@ class _RecordingContext:
     recipe: RecordRecipe
     resolved: ResolvedBook
     bundle: Bundle
+    recipe_dir: Path | None = None
     bookshelf: RecordingBookshelf | None = None
     book: RecordedDraftBook | None = None
     setup_called: bool = False
@@ -48,23 +50,31 @@ _ACTIVE_RECORDING: ContextVar[_RecordingContext | None] = ContextVar(
 )
 
 
-class SetupResult:
-    """Pair returned by explicit build setup."""
+@dataclass(frozen=True, slots=True)
+class Build:
+    """One build in progress: the resources the recipe declares, and the book it writes.
 
-    def __init__(
-        self,
-        bs: Bookshelf | RecordingBookshelf,
-        book: DraftBook | RecordedDraftBook,
-    ) -> None:
-        self.bs = bs
-        self.book = book
+    The recipe vocabulary lives here rather than on the facade,
+    because it means something only while a recipe is driving the build.
+    """
 
-    def __iter__(self) -> Iterator[Any]:
-        yield self.bs
-        yield self.book
+    bs: Bookshelf | RecordingBookshelf
+    book: DraftBook | RecordedDraftBook
 
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self.bs, name)
+    def use(self, name: str) -> ResolvedResource:
+        """Fetch, verify, cache and register a resource the recipe declares.
+
+        Only a recorded build can do this.
+        A direct build has no recipe, so there is nothing to resolve a name against.
+        """
+        if not isinstance(self.bs, RecordingBookshelf):
+            raise BookshelfError(
+                f"build.use({name!r}) found no active recording. "
+                "Resources are declared in the recipe, which the recorder reads, "
+                "so run the build file with 'bookshelf record'. "
+                "Fetch the file and call register_external to build against the API directly."
+            )
+        return self.bs.use(name)
 
 
 def _resolved_discovery(resolved: ResolvedBook) -> dict[str, Any]:
@@ -88,22 +98,19 @@ def setup(
     collection: str | None = None,
     base_url: str | None = None,
     auth: AuthInput = UNSET,
-) -> SetupResult:
+) -> Build:
     """Construct live or recording handles for a standalone build file.
 
     Under an active recording the version comes from ``bookshelf record --version``,
     so a build file names no version and the two can never disagree.
     Passing one that contradicts the recorder is an error rather than an override.
-    ``visibility`` and ``license`` likewise fall back to the recipe when omitted,
-    so a recorded build declares its framing in ``bookshelf.yaml`` rather than in the build file.
-    :func:`~bookshelf.publisher.recipe.resolve_book_visibility` states the tier that resolves,
-    and the default it then imposes on every resource the build records.
 
     Direct use has no recipe, so ``version`` is required,
     an omitted visibility is ``hidden`` and an omitted licence stays unset.
     """
     book: DraftBook | RecordedDraftBook
     context = _ACTIVE_RECORDING.get()
+
     if context is not None:
         if context.setup_called:
             raise BookshelfError("a recorded build must call bookshelf.setup once")
@@ -118,7 +125,13 @@ def setup(
                 f"{context.resolved.version!r}. "
                 "Drop version= from the build file, because 'bookshelf record --version' states it"
             )
-        context.bookshelf = RecordingBookshelf(context.bundle, base_url, auth=auth)
+        context.bookshelf = RecordingBookshelf(
+            context.bundle,
+            base_url,
+            auth=auth,
+            resolved=context.resolved,
+            recipe_dir=context.recipe_dir,
+        )
         discovery = _resolved_discovery(context.resolved)
         book = context.bookshelf.draft_book(
             collection or context.recipe.volume.name,
@@ -133,7 +146,8 @@ def setup(
             raise TypeError("recording sink returned a live draft book")
         context.book = book
         context.setup_called = True
-        return SetupResult(context.bookshelf, book)
+        return Build(context.bookshelf, book)
+
     if version is None:
         raise BookshelfError(
             "bookshelf.setup found no active recording, and no version was passed. "
@@ -154,7 +168,7 @@ def setup(
         visibility=visibility if visibility is not None else models.Visibility.hidden,
         license=license,
     )
-    return SetupResult(bs, book)
+    return Build(bs, book)
 
 
 def run_record(
@@ -192,7 +206,12 @@ def run_record(
         dir=target.parent,
     ) as staging_dir:
         bundle = Bundle(Path(staging_dir))
-        context = _RecordingContext(recipe=recipe, resolved=resolved, bundle=bundle)
+        context = _RecordingContext(
+            recipe=recipe,
+            resolved=resolved,
+            bundle=bundle,
+            recipe_dir=recipe_path.resolve().parent,
+        )
         token = _ACTIVE_RECORDING.set(context)
         try:
             with tempfile.TemporaryDirectory(prefix="bookshelf-executed-") as artifacts:
@@ -272,7 +291,7 @@ def parse_parameters(values: Sequence[str]) -> dict[str, Any]:
 
 
 __all__ = [
-    "SetupResult",
+    "Build",
     "parse_parameters",
     "run_record",
     "setup",
