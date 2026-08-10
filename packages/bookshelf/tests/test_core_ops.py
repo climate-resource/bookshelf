@@ -63,7 +63,7 @@ def test_build_query_resource_data_csv_and_json_accept() -> None:
 
 def test_build_list_resources_drops_none_and_coerces_sequences() -> None:
     req = ops.build_list_resources(
-        logical_key="emissions/co2",
+        name="emissions-co2",
         type="timeseries",
         tags=["climate", "emissions"],
         owner_org_id=None,
@@ -72,7 +72,7 @@ def test_build_list_resources_drops_none_and_coerces_sequences() -> None:
         cursor="next",
     )
     assert req.params == {
-        "logical_key": "emissions/co2",
+        "name": "emissions-co2",
         "type": "timeseries",
         "tags": ["climate", "emissions"],
         "latest": True,

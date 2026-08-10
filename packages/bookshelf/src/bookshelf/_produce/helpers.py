@@ -69,29 +69,29 @@ def registered_resource_type(
     requested: models.ResourceType,
 ) -> models.ResourceType | None:
     """Return a trusted local type, or defer canonical alias metadata loading."""
-    if outcome.status is models.Status1.aliased:
+    if outcome.status is models.Status2.aliased:
         return None
     return requested
 
 
-def used_ref(value: UsedInput) -> models.UsedRefByTrackingId | models.UsedRefByLogicalKey:
+def used_ref(value: UsedInput) -> models.UsedRefByTrackingId | models.UsedRefByResourceName:
     """Convert a public lineage input into its wire representation."""
     if isinstance(value, Used):
-        return models.UsedRefByLogicalKey(logical_key=value.logical_key)
+        return models.UsedRefByResourceName(resource_name=value.name)
     if isinstance(value, str | UUID):
         try:
             tracking_id = UUID(str(value))
         except ValueError as exc:
             raise ValueError(
                 "a bare string in used= is always a tracking id. "
-                "Use Used(logical_key=...) for logical key resolution"
+                "Use Used(name=...) to resolve against this request's own resources"
             ) from exc
         return models.UsedRefByTrackingId(tracking_id=tracking_id)
     handle_tracking_id = getattr(value, "tracking_id", None)
     if handle_tracking_id is None:
         raise TypeError(
             "used entries must be a BookEntry, Resource, prior register output, "
-            "tracking id, or Used(logical_key=...)"
+            "tracking id, or Used(name=...)"
         )
     return models.UsedRefByTrackingId(tracking_id=UUID(str(handle_tracking_id)))
 

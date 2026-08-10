@@ -150,7 +150,7 @@ def test_register_external_catalogues_the_pointer() -> None:
         resource = client.register_external(
             type="tabular",
             uri="https://example.invalid/data.csv",
-            logical_key="raw/data.csv",
+            name="raw-data.csv",
             tags=["raw"],
         )
 
@@ -160,7 +160,7 @@ def test_register_external_catalogues_the_pointer() -> None:
     item = _body(request)["items"][0]
     assert item["external_uri"] == "https://example.invalid/data.csv"
     assert item["type"] == "tabular"
-    assert item["logical_key"] == "raw/data.csv"
+    assert item["name"] == "raw-data.csv"
     assert item["tags"] == ["raw"]
     assert item["visibility"] == "hidden"
 

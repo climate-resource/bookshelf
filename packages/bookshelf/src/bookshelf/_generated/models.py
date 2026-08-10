@@ -894,6 +894,18 @@ class ProvDocument(BaseModel):
     bundle: Annotated[dict[str, dict[str, Any]] | None, Field(title="Bundle")] = None
 
 
+class Status1(StrEnum):
+    healthy = "healthy"
+    unhealthy = "unhealthy"
+    skipped = "skipped"
+
+
+class PublicStorageResponse(BaseModel):
+    status: Annotated[Status1, Field(title="Status")]
+    endpoint: Annotated[str | None, Field(title="Endpoint")] = None
+    detail: Annotated[str | None, Field(title="Detail")] = None
+
+
 class Cache(StrEnum):
     disabled = "disabled"
     healthy = "healthy"
@@ -905,6 +917,17 @@ class ReadinessResponse(BaseModel):
     database: Annotated[str, Field(title="Database")]
     storage: Annotated[str, Field(title="Storage")]
     cache: Annotated[Cache | None, Field(title="Cache")] = Cache.disabled
+
+
+class Name(RootModel[str]):
+    root: Annotated[
+        str,
+        Field(
+            description="Optional producer-chosen name for this resource, local to the bundle. Lower-case, no slashes, at most 200 characters.",
+            pattern="^[a-z0-9][a-z0-9._-]{0,199}$",
+            title="Name",
+        ),
+    ]
 
 
 class RegistrationEventItem(BaseModel):
@@ -957,7 +980,7 @@ class RegistrationEventsResponse(BaseModel):
     next_cursor: Annotated[str | None, Field(title="Next Cursor")] = None
 
 
-class Status1(StrEnum):
+class Status2(StrEnum):
     created = "created"
     merged = "merged"
     aliased = "aliased"
@@ -966,7 +989,7 @@ class Status1(StrEnum):
 
 class RegistrationOutcome(BaseModel):
     status: Annotated[
-        Status1,
+        Status2,
         Field(
             description="``created`` for a brand-new resource, ``merged`` for an additive replay, ``aliased`` when the proposed id maps to an existing canonical id.",
             title="RegistrationStatus",
@@ -1145,16 +1168,16 @@ class UploadPartInfo(BaseModel):
     end_byte: Annotated[int, Field(description="End byte offset (exclusive)", title="End Byte")]
 
 
-class UsedRefByLogicalKey(BaseModel):
+class UsedRefByResourceName(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    logical_key: Annotated[
+    resource_name: Annotated[
         str,
         Field(
-            description="Logical key of the resource the activity used.",
+            description="Name of a resource registered by this same request.",
             min_length=1,
-            title="Logical Key",
+            title="Resource Name",
         ),
     ]
 
@@ -1344,9 +1367,6 @@ class WalkNode(BaseModel):
     resource_type: Annotated[
         ResourceType | None, Field(description="Canonical resource type (resource only).")
     ] = None
-    logical_key: Annotated[
-        str | None, Field(description="Producer logical key (resource only).", title="Logical Key")
-    ] = None
     code_ref: Annotated[
         str | None, Field(description="Activity code_ref (activity only).", title="Code Ref")
     ] = None
@@ -1433,7 +1453,7 @@ class ActivityEnvelope(BaseModel):
         str | None, Field(description="Free-form runner identifier.", title="Runner")
     ] = None
     used: Annotated[
-        list[UsedRefByTrackingId | UsedRefByLogicalKey] | None,
+        list[UsedRefByTrackingId | UsedRefByResourceName] | None,
         Field(
             description="Inputs consumed by each resource registered in this request. Each ref mints a server-side USED edge from the resolved input resource to each resource registered in this request.",
             title="Used",
@@ -1882,7 +1902,6 @@ class EntryRead(BaseModel):
     external_uri: Annotated[str | None, Field(title="External Uri")]
     tags: Annotated[list[str], Field(title="Tags")]
     visibility: Visibility
-    logical_key: Annotated[str | None, Field(title="Logical Key")]
     owner_org_id: Annotated[str, Field(title="Owner Org Id")]
 
 
@@ -2024,9 +2043,12 @@ class RegisterRequest(BaseModel):
             title="Format",
         ),
     ] = None
-    logical_key: Annotated[
-        str | None,
-        Field(description="Optional producer-defined logical identifier.", title="Logical Key"),
+    name: Annotated[
+        Name | None,
+        Field(
+            description="Optional producer-chosen name for this resource, local to the bundle. Lower-case, no slashes, at most 200 characters.",
+            title="Name",
+        ),
     ] = None
     visibility: Annotated[Visibility | None, Field(description="Three-tier visibility tier.")] = (
         Visibility.hidden
@@ -2069,9 +2091,12 @@ class RegisterResourceItem(BaseModel):
             title="Format",
         ),
     ] = None
-    logical_key: Annotated[
-        str | None,
-        Field(description="Optional producer-defined logical identifier.", title="Logical Key"),
+    name: Annotated[
+        Name | None,
+        Field(
+            description="Optional producer-chosen name for this resource, local to the bundle. Lower-case, no slashes, at most 200 characters.",
+            title="Name",
+        ),
     ] = None
     visibility: Annotated[Visibility | None, Field(description="Three-tier visibility tier.")] = (
         Visibility.hidden
@@ -2221,10 +2246,6 @@ class ResourceRead(BaseModel):
         UUID, Field(description="Permanent resource identifier.", title="Tracking Id")
     ]
     type: Annotated[ResourceType, Field(description="Canonical resource type.")]
-    logical_key: Annotated[
-        str | None,
-        Field(description="Optional producer-defined logical identifier.", title="Logical Key"),
-    ] = None
     hash: Annotated[
         str, Field(description="Canonical ``<algo>:<hex>`` content hash.", title="Hash")
     ]

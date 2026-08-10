@@ -63,7 +63,7 @@ class RecordedResource(Resource):
         resource_type: models.ResourceType,
         hash_: str,
         *,
-        logical_key: str | None = None,
+        name: str | None = None,
         visibility: models.Visibility = models.Visibility.hidden,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
@@ -77,7 +77,7 @@ class RecordedResource(Resource):
             metadata=models.ResourceRead(
                 tracking_id=tracking_id,
                 type=resource_type,
-                logical_key=logical_key,
+                name=name,
                 hash=hash_,
                 visibility=visibility,
                 tags=list(tags),
@@ -150,7 +150,7 @@ class RecordingActivity(Activity):
         obj: object,
         *,
         type: str | models.ResourceType,
-        logical_key: str | None = None,
+        name: str | None = None,
         used: Sequence[UsedInput] = (),
         visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
@@ -172,7 +172,7 @@ class RecordingActivity(Activity):
             hash_=materialised.hash,
             type_=resource_type.value,
             tracking_id=resource_id,
-            logical_key=logical_key,
+            name=name,
             format_=format or materialised.format,
             visibility=resource_visibility.value,
             tags=list(tags),
@@ -187,7 +187,7 @@ class RecordingActivity(Activity):
             resource_id,
             resource_type,
             materialised.hash,
-            logical_key=logical_key,
+            name=name,
             visibility=resource_visibility,
             tags=tags,
             metadata=metadata,
@@ -213,7 +213,7 @@ class RecordingActivity(Activity):
                 self.register(
                     entry.obj,
                     type=entry.type,
-                    logical_key=entry.logical_key,
+                    name=entry.name,
                     used=used,
                     visibility=entry.visibility,
                     tags=entry.tags,
@@ -246,7 +246,7 @@ class RecordingActivity(Activity):
                     hash_=item.materialised.hash,
                     type_=item.resource_type.value,
                     tracking_id=item.resource_id,
-                    logical_key=item.entry.logical_key,
+                    name=item.entry.name,
                     format_=item.entry.format or item.materialised.format,
                     visibility=item.visibility.value,
                     tags=list(item.entry.tags),
@@ -283,7 +283,7 @@ class RecordingActivity(Activity):
                 item.resource_id,
                 item.resource_type,
                 item.materialised.hash,
-                logical_key=item.entry.logical_key,
+                name=item.entry.name,
                 visibility=item.visibility,
                 tags=item.entry.tags,
                 metadata=item.entry.metadata,
@@ -308,7 +308,7 @@ class RecordingActivity(Activity):
         type: str | models.ResourceType,
         uri: str,
         hash: str | None = None,
-        logical_key: str | None = None,
+        name: str | None = None,
         used: Sequence[UsedInput] = (),
         visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
@@ -327,7 +327,7 @@ class RecordingActivity(Activity):
             type=type,
             uri=uri,
             hash=hash,
-            logical_key=logical_key,
+            name=name,
             visibility=visibility,
             default_visibility=self.default_visibility,
             tags=tags,
@@ -546,7 +546,7 @@ class RecordingSink:
         type: str | models.ResourceType,
         uri: str,
         hash: str | None = None,
-        logical_key: str | None = None,
+        name: str | None = None,
         visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
@@ -561,7 +561,7 @@ class RecordingSink:
             type=type,
             uri=uri,
             hash=hash,
-            logical_key=logical_key,
+            name=name,
             visibility=visibility,
             default_visibility=self.default_visibility,
             tags=tags,
@@ -574,7 +574,7 @@ class RecordingSink:
         self,
         data: bytes,
         *,
-        logical_key: str,
+        name: str,
         metadata: Mapping[str, Any],
     ) -> RecordedResource:
         """Record execution evidence as an output of the captured activity.
@@ -594,7 +594,7 @@ class RecordingSink:
             hash_=materialised.hash,
             type_="document",
             tracking_id=resource_id,
-            logical_key=logical_key,
+            name=name,
             visibility=self.default_visibility.value,
             metadata=dict(metadata),
             dedupe=False,
@@ -607,7 +607,7 @@ class RecordingSink:
             resource_id,
             models.ResourceType.document,
             materialised.hash,
-            logical_key=logical_key,
+            name=name,
             visibility=self.default_visibility,
             metadata=metadata,
         )
@@ -646,7 +646,7 @@ def _bundle_used_ref(value: UsedInput) -> BundleUsedRef:
     reference = used_ref(value)
     if isinstance(reference, models.UsedRefByTrackingId):
         return BundleUsedRef(tracking_id=reference.tracking_id)
-    return BundleUsedRef(logical_key=reference.logical_key)
+    return BundleUsedRef(name=reference.resource_name)
 
 
 def _record_pointer(
@@ -657,7 +657,7 @@ def _record_pointer(
     type: str | models.ResourceType,
     uri: str,
     hash: str | None,
-    logical_key: str | None,
+    name: str | None,
     visibility: VisibilityInput,
     default_visibility: models.Visibility,
     tags: Sequence[str],
@@ -673,7 +673,6 @@ def _record_pointer(
     resource_hash = hash or synthesise_pointer_hash(
         type_=resource_type.value,
         external_uri=uri,
-        logical_key=logical_key,
     )
     resource_id = tracking_id or uuid7()
     bundle.add_pointer(
@@ -681,7 +680,7 @@ def _record_pointer(
         hash_=resource_hash,
         type_=resource_type.value,
         tracking_id=resource_id,
-        logical_key=logical_key,
+        name=name,
         visibility=resource_visibility.value,
         tags=list(tags),
         metadata=dict(metadata or {}),
@@ -695,7 +694,7 @@ def _record_pointer(
         resource_id,
         resource_type,
         resource_hash,
-        logical_key=logical_key,
+        name=name,
         visibility=resource_visibility,
         tags=tags,
         metadata=metadata,

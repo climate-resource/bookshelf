@@ -681,7 +681,9 @@ class BookshelfClient:
     def list_resources(
         self,
         *,
-        logical_key: str | None = None,
+        volume: str | None = None,
+        name: str | None = None,
+        hash: str | None = None,
         type: str | None = None,
         tags: Sequence[str] | None = None,
         owner_org_id: str | None = None,
@@ -692,7 +694,9 @@ class BookshelfClient:
         return ops.parse_list_resources(
             self._send(
                 ops.build_list_resources(
-                    logical_key=logical_key,
+                    volume=volume,
+                    name=name,
+                    hash=hash,
                     type=type,
                     tags=tags,
                     owner_org_id=owner_org_id,
@@ -706,7 +710,9 @@ class BookshelfClient:
     async def list_resources_async(
         self,
         *,
-        logical_key: str | None = None,
+        volume: str | None = None,
+        name: str | None = None,
+        hash: str | None = None,
         type: str | None = None,
         tags: Sequence[str] | None = None,
         owner_org_id: str | None = None,
@@ -717,7 +723,9 @@ class BookshelfClient:
         return ops.parse_list_resources(
             await self._send_async(
                 ops.build_list_resources(
-                    logical_key=logical_key,
+                    volume=volume,
+                    name=name,
+                    hash=hash,
                     type=type,
                     tags=tags,
                     owner_org_id=owner_org_id,

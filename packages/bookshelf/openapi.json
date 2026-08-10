@@ -60,6 +60,38 @@
         }
       }
     },
+    "/health/public-storage": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Public Storage Check",
+        "description": "Check that presigned URLs signed against the public endpoint are fetchable.\n\nKubernetes liveness and readiness probes must not use this endpoint.\nIt makes an external round trip through the public presigned host,\nso gating a pod on it would crash-loop the API on an ingress or DNS wobble.\nPoint an external synthetic check or alert at it instead.",
+        "operationId": "healthPublicStorageCheck",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicStorageResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicStorageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/me": {
       "get": {
         "tags": [
@@ -2189,7 +2221,7 @@
           "resources"
         ],
         "summary": "Get Resource Facets",
-        "description": "Get unique values per column for filter UIs.\n\nSupports pre-filtering: ?region=USA returns facets for USA data only.\nUseful for building dynamic filter controls.",
+        "description": "Get unique values per column for filter UIs.\n\nSupports pre-filtering: ?region=USA returns facets for USA data only.\nCounts are taken over the rows that survive the filter,\nso refining one dimension re-derives the others.",
         "operationId": "resourcesGetResourceFacets",
         "security": [
           {},
@@ -3580,7 +3612,7 @@
         ],
         "parameters": [
           {
-            "name": "logical_key",
+            "name": "volume",
             "in": "query",
             "required": false,
             "schema": {
@@ -3592,10 +3624,46 @@
                   "type": "null"
                 }
               ],
-              "description": "Exact match on the resource's logical key.",
-              "title": "Logical Key"
+              "description": "Filter to resources belonging to a book in this volume. Resources not attached to a book are excluded.",
+              "title": "Volume"
             },
-            "description": "Exact match on the resource's logical key."
+            "description": "Filter to resources belonging to a book in this volume. Resources not attached to a book are excluded."
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact match on the resource's name.",
+              "title": "Name"
+            },
+            "description": "Exact match on the resource's name."
+          },
+          {
+            "name": "hash",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact match on the canonical content hash. A bare 64-character hex is accepted and normalised to ``sha256:<hex>``.",
+              "title": "Hash"
+            },
+            "description": "Exact match on the canonical content hash. A bare 64-character hex is accepted and normalised to ``sha256:<hex>``."
           },
           {
             "name": "type",
@@ -3657,11 +3725,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "When true, return only the most-recent resource per logical key.",
+              "description": "When true, return only the most-recent resource per (volume, name) pair. Resources not attached to a book are excluded, because they have no volume.",
               "default": false,
               "title": "Latest"
             },
-            "description": "When true, return only the most-recent resource per logical key."
+            "description": "When true, return only the most-recent resource per (volume, name) pair. Resources not attached to a book are excluded, because they have no volume."
           },
           {
             "name": "limit",
@@ -5027,7 +5095,7 @@
                   "$ref": "#/components/schemas/UsedRefByTrackingId"
                 },
                 {
-                  "$ref": "#/components/schemas/UsedRefByLogicalKey"
+                  "$ref": "#/components/schemas/UsedRefByResourceName"
                 }
               ]
             },
@@ -8061,17 +8129,6 @@
           "visibility": {
             "$ref": "#/components/schemas/Visibility"
           },
-          "logical_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Logical Key"
-          },
           "owner_org_id": {
             "type": "string",
             "title": "Owner Org Id"
@@ -8094,7 +8151,6 @@
           "external_uri",
           "tags",
           "visibility",
-          "logical_key",
           "owner_org_id"
         ],
         "title": "EntryRead",
@@ -9051,6 +9107,47 @@
         "title": "ProvDocument",
         "description": "A PROV-JSON document.\n\nPydantic is used for the response schema so OpenAPI advertises the shape;\nthe body is intentionally permissive (extra keys allowed)."
       },
+      "PublicStorageResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "healthy",
+              "unhealthy",
+              "skipped"
+            ],
+            "title": "Status"
+          },
+          "endpoint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Endpoint"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "PublicStorageResponse",
+        "description": "Public presigned-endpoint probe response."
+      },
       "ReadinessResponse": {
         "properties": {
           "status": {
@@ -9128,17 +9225,18 @@
             "title": "Format",
             "description": "Optional declared storage format (``parquet`` or ``csv``). When set it must be one of the supported query formats; when omitted the format is inferred from the location suffix at query time."
           },
-          "logical_key": {
+          "name": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]{0,199}$"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Logical Key",
-            "description": "Optional producer-defined logical identifier."
+            "title": "Name",
+            "description": "Optional producer-chosen name for this resource, local to the bundle. Lower-case, no slashes, at most 200 characters."
           },
           "visibility": {
             "$ref": "#/components/schemas/Visibility",
@@ -9219,17 +9317,18 @@
             "title": "Format",
             "description": "Optional declared storage format (``parquet`` or ``csv``). When set it must be one of the supported query formats; when omitted the format is inferred from the location suffix at query time."
           },
-          "logical_key": {
+          "name": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]{0,199}$"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Logical Key",
-            "description": "Optional producer-defined logical identifier."
+            "title": "Name",
+            "description": "Optional producer-chosen name for this resource, local to the bundle. Lower-case, no slashes, at most 200 characters."
           },
           "visibility": {
             "$ref": "#/components/schemas/Visibility",
@@ -9733,18 +9832,6 @@
           "type": {
             "$ref": "#/components/schemas/ResourceType",
             "description": "Canonical resource type."
-          },
-          "logical_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Logical Key",
-            "description": "Optional producer-defined logical identifier."
           },
           "hash": {
             "type": "string",
@@ -10359,22 +10446,22 @@
         "title": "UploadPartInfo",
         "description": "Information for uploading a single part."
       },
-      "UsedRefByLogicalKey": {
+      "UsedRefByResourceName": {
         "properties": {
-          "logical_key": {
+          "resource_name": {
             "type": "string",
             "minLength": 1,
-            "title": "Logical Key",
-            "description": "Logical key of the resource the activity used."
+            "title": "Resource Name",
+            "description": "Name of a resource registered by this same request."
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "logical_key"
+          "resource_name"
         ],
-        "title": "UsedRefByLogicalKey",
-        "description": "A ``used`` input referenced by ``logical_key``.\n\nResolved against the build's own just-registered set first,\nthen org-wide to the most-recent non-invalidated resource sharing the key."
+        "title": "UsedRefByResourceName",
+        "description": "A ``used`` input referenced by its ``name`` within this request.\n\nResolution is confined to the resources registered by this request.\nThere is no lookup outside it, so the same payload always resolves\nto the same inputs no matter when it is sent."
       },
       "UsedRefByTrackingId": {
         "properties": {
@@ -11305,18 +11392,6 @@
               }
             ],
             "description": "Canonical resource type (resource only)."
-          },
-          "logical_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Logical Key",
-            "description": "Producer logical key (resource only)."
           },
           "code_ref": {
             "anyOf": [

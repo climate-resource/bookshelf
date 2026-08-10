@@ -34,7 +34,7 @@ class Resource(ConsumedResource):
         self.registration_outcome = registration_outcome
 
     @property
-    def registration_status(self) -> models.Status1 | None:
+    def registration_status(self) -> models.Status2 | None:
         """Return how this handle's producer registration was resolved."""
         if self.registration_outcome is None:
             return None
@@ -64,7 +64,7 @@ class AsyncResource(ConsumedAsyncResource):
         self.registration_outcome = registration_outcome
 
     @property
-    def registration_status(self) -> models.Status1 | None:
+    def registration_status(self) -> models.Status2 | None:
         """Return how this handle's producer registration was resolved."""
         if self.registration_outcome is None:
             return None

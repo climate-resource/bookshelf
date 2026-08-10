@@ -1,10 +1,10 @@
 activity:
   activity_id: 0197a000-0000-7000-8000-00000000a001
   code_ref: https://example.invalid/golden@0000000000000000000000000000000000000000
-  config_hash: sha256:f3e79c0d3519a88e46c963f13bf28ecb6130f8f91db14a1c25832b76ac67bc79
+  config_hash: sha256:b3d658fe2ee5b086a71cca2fb2d3b838d5bc74bad6a7521bc567b9f70453f5cf
   kind: run
   parameters:
-    source: golden/upstream
+    source: golden-upstream
     statistic: regional-sum
   runner: golden
 book:
@@ -24,12 +24,12 @@ book:
   volume: golden-example
 resources:
 - dedupe: true
-  external_uri: https://example.invalid/golden/upstream-v1.0.0.csv
+  external_uri: https://example.invalid/golden-upstream-v1.0.0.csv
   generated: true
-  hash: sha256:bdbae6943e4a1c88c71cb6a44dc783cb0d81270cdae658d3253b4a346392a732
+  hash: sha256:c2be0622db25f74a9f65bf289df60a46a99f60d1e46aa869fdbe2ad316b4a372
   kind: pointer
-  logical_key: golden/upstream
   metadata: {}
+  name: golden-upstream
   tags: []
   tracking_id: 0197a000-0000-7000-8000-00000000b001
   type: tabular
@@ -40,8 +40,8 @@ resources:
   generated: true
   hash: sha256:ea6c596787f6a204b23bfa40d53aeb0385c09dea0d92c788b559cd4ef11267cf
   kind: managed
-  logical_key: golden/emissions
   metadata: {}
+  name: golden-emissions
   size: 1251
   tags: []
   tracking_id: 0197a000-0000-7000-8000-00000000b002
@@ -54,8 +54,8 @@ resources:
   generated: true
   hash: sha256:76f2a9c81692ea9816ec55e4c78334fdf976d788b8cf7f47c6a7fa2d46e31876
   kind: managed
-  logical_key: golden/summary
   metadata: {}
+  name: golden-summary
   size: 614
   tags: []
   tracking_id: 0197a000-0000-7000-8000-00000000b003
@@ -64,6 +64,6 @@ resources:
   - tracking_id: 0197a000-0000-7000-8000-00000000b001
   - tracking_id: 0197a000-0000-7000-8000-00000000b002
   visibility: public
-schema_version: '1.1'
+schema_version: '2.0'
 writer:
   pyarrow: 23.0.0

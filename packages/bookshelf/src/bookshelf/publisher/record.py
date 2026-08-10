@@ -14,6 +14,7 @@ import yaml
 
 from bookshelf._core.config import UNSET, AuthInput
 from bookshelf._core.errors import BookshelfError
+from bookshelf._core.names import flatten_to_resource_name
 from bookshelf._generated import models
 from bookshelf._produce.books import DraftBook
 from bookshelf._produce.facade import nests_discovery
@@ -238,7 +239,7 @@ def _record_executed_documents(
     for path, name_in_book, kind in documents:
         resource = context.bookshelf.recording_sink.record_document(
             path.read_bytes(),
-            logical_key=f"document/{name_in_book}",
+            name=flatten_to_resource_name(f"document-{name_in_book}"),
             metadata={"kind": kind, "notebook_name": executed.name},
         )
         context.book.attach(resource, name_in_book=name_in_book, data_dictionary=[])

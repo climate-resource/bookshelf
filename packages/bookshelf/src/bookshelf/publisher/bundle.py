@@ -1,4 +1,4 @@
-"""The bundle: an on-disk, replayable record of a run, using manifest schema v1.
+"""The bundle: an on-disk, replayable record of a run, using manifest schema v2.
 
 A bundle holds a manifest and the content-addressed bytes of every managed resource,
 so it is self-contained.
@@ -42,15 +42,17 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from bookshelf._core.errors import BookshelfError
 from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
+from bookshelf._core.names import flatten_to_resource_name
 from bookshelf._generated import models
 
-BUNDLE_SCHEMA_VERSION = "1.1"
+BUNDLE_SCHEMA_VERSION = "2.0"
 
 # The major this reader models.
 # A newer *minor* is additive and loads
 # because the models ignore unknown fields.
 # A newer *major* signals a breaking change.
-# Reading it under v1 semantics would drop fields that carry new meaning.
+# Reading it under the current semantics would drop fields that carry new meaning.
+# An older major is migrated on read instead.
 _SUPPORTED_SCHEMA_MAJOR = int(BUNDLE_SCHEMA_VERSION.split(".", 1)[0])
 
 MANIFEST_NAME = "manifest.lock"
@@ -97,14 +99,15 @@ class BundleUsedRef(BaseModel):
 
     Mirrors the wire ``UsedRef`` union.
     A ``used`` input is referenced **either** by ``tracking_id``
-    **or** by ``logical_key``.
+    **or** by ``name``.
     The reference is recorded as the run expressed it,
     and it is resolved again when the bundle is replayed.
     A recorded ``tracking_id`` is rewritten client-side
     to the id the server returned for that input,
     because the server may answer a registration
     with a resource it already holds.
-    A ``logical_key`` is resolved by the server at registration time.
+    A ``name`` is resolved by the server at registration time,
+    against the resources registered by that same request and nothing else.
     The recorded reference is therefore the run's claim about its inputs,
     not the identity of the edge the backend finally mints.
 
@@ -117,12 +120,12 @@ class BundleUsedRef(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     tracking_id: UUID | None = None
-    logical_key: str | None = None
+    name: str | None = None
 
     @model_validator(mode="after")
     def _exactly_one_coordinate(self) -> BundleUsedRef:
-        if (self.tracking_id is None) == (self.logical_key is None):
-            raise ValueError("BundleUsedRef requires exactly one of tracking_id or logical_key")
+        if (self.tracking_id is None) == (self.name is None):
+            raise ValueError("BundleUsedRef requires exactly one of tracking_id or name")
         return self
 
 
@@ -136,13 +139,13 @@ def synthesise_pointer_hash(
     *,
     type_: str,
     external_uri: str,
-    logical_key: str | None = None,
 ) -> str:
     """Synthesise the canonical hash of a hashless external pointer.
 
     Mirrors the backend's ``_synthesise_hash`` exactly.
-    The digest is computed over
-    ``{type, sorted(locations), logical_key or ''}``.
+    The digest is computed over ``{type, sorted(locations)}``,
+    so the same external pointer collides on the same canonical resource
+    no matter what the producer named it.
     The external URI is funnelled through the ``external`` shelf,
     so the bundle records the hash that the backend would assign
     to a hashless pointer.
@@ -153,7 +156,6 @@ def synthesise_pointer_hash(
     seed = canonical_json_bytes(
         {
             "type": type_,
-            "logical_key": logical_key or "",
             "locations": locations,
         }
     )
@@ -192,7 +194,7 @@ class BundleResource(BaseModel):
     hash: str  # canonical ``sha256:<hex>``
     type: str
     kind: Literal["managed", "pointer"] = "managed"
-    logical_key: str | None = None
+    name: str | None = None
     format: str | None = None  # declared storage format, ``None`` when unknown
     visibility: Literal["hidden", "org", "public"] = "hidden"
     tags: list[str] = Field(default_factory=list)
@@ -366,6 +368,46 @@ class BundleManifest(BaseModel):
     resources: list[BundleResource] = Field(default_factory=list)
 
 
+def _migrate_v1_names(raw: dict[str, Any]) -> None:
+    """Rewrite a v1 manifest's ``logical_key`` fields onto v2 ``name`` fields in place.
+
+    A name is local to its bundle now,
+    so remapping every key in one manifest by the same rule preserves what the run meant.
+    Two distinct keys that flatten onto one name would not,
+    so that raises instead.
+    """
+    seen: dict[str, str] = {}
+    for resource in raw.get("resources") or []:
+        if not isinstance(resource, dict):
+            continue
+        key = resource.pop("logical_key", None)
+        if isinstance(key, str) and key:
+            name = flatten_to_resource_name(key)
+            if seen.setdefault(name, key) != key:
+                raise ValueError(
+                    f"v1 logical keys {seen[name]!r} and {key!r} both migrate to {name!r}. "
+                    "Re-run the build to record a v2 bundle."
+                )
+            resource["name"] = name
+        for ref in resource.get("used") or []:
+            if not isinstance(ref, dict):
+                continue
+            ref_key = ref.pop("logical_key", None)
+            if isinstance(ref_key, str) and ref_key:
+                ref["name"] = flatten_to_resource_name(ref_key)
+
+
+def _schema_major(raw: dict[str, Any]) -> int:
+    """Return the major schema version a raw manifest declares."""
+    version = raw.get("schema_version", BUNDLE_SCHEMA_VERSION)
+    if not isinstance(version, str):
+        raise ValueError(f"bundle schema_version must be a string, got {version!r}")
+    try:
+        return int(version.split(".", 1)[0])
+    except ValueError as exc:
+        raise ValueError(f"bundle schema_version {version!r} is not a valid version") from exc
+
+
 def _check_schema_major(raw: dict[str, Any]) -> None:
     """Refuse a manifest whose major schema version this reader cannot model.
 
@@ -376,15 +418,11 @@ def _check_schema_major(raw: dict[str, Any]) -> None:
     Loading it under the current semantics
     could silently drop fields that carry new meaning.
     Raise rather than misinterpret the bundle.
+
+    An older major is migrated on read instead of refused.
     """
     version = raw.get("schema_version", BUNDLE_SCHEMA_VERSION)
-    if not isinstance(version, str):
-        raise ValueError(f"bundle schema_version must be a string, got {version!r}")
-    try:
-        major = int(version.split(".", 1)[0])
-    except ValueError as exc:
-        raise ValueError(f"bundle schema_version {version!r} is not a valid version") from exc
-    if major > _SUPPORTED_SCHEMA_MAJOR:
+    if _schema_major(raw) > _SUPPORTED_SCHEMA_MAJOR:
         raise ValueError(
             f"bundle schema_version {version!r} is a newer major than this client models "
             f"(schema {BUNDLE_SCHEMA_VERSION}). Upgrade bookshelf to read it."
@@ -629,7 +667,7 @@ class Bundle:
         hash_: str,
         type_: str,
         tracking_id: UUID,
-        logical_key: str | None = None,
+        name: str | None = None,
         format_: str | None = None,
         visibility: str = "hidden",
         tags: list[str] | None = None,
@@ -670,7 +708,7 @@ class Bundle:
             hash=hash_,
             type=type_,
             kind="managed",
-            logical_key=logical_key,
+            name=name,
             format=format_,
             visibility=visibility,
             tags=list(tags or []),
@@ -690,7 +728,7 @@ class Bundle:
         hash_: str,
         type_: str,
         tracking_id: UUID,
-        logical_key: str | None = None,
+        name: str | None = None,
         visibility: str = "hidden",
         tags: list[str] | None = None,
         metadata: dict[str, Any] | None = None,
@@ -715,7 +753,7 @@ class Bundle:
             hash=hash_,
             type=type_,
             kind="pointer",
-            logical_key=logical_key,
+            name=name,
             visibility=visibility,
             tags=list(tags or []),
             metadata=dict(metadata or {}),
@@ -810,12 +848,16 @@ class Bundle:
         and keeps only the fields this schema models.
         A newer major raises :class:`ValueError`
         instead of being reinterpreted under the current semantics.
+        A v1 manifest is migrated on the way in,
+        which rewrites its ``logical_key`` fields onto v2 ``name`` fields.
 
         The read is structural.
         A bundle recorded as a draft loads here and replays as a draft.
         """
         raw: dict[str, Any] = yaml.safe_load((root / MANIFEST_NAME).read_bytes()) or {}
         _check_schema_major(raw)
+        if _schema_major(raw) < _SUPPORTED_SCHEMA_MAJOR:
+            _migrate_v1_names(raw)
         manifest = BundleManifest.model_validate(raw)
         return cls(root=root, manifest=manifest)
 
