@@ -5,6 +5,7 @@ from uuid import UUID
 import pytest
 
 from bookshelf._core.errors import BookshelfError
+from bookshelf._core.names import RESOURCE_NAME_PATTERN
 from bookshelf._generated import models
 from bookshelf._produce.helpers import paired_successes, single_success, used_ref
 from bookshelf._produce.types import RegisterItem, RegistrationSuccess, Used
@@ -87,3 +88,8 @@ def test_a_name_outside_the_platform_charset_is_refused(name: str) -> None:
         Used(name=name)
     with pytest.raises(ValueError):
         RegisterItem(obj=object(), type="tabular", name=name)
+
+
+def test_the_name_charset_matches_the_generated_wire_model() -> None:
+    """The platform owns this charset, so regenerating the models must not leave the SDK behind."""
+    assert RESOURCE_NAME_PATTERN.pattern == models.Name.model_json_schema()["pattern"]

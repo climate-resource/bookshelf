@@ -62,7 +62,7 @@ draft = bs.draft_book("demo-sdk-howto", version="v1.1.0", license="CC-BY-4.0")
 pointer = bs.register_external(
     type="tabular",
     uri="https://zenodo.org/records/4741285/files/CEDS_v2021-04-21_emissions.zip",
-    name="demo-sdk-howto-ceds-upstream",
+    name="ceds-upstream",
     metadata={"source": "Zenodo", "doi": "10.5281/zenodo.4741285"},
     tags=["external", "upstream"],
 )
@@ -121,7 +121,7 @@ with bs.activity(
     mirrored = activity.register_external(
         type="tabular",
         uri="https://example.climateresource.com.au/ceds/mirror.parquet",
-        name="demo-sdk-howto-ceds-mirror",
+        name="ceds-mirror",
         used=[pointer],
     )
     outputs = activity.register_many(

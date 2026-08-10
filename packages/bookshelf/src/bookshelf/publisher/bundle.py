@@ -34,15 +34,15 @@ import importlib.metadata
 import re
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from bookshelf._core.errors import BookshelfError
 from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
-from bookshelf._core.names import flatten_to_resource_name
+from bookshelf._core.names import RESOURCE_NAME_PATTERN, flatten_to_resource_name
 from bookshelf._generated import models
 
 BUNDLE_SCHEMA_VERSION = "2.0"
@@ -68,6 +68,10 @@ _PARQUET_TYPES = frozenset({"timeseries", "tabular"})
 # with no ``:``, ``/``, or ``.`` characters.
 # A crafted manifest hash therefore cannot traverse out of ``resources/``.
 _SHA256_RE = re.compile(r"^sha256:([0-9a-f]{64})$")
+
+# Every writer of a manifest name goes through this,
+# so a recorded bundle cannot carry a name the platform would refuse at replay.
+ResourceName = Annotated[str, StringConstraints(pattern=RESOURCE_NAME_PATTERN.pattern)]
 
 
 class InvalidBundleError(BookshelfError):
@@ -120,7 +124,7 @@ class BundleUsedRef(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     tracking_id: UUID | None = None
-    name: str | None = None
+    name: ResourceName | None = None
 
     @model_validator(mode="after")
     def _exactly_one_coordinate(self) -> BundleUsedRef:
@@ -194,7 +198,7 @@ class BundleResource(BaseModel):
     hash: str  # canonical ``sha256:<hex>``
     type: str
     kind: Literal["managed", "pointer"] = "managed"
-    name: str | None = None
+    name: ResourceName | None = None
     format: str | None = None  # declared storage format, ``None`` when unknown
     visibility: Literal["hidden", "org", "public"] = "hidden"
     tags: list[str] = Field(default_factory=list)
@@ -397,36 +401,34 @@ def _migrate_v1_names(raw: dict[str, Any]) -> None:
                 ref["name"] = flatten_to_resource_name(ref_key)
 
 
-def _schema_major(raw: dict[str, Any]) -> int:
-    """Return the major schema version a raw manifest declares."""
-    version = raw.get("schema_version", BUNDLE_SCHEMA_VERSION)
-    if not isinstance(version, str):
-        raise ValueError(f"bundle schema_version must be a string, got {version!r}")
-    try:
-        return int(version.split(".", 1)[0])
-    except ValueError as exc:
-        raise ValueError(f"bundle schema_version {version!r} is not a valid version") from exc
-
-
-def _check_schema_major(raw: dict[str, Any]) -> None:
-    """Refuse a manifest whose major schema version this reader cannot model.
+def _prepare_manifest(raw: dict[str, Any]) -> None:
+    """Settle a raw manifest's schema version in place, ready for validation.
 
     A newer minor is forward-compatible.
     The models ignore unknown fields,
     so an additive change still loads.
     A newer major signals a breaking change.
     Loading it under the current semantics
-    could silently drop fields that carry new meaning.
-    Raise rather than misinterpret the bundle.
-
-    An older major is migrated on read instead of refused.
+    could silently drop fields that carry new meaning,
+    so raise rather than misinterpret the bundle.
+    An older major is migrated up to the current one.
     """
     version = raw.get("schema_version", BUNDLE_SCHEMA_VERSION)
-    if _schema_major(raw) > _SUPPORTED_SCHEMA_MAJOR:
+    if not isinstance(version, str):
+        raise ValueError(f"bundle schema_version must be a string, got {version!r}")
+    try:
+        major = int(version.split(".", 1)[0])
+    except ValueError as exc:
+        raise ValueError(f"bundle schema_version {version!r} is not a valid version") from exc
+
+    if major > _SUPPORTED_SCHEMA_MAJOR:
         raise ValueError(
             f"bundle schema_version {version!r} is a newer major than this client models "
             f"(schema {BUNDLE_SCHEMA_VERSION}). Upgrade bookshelf to read it."
         )
+    if major < _SUPPORTED_SCHEMA_MAJOR:
+        _migrate_v1_names(raw)
+        raw["schema_version"] = BUNDLE_SCHEMA_VERSION
 
 
 def resource_filename(hash_: str, type_: str) -> str:
@@ -855,9 +857,7 @@ class Bundle:
         A bundle recorded as a draft loads here and replays as a draft.
         """
         raw: dict[str, Any] = yaml.safe_load((root / MANIFEST_NAME).read_bytes()) or {}
-        _check_schema_major(raw)
-        if _schema_major(raw) < _SUPPORTED_SCHEMA_MAJOR:
-            _migrate_v1_names(raw)
+        _prepare_manifest(raw)
         manifest = BundleManifest.model_validate(raw)
         return cls(root=root, manifest=manifest)
 

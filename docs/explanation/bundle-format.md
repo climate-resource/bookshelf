@@ -98,9 +98,6 @@ Every entry in `resources` has these fields.
 | `used`         | optional     | list of references          | `[]`      | what this resource was derived from                                     |
 
 `name` is local to the bundle that registers it, and it carries no hierarchy.
-It must match `^[a-z0-9][a-z0-9._-]{0,199}$`,
-so a producer wanting a hierarchy flattens it
-and writes `document-build.html` rather than `document/build.html`.
 
 The `type` values currently in use are:
 
@@ -270,35 +267,11 @@ A reader models one major version, and this specification describes major 2.
   A reader must raise rather than interpret it,
   because a major change means a field it does model may now mean something else.
   Reading it anyway would silently drop meaning.
-- An **older major** is migrated on read, see below.
+- An **older major** is migrated on read, and the loaded manifest reports the version it was migrated to.
 - A `schema_version` that is not a string, or whose major part is not an integer, is refused.
 - An absent `schema_version` is read as the current version.
 
 Tolerance is one-directional by design.
-
-### Reading a v1 bundle
-
-Major 1 carried `logical_key` where major 2 carries `name`,
-and a v1 key was an org-wide coordinate that could contain any character.
-A v2 name is local to its own bundle
-and must match `^[a-z0-9][a-z0-9._-]{0,199}$`.
-
-A reader migrates a v1 manifest by rewriting every `logical_key`, on both resource records
-and `used` entries, into a `name`:
-lower-case the key, replace every character outside the charset with `-`,
-strip any leading `-` or `.`, and truncate to 200 characters.
-So `document/build.py.ipynb` reads back as `document-build.py.ipynb`.
-
-The rewrite is applied to the whole manifest by the same rule,
-so the lineage a v1 bundle recorded still resolves.
-Two distinct v1 keys that rewrite onto one name are refused rather than merged,
-because merging them would silently join two lineage edges into one.
-
-A v1 pointer hash was synthesised with the logical key in its seed,
-so it does not match what a v2 producer would compute for the same URI.
-The recorded hash is what replay sends, so a v1 bundle still replays,
-but its pointer does not collide with the canonical resource for that URI.
-Re-run the build to record a v2 bundle if that matters.
 
 ## Validation
 
@@ -389,7 +362,7 @@ book:
   volume: example-emissions
 resources:
 - dedupe: true
-  external_uri: https://example.org/upstream-emissions-v1.0.0.csv
+  external_uri: https://example.org/upstream/emissions-v1.0.0.csv
   generated: false
   hash: sha256:c6dd00dc24e5ddcf21081c662e8264bbc0cf7d10986181f961545eaef0e4051c
   kind: pointer

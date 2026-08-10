@@ -7,8 +7,9 @@ from uuid import UUID, uuid4
 import pytest
 
 from bookshelf._core.errors import BookshelfError
-from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
+from bookshelf._core.hashing import canonical_json_bytes
 from bookshelf.publisher.bundle import (
+    BUNDLE_SCHEMA_VERSION,
     Bundle,
     BundleBook,
     InvalidBundleError,
@@ -206,11 +207,11 @@ def test_an_unknown_key_inside_writer_is_ignored(tmp_path: Path) -> None:
     assert loaded.manifest.writer.pyarrow == "1.2.3"
 
 
-def test_a_manifest_declaring_the_previous_minor_still_loads(tmp_path: Path) -> None:
-    """The minor bump is additive, so the reader refuses only a newer major."""
+def test_a_manifest_declaring_an_older_major_is_migrated_up(tmp_path: Path) -> None:
+    """The reader refuses only a newer major, and stamps what it migrated an older one to."""
     loaded = _read_manifest_text(tmp_path, "schema_version: '1.0'\nresources: []\n")
 
-    assert loaded.manifest.schema_version == "1.0"
+    assert loaded.manifest.schema_version == BUNDLE_SCHEMA_VERSION
 
 
 def test_the_synthesised_pointer_hash_matches_the_backend_seed() -> None:
@@ -226,7 +227,6 @@ def test_the_synthesised_pointer_hash_matches_the_backend_seed() -> None:
     seed = b'{"locations":[["external","https://example.invalid/data.csv"]],"type":"tabular"}'
 
     assert canonical_json_bytes({"type": "tabular", "locations": [["external", uri]]}) == seed
-    assert synthesise_pointer_hash(type_="tabular", external_uri=uri) == sha256_hex(seed)
     assert synthesise_pointer_hash(type_="tabular", external_uri=uri) == (
         "sha256:7cf03fca2d1e24ee4c78e8d6f814e47b60ca5203a001e034bd2c8240e4a90bbe"
     )
