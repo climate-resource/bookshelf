@@ -115,11 +115,6 @@ def resolve_ambient_credential(
     return CredentialSource.NONE, None
 
 
-def resolve_credential_source(base_url: str | None = None) -> CredentialSource:
-    """Report which resolution step would supply the ambient credential."""
-    return resolve_ambient_credential(base_url)[0]
-
-
 def _auth_from_environment(base_url: str | None) -> httpx.Auth | None:
     source, stored = resolve_ambient_credential(base_url)
     if source is CredentialSource.ENV_TOKEN:
@@ -225,5 +220,4 @@ __all__ = [
     "resolve_ambient_credential",
     "resolve_auth",
     "resolve_base_url",
-    "resolve_credential_source",
 ]

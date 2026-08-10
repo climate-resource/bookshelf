@@ -16,6 +16,9 @@ from bookshelf._produce.helpers import (
     activity_envelope as _activity_envelope,
 )
 from bookshelf._produce.helpers import (
+    external_item as _external_item,
+)
+from bookshelf._produce.helpers import (
     paired_successes as _paired_successes,
 )
 from bookshelf._produce.helpers import (
@@ -178,16 +181,15 @@ class Activity:
         ``used=`` records the inputs consumed by this resource.
         """
         self._require_entered()
-        resource_type = _resource_type(type)
-        item = models.RegisterResourceItem(
-            tracking_id=tracking_id or _uuid7(),
-            type=resource_type,
+        item = _external_item(
+            type=type,
+            uri=uri,
             hash=hash,
             name=name,
             visibility=_visibility(visibility, self.default_visibility),
-            tags=list(tags),
-            metadata=dict(metadata or {}),
-            external_uri=uri,
+            tags=tags,
+            metadata=metadata,
+            tracking_id=tracking_id,
             dedupe=dedupe,
         )
         outcome = _single_success(self._register_items([item], used=used, atomic=True))
@@ -195,7 +197,7 @@ class Activity:
             self._client,
             self._cache,
             tracking_id=outcome.tracking_id,
-            resource_type=_registered_resource_type(outcome, resource_type),
+            resource_type=_registered_resource_type(outcome, item.type),
             registration_outcome=outcome,
         )
 
@@ -229,9 +231,8 @@ class Activity:
                 content_type=serialised.content_type,
             )
         )
-        if isinstance(plan, models.UploadAlreadyExistsResponse):
-            storage_path = plan.storage_path
-        else:
+        if not isinstance(plan, models.UploadAlreadyExistsResponse):
+            multipart = plan.upload_id != "single"
             completed: list[models.UploadPartComplete] = []
             for part in plan.parts:
                 content = serialised.data[part.start_byte : part.end_byte]
@@ -240,7 +241,7 @@ class Activity:
                     content,
                     content_type=serialised.content_type,
                 )
-                if plan.upload_id != "single":
+                if multipart:
                     if not etag:
                         raise BookshelfError(
                             f"presigned PUT for part {part.part_number} returned no ETag"
@@ -251,7 +252,7 @@ class Activity:
                             etag=etag.strip('"'),
                         )
                     )
-            if plan.upload_id != "single":
+            if multipart:
                 self._client.complete_ingest_upload(
                     models.IngestUploadCompleteRequest(
                         upload_id=plan.upload_id,
@@ -259,7 +260,6 @@ class Activity:
                         parts=completed,
                     )
                 )
-            storage_path = plan.storage_path
         return models.RegisterResourceItem(
             tracking_id=entry.tracking_id or _uuid7(),
             type=resource_type,
@@ -269,7 +269,7 @@ class Activity:
             visibility=_visibility(entry.visibility, self.default_visibility),
             tags=list(entry.tags),
             metadata=dict(entry.metadata or {}),
-            locations=[models.LocationInput(shelf="managed", path=storage_path)],
+            locations=[models.LocationInput(shelf="managed", path=plan.storage_path)],
             dedupe=entry.dedupe,
         )
 
@@ -282,7 +282,8 @@ class Activity:
     ) -> list[RegistrationSuccess]:
         if atomic and len(items) > _MAX_REGISTRATION_BATCH:
             raise ValueError(f"atomic registrations are limited to {_MAX_REGISTRATION_BATCH} items")
-        chunk_size = _MAX_REGISTRATION_BATCH if not atomic else max(len(items), 1)
+        # An atomic batch always goes in one request.
+        chunk_size = max(len(items), 1) if atomic else _MAX_REGISTRATION_BATCH
         successful: list[RegistrationSuccess] = []
         failures: list[RegistrationFailure] = []
         envelope = _activity_envelope(
@@ -443,16 +444,15 @@ class AsyncActivity:
         ``used=`` records the inputs consumed by this resource.
         """
         self._require_entered()
-        resource_type = _resource_type(type)
-        item = models.RegisterResourceItem(
-            tracking_id=tracking_id or _uuid7(),
-            type=resource_type,
+        item = _external_item(
+            type=type,
+            uri=uri,
             hash=hash,
             name=name,
             visibility=_visibility(visibility, self.default_visibility),
-            tags=list(tags),
-            metadata=dict(metadata or {}),
-            external_uri=uri,
+            tags=tags,
+            metadata=metadata,
+            tracking_id=tracking_id,
             dedupe=dedupe,
         )
         outcome = _single_success(await self._register_items([item], used=used, atomic=True))
@@ -460,7 +460,7 @@ class AsyncActivity:
             self._client,
             self._cache,
             tracking_id=outcome.tracking_id,
-            resource_type=_registered_resource_type(outcome, resource_type),
+            resource_type=_registered_resource_type(outcome, item.type),
             registration_outcome=outcome,
         )
 
@@ -494,9 +494,8 @@ class AsyncActivity:
                 content_type=serialised.content_type,
             )
         )
-        if isinstance(plan, models.UploadAlreadyExistsResponse):
-            storage_path = plan.storage_path
-        else:
+        if not isinstance(plan, models.UploadAlreadyExistsResponse):
+            multipart = plan.upload_id != "single"
             completed: list[models.UploadPartComplete] = []
             for part in plan.parts:
                 content = serialised.data[part.start_byte : part.end_byte]
@@ -505,7 +504,7 @@ class AsyncActivity:
                     content,
                     content_type=serialised.content_type,
                 )
-                if plan.upload_id != "single":
+                if multipart:
                     if not etag:
                         raise BookshelfError(
                             f"presigned PUT for part {part.part_number} returned no ETag"
@@ -516,7 +515,7 @@ class AsyncActivity:
                             etag=etag.strip('"'),
                         )
                     )
-            if plan.upload_id != "single":
+            if multipart:
                 await self._client.complete_ingest_upload_async(
                     models.IngestUploadCompleteRequest(
                         upload_id=plan.upload_id,
@@ -524,7 +523,6 @@ class AsyncActivity:
                         parts=completed,
                     )
                 )
-            storage_path = plan.storage_path
         return models.RegisterResourceItem(
             tracking_id=entry.tracking_id or _uuid7(),
             type=resource_type,
@@ -534,7 +532,7 @@ class AsyncActivity:
             visibility=_visibility(entry.visibility, self.default_visibility),
             tags=list(entry.tags),
             metadata=dict(entry.metadata or {}),
-            locations=[models.LocationInput(shelf="managed", path=storage_path)],
+            locations=[models.LocationInput(shelf="managed", path=plan.storage_path)],
             dedupe=entry.dedupe,
         )
 
@@ -547,7 +545,8 @@ class AsyncActivity:
     ) -> list[RegistrationSuccess]:
         if atomic and len(items) > _MAX_REGISTRATION_BATCH:
             raise ValueError(f"atomic registrations are limited to {_MAX_REGISTRATION_BATCH} items")
-        chunk_size = _MAX_REGISTRATION_BATCH if not atomic else max(len(items), 1)
+        # An atomic batch always goes in one request.
+        chunk_size = max(len(items), 1) if atomic else _MAX_REGISTRATION_BATCH
         successful: list[RegistrationSuccess] = []
         failures: list[RegistrationFailure] = []
         envelope = _activity_envelope(

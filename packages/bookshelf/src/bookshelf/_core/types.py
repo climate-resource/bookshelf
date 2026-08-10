@@ -38,6 +38,20 @@ class ApiRequest:
     content: bytes | None = None
     absolute_url: str | None = None
 
+    @property
+    def target(self) -> str:
+        """The URL or path to send to."""
+        return self.absolute_url if self.absolute_url is not None else self.path
+
+    @property
+    def unauthenticated(self) -> bool:
+        """Whether the request bypasses the API credential.
+
+        An absolute URL targets object storage,
+        so forwarding the API credential would leak it to a third party.
+        """
+        return self.absolute_url is not None
+
 
 @dataclass(frozen=True, slots=True)
 class ApiResponse:
@@ -51,6 +65,11 @@ class ApiResponse:
     def media_type(self) -> str:
         content_type = self.headers.get("content-type", "")
         return content_type.split(";")[0].strip().lower()
+
+    @property
+    def is_success(self) -> bool:
+        """Whether the status is 2xx, matching ``httpx.Response.is_success``."""
+        return 200 <= self.status_code < 300
 
 
 @dataclass(frozen=True, slots=True)

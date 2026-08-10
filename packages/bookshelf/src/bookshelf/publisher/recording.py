@@ -54,7 +54,13 @@ class _PreparedRegistration:
 
 
 class RecordedResource(Resource):
-    """Local resource handle returned by a recording activity."""
+    """Local resource handle returned by a recording activity.
+
+    The handle mirrors what a live registration returns,
+    so it carries no name of its own.
+    A resource's name belongs to the bundle manifest,
+    which is what replay reads.
+    """
 
     def __init__(
         self,
@@ -64,7 +70,6 @@ class RecordedResource(Resource):
         resource_type: models.ResourceType,
         hash_: str,
         *,
-        name: str | None = None,
         visibility: models.Visibility = models.Visibility.hidden,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
@@ -78,7 +83,6 @@ class RecordedResource(Resource):
             metadata=models.ResourceRead(
                 tracking_id=tracking_id,
                 type=resource_type,
-                name=name,
                 hash=hash_,
                 visibility=visibility,
                 tags=list(tags),
@@ -188,7 +192,6 @@ class RecordingActivity(Activity):
             resource_id,
             resource_type,
             materialised.hash,
-            name=name,
             visibility=resource_visibility,
             tags=tags,
             metadata=metadata,
@@ -227,11 +230,7 @@ class RecordingActivity(Activity):
             ]
 
         prepared = [self._prepare_registration(entry) for entry in entries]
-        merged_used = list(self._used)
-        for value in used:
-            reference = _bundle_used_ref(value)
-            if reference not in merged_used:
-                merged_used.append(reference)
+        merged_used = _merged_used_refs(self._used, used)
 
         previous_count = len(self._bundle.manifest.resources)
         with tempfile.TemporaryDirectory(prefix="bookshelf-record-batch-") as staging_dir:
@@ -284,7 +283,6 @@ class RecordingActivity(Activity):
                 item.resource_id,
                 item.resource_type,
                 item.materialised.hash,
-                name=item.entry.name,
                 visibility=item.visibility,
                 tags=item.entry.tags,
                 metadata=item.entry.metadata,
@@ -348,10 +346,7 @@ class RecordingActivity(Activity):
 
         Resources already recorded keep the inputs they were registered with.
         """
-        for value in values:
-            reference = _bundle_used_ref(value)
-            if reference not in self._used:
-                self._used.append(reference)
+        self._used = _merged_used_refs(self._used, values)
 
     def _bundle_activity(self) -> BundleActivity:
         return BundleActivity(
@@ -628,7 +623,6 @@ class RecordingSink:
             resource_id,
             models.ResourceType.document,
             materialised.hash,
-            name=name,
             visibility=self.default_visibility,
             metadata=metadata,
         )
@@ -680,6 +674,19 @@ def _bundle_used_ref(value: UsedInput) -> BundleUsedRef:
     return BundleUsedRef(name=reference.resource_name)
 
 
+def _merged_used_refs(
+    existing: Sequence[BundleUsedRef],
+    values: Sequence[UsedInput],
+) -> list[BundleUsedRef]:
+    """Return ``existing`` extended with the references ``values`` adds, keeping first-seen order."""
+    merged = list(existing)
+    for value in values:
+        reference = _bundle_used_ref(value)
+        if reference not in merged:
+            merged.append(reference)
+    return merged
+
+
 def _record_pointer(
     bundle: Bundle,
     client: BookshelfClient,
@@ -725,7 +732,6 @@ def _record_pointer(
         resource_id,
         resource_type,
         resource_hash,
-        name=name,
         visibility=resource_visibility,
         tags=tags,
         metadata=metadata,

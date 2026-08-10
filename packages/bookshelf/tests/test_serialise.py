@@ -9,11 +9,14 @@ it.
 
 import hashlib
 import io
+import sys
 from pathlib import Path
 
 import polars as pl
 import pytest
 
+from bookshelf._core.errors import BookshelfError
+from bookshelf._core.frames import DataFrameSupportError
 from bookshelf._produce.serialise import SerialisedObject, serialise
 
 
@@ -136,3 +139,21 @@ def test_serialise_path_infers_format_from_suffix(tmp_path: Path) -> None:
         p = tmp_path / name
         p.write_bytes(b"payload")
         assert serialise(p, type="tabular").format == expected, name
+
+
+def test_a_missing_dataframes_extra_is_reported_as_a_bookshelf_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A caller catching BookshelfError should not have to catch ImportError as well.
+
+    The consume side already reports a missing extra this way,
+    so the produce side names the same extra with the same type.
+    """
+    monkeypatch.setitem(sys.modules, "pyarrow.parquet", None)
+
+    with pytest.raises(DataFrameSupportError) as raised:
+        serialise(_frame(), type="timeseries")
+
+    assert isinstance(raised.value, BookshelfError)
+    assert "Serialising a DataFrame requires the 'dataframes' extra" in str(raised.value)
+    assert "pip install 'bookshelf[dataframes]'" in str(raised.value)

@@ -199,7 +199,7 @@ and `used=[primap]` cites the original rather than a copy of it.
 
 ## Versioning
 
-The bookshelf uses a composite versioning format to support a variaty of different use-cases.
+The bookshelf uses a composite versioning format to support a variety of different use-cases.
 This flexibility can also be a bit confusing as it can be interpreted in a few different ways.
 
 ### The version
@@ -211,9 +211,10 @@ The version should refer to the upstream release of a dataset if applicable.
 
 The edition is an auto-incrementing integer for each time a version is reprocessed.
 The value is determined by the server which is why it isn't included in the recipe.
-It advances when the data changes so the latest edition may differ between books and the exact value mean anything.
+It advances when the data changes,
+so the latest edition may differ between books and the exact value does not mean anything on its own.
 
-Publishing the a unchanged book is idempotent resulting in an unchanged edition.
+Publishing an unchanged book is idempotent, resulting in an unchanged edition.
 
 ## The build script
 
@@ -240,4 +241,4 @@ while preserving the lower level functionality for more complex workflows.
 - Volume metadata beyond `keywords` is meant to roll up into search.
   The mechanism is not designed yet.
 - Does changing the discovery information trigger a new edition?
-  Its pretty much free as we dedupicate data
+  It is pretty much free because we deduplicate data.

@@ -2,18 +2,12 @@
 
 `bookshelf` is the official Python SDK for the Bookshelf data platform.
 It supports synchronous and asynchronous data access,
-managed resource publishing,
-record and replay workflows,
-and command line authentication and discovery.
+managed resource publishing, record and replay workflows, and command line authentication and discovery.
 
 [![PyPI](https://img.shields.io/pypi/v/bookshelf.svg)](https://pypi.org/project/bookshelf/)
 [![Python](https://img.shields.io/pypi/pyversions/bookshelf.svg)](https://pypi.org/project/bookshelf/)
 [![CI](https://github.com/climate-resource/bookshelf/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/climate-resource/bookshelf/actions/workflows/ci.yaml)
 [![Licence](https://img.shields.io/pypi/l/bookshelf?label=licence)](https://github.com/climate-resource/bookshelf/blob/main/LICENCE)
-
-This migration replaces the legacy Bookshelf consumer library.
-The retired `bookshelf-producer` distribution is not part of the workspace.
-Its publishing capabilities now live in the `bookshelf` SDK.
 
 ## Installation
 
@@ -42,18 +36,15 @@ with Bookshelf() as bs:
 ```
 
 See the [package README](packages/bookshelf/README.md) for consuming,
-publishing,
-authentication,
-code generation,
-and development instructions.
+publishing, authentication, and code generation.
 
 ## Development
 
-Install the locked workspace and run its checks:
-
 ```bash
-uv sync --python 3.12 --all-extras --dev --locked
+make virtual-environment
 make test
-uv run ruff check packages/bookshelf
-uv run ruff format --check packages/bookshelf
+make checks
 ```
+
+See [docs/development.md](docs/development.md) for the bundle goldens,
+strict type checking, and regenerating the model core.

@@ -21,8 +21,7 @@ def wide_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
         if not dimensions:
             return frame.set_index("year")["value"].to_frame().T
         return frame.pivot(index=dimensions, columns="year", values="value")
-    year_columns = [column for column in frame.columns if str(column).isdigit()]
-    dimensions = [column for column in frame.columns if column not in year_columns]
+    dimensions = [column for column in frame.columns if not str(column).isdigit()]
     if dimensions:
         return frame.set_index(dimensions)
     return frame

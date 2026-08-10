@@ -10,7 +10,12 @@ import pytest
 
 from bookshelf._generated import models
 from bookshelf.facade import Bookshelf
-from bookshelf.publisher.bundle import Bundle, BundleBook, compute_book_bundle_hash
+from bookshelf.publisher.bundle import (
+    Bundle,
+    BundleBook,
+    InvalidBundleError,
+    compute_book_bundle_hash,
+)
 from bookshelf.publisher.publish import publish_bundle
 from tests import _core_payloads as payloads
 
@@ -191,7 +196,7 @@ def test_a_bundle_without_book_framing_is_refused(tmp_path: Path) -> None:
     bundle.write()
     recorded: list[httpx.Request] = []
 
-    with _client(recorded) as client, pytest.raises(ValueError, match="no book framing"):
+    with _client(recorded) as client, pytest.raises(InvalidBundleError, match="no book framing"):
         publish_bundle(bundle, client)
 
     assert recorded == []

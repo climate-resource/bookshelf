@@ -12,6 +12,18 @@ from platformdirs import user_cache_dir
 
 DEFAULT_MAX_BYTES = 5 * 1024**3
 
+_DIGEST_LENGTH = hashlib.sha256().digest_size * 2
+_HEX_DIGITS = frozenset("0123456789abcdef")
+
+
+def _is_digest(name: str) -> bool:
+    """Report whether ``name`` is a bare lower case sha256 digest.
+
+    Naming an entry and recognising one on disk have to agree,
+    otherwise a stored file is invisible to the summary, the eviction and the clear.
+    """
+    return len(name) == _DIGEST_LENGTH and _HEX_DIGITS.issuperset(name)
+
 
 def default_cache_dir() -> Path:
     """Return the cache directory: ``$BOOKSHELF_CACHE_DIR``, or the platform default."""
@@ -75,13 +87,8 @@ class ContentCache:
         # Only digest-named files count as entries.
         # Prune and clear therefore never touch foreign files
         # in a user-supplied cache directory.
-        digest_length = hashlib.sha256().digest_size * 2
         return [
-            path
-            for path in self.base_dir.iterdir()
-            if path.is_file()
-            and len(path.name) == digest_length
-            and all(character in "0123456789abcdef" for character in path.name)
+            path for path in self.base_dir.iterdir() if path.is_file() and _is_digest(path.name)
         ]
 
     def summary(self) -> CacheSummary:
@@ -103,15 +110,17 @@ class ContentCache:
         ``max_bytes`` overrides the configured cap for this eviction only.
         """
         cap = self.max_bytes if max_bytes is None else max_bytes
-        entries = sorted(self._entries(), key=lambda path: path.stat().st_mtime)
-        total = sum(path.stat().st_size for path in entries)
+        entries = sorted(
+            ((path, path.stat()) for path in self._entries()),
+            key=lambda entry: entry[1].st_mtime,
+        )
+        total = sum(stat.st_size for _, stat in entries)
         freed = 0
-        for path in entries:
+        for path, stat in entries:
             if total - freed <= cap:
                 break
-            size = path.stat().st_size
             path.unlink()
-            freed += size
+            freed += stat.st_size
         return freed
 
     def clear(self) -> int:
@@ -124,17 +133,13 @@ class ContentCache:
 
     def _path_for(self, content_hash: str) -> Path:
         algorithm, separator, digest = content_hash.partition(":")
-        if (
-            algorithm != "sha256"
-            or not separator
-            or len(digest) != hashlib.sha256().digest_size * 2
-        ):
+        if algorithm != "sha256" or not separator or len(digest) != _DIGEST_LENGTH:
             raise ValueError(f"unsupported content hash {content_hash!r}")
-        try:
-            int(digest, 16)
-        except ValueError as exc:
-            raise ValueError(f"invalid content hash {content_hash!r}") from exc
-        return self.base_dir / digest.lower()
+        # Upper case is normalised, so validate the name this actually stores under.
+        name = digest.lower()
+        if not _is_digest(name):
+            raise ValueError(f"invalid content hash {content_hash!r}")
+        return self.base_dir / name
 
 
 __all__ = ["CacheSummary", "ContentCache", "DEFAULT_MAX_BYTES", "default_cache_dir"]

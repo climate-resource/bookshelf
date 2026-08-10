@@ -344,6 +344,18 @@ def test_parse_create_volume_restores_the_utc_wire_invariant() -> None:
     assert volume.updated_at.tzinfo is not None
 
 
+def test_parse_list_resources_restores_the_utc_wire_invariant() -> None:
+    """The list path has to restore UTC just as ``parse_get_resource`` does."""
+    naive = dict(
+        payloads.RESOURCE_READ, created_at="2026-01-01T00:00:00", updated_at="2026-01-01T00:00:00"
+    )
+
+    listed = ops.parse_list_resources(payloads.json_response(200, {"items": [naive]}))
+
+    assert listed.items[0].created_at.tzinfo is not None
+    assert listed.items[0].updated_at.tzinfo is not None
+
+
 def test_parse_put_presigned_returns_etag() -> None:
     assert ops.parse_put_presigned(payloads.empty_response(200, {"etag": '"p1"'})) == '"p1"'
     with pytest.raises(errors.ServerError):

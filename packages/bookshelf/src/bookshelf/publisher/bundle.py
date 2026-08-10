@@ -209,6 +209,17 @@ class BundleResource(BaseModel):
     generated: bool = False
     used: list[BundleUsedRef] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def _a_pointer_records_its_target(self) -> BundleResource:
+        """Hold the pointer invariant here, so a reader never has to re-derive it.
+
+        A pointer exists to name bytes the platform must not re-host,
+        so one without an ``external_uri`` names nothing and could never be replayed.
+        """
+        if self.kind == "pointer" and self.external_uri is None:
+            raise ValueError("a pointer resource records the external_uri it points at")
+        return self
+
 
 class BundleActivity(BaseModel):
     """The activity envelope recorded in the bundle manifest.
@@ -504,27 +515,18 @@ def compute_book_bundle_hash(manifest: BundleManifest) -> str:
     return hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
 
 
-def _sort_recursive(obj: Any) -> Any:  # noqa: ANN401
-    """Recursively sort every mapping by key, preserving list order."""
-    if isinstance(obj, dict):
-        return {k: _sort_recursive(v) for k, v in sorted(obj.items())}
-    if isinstance(obj, list):
-        return [_sort_recursive(item) for item in obj]
-    return obj
-
-
 def _dump_sorted_yaml(model: BaseModel) -> bytes:
     """Serialise a manifest model to deterministic YAML bytes (LF, UTF-8).
 
     Output is byte-identical across runs with unchanged inputs.
     It omits ``None`` values,
-    sorts every mapping by key,
+    sorts every mapping by key at every level,
     preserves list order,
     carries no timestamps,
     and never line-wraps.
     """
     text = yaml.dump(
-        _sort_recursive(model.model_dump(mode="json", exclude_none=True)),
+        model.model_dump(mode="json", exclude_none=True),
         allow_unicode=True,
         default_flow_style=False,
         sort_keys=True,
@@ -701,23 +703,21 @@ class Bundle:
         self.resources_dir.mkdir(parents=True, exist_ok=True)
         byte_path = self.resources_dir / resource_filename(hash_, type_)
         byte_path.write_bytes(data)
-        record = BundleResource(
+        return self._append(
             tracking_id=tracking_id,
-            hash=hash_,
-            type=type_,
+            hash_=hash_,
+            type_=type_,
             kind="managed",
             name=name,
-            format=format_,
+            format_=format_,
             visibility=visibility,
-            tags=list(tags or []),
-            metadata=dict(metadata or {}),
+            tags=tags,
+            metadata=metadata,
             dedupe=dedupe,
             size=len(data),
             generated=generated,
-            used=list(used) if used is not None else [],
+            used=used,
         )
-        self.manifest.resources.append(record)
-        return record
 
     def add_pointer(
         self,
@@ -746,16 +746,56 @@ class Bundle:
         Returns the appended :class:`BundleResource`.
         """
         _sha256_hex(hash_)  # validate canonical shape. Pointers carry no byte file
+        return self._append(
+            tracking_id=tracking_id,
+            hash_=hash_,
+            type_=type_,
+            kind="pointer",
+            name=name,
+            visibility=visibility,
+            tags=tags,
+            metadata=metadata,
+            dedupe=dedupe,
+            external_uri=external_uri,
+            generated=generated,
+            used=used,
+        )
+
+    def _append(
+        self,
+        *,
+        tracking_id: UUID,
+        hash_: str,
+        type_: str,
+        kind: Literal["managed", "pointer"],
+        name: str | None,
+        visibility: str,
+        tags: list[str] | None,
+        metadata: dict[str, Any] | None,
+        dedupe: bool,
+        generated: bool,
+        used: list[BundleUsedRef] | None,
+        format_: str | None = None,
+        size: int | None = None,
+        external_uri: str | None = None,
+    ) -> BundleResource:
+        """Build one manifest record and append it, so both variants share one shape.
+
+        ``size`` and ``format_`` stay unset for a pointer,
+        and ``external_uri`` stays unset for a managed resource.
+        """
         record = BundleResource(
             tracking_id=tracking_id,
             hash=hash_,
             type=type_,
-            kind="pointer",
+            kind=kind,
             name=name,
+            format=format_,
             visibility=visibility,
             tags=list(tags or []),
             metadata=dict(metadata or {}),
             dedupe=dedupe,
+            size=size,
             external_uri=external_uri,
             generated=generated,
             used=list(used or []),

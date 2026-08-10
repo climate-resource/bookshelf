@@ -1,6 +1,5 @@
 """``bookshelf search`` and ``bookshelf show``: what exists, and what one address is."""
 
-import re
 from typing import Any
 
 import typer
@@ -18,10 +17,8 @@ from bookshelf._cli._runtime import (
 )
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import resolve_base_url
+from bookshelf._core.names import version_key
 from bookshelf._generated import models
-
-_LEADING_DIGITS = re.compile(r"^([0-9]+)(.*)$")
-_ASCII_DIGITS = re.compile(r"^[0-9]+$")
 
 
 def search(
@@ -73,9 +70,7 @@ def search(
             if json_output:
                 emit_json(_volume_row(item))
             else:
-                title = (
-                    item.discovery.title.root if item.discovery and item.discovery.title else ""
-                ) or ""
+                title = item.discovery.title.root if item.discovery and item.discovery.title else ""
                 latest = _latest_label(item.latest_version, item.latest_edition)
                 emit(f"{item.name:<24} {title:<40} {latest}")
 
@@ -118,7 +113,7 @@ def _emit_facets(catalogue: models.VolumeFacets, json_output: bool) -> None:
     for label in ("topics", "keywords", "regions", "publishers", "licences", "types"):
         values = document[label]
         assert isinstance(values, list)
-        emit(field(label.rstrip("s") if label != "types" else "type", ", ".join(values)))
+        emit(field(label.removesuffix("s"), ", ".join(values)))
     if catalogue.coverage_start_year is not None or catalogue.coverage_end_year is not None:
         emit(
             field(
@@ -222,37 +217,7 @@ def _resolve_book(client: BookshelfClient, parsed: Address) -> models.BookListIt
 
 
 def _book_order(item: models.BookListItem) -> tuple[Any, ...]:
-    return (_version_key(item.version), item.edition)
-
-
-def _identifier_key(identifier: str) -> tuple[int, int, str]:
-    if _ASCII_DIGITS.fullmatch(identifier):
-        return (0, int(identifier), "")
-    return (1, 0, identifier.casefold())
-
-
-def _version_key(version: str) -> tuple[Any, ...]:
-    """Return a total SemVer-like ordering key for upstream version labels."""
-    text = version.strip().removeprefix("v").split("+", 1)[0]
-    core, _, prerelease = text.partition("-")
-    identifiers = [part for part in prerelease.split(".") if part] if prerelease else []
-    core_key: list[tuple[int, int, str]] = []
-    for segment in core.split("."):
-        match = _LEADING_DIGITS.match(segment)
-        if match is None:
-            core_key.append((1, 0, segment.casefold()))
-            continue
-        core_key.append((0, int(match.group(1)), ""))
-        if match.group(2):
-            identifiers.insert(0, match.group(2).lstrip("-."))
-
-    while core_key and core_key[-1] == (0, 0, ""):
-        core_key.pop()
-
-    prerelease_key: tuple[Any, ...] = (
-        (1,) if not identifiers else (0, tuple(_identifier_key(part) for part in identifiers))
-    )
-    return (tuple(core_key), prerelease_key)
+    return (version_key(item.version), item.edition)
 
 
 def _show_book(detail: models.BookResponse, label: str, json_output: bool) -> None:

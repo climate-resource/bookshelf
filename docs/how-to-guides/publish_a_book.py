@@ -172,9 +172,12 @@ output.tracking_id
 # `used=` records the inputs this output was derived from.
 # A bare string or UUID is read as a tracking id,
 # a handle like the `BookEntry` above supplies its own,
-# and `Used(name=...)` resolves by the name another resource in the same registration request was given.#
-# Replay does not resolve these references again,
-# so the published edition's lineage is exactly what this notebook expressed.
+# and `Used(name=...)` resolves by the name another resource in the same registration request was given.
+#
+# Replay resolves each reference again against what it actually registered,
+# because the server may answer a registration with a resource it already holds.
+# The recorded reference is this notebook's claim about its inputs,
+# and the published edge names the resource that claim resolved to.
 
 # %% [markdown]
 # ## Attaching and marking for publication

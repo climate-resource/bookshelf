@@ -457,8 +457,6 @@ def _params(**candidates: object) -> dict[str, str | int | bool | list[str]]:
             continue
         if isinstance(value, bool | int | str):
             params[name] = value
-        elif isinstance(value, UUID):
-            params[name] = str(value)
         elif isinstance(value, Sequence):
             params[name] = [str(item) for item in value]
         else:
@@ -551,7 +549,7 @@ def build_put_presigned(url: str, content: bytes, *, content_type: str | None = 
 
 def parse_put_presigned(response: ApiResponse) -> str | None:
     """Return the part ETag object storage answered with."""
-    if response.status_code // 100 != 2:
+    if not response.is_success:
         raise errors.error_from_response(response, declared=False, request_method="PUT")
     return response.headers.get("etag")
 
@@ -711,7 +709,7 @@ def build_get_url(url: str) -> ApiRequest:
 
 def parse_get_url(response: ApiResponse) -> bytes:
     """Return successful content bytes from an API-issued URL."""
-    if response.status_code // 100 != 2:
+    if not response.is_success:
         raise errors.error_from_response(response, declared=False, request_method="GET")
     return response.content
 
@@ -875,7 +873,10 @@ def build_list_resources(
 
 def parse_list_resources(response: ApiResponse) -> models.ResourceListResponse:
     _check(LIST_RESOURCES, response)
-    return models.ResourceListResponse.model_validate_json(response.content)
+    payload = json.loads(response.content)
+    for item in payload.get("items", []):
+        _restore_utc_fields(item, ("created_at", "updated_at"))
+    return models.ResourceListResponse.model_validate(payload)
 
 
 def build_get_resource(tracking_id: str | UUID, *, as_of: str | None = None) -> ApiRequest:

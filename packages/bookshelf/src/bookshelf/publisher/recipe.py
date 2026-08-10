@@ -44,6 +44,42 @@ _TOP_LEVEL_KEYS = ("volume", "defaults", "build", "books")
 # Any of them at the top level means the recipe was written against the shape that no longer loads.
 _REMOVED_FLAT_KEYS = ("collection", "license", "authors", "notebook", "visibility")
 
+# A key that used to sit in one section and now sits somewhere else, with the move an author makes.
+# These are checked before the sections validate,
+# so an upgrading feedstock is told where its key went
+# rather than only that the section forbids it.
+_MOVED_KEYS = (
+    (
+        "volume",
+        "license",
+        "A licence is stated per book, so move it onto every book under 'books:'",
+    ),
+    (
+        "volume",
+        "discovery",
+        "Catalogue metadata is defaulted for the whole recipe, "
+        "so move the fields under it straight into 'defaults:'",
+    ),
+    (
+        "volume",
+        "topics",
+        "Topics are gone, because they never named a curated set "
+        "and nothing distinguished one from a keyword. Use 'keywords:'",
+    ),
+    (
+        "build",
+        "visibility",
+        "Visibility is a fact about a book rather than about how it is built, "
+        "so move it to 'defaults:' or onto the books it applies to",
+    ),
+    (
+        "defaults",
+        "discovery",
+        "The discovery fields sit flat, the same way they sit on a book, "
+        "so move the fields under it up one level",
+    ),
+)
+
 
 class _Section(BaseModel):
     """Base for every recipe section: unknown keys are rejected, and the result is immutable."""
@@ -604,40 +640,12 @@ def load_record_recipe(path: Path) -> RecordRecipe:
         raise BookshelfError(f"{path} declares no volume. Add 'volume:' with a 'name:' under it")
 
     volume_raw = raw.get("volume")
-    if isinstance(volume_raw, dict):
-        if "license" in volume_raw:
-            raise BookshelfError(
-                f"{path} declares 'license' under 'volume:'. "
-                "A licence is stated per book, so move it onto every book under 'books:'"
-            )
-        if "discovery" in volume_raw:
-            raise BookshelfError(
-                f"{path} declares 'discovery' under 'volume:'. "
-                "Catalogue metadata is defaulted for the whole recipe, "
-                "so move the fields under it straight into 'defaults:'"
-            )
-        if "topics" in volume_raw:
-            raise BookshelfError(
-                f"{path} declares 'topics' under 'volume:'. "
-                "Topics are gone, because they never named a curated set "
-                "and nothing distinguished one from a keyword. Use 'keywords:'"
-            )
-
     build_raw = raw.get("build")
-    if isinstance(build_raw, dict) and "visibility" in build_raw:
-        raise BookshelfError(
-            f"{path} declares 'visibility' under 'build:'. "
-            "Visibility is a fact about a book rather than about how it is built, "
-            "so move it to 'defaults:' or onto the books it applies to"
-        )
-
     defaults_raw = raw.get("defaults")
-    if isinstance(defaults_raw, dict) and "discovery" in defaults_raw:
-        raise BookshelfError(
-            f"{path} declares 'discovery' under 'defaults:'. "
-            "The discovery fields sit flat, the same way they sit on a book, "
-            "so move the fields under it up one level"
-        )
+    for section, key, advice in _MOVED_KEYS:
+        body = raw.get(section)
+        if isinstance(body, dict) and key in body:
+            raise BookshelfError(f"{path} declares {key!r} under '{section}:'. {advice}")
 
     defaults = _section(DefaultsSection, defaults_raw, path=path, where="defaults")
     books = []

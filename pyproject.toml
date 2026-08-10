@@ -52,7 +52,7 @@ members = ["packages/*"]
 bookshelf = { workspace = true }
 
 [tool.coverage.run]
-source = ["src", "packages"]
+source = ["packages"]
 branch = true
 
 [tool.coverage.report]
@@ -84,14 +84,11 @@ exclude = [
 ]
 
 [tool.pytest.ini_options]
-addopts = [
-    "--import-mode=importlib",
-    "--ignore=packages/bookshelf/hatch_build.py"
-]
+addopts = ["--import-mode=importlib"]
 
 [tool.towncrier]
 package = "bookshelf"
-package_dir = "src"
+package_dir = "packages/bookshelf/src"
 filename = "docs/changelog.md"
 directory = "changelog/"
 title_format = "## bookshelf {version} ({project_date})"

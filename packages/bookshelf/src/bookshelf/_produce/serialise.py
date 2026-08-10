@@ -30,6 +30,7 @@ import io
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NamedTuple
 
+from bookshelf._core.frames import require_extra
 from bookshelf._core.hashing import sha256_hex
 
 if TYPE_CHECKING:
@@ -133,13 +134,7 @@ def _dataframe_to_parquet(df: Any) -> bytes:
     Requires the optional ``dataframes`` extra (``polars`` / ``pandas`` /
     ``pyarrow``).
     """
-    try:
-        import pyarrow.parquet as pq
-    except ImportError as exc:
-        raise ImportError(
-            "Serialising a DataFrame requires the optional 'dataframes' extra. "
-            "Install bookshelf[dataframes] to enable it."
-        ) from exc
+    pq = require_extra("pyarrow.parquet", "Serialising a DataFrame")
 
     table = _to_arrow_table(df)
     buf = io.BytesIO()

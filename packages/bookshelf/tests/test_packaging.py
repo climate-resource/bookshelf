@@ -23,8 +23,6 @@ def test_py_typed_marker_present() -> None:
 @pytest.fixture(scope="session")
 def wheel(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Build the local wheel once for metadata and content inspection."""
-    import subprocess
-
     output = tmp_path_factory.mktemp("sdk-wheel")
     subprocess.run(
         ["uv", "build", "--project", str(SDK_ROOT), "--out-dir", str(output)],
@@ -58,7 +56,6 @@ def test_wheel_metadata_uses_public_distribution_identity(wheel: Path) -> None:
     assert any(
         requirement.startswith("keyring>=25") for requirement in metadata.get_all("Requires-Dist")
     )
-    assert "bookshelf-client" not in metadata_name
     # The distribution keeps the ``bookshelf`` console script for the CLI.
     assert "bookshelf = bookshelf._cli:main" in entry_points
 

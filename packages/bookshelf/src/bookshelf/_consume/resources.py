@@ -677,7 +677,9 @@ class AsyncBookEntry(AsyncResource):
         return timeseries_frame(response)
 
     def _repr_html_(self) -> str:
-        resource_type = self.entry.type.value if self.entry.type is not None else "unknown"
+        # Read the handle's own type, not the entry's.
+        # A book entry may arrive without one, and only the handle learns it from the metadata.
+        resource_type = self._resource_type.value if self._resource_type is not None else "unknown"
         return summary_table(
             "Bookshelf Async Book Entry",
             {

@@ -24,6 +24,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 import httpx
 
 from bookshelf._core.auth import error_detail
+from bookshelf._core.errors import BookshelfError
 
 # Public WorkOS client IDs are safe to hardcode
 # for PKCE and device-code apps.
@@ -144,8 +145,14 @@ def _render_callback_page(*, success: bool, detail: str = "") -> bytes:
 </html>""".encode()
 
 
-class OAuthError(Exception):
-    """Error during an OAuth authentication flow."""
+class OAuthError(BookshelfError):
+    """Error during an OAuth authentication flow.
+
+    Covers the flow itself rather than one HTTP response,
+    so it carries no status code and no OAuth error code.
+    A token endpoint that answers with an ``{"error": ...}`` body
+    raises :class:`~bookshelf._core.errors.OAuthProtocolError` instead.
+    """
 
 
 def is_staging_api_url(api_url: str) -> bool:
@@ -214,6 +221,10 @@ def _find_available_port() -> int:
     """Bind-probe the callback port range and return the first free port."""
     for port in range(_CALLBACK_PORT_MIN, _CALLBACK_PORT_MAX + 1):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            # Match the callback server, which sets this through allow_reuse_address.
+            # Without it the probe rejects a port left in TIME_WAIT by a recent login
+            # that the server itself would bind quite happily.
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
                 sock.bind(("127.0.0.1", port))
                 return port

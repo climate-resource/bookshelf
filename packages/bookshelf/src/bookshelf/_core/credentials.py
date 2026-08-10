@@ -63,10 +63,6 @@ class StoredCredentials:
     organization_id: str | None = None
     claimed: bool | None = None
 
-    @property
-    def key(self) -> str:
-        return record_key(self.api_url, self.kind)
-
     def with_token(
         self,
         access_token: str,
@@ -267,13 +263,6 @@ def active_kinds() -> dict[str, CredentialKind]:
     return {key: kind for key, kind in parsed.items() if kind is not None}
 
 
-def default_api_url() -> str | None:
-    """Return the default deployment, or ``None`` when nothing is stored."""
-    store = _read_store()
-    value = store.get("default_api_url")
-    return value if isinstance(value, str) else None
-
-
 def save_credentials(
     access_token: str,
     *,
@@ -431,7 +420,6 @@ __all__ = [
     "active_kinds",
     "clear_credentials",
     "credentials_path",
-    "default_api_url",
     "list_credentials",
     "load_credentials",
     "normalise_api_url",

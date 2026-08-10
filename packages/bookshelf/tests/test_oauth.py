@@ -1,11 +1,74 @@
 """Tests for the WorkOS OAuth flows (``bookshelf._core.oauth``)."""
 
+import socket
 from urllib.parse import parse_qsl, urlparse
 
 import httpx
 import pytest
 
+from bookshelf._core import errors
 from bookshelf._core import oauth as _oauth
+
+
+def test_oauth_error_is_a_bookshelf_error() -> None:
+    """One ``except BookshelfError`` around a login has to catch every flow failure.
+
+    ``OAuthError`` describes the flow rather than one HTTP response,
+    so it stays outside the ``APIError`` tree that ``OAuthProtocolError`` belongs to.
+    """
+    assert issubclass(_oauth.OAuthError, errors.BookshelfError)
+    assert not issubclass(_oauth.OAuthError, errors.APIError)
+    assert issubclass(errors.OAuthProtocolError, errors.APIError)
+
+    with pytest.raises(errors.BookshelfError):
+        raise _oauth.OAuthError("state mismatch")
+
+
+def test_port_probe_accepts_a_port_left_in_time_wait(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A recent login must not lock the next one out of the callback range.
+
+    The probe has to agree with the callback server,
+    which sets ``SO_REUSEADDR`` through ``allow_reuse_address``
+    and so binds a ``TIME_WAIT`` port quite happily.
+    The port is claimed and retired inside the test rather than waited for,
+    so nothing here depends on timing or on the real callback range being free.
+    """
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind(("127.0.0.1", 0))
+    server.listen(1)
+    port = server.getsockname()[1]
+
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client.connect(("127.0.0.1", port))
+    accepted, _ = server.accept()
+    accepted.close()  # closing the server side first puts this port into TIME_WAIT
+    client.close()
+    server.close()
+
+    monkeypatch.setattr(_oauth, "_CALLBACK_PORT_MIN", port)
+    monkeypatch.setattr(_oauth, "_CALLBACK_PORT_MAX", port)
+
+    assert _oauth._find_available_port() == port
+
+
+def test_port_probe_skips_a_port_that_is_still_listening(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Reusing a ``TIME_WAIT`` port must not extend to stealing a live one."""
+    live = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    live.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    live.bind(("127.0.0.1", 0))
+    live.listen(1)
+    taken = live.getsockname()[1]
+    monkeypatch.setattr(_oauth, "_CALLBACK_PORT_MIN", taken)
+    monkeypatch.setattr(_oauth, "_CALLBACK_PORT_MAX", taken)
+
+    try:
+        with pytest.raises(_oauth.OAuthError, match="No available ports"):
+            _oauth._find_available_port()
+    finally:
+        live.close()
 
 
 @pytest.fixture(autouse=True)

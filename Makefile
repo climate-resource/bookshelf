@@ -56,17 +56,6 @@ test-golden-update:  ## rewrite the bundle goldens after an intended format chan
 .PHONY: test
 test: test-sdk  ## run the tests
 
-
-# Note on code coverage and testing:
-# You must specify cov=src as otherwise funny things happen when doctests are
-# involved.
-# If you want to debug what is going on with coverage, we have found
-# that adding COVERAGE_DEBUG=trace to the front of the below command
-# can be very helpful as it shows you if coverage is tracking the coverage
-# of all of the expected files or not.
-# We are sure that the coverage maintainers would appreciate a PR that improves
-# the coverage handling when there are doctests and a `src` layout like ours.
-
 .PHONY: docs
 docs:  ## build the docs
 	uv run mkdocs build

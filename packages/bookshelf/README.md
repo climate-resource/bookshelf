@@ -51,14 +51,14 @@ and `list_books()` returns every book in one volume with versions ordered numeri
 Both are available on either facade, and neither needs credentials for public data.
 
 ```python
+from bookshelf import Bookshelf
+
 with Bookshelf() as bs:
     found = bs.search_volumes("emissions", deprecated=False)
     books = bs.list_books("primap-hist")
 ```
 
 ```python
-from bookshelf import Bookshelf
-
 with Bookshelf() as bs:
     entry = bs.book("rcmip-emissions", "v5.1.0")["magicc"]
     frame = entry.as_df(
@@ -101,7 +101,7 @@ Managed resources are produced only inside an activity.
 The activity derives a stable config hash, records runtime provenance, materialises the object,
 and sends explicit Usage and Generation lineage to the API.
 Bare strings and UUIDs in `used=` are tracking ids.
-Use `Used(logical_key=...)` when key based resolution is intentional.
+Use `Used(name=...)` to resolve an input by the name another resource in the same request was given.
 
 ```python
 from bookshelf import Bookshelf, Used, models
@@ -112,8 +112,8 @@ with Bookshelf() as bs:
         output = activity.register(
             transform(source.as_df()),
             type="timeseries",
-            logical_key="model/ssp245/output",
-            used=[source, Used(logical_key="model/constants")],
+            name="model/ssp245/output",
+            used=[source, Used(name="model/constants")],
         )
 
     draft = bs.draft_book("model-results", version="v1.0.0")
@@ -146,7 +146,7 @@ and each failed index with its typed `ItemError`.
 Index `-1` identifies a batch level lineage failure reported by the server.
 `RegisterItem.dedupe` defaults to true.
 Byte identical items owned by one organisation therefore collapse to the first canonical resource,
-even when later items supply a different logical key.
+even when later items supply a different name.
 Returned producer handles expose `registration_status` and `registration_outcome`,
 so callers can detect this `aliased` result.
 
@@ -217,7 +217,8 @@ When `auth=` is omitted, ambient credentials resolve in this order
 
 `auth=` also accepts a provider instance or a bare token string,
 and an explicit `auth=None` stays unauthenticated.
-`base_url` resolves as argument, then `$BOOKSHELF_API_URL`, then the production URL.
+`base_url` resolves as argument, then `$BOOKSHELF_URL`, then its alias `$BOOKSHELF_API_URL`,
+then the production URL.
 
 ### Client lifecycle in an embedded service
 

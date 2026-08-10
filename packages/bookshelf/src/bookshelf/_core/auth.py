@@ -102,6 +102,8 @@ class _RefreshingAuth(TokenProvider):
     # and defeat streamed resource downloads.
     # Only the token response is read, explicitly, inside the flow.
 
+    _token_url: str
+
     def __init__(self, *, access_token: str | None = None, expires_at: float | None = None) -> None:
         self._access_token = access_token
         if expires_at is None and access_token is not None:
@@ -166,7 +168,7 @@ class _RefreshingAuth(TokenProvider):
                 "No access token is available after a refresh.",
                 status_code=401,
                 request_method="POST",
-                request_url=str(self._refresh_request().url),
+                request_url=self._token_url,
             )
         return token
 

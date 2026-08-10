@@ -7,6 +7,7 @@ import platform
 import secrets
 import time
 from collections.abc import Mapping, Sequence
+from typing import Any
 from uuid import UUID
 
 from bookshelf._core.errors import BookshelfError
@@ -91,6 +92,35 @@ def used_ref(value: UsedInput) -> models.UsedRefByTrackingId | models.UsedRefByR
     return models.UsedRefByTrackingId(tracking_id=UUID(str(handle_tracking_id)))
 
 
+def external_item(
+    *,
+    type: str | models.ResourceType,
+    uri: str,
+    hash: str | None,
+    name: str | None,
+    visibility: models.Visibility,
+    tags: Sequence[str],
+    metadata: Mapping[str, Any] | None,
+    tracking_id: UUID | None,
+    dedupe: bool,
+) -> models.RegisterResourceItem:
+    """Build the single-item registration an external pointer becomes.
+
+    ``visibility`` is already resolved, because each surface carries its own default.
+    """
+    return models.RegisterResourceItem(
+        tracking_id=tracking_id or uuid7(),
+        type=resource_type(type),
+        hash=hash,
+        name=name,
+        visibility=visibility,
+        tags=list(tags),
+        metadata=dict(metadata or {}),
+        external_uri=uri,
+        dedupe=dedupe,
+    )
+
+
 def activity_envelope(
     *,
     activity_id: UUID,
@@ -173,6 +203,7 @@ __all__ = [
     "MAX_REGISTRATION_BATCH",
     "VisibilityInput",
     "activity_envelope",
+    "external_item",
     "paired_successes",
     "raise_partial_registration",
     "registered_resource_type",

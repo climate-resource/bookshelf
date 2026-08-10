@@ -13,6 +13,9 @@ from bookshelf._generated import models
 from bookshelf._produce.activities import Activity, AsyncActivity
 from bookshelf._produce.books import AsyncDraftBook, DraftBook
 from bookshelf._produce.helpers import (
+    external_item as _external_item,
+)
+from bookshelf._produce.helpers import (
     raise_partial_registration as _raise_partial_registration,
 )
 from bookshelf._produce.helpers import (
@@ -20,9 +23,6 @@ from bookshelf._produce.helpers import (
 )
 from bookshelf._produce.helpers import (
     registration_results as _registration_results,
-)
-from bookshelf._produce.helpers import (
-    resource_type as _resource_type,
 )
 from bookshelf._produce.helpers import (
     runner as _runner,
@@ -48,32 +48,6 @@ def _as_model[T: RootModel[str]](model: type[T], value: str | None) -> T | None:
     An omitted value stays ``None`` so it never reaches the wire.
     """
     return None if value is None else model(value)
-
-
-def _register_item(
-    *,
-    type: str | models.ResourceType,
-    uri: str,
-    hash: str | None,
-    name: str | None,
-    visibility: models.Visibility,
-    tags: Sequence[str],
-    metadata: Mapping[str, Any] | None,
-    tracking_id: UUID | None,
-    dedupe: bool,
-) -> models.RegisterResourceItem:
-    """Build the single-item registration an external pointer becomes."""
-    return models.RegisterResourceItem(
-        tracking_id=tracking_id or _uuid7(),
-        type=_resource_type(type),
-        hash=hash,
-        name=name,
-        visibility=visibility,
-        tags=list(tags),
-        metadata=dict(metadata or {}),
-        external_uri=uri,
-        dedupe=dedupe,
-    )
 
 
 _DISCOVERY_WIRE_NAMES = {"release_date": "source_release_date"}
@@ -210,7 +184,7 @@ class LiveSink:
         dedupe: bool = True,
     ) -> Resource:
         """Catalogue an external pointer without attributing it to an activity."""
-        item = _register_item(
+        item = _external_item(
             type=type,
             uri=uri,
             hash=hash,
@@ -316,7 +290,7 @@ class AsyncLiveSink:
         dedupe: bool = True,
     ) -> AsyncResource:
         """Catalogue an external pointer without attributing it to an activity."""
-        item = _register_item(
+        item = _external_item(
             type=type,
             uri=uri,
             hash=hash,

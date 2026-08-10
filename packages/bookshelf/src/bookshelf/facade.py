@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Mapping, Sequence
 from typing import Any, Self
 from uuid import UUID
@@ -21,6 +20,7 @@ from bookshelf._consume.resources import (
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import UNSET, AuthInput
 from bookshelf._core.errors import BookshelfError, NotFoundError
+from bookshelf._core.names import version_key
 from bookshelf._generated import models
 from bookshelf._produce import (
     Activity,
@@ -46,6 +46,36 @@ _PAGE_SIZE = 100
 _MAX_PAGES = 1000
 
 
+def _volume_fields(
+    description_model: type[models.Description2] | type[models.Description3],
+    *,
+    description: str | None,
+    metadata: Mapping[str, Any] | None,
+    authors: Sequence[Mapping[str, Any]] | None,
+    maintainers: Sequence[Mapping[str, Any]] | None,
+    discovery: models.DiscoveryProfile | None,
+) -> dict[str, Any]:
+    """Collect the volume fields the caller named, and only those.
+
+    Each field the API accepts replaces what is there,
+    so an omitted one has to stay off the wire rather than arrive as null.
+    Create and update wrap the description in their own generated model,
+    which is why that one arrives as an argument.
+    """
+    fields: dict[str, Any] = {}
+    if description is not None:
+        fields["description"] = description_model(root=description)
+    if metadata is not None:
+        fields["metadata"] = dict(metadata)
+    if authors is not None:
+        fields["authors"] = _people(authors)
+    if maintainers is not None:
+        fields["maintainers"] = _people(maintainers)
+    if discovery is not None:
+        fields["discovery"] = discovery
+    return fields
+
+
 def _volume_create(
     name: str,
     *,
@@ -57,18 +87,18 @@ def _volume_create(
     discovery: models.DiscoveryProfile | None,
 ) -> models.VolumeCreate:
     """Build a create request carrying the name, the licence, and whatever else was named."""
-    fields: dict[str, Any] = {"name": name, "license": license}
-    if description is not None:
-        fields["description"] = models.Description2(root=description)
-    if metadata is not None:
-        fields["metadata"] = dict(metadata)
-    if authors is not None:
-        fields["authors"] = _people(authors)
-    if maintainers is not None:
-        fields["maintainers"] = _people(maintainers)
-    if discovery is not None:
-        fields["discovery"] = discovery
-    return models.VolumeCreate(**fields)
+    return models.VolumeCreate(
+        name=name,
+        license=license,
+        **_volume_fields(
+            models.Description2,
+            description=description,
+            metadata=metadata,
+            authors=authors,
+            maintainers=maintainers,
+            discovery=discovery,
+        ),
+    )
 
 
 def _volume_update(
@@ -79,23 +109,17 @@ def _volume_update(
     maintainers: Sequence[Mapping[str, Any]] | None,
     discovery: models.DiscoveryProfile | None,
 ) -> models.VolumeUpdate:
-    """Build a patch carrying only the fields the caller named.
-
-    Each field the API accepts replaces what is there,
-    so an omitted one has to stay off the wire rather than arrive as null.
-    """
-    fields: dict[str, Any] = {}
-    if description is not None:
-        fields["description"] = models.Description3(root=description)
-    if metadata is not None:
-        fields["metadata"] = dict(metadata)
-    if authors is not None:
-        fields["authors"] = _people(authors)
-    if maintainers is not None:
-        fields["maintainers"] = _people(maintainers)
-    if discovery is not None:
-        fields["discovery"] = discovery
-    return models.VolumeUpdate(**fields)
+    """Build a patch carrying only the fields the caller named."""
+    return models.VolumeUpdate(
+        **_volume_fields(
+            models.Description3,
+            description=description,
+            metadata=metadata,
+            authors=authors,
+            maintainers=maintainers,
+            discovery=discovery,
+        )
+    )
 
 
 def _book_update(
@@ -115,14 +139,10 @@ def _book_update(
 def _book_order(item: models.BookListItem) -> tuple[Any, ...]:
     """Order books by version, then edition.
 
-    A version is compared component by component,
-    with each numeric run compared as a number so ``v2.10`` follows ``v2.9``.
-    Anything that does not parse falls back to its text, which keeps the order total.
+    The CLI resolves ``latest`` with this same key,
+    so the two surfaces agree on which book is the newest.
     """
-    parts: list[tuple[int, Any]] = []
-    for part in re.split(r"[._-]", item.version.lstrip("vV")):
-        parts.append((0, int(part)) if part.isdigit() else (1, part))
-    return (parts, item.edition)
+    return (version_key(item.version), item.edition)
 
 
 def _missing_book(volume: str, version: str, edition: int | None) -> NotFoundError:

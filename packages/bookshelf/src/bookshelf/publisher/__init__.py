@@ -19,8 +19,7 @@ when the caller needs to inspect or validate the manifest before allowing writes
     from bookshelf.publisher import Bundle, replay_bundle
 
     bundle = Bundle.read(Path("bundle"))
-    if bundle.manifest.book is None:
-        raise ValueError("bundle has no book framing")
+    bundle.require_framing()
 
     async with AsyncBookshelf() as bs:
         book = await replay_bundle(bundle, bs)

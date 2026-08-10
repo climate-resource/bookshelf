@@ -12,11 +12,11 @@ so a replayed POST or PATCH can commit the same registration, upload completion 
 import random
 from dataclasses import dataclass
 
-#: Methods whose replay is safe by definition, so a retry cannot duplicate a write.
-#: PATCH is absent because HTTP does not define it as idempotent.
+# Methods whose replay is safe by definition, so a retry cannot duplicate a write.
+# PATCH is absent because HTTP does not define it as idempotent.
 IDEMPOTENT_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE", "PUT", "DELETE"})
 
-#: 5xx codes that describe a permanent property of the server rather than a transient fault.
+# 5xx codes that describe a permanent property of the server rather than a transient fault.
 PERMANENT_SERVER_ERRORS = frozenset({501, 505})
 
 

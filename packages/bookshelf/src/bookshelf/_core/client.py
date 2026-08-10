@@ -67,7 +67,7 @@ class BookshelfClient:
         transport: httpx.BaseTransport | None = None,
         async_transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
-        self._base_url = resolve_base_url(base_url).rstrip("/")
+        self._base_url = resolve_base_url(base_url)
         self._auth = resolve_auth(auth, base_url=self._base_url)
         self._timeout = timeout
         self._retry = RetryPolicy()
@@ -142,7 +142,7 @@ class BookshelfClient:
     ) -> httpx.Request:
         return client.build_request(
             req.method,
-            req.absolute_url if req.absolute_url is not None else req.path,
+            req.target,
             params=req.params or None,
             headers=req.headers or None,
             json=req.json_body,
@@ -154,21 +154,21 @@ class BookshelfClient:
     def _api_response(response: httpx.Response) -> ApiResponse:
         return ApiResponse(
             status_code=response.status_code,
-            headers={k.lower(): v for k, v in response.headers.items()},
+            headers=dict(response.headers),
             content=response.content,
         )
 
     def _send(self, req: ApiRequest) -> ApiResponse:
         client = self._sync_client
+        # Every body is bytes in memory, so one request object serves each attempt.
+        request = self._httpx_request(client, req)
+        # A presigned PUT targets object storage: never forward the API credential.
+        auth = None if req.unauthenticated else httpx.USE_CLIENT_DEFAULT
         attempt = 0
         while True:
             attempt += 1
             try:
-                # A presigned PUT targets object storage: never forward the API credential.
-                response = client.send(
-                    self._httpx_request(client, req),
-                    auth=None if req.absolute_url is not None else httpx.USE_CLIENT_DEFAULT,
-                )
+                response = client.send(request, auth=auth)
             except httpx.TransportError as exc:
                 if attempt >= self._retry.max_attempts or not _should_retry_transport_error(
                     self._retry, req, exc
@@ -184,15 +184,15 @@ class BookshelfClient:
 
     async def _send_async(self, req: ApiRequest) -> ApiResponse:
         client = self._async_client
+        # Every body is bytes in memory, so one request object serves each attempt.
+        request = self._httpx_request(client, req)
+        # A presigned PUT targets object storage: never forward the API credential.
+        auth = None if req.unauthenticated else httpx.USE_CLIENT_DEFAULT
         attempt = 0
         while True:
             attempt += 1
             try:
-                # A presigned PUT targets object storage: never forward the API credential.
-                response = await client.send(
-                    self._httpx_request(client, req),
-                    auth=None if req.absolute_url is not None else httpx.USE_CLIENT_DEFAULT,
-                )
+                response = await client.send(request, auth=auth)
             except httpx.TransportError as exc:
                 if attempt >= self._retry.max_attempts or not _should_retry_transport_error(
                     self._retry, req, exc
@@ -253,7 +253,7 @@ class BookshelfClient:
     def stream_url_to_path(self, url: str, destination: Path) -> None:
         """Stream an API issued content URL to a local path without API credentials."""
         with self._sync_client.stream("GET", url, auth=None) as response:
-            if response.status_code // 100 != 2:
+            if not response.is_success:
                 response.read()
                 ops.parse_get_url(self._api_response(response))
             with destination.open("wb") as stream:
@@ -263,7 +263,7 @@ class BookshelfClient:
     async def stream_url_to_path_async(self, url: str, destination: Path) -> None:
         """Stream an API issued content URL to a local path without API credentials."""
         async with self._async_client.stream("GET", url, auth=None) as response:
-            if response.status_code // 100 != 2:
+            if not response.is_success:
                 await response.aread()
                 ops.parse_get_url(self._api_response(response))
             with destination.open("wb") as stream:
