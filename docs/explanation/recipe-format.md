@@ -47,7 +47,7 @@ versions:
         email: jared.lewis@climate-resource.com
     resources:
       raw:
-        type: tabular
+        type: tabular            # one of the platform's resource types
         uri: https://zenodo.org/api/records/17090760/files/data.csv/content
         sha256: 77834f5f16197a463fe3df7e0eb3adda62a9e48355c9481926133986e35a9019
 ```
@@ -68,7 +68,7 @@ The resources a build writes are named by `book.write`, and never appear here.
 `volume.name` is the slug and cannot change.
 Everything else in `volume:` can.
 
-`topics` and `keywords` are declared once because they drive volume search.
+`topics` and `keywords` are declared once because they don't change between versions.
 Letting them vary would make a filter return a different volume
 depending on which edition happened to match.
 
@@ -133,6 +133,9 @@ Where both set it, the version wins.
   `uri:` is remote and carries the `sha256` the fetch is checked against.
   `path:` is a file beside the recipe, and its digest is computed when it is read.
 - **A resource always declares its `type`**, which is never inferred from the file extension.
+  It is one of `tabular`, `timeseries`, `geospatial`, `document` or `binary`,
+  the same set the platform registers a resource under,
+  so a recipe that loads cannot name a type registration would refuse.
 - **Unknown keys are an error at every level**, so a typo is never silently dropped.
 - **Versions are ordered by the recipe**, in the order the mapping states them.
   Each resolved version carries its position, so nothing has to parse a version string to sort.
@@ -171,7 +174,5 @@ while preserving the lower level functionality for more complex workflows.
 
 - Volume metadata beyond `topics` and `keywords` is meant to roll up into search.
   The mechanism is not designed yet.
-- `resource.type` is a free string today.
-  It should be `models.ResourceType`, which is the enum the platform already registers against.
 - Does changing the discovery information trigger a new edition?
   Its pretty much free as we dedupicate data

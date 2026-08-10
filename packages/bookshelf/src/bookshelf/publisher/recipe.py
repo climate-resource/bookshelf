@@ -127,13 +127,28 @@ class ResourceSpec(_Section):
 
     ``type`` is always declared, never inferred from the file extension,
     because the extension describes the container and the type describes the content.
+    It is the same :class:`~bookshelf._generated.models.ResourceType` the resource registers under,
+    so a recipe that loads cannot name a type the platform will refuse.
     Nothing in this module fetches anything. The rules here are structural.
     """
 
-    type: str = Field(min_length=1)
+    type: models.ResourceType
     uri: str | None = Field(default=None, min_length=1)
     path: Path | None = None
     sha256: str | None = None
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def _a_known_resource_type(cls, value: Any) -> Any:  # noqa: ANN401
+        """Reject an unknown type by name, rather than by pydantic's enum rendering.
+
+        The membership test runs behind an ``isinstance`` guard,
+        so an unhashable value raises this error rather than a bare ``TypeError``.
+        """
+        if not isinstance(value, str) or value not in set(models.ResourceType):
+            allowed = ", ".join(sorted(models.ResourceType))
+            raise ValueError(f"type must be one of {allowed}, got {value!r}")
+        return value
 
     @field_validator("path")
     @classmethod

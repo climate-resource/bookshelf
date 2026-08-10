@@ -480,6 +480,36 @@ def test_a_resource_that_is_not_one_locatable_input_is_rejected(
         load_record_recipe(path)
 
 
+def test_a_resource_type_the_platform_does_not_register_is_rejected(tmp_path: Path) -> None:
+    """A recipe that loads cannot name a type the platform would refuse at registration."""
+    path = _one_version(tmp_path, "resources:\n  raw:\n    type: csv\n    path: a.csv")
+
+    with pytest.raises(
+        BookshelfError,
+        match="type must be one of binary, document, geospatial, tabular, timeseries",
+    ):
+        load_record_recipe(path)
+
+
+@pytest.mark.parametrize("value", ["[a]", "{a: b}", "3"])
+def test_a_resource_type_that_is_not_a_string_stays_on_the_bookshelf_error_path(
+    tmp_path: Path, value: str
+) -> None:
+    """An unhashable value must not escape as a raw TypeError from the membership test."""
+    path = _one_version(tmp_path, f"resources:\n  raw:\n    type: {value}\n    path: a.csv")
+
+    with pytest.raises(BookshelfError, match="type must be one of"):
+        load_record_recipe(path)
+
+
+def test_a_resolved_resource_carries_the_type_as_the_platform_enum(tmp_path: Path) -> None:
+    path = _one_version(tmp_path, "resources:\n  raw:\n    type: tabular\n    path: a.csv")
+
+    resource = load_record_recipe(path).resolve("v1.0").resources["raw"]
+
+    assert resource.type is models.ResourceType.tabular
+
+
 def test_a_version_that_states_no_licence_is_rejected(tmp_path: Path) -> None:
     """The terms a book is published under are never inferred."""
     path = _write(
