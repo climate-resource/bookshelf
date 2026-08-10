@@ -548,6 +548,17 @@ class RepositoryUrl(RootModel[str]):
     ]
 
 
+class ReleaseUrl(RootModel[str]):
+    root: Annotated[
+        str,
+        Field(
+            description="Landing page for this specific release",
+            max_length=2000,
+            title="Release Url",
+        ),
+    ]
+
+
 class UpdateCadence(RootModel[str]):
     root: Annotated[
         str,
@@ -577,6 +588,17 @@ class LicenseUrl(RootModel[str]):
 
 class Doi(RootModel[str]):
     root: Annotated[str, Field(description="DOI for the dataset", max_length=200, title="Doi")]
+
+
+class Citation(RootModel[str]):
+    root: Annotated[
+        str,
+        Field(
+            description="Citation string for referencing this release",
+            max_length=2000,
+            title="Citation",
+        ),
+    ]
 
 
 class IntendedUses(RootModel[str]):
@@ -1155,7 +1177,7 @@ class Description2(RootModel[str]):
     ]
 
 
-class Citation(RootModel[str]):
+class Citation1(RootModel[str]):
     root: Annotated[
         str,
         Field(
@@ -1195,7 +1217,7 @@ class Description3(RootModel[str]):
     ]
 
 
-class Citation1(RootModel[str]):
+class Citation2(RootModel[str]):
     root: Annotated[
         str, Field(description="Updated citation string", max_length=2000, title="Citation")
     ]
@@ -1604,6 +1626,10 @@ class DiscoveryProfile(BaseModel):
     repository_url: Annotated[
         RepositoryUrl | None, Field(description="Source code repository", title="Repository Url")
     ] = None
+    release_url: Annotated[
+        ReleaseUrl | None,
+        Field(description="Landing page for this specific release", title="Release Url"),
+    ] = None
     update_cadence: Annotated[
         UpdateCadence | None,
         Field(description="How often the source is refreshed", title="Update Cadence"),
@@ -1622,6 +1648,10 @@ class DiscoveryProfile(BaseModel):
         LicenseUrl | None, Field(description="Licence text URL", title="License Url")
     ] = None
     doi: Annotated[Doi | None, Field(description="DOI for the dataset", title="Doi")] = None
+    citation: Annotated[
+        Citation | None,
+        Field(description="Citation string for referencing this release", title="Citation"),
+    ] = None
     intended_uses: Annotated[
         IntendedUses | None, Field(description="What the data suits", title="Intended Uses")
     ] = None
@@ -2115,7 +2145,7 @@ class VolumeCreate(BaseModel):
         list[Author] | None, Field(description="List of maintainers", title="Maintainers")
     ] = None
     citation: Annotated[
-        Citation | None,
+        Citation1 | None,
         Field(description="Citation string for referencing this dataset", title="Citation"),
     ] = None
     discovery: Annotated[
@@ -2227,7 +2257,7 @@ class VolumeUpdate(BaseModel):
         Field(description="Updated maintainers list (replaces existing)", title="Maintainers"),
     ] = None
     citation: Annotated[
-        Citation1 | None, Field(description="Updated citation string", title="Citation")
+        Citation2 | None, Field(description="Updated citation string", title="Citation")
     ] = None
     discovery: Annotated[
         DiscoveryProfile | None, Field(description="Updated discovery profile (replaces existing)")
