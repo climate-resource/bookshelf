@@ -71,6 +71,7 @@ Everything else in `volume:` can.
 `topics` and `keywords` are declared once because they don't change between versions.
 Letting them vary would make a filter return a different volume
 depending on which edition happened to match.
+Changes to the volume metadata are updated on the next publish.
 
 A version may override any `discovery` field.
 The effective value is the volume's default plus the version's override,
@@ -140,17 +141,23 @@ Where both set it, the version wins.
 - **Versions are ordered by the recipe**, in the order the mapping states them.
   Each resolved version carries its position, so nothing has to parse a version string to sort.
 
-## The version
+## Versioning
 
-An explicit `--version` is required on `bookshelf record/publish`,
-instead of inferring the most recent.
+The bookshelf uses a composite versioning format to support a variaty of different use-cases.
+This flexibility can also be a bit confusing as it can be interpreted in a few different ways.
 
-Backfilling an older version is the same command with an older version.
+### The version
 
-## The edition
+This is the part of the version string that can be controlled.
+The version should refer to the upstream release of a dataset if applicable.
 
-The edition is determined by the server which is why it isn't included in the recipe.
-It advances when the data changes, and the latest edition may differ between books.
+### The edition
+
+The edition is an auto-incrementing integer for each time a version is reprocessed.
+The value is determined by the server which is why it isn't included in the recipe.
+It advances when the data changes so the latest edition may differ between books and the exact value mean anything.
+
+Publishing the a unchanged book is idempotent resulting in an unchanged edition.
 
 ## The build script
 
