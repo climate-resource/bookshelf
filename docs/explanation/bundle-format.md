@@ -207,7 +207,6 @@ This field is specific to the Bookshelf and is optional.
 | `authors`         | optional | `[]`     | the people credited with this version, sent on the draft call                    |
 | `discovery`       | optional | absent   | the editorial metadata baked onto this book, keyed by the recipe's field names   |
 | `description`     | optional | absent   | free prose                                                                       |
-| `citation_doi`    | optional | absent   | a DOI for the dataset                                                            |
 | `metadata`        | optional | `{}`     | free-form metadata                                                               |
 | `entries`         | optional | `[]`     | the book's membership                                                            |
 | `published`       | optional | `false`  | whether the book should be published, or left a draft                            |

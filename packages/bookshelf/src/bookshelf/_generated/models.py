@@ -288,15 +288,6 @@ class BookDiscoveryInput(BaseModel):
     ] = None
 
 
-class CitationDoi(RootModel[str]):
-    root: Annotated[
-        str,
-        Field(
-            description="Optional citation DOI for the book.", max_length=500, title="Citation Doi"
-        ),
-    ]
-
-
 class License(RootModel[str]):
     root: Annotated[
         str,
@@ -319,6 +310,10 @@ class BundleHash(RootModel[str]):
             title="Bundle Hash",
         ),
     ]
+
+
+class ProcessingItem(RootModel[tuple[str, str]]):
+    root: Annotated[tuple[str, str], Field(max_length=2, min_length=2)]
 
 
 class BookEntryAttachResponse(BaseModel):
@@ -997,15 +992,11 @@ class RegistrationOutcome(BaseModel):
     ]
     tracking_id: Annotated[
         UUID,
-        Field(description="The resource's tracking id after registration.", title="Tracking Id"),
-    ]
-    aliased_to: Annotated[
-        UUID | None,
         Field(
-            description="Canonical tracking id when ``status == 'aliased'``. Absent or ``null`` for ``created`` and ``merged`` outcomes.",
-            title="Aliased To",
+            description="The canonical tracking id after registration. On an ``aliased`` outcome this is the existing resource the proposed id collapsed onto, not the id that was proposed.",
+            title="Tracking Id",
         ),
-    ] = None
+    ]
     event_id: Annotated[
         UUID | None,
         Field(
@@ -1013,6 +1004,103 @@ class RegistrationOutcome(BaseModel):
             title="Event Id",
         ),
     ] = None
+
+
+class ReplayActivity(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    activity_id: Annotated[
+        UUID | None,
+        Field(
+            description="Client-mintable activity id. The server mints one when omitted. Supplying it is what lets a repeated replay find the same activity and mint no duplicate provenance edges.",
+            title="Activity Id",
+        ),
+    ] = None
+    kind: Annotated[str, Field(description="Producer-supplied activity kind tag.", title="Kind")]
+    code_ref: Annotated[
+        str, Field(description="``{repo_url}@{git_sha}`` reference.", title="Code Ref")
+    ]
+    config_hash: Annotated[
+        str, Field(description="Producer-computed pipeline config hash.", title="Config Hash")
+    ]
+    parameters: Annotated[
+        dict[str, Any] | None,
+        Field(description="Inline parameters for the run.", title="Parameters"),
+    ] = None
+    runner: Annotated[
+        str | None, Field(description="Free-form runner identifier.", title="Runner")
+    ] = None
+
+
+class License1(RootModel[str]):
+    root: Annotated[
+        str,
+        Field(
+            description="SPDX licence identifier. Defaults to the volume's licence when omitted.",
+            max_length=255,
+            title="License",
+        ),
+    ]
+
+
+class ReplayEntry(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    name: Annotated[
+        str,
+        Field(
+            description="Name of a resource carried by this request. It is also the entry's name within the book.",
+            pattern="^[a-z0-9][a-z0-9._-]{0,199}$",
+            title="Name",
+        ),
+    ]
+    data_dictionary: Annotated[
+        list[DataDictionaryEntry] | None,
+        Field(description="Column descriptions for this entry.", title="Data Dictionary"),
+    ] = None
+
+
+class Kind2(StrEnum):
+    managed = "managed"
+    pointer = "pointer"
+
+
+class SizeBytes(RootModel[int]):
+    root: Annotated[
+        int,
+        Field(
+            description="Byte length of a managed resource. Advisory: the platform reads the authoritative size from storage and falls back to this when the object cannot be read. Must be omitted for a pointer.",
+            ge=0,
+            title="Size Bytes",
+        ),
+    ]
+
+
+class Status3(StrEnum):
+    created = "created"
+    merged = "merged"
+    aliased = "aliased"
+    skipped = "skipped"
+
+
+class ReplayResourceResult(BaseModel):
+    name: Annotated[str, Field(description="The bundle-local name from the request.", title="Name")]
+    tracking_id: Annotated[
+        UUID | None,
+        Field(
+            description="The canonical tracking id this name holds. On an ``aliased`` outcome it is the resource the deployment already had. On a ``skipped`` outcome it is what the deployment holds under this name without this request writing anything, and ``null`` when it holds nothing.",
+            title="Tracking Id",
+        ),
+    ] = None
+    status: Annotated[
+        Status3,
+        Field(
+            description="What this replay wrote for the resource. ``created``, ``merged`` or ``aliased`` mean it was registered. ``skipped`` means nothing was written for it, which is what a replay that converged before writing reports for every resource it carries.",
+            title="ReplayResourceStatus",
+        ),
+    ]
 
 
 class ResourceLocationItem(BaseModel):
@@ -1549,10 +1637,6 @@ class BookDraftRequest(BaseModel):
     description: Annotated[
         str | None, Field(description="Optional long-form description.", title="Description")
     ] = None
-    citation_doi: Annotated[
-        CitationDoi | None,
-        Field(description="Optional citation DOI for the book.", title="Citation Doi"),
-    ] = None
     license: Annotated[
         License | None,
         Field(
@@ -1585,6 +1669,13 @@ class BookDraftRequest(BaseModel):
         Field(
             description="Lowercase SHA-256 hex digest acting as the draft idempotency key. When supplied, drafting is idempotent on ``(series, version, bundle_hash)``: an existing draft or published book carrying this key is returned rather than minting a new edition, and the key is recompute-asserted against the actual membership at publish. Must be exactly 64 lowercase hex characters.",
             title="Bundle Hash",
+        ),
+    ] = None
+    processing: Annotated[
+        list[ProcessingItem] | None,
+        Field(
+            description="The producing run's processing fingerprint: the ``[code_ref, config_hash]`` pairs for the activities that generated this book's members. The platform deduplicates and sorts them before storing, so the order they are sent in does not matter. This is provenance recorded on the book. It is not part of the bundle hash and does not affect editions, so a rebuild whose code changed but whose data did not converges on the existing edition. An empty list is legal and is what a book with no generating activity carries.",
+            title="Processing",
         ),
     ] = None
     series_name: Annotated[
@@ -2194,6 +2285,145 @@ class RegisterResourcesResponse(BaseModel):
     ] = None
 
 
+class ReplayBook(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    volume: Annotated[
+        str,
+        Field(
+            description="Name of the parent series (volume).",
+            max_length=100,
+            min_length=1,
+            title="Volume",
+        ),
+    ]
+    version: Annotated[
+        str,
+        Field(description="Semantic version slug.", max_length=50, min_length=1, title="Version"),
+    ]
+    visibility: Annotated[Visibility | None, Field(description="Visibility tier for the book.")] = (
+        Visibility.hidden
+    )
+    license: Annotated[
+        License1 | None,
+        Field(
+            description="SPDX licence identifier. Defaults to the volume's licence when omitted.",
+            title="License",
+        ),
+    ] = None
+    description: Annotated[
+        str | None, Field(description="Optional long-form description.", title="Description")
+    ] = None
+    discovery: Annotated[
+        BookDiscoveryInput | None,
+        Field(
+            description="Discovery profile baked onto this release, the DOI and the citation among it."
+        ),
+    ] = None
+    metadata: Annotated[
+        dict[str, Any] | None,
+        Field(description="Optional metadata blob copied onto the book.", title="Metadata"),
+    ] = None
+    entries: Annotated[
+        list[ReplayEntry] | None,
+        Field(description="The book's membership, in any order.", title="Entries"),
+    ] = None
+    published: Annotated[
+        bool | None,
+        Field(
+            description="True to publish the book in the same transaction, false to leave a draft.",
+            title="Published",
+        ),
+    ] = False
+
+
+class ReplayResource(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    name: Annotated[
+        str,
+        Field(
+            description="Bundle-local name, unique within this request. Lower-case, no slashes, at most 200 characters. Every ``used`` reference and every book entry names a resource by this.",
+            pattern="^[a-z0-9][a-z0-9._-]{0,199}$",
+            title="Name",
+        ),
+    ]
+    hash: Annotated[
+        str,
+        Field(
+            description="Canonical content hash as ``sha256:<hex>`` in lower case. It drives registration dedupe and it is what the seal covers.",
+            pattern="^sha256:[0-9a-f]{64}$",
+            title="Hash",
+        ),
+    ]
+    type: Annotated[ResourceType, Field(description="Canonical resource type.")]
+    kind: Annotated[
+        Kind2 | None,
+        Field(
+            description="``managed`` when the platform hosts the bytes, ``pointer`` when it does not.",
+            title="ReplayResourceKind",
+        ),
+    ] = Kind2.managed
+    format: Annotated[
+        str | None,
+        Field(
+            description="Optional declared storage format (``parquet`` or ``csv``). Inferred from the location suffix at query time when omitted.",
+            title="Format",
+        ),
+    ] = None
+    visibility: Annotated[Visibility | None, Field(description="Three-tier visibility tier.")] = (
+        Visibility.hidden
+    )
+    tags: Annotated[list[str] | None, Field(description="Free-form tag list.", title="Tags")] = None
+    metadata: Annotated[
+        dict[str, Any] | None, Field(description="Arbitrary JSON metadata.", title="Metadata")
+    ] = None
+    dedupe: Annotated[
+        bool | None,
+        Field(
+            description="When ``True`` (default) a resource whose content hash the org already holds resolves to that canonical resource and is reported as ``aliased``. Set to ``False`` so each edition owns a distinct row even for identical bytes.",
+            title="Dedupe",
+        ),
+    ] = True
+    size_bytes: Annotated[
+        SizeBytes | None,
+        Field(
+            description="Byte length of a managed resource. Advisory: the platform reads the authoritative size from storage and falls back to this when the object cannot be read. Must be omitted for a pointer.",
+            title="Size Bytes",
+        ),
+    ] = None
+    external_uri: Annotated[
+        str | None,
+        Field(
+            description="Pointer target. Required for ``kind='pointer'`` and forbidden otherwise.",
+            title="External Uri",
+        ),
+    ] = None
+    storage_path: Annotated[
+        str | None,
+        Field(
+            description="Managed storage key returned by the earlier upload call. Forbidden for a pointer. May be omitted when the bytes have not landed yet.",
+            title="Storage Path",
+        ),
+    ] = None
+    generated: Annotated[
+        bool | None,
+        Field(
+            description="True when the recorded activity produced this resource. A generated resource requires an ``activity`` on the request.",
+            title="Generated",
+        ),
+    ] = False
+    used: Annotated[
+        list[str] | None,
+        Field(
+            description="Names of the resources this one was derived from. Each name must belong to a resource EARLIER in this request's ``resources`` list, so inputs are always registered before whatever consumes them.",
+            title="Used",
+        ),
+    ] = None
+
+
 class ResourceCreate(BaseModel):
     name: Annotated[
         str,
@@ -2454,7 +2684,12 @@ class BookDetail(BaseModel):
         str | None, Field(description="SPDX license identifier for the book.", title="License")
     ] = None
     citation_doi: Annotated[
-        str | None, Field(description="Citation DOI for the book.", title="Citation Doi")
+        str | None,
+        Field(
+            deprecated=True,
+            description="Read-only mirror of ``discovery.doi``. Read the discovery profile instead.",
+            title="Citation Doi",
+        ),
     ] = None
     authors: Annotated[
         list[Author] | None, Field(description="Authors credited on this release.", title="Authors")
@@ -2488,6 +2723,58 @@ class BookDetail(BaseModel):
 class BookEntriesResponse(BaseModel):
     items: Annotated[list[BookEntryItem], Field(title="Items")]
     next_cursor: Annotated[str | None, Field(title="Next Cursor")] = None
+
+
+class BundleReplayRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    activity: Annotated[
+        ReplayActivity | None,
+        Field(
+            description="The recorded activity. ``null`` for a bundle with no generated outputs."
+        ),
+    ] = None
+    resources: Annotated[
+        list[ReplayResource] | None,
+        Field(
+            description="Every resource in the bundle, inputs before the outputs derived from them.",
+            max_length=1000,
+            title="Resources",
+        ),
+    ] = None
+    book: Annotated[
+        ReplayBook | None,
+        Field(description="The book framing. Omit entirely for a resources-only replay."),
+    ] = None
+
+
+class BundleReplayResponse(BaseModel):
+    book: Annotated[
+        BookDetail | None,
+        Field(description="The resulting book, or ``null`` for a resources-only replay."),
+    ] = None
+    resources: Annotated[
+        list[ReplayResourceResult] | None,
+        Field(description="Per-resource outcomes, in request order.", title="Resources"),
+    ] = None
+    dedupe_hits: Annotated[
+        int,
+        Field(
+            description="How many resources resolved to content the deployment already held. Independent of what was written, so a converged replay still reports the resources it recognised.",
+            title="Dedupe Hits",
+        ),
+    ]
+    resource_count: Annotated[
+        int, Field(description="How many resources the request carried.", title="Resource Count")
+    ]
+    converged: Annotated[
+        bool,
+        Field(
+            description="True when the request matched a book already published under this seal, so the book work was a no-op and the book metadata in the request was ignored. It says nothing on its own about the resources: read their per-resource status. A replay that recognised the book before writing reports every resource as ``skipped``, whereas one that discovered a concurrent publish only as it wrote reports what it registered.",
+            title="Converged",
+        ),
+    ]
 
 
 class ResourceListResponse(BaseModel):

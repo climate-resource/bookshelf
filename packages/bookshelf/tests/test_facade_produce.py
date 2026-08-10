@@ -59,14 +59,13 @@ def _async(recorded: list[httpx.Request], status: int, payload: Any) -> AsyncBoo
 
 
 def test_draft_book_wraps_the_optional_strings_the_api_takes_as_models() -> None:
-    """The DOI, the licence and the bundle hash each arrive as a plain string on the wire."""
+    """The licence and the bundle hash each arrive as a plain string on the wire."""
     recorded: list[httpx.Request] = []
 
     with _sync(recorded, 201, payloads.BOOK_DETAIL) as client:
         draft = client.draft_book(
             "primap-hist",
             version="1.0.0",
-            citation_doi="10.5281/zenodo.1",
             license="CC-BY-4.0",
             bundle_hash="a" * 64,
         )
@@ -75,7 +74,6 @@ def test_draft_book_wraps_the_optional_strings_the_api_takes_as_models() -> None
     request = recorded[0]
     assert (request.method, request.url.path) == ("POST", "/v1/books")
     body = _body(request)
-    assert body["citation_doi"] == "10.5281/zenodo.1"
     assert body["license"] == "CC-BY-4.0"
     assert body["bundle_hash"] == "a" * 64
     assert "data_dictionary" not in body
@@ -121,14 +119,13 @@ def test_attach_preserves_the_difference_between_omitting_and_clearing_a_diction
 
 
 def test_draft_book_sends_no_wrapper_for_an_omitted_string() -> None:
-    """An omitted DOI, licence or bundle hash stays null rather than arriving as an empty model."""
+    """An omitted licence or bundle hash stays null rather than arriving as an empty model."""
     recorded: list[httpx.Request] = []
 
     with _sync(recorded, 201, payloads.BOOK_DETAIL) as client:
         client.draft_book("primap-hist", version="1.0.0")
 
     body = _body(recorded[0])
-    assert body["citation_doi"] is None
     assert body["license"] is None
     assert body["bundle_hash"] is None
     assert body["visibility"] == "hidden"

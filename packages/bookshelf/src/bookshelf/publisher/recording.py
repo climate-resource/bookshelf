@@ -376,7 +376,6 @@ class RecordedDraftBook(DraftBook):
         visibility: models.Visibility,
         license: str,
         description: str | None,
-        citation_doi: str | None,
         metadata: Mapping[str, Any] | None,
     ) -> None:
         self._bundle = bundle
@@ -392,7 +391,6 @@ class RecordedDraftBook(DraftBook):
                 series_name=volume,
                 description=description,
                 license=license,
-                citation_doi=citation_doi,
                 metadata=dict(metadata or {}),
             ),
         )
@@ -490,7 +488,6 @@ class RecordingSink:
         *,
         version: str,
         description: str | None = None,
-        citation_doi: str | None = None,
         license: str | None = None,
         visibility: VisibilityInput = INHERIT,
         metadata: Mapping[str, Any] | None = None,
@@ -524,7 +521,6 @@ class RecordingSink:
                 authors=credited,
                 discovery=dict(discovery) if discovery else None,
                 description=description,
-                citation_doi=citation_doi,
                 metadata=dict(metadata or {}),
             )
         )
@@ -536,7 +532,6 @@ class RecordingSink:
             visibility=book_visibility,
             license=license,
             description=description,
-            citation_doi=citation_doi,
             metadata=metadata,
         )
 
