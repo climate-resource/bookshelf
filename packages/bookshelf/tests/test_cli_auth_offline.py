@@ -4,6 +4,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+import httpx
 import keyring
 import keyring.backend
 import pytest
@@ -43,6 +44,7 @@ def isolated_credentials(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
         "BOOKSHELF_CLIENT_ID",
         "BOOKSHELF_CLIENT_SECRET",
         "BOOKSHELF_TOKEN_URL",
+        "BOOKSHELF_WORKOS_CLIENT_ID",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -75,7 +77,7 @@ def test_token_prints_the_stored_token() -> None:
     credentials.save_credentials(
         "stored-token",
         api_url=API_URL,
-        kind="user",
+        kind=credentials.CredentialKind.USER,
         subject="reader@example.com",
     )
 
@@ -83,6 +85,122 @@ def test_token_prints_the_stored_token() -> None:
 
     assert result.exit_code == 0
     assert result.stdout == "stored-token\n"
+
+
+def _mock_out_the_token_endpoint(
+    monkeypatch: pytest.MonkeyPatch, transport: httpx.MockTransport
+) -> None:
+    """Answer the client the CLI builds for a token exchange, which takes no transport argument."""
+    real_client = httpx.Client
+    monkeypatch.setattr(httpx, "Client", lambda **_kwargs: real_client(transport=transport))
+
+
+def test_token_refreshes_through_the_provider_and_rewrites_the_record(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Printing a token and sending a request share one grant, one leeway and one rotation."""
+    credentials.save_credentials(
+        "stale-token",
+        api_url=API_URL,
+        kind=credentials.CredentialKind.USER,
+        refresh_token="rt-old",
+        expires_at=datetime(2020, 1, 1, tzinfo=UTC),
+        subject="reader@example.com",
+        organization_id="org_123",
+    )
+    monkeypatch.setenv("BOOKSHELF_WORKOS_CLIENT_ID", "client_test")
+    exchanges: list[dict[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        exchanges.append(dict(httpx.QueryParams(request.content.decode())))
+        return httpx.Response(
+            200,
+            json={"access_token": "fresh-token", "refresh_token": "rt-new", "expires_in": 3600},
+        )
+
+    _mock_out_the_token_endpoint(monkeypatch, httpx.MockTransport(handler))
+
+    result = runner.invoke(app, ["auth", "token"])
+
+    assert result.exit_code == 0
+    assert result.stdout == "fresh-token\n"
+    assert exchanges[0]["grant_type"] == "refresh_token"
+    assert exchanges[0]["refresh_token"] == "rt-old"
+    record = credentials.load_credentials(API_URL)
+    assert record is not None
+    assert record.access_token == "fresh-token"
+    assert record.refresh_token == "rt-new"
+    assert record.subject == "reader@example.com"
+    assert record.organization_id == "org_123"
+
+
+def test_token_mints_client_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BOOKSHELF_CLIENT_ID", "cid")
+    monkeypatch.setenv("BOOKSHELF_CLIENT_SECRET", "secret")
+    monkeypatch.setenv("BOOKSHELF_TOKEN_URL", "https://issuer.test/token")
+    exchanges: list[dict[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        exchanges.append(dict(httpx.QueryParams(request.content.decode())))
+        return httpx.Response(200, json={"access_token": "minted-token", "expires_in": 3600})
+
+    _mock_out_the_token_endpoint(monkeypatch, httpx.MockTransport(handler))
+
+    result = runner.invoke(app, ["auth", "token"])
+
+    assert result.exit_code == 0
+    assert result.stdout == "minted-token\n"
+    assert exchanges[0]["grant_type"] == "client_credentials"
+
+
+def test_token_without_a_token_url_is_a_usage_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BOOKSHELF_CLIENT_ID", "cid")
+    monkeypatch.setenv("BOOKSHELF_CLIENT_SECRET", "secret")
+
+    result = runner.invoke(app, ["auth", "token"])
+
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    assert "BOOKSHELF_TOKEN_URL" in result.stderr
+
+
+def test_token_without_a_workos_client_id_is_a_credential_error() -> None:
+    """A stored login that cannot be refreshed exits 3, not as an unexpected failure."""
+    credentials.save_credentials(
+        "stale-token",
+        api_url=API_URL,
+        kind=credentials.CredentialKind.USER,
+        refresh_token="rt-old",
+        expires_at=datetime(2020, 1, 1, tzinfo=UTC),
+    )
+
+    result = runner.invoke(app, ["auth", "token"])
+
+    assert result.exit_code == 3
+    assert result.stdout == ""
+    assert "BOOKSHELF_WORKOS_CLIENT_ID" in result.stderr
+
+
+def test_token_reports_a_spent_credential(monkeypatch: pytest.MonkeyPatch) -> None:
+    credentials.save_credentials(
+        "stale-token",
+        api_url=API_URL,
+        kind=credentials.CredentialKind.USER,
+        refresh_token="rt-spent",
+        expires_at=datetime(2020, 1, 1, tzinfo=UTC),
+    )
+    monkeypatch.setenv("BOOKSHELF_WORKOS_CLIENT_ID", "client_test")
+    transport = httpx.MockTransport(
+        lambda _: httpx.Response(400, json={"error_description": "Refresh token already exchanged"})
+    )
+    _mock_out_the_token_endpoint(monkeypatch, transport)
+
+    result = runner.invoke(app, ["auth", "token"])
+
+    assert result.exit_code == 3
+    assert result.stdout == ""
+    assert "Refresh token already exchanged" in result.stderr
+    assert "bookshelf auth login" in result.stderr
 
 
 def test_whoami_offline_reports_anonymous() -> None:
@@ -99,7 +217,7 @@ def test_whoami_offline_reports_stored_identity() -> None:
     credentials.save_credentials(
         "stored-token",
         api_url=API_URL,
-        kind="user",
+        kind=credentials.CredentialKind.USER,
         subject="reader@example.com",
         organization_id="org_123",
     )
@@ -120,7 +238,7 @@ def test_whoami_offline_reports_environment_shadowing(
     credentials.save_credentials(
         "stored-token",
         api_url=API_URL,
-        kind="user",
+        kind=credentials.CredentialKind.USER,
         subject="reader@example.com",
     )
     monkeypatch.setenv("BOOKSHELF_TOKEN", "environment-token")
@@ -148,7 +266,7 @@ def test_logout_clears_state_when_revocation_fails() -> None:
     credentials.save_credentials(
         "bsat_dead",
         api_url=API_URL,
-        kind="agent",
+        kind=credentials.CredentialKind.AGENT,
         expires_at=datetime(2030, 1, 1, tzinfo=UTC),
         identity_assertion="assertion",
         subject="agent:dead",

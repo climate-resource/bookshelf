@@ -59,7 +59,22 @@ def decode_jwt_expiry(token: str) -> float | None:
         return None
 
 
-class StaticToken(httpx.Auth):
+class TokenProvider(httpx.Auth):
+    """An ``httpx.Auth`` that can also hand its current access token to a caller.
+
+    ``bookshelf auth token`` prints a token instead of sending a request,
+    so it needs the same staleness check, the same single-flight refresh
+    and the same persistence a request would have triggered.
+    The exchange is performed by ``send``, so the provider stays sans-io
+    and the caller owns the transport.
+    """
+
+    def access_token(self, send: Callable[[httpx.Request], httpx.Response], /) -> str:
+        """Return a token that is current, exchanging through ``send`` when one is due."""
+        raise NotImplementedError
+
+
+class StaticToken(TokenProvider):
     """A fixed bearer token with no refresh behaviour."""
 
     def __init__(self, token: str) -> None:
@@ -69,8 +84,11 @@ class StaticToken(httpx.Auth):
         request.headers["Authorization"] = f"Bearer {self._token}"
         yield request
 
+    def access_token(self, _send: Callable[[httpx.Request], httpx.Response], /) -> str:
+        return self._token
 
-class _RefreshingAuth(httpx.Auth):
+
+class _RefreshingAuth(TokenProvider):
     """Shared refresh machinery for the exchanging providers.
 
     Subclasses supply the token-endpoint request via :meth:`_refresh_request`
@@ -112,7 +130,7 @@ class _RefreshingAuth(httpx.Auth):
     def _apply_token_response(self, response: httpx.Response) -> None:
         if not response.is_success:
             raise AuthenticationError(
-                f"Token refresh failed: {_error_detail(response)}",
+                f"Token refresh failed: {error_detail(response)}",
                 status_code=response.status_code,
                 request_method="POST",
                 request_url=str(response.request.url),
@@ -134,6 +152,23 @@ class _RefreshingAuth(httpx.Auth):
         else:
             self._expires_at = decode_jwt_expiry(access_token)
         self._handle_token_payload(payload)
+
+    def access_token(self, send: Callable[[httpx.Request], httpx.Response], /) -> str:
+        if self._needs_refresh():
+            with self._sync_lock:
+                if self._needs_refresh():
+                    token_response = send(self._refresh_request())
+                    token_response.read()
+                    self._apply_token_response(token_response)
+        token = self._access_token
+        if token is None:
+            raise AuthenticationError(
+                "No access token is available after a refresh.",
+                status_code=401,
+                request_method="POST",
+                request_url=str(self._refresh_request().url),
+            )
+        return token
 
     def _authorized(self, request: httpx.Request) -> httpx.Request:
         """Stamp the current access token onto *request*."""
@@ -389,7 +424,7 @@ class AnonymousFallback(httpx.Auth):
         yield request
 
 
-def _error_detail(response: httpx.Response) -> str:
+def error_detail(response: httpx.Response) -> str:
     """Extract a human-readable detail from a failed token response."""
     try:
         body = json.loads(response.content)
@@ -410,5 +445,7 @@ __all__ = [
     "ClientCredentials",
     "RefreshTokenExchange",
     "StaticToken",
+    "TokenProvider",
     "decode_jwt_expiry",
+    "error_detail",
 ]

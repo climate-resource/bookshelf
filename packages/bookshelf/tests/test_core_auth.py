@@ -23,6 +23,7 @@ from bookshelf._core.auth import (
     RefreshTokenExchange,
     StaticToken,
     decode_jwt_expiry,
+    error_detail,
 )
 from bookshelf._core.errors import AuthenticationError
 
@@ -356,6 +357,66 @@ def test_locks_are_not_held_across_api_calls() -> None:
         client.get(API_URL)
     assert not auth._sync_lock.locked()
     assert not auth._async_lock.locked()
+
+
+def test_access_token_exchanges_when_one_is_due_and_persists_the_rotation() -> None:
+    """The token a caller prints goes through the same grant a request would have used."""
+    issuer = TokenIssuer(rotate_refresh=True)
+    rotations: list[tuple[str, str | None]] = []
+    auth = RefreshTokenExchange(
+        access_token=None,
+        refresh_token="rt-0",
+        token_url=TOKEN_URL,
+        client_id="cid",
+        on_rotate=lambda access, refresh, _expires_at: rotations.append((access, refresh)),
+    )
+    with httpx.Client(transport=httpx.MockTransport(issuer)) as client:
+        assert auth.access_token(client.send) == "tok-1"
+    assert issuer.token_requests[0]["grant_type"] == "refresh_token"
+    assert rotations == [("tok-1", "rt-1")]
+
+
+def test_access_token_keeps_a_token_that_is_still_current() -> None:
+    issuer = TokenIssuer()
+    auth = RefreshTokenExchange(
+        access_token="still-good",
+        refresh_token="rt-0",
+        token_url=TOKEN_URL,
+        client_id="cid",
+        expires_at=time.time() + 10_000,
+    )
+    with httpx.Client(transport=httpx.MockTransport(issuer)) as client:
+        assert auth.access_token(client.send) == "still-good"
+    assert issuer.minted == 0
+
+
+def test_access_token_raises_when_the_exchange_is_rejected() -> None:
+    issuer = TokenIssuer(token_status=400)
+    auth = RefreshTokenExchange(
+        access_token=None,
+        refresh_token="spent",
+        token_url=TOKEN_URL,
+        client_id="cid",
+    )
+    with (
+        httpx.Client(transport=httpx.MockTransport(issuer)) as client,
+        pytest.raises(AuthenticationError, match="nope"),
+    ):
+        auth.access_token(client.send)
+
+
+def test_static_token_hands_over_its_token_without_an_exchange() -> None:
+    issuer = TokenIssuer()
+    with httpx.Client(transport=httpx.MockTransport(issuer)) as client:
+        assert StaticToken("bsat_fixed").access_token(client.send) == "bsat_fixed"
+    assert issuer.token_requests == []
+
+
+def test_error_detail_reads_the_usual_keys_and_truncates() -> None:
+    assert error_detail(httpx.Response(400, json={"error_description": "spent"})) == "spent"
+    assert error_detail(httpx.Response(400, json={"message": "spent"})) == "spent"
+    assert error_detail(httpx.Response(400, text="not json")) == "not json"
+    assert error_detail(httpx.Response(400, json=["a" * 500])) == json.dumps(["a" * 500])[:200]
 
 
 def fallback(inner: httpx.Auth) -> AnonymousFallback:

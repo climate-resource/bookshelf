@@ -46,9 +46,9 @@ def test_code_verifier_length_within_rfc_bounds() -> None:
 def test_client_id_selection(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("BOOKSHELF_WORKOS_CLIENT_ID", raising=False)
     staging_url = "https://api.staging.example/bookshelf/v1"
-    assert _oauth.get_workos_client_id(staging_url) == _oauth._CLIENT_IDS["staging"]
+    assert _oauth.require_workos_client_id(staging_url) == _oauth._CLIENT_IDS["staging"]
     monkeypatch.setenv("BOOKSHELF_WORKOS_CLIENT_ID", "client_custom")
-    assert _oauth.get_workos_client_id() == "client_custom"
+    assert _oauth.require_workos_client_id() == "client_custom"
 
 
 def test_client_id_production_no_env_raises(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -56,14 +56,22 @@ def test_client_id_production_no_env_raises(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.delenv("BOOKSHELF_WORKOS_CLIENT_ID", raising=False)
     production_url = "https://api.bookshelf.example/v1"
     with pytest.raises(_oauth.OAuthError, match="BOOKSHELF_WORKOS_CLIENT_ID"):
-        _oauth.get_workos_client_id(production_url)
+        _oauth.require_workos_client_id(production_url)
+
+
+def test_unresolvable_client_id_is_none_for_the_ambient_chain(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """One resolver, two failure shapes: a login raises, ambient resolution decides for itself."""
+    monkeypatch.delenv("BOOKSHELF_WORKOS_CLIENT_ID", raising=False)
+    assert _oauth.resolve_workos_client_id("https://api.bookshelf.example/v1") is None
 
 
 def test_client_id_production_with_env_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
     """Setting BOOKSHELF_WORKOS_CLIENT_ID must satisfy production login."""
     monkeypatch.setenv("BOOKSHELF_WORKOS_CLIENT_ID", "client_prod_custom")
     production_url = "https://api.bookshelf.example/v1"
-    assert _oauth.get_workos_client_id(production_url) == "client_prod_custom"
+    assert _oauth.require_workos_client_id(production_url) == "client_prod_custom"
 
 
 def test_start_device_flow_parses_response() -> None:
@@ -126,29 +134,6 @@ def test_poll_device_flow_times_out() -> None:
     )
     with pytest.raises(_oauth.OAuthError, match="Timed out"):
         _oauth.poll_device_flow(_flow(), timeout=0, transport=transport)
-
-
-def test_refresh_access_token_returns_rotated_token() -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        body = dict(parse_qsl(request.content.decode()))
-        assert body["grant_type"] == "refresh_token"
-        assert body["refresh_token"] == "ref-old"
-        return httpx.Response(200, json={"access_token": "new", "refresh_token": "ref-new"})
-
-    data = _oauth.refresh_access_token("ref-old", transport=httpx.MockTransport(handler))
-    assert data["refresh_token"] == "ref-new"
-
-
-def test_refresh_access_token_failure_raises() -> None:
-    transport = httpx.MockTransport(lambda _: httpx.Response(401, json={"message": "revoked"}))
-    with pytest.raises(_oauth.OAuthError, match="revoked"):
-        _oauth.refresh_access_token("ref", transport=transport)
-
-
-def test_error_detail_handles_non_object_json() -> None:
-    response = httpx.Response(400, json=["invalid request"])
-
-    assert _oauth._error_detail(response) == response.text
 
 
 def test_callback_page_escapes_provider_error() -> None:
@@ -266,4 +251,4 @@ def test_client_id_ignores_a_staging_path_on_a_production_host(
     """A path that spells the word must not pull a production login onto staging."""
     monkeypatch.delenv("BOOKSHELF_WORKOS_CLIENT_ID", raising=False)
     with pytest.raises(_oauth.OAuthError):
-        _oauth.get_workos_client_id("https://api.climateresource.com.au/bookshelf/staging")
+        _oauth.require_workos_client_id("https://api.climateresource.com.au/bookshelf/staging")
