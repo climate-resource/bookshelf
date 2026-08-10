@@ -27,8 +27,8 @@ from tests import _core_payloads as payloads
 
 BASE_URL = "https://bookshelf.test"
 
-# Every field the volume may default, so an inheriting version has something to inherit for each one of them.
-_VOLUME_DISCOVERY = {
+# Every field the recipe may default, so an inheriting book has something to inherit for each one of them.
+_DEFAULT_DISCOVERY = {
     "title": "PRIMAP-hist",
     "abstract": "National greenhouse gas emissions.",
     "publisher": "Potsdam Institute for Climate Impact Research",
@@ -44,14 +44,14 @@ _VOLUME_DISCOVERY = {
     "limitations": "Third-party gap filling is modelled.",
     "doi": "10.5281/zenodo.10006301",
     "release_date": "2023-09-13",
-    "description": "A volume-level description.",
+    "description": "A defaulted description.",
 }
 
 # The recipe field names that the API carries inside its nested ``discovery`` object,
 # paired with the name it gives each one.
 _WIRE_DISCOVERY_NAMES = {
     name: ("source_release_date" if name == "release_date" else name)
-    for name in _VOLUME_DISCOVERY
+    for name in _DEFAULT_DISCOVERY
     if name != "description"
 }
 
@@ -69,7 +69,6 @@ _COMPUTED_FIELDS = (
 # The facts that belong to the long-lived volume rather than to any one book.
 _VOLUME_ONLY_FIELDS = (
     "maintainers",
-    "topics",
     "keywords",
     "update_cadence",
     "deprecated",
@@ -78,10 +77,10 @@ _VOLUME_ONLY_FIELDS = (
 )
 
 
-def _volume_discovery_block() -> str:
-    """Render the volume's discovery defaults as recipe YAML."""
-    lines = "\n".join(f"    {name}: {value}" for name, value in _VOLUME_DISCOVERY.items())
-    return lines + "\n    authors:\n      - name: Ada Lovelace\n        email: ada@example.com\n"
+def _defaults_discovery_block() -> str:
+    """Render the recipe's discovery defaults as YAML, flat under ``defaults:``."""
+    lines = "\n".join(f"  {name}: {value}" for name, value in _DEFAULT_DISCOVERY.items())
+    return lines + "\n  authors:\n    - name: Ada Lovelace\n      email: ada@example.com\n"
 
 
 _RECIPE = f"""\
@@ -90,16 +89,15 @@ volume:
   maintainers:
     - name: Jared Lewis
       email: jared@example.com
-  topics: [emissions, inventories]
   keywords: [ghg, national]
   update_cadence: annual
-  discovery:
-{_volume_discovery_block()}build:
+defaults:
+{_defaults_discovery_block()}build:
   notebook: build.py
-versions:
-  "v2.6":
+books:
+  - version: "v2.6"
     license: CC-BY-NC
-  "v2.7":
+  - version: "v2.7"
     license: CC-BY
     publisher: Climate Resource
     authors:
@@ -187,7 +185,7 @@ def test_publishing_a_later_version_does_not_rewrite_an_earlier_one(tmp_path: Pa
     later: list[httpx.Request] = []
     second = _record_and_publish(recipe, tmp_path / "b27", "v2.7", later)
 
-    assert first["discovery"]["publisher"] == _VOLUME_DISCOVERY["publisher"]
+    assert first["discovery"]["publisher"] == _DEFAULT_DISCOVERY["publisher"]
     assert first["license"] == "CC-BY-NC"
     assert second["discovery"]["publisher"] == "Climate Resource"
     assert second["license"] == "CC-BY"
@@ -205,9 +203,9 @@ def test_a_version_inherits_every_discovery_field_it_does_not_state(tmp_path: Pa
     payload = _record_and_publish(recipe, tmp_path / "bundle", "v2.6")
 
     assert payload["discovery"] == {
-        wire: _VOLUME_DISCOVERY[name] for name, wire in _WIRE_DISCOVERY_NAMES.items()
+        wire: _DEFAULT_DISCOVERY[name] for name, wire in _WIRE_DISCOVERY_NAMES.items()
     }
-    assert payload["description"] == _VOLUME_DISCOVERY["description"]
+    assert payload["description"] == _DEFAULT_DISCOVERY["description"]
 
 
 def test_an_override_changes_one_field_and_leaves_the_rest_inherited(tmp_path: Path) -> None:
@@ -216,7 +214,7 @@ def test_an_override_changes_one_field_and_leaves_the_rest_inherited(tmp_path: P
 
     payload = _record_and_publish(recipe, tmp_path / "bundle", "v2.7")
 
-    expected = {wire: _VOLUME_DISCOVERY[name] for name, wire in _WIRE_DISCOVERY_NAMES.items()}
+    expected = {wire: _DEFAULT_DISCOVERY[name] for name, wire in _WIRE_DISCOVERY_NAMES.items()}
     expected["publisher"] = "Climate Resource"
     assert payload["discovery"] == expected
 
@@ -240,8 +238,8 @@ def test_a_licence_declared_on_the_volume_is_rejected(tmp_path: Path) -> None:
           license: CC-BY
         build:
           notebook: build.py
-        versions:
-          "v1.0.0":
+        books:
+          - version: "v1.0.0"
             license: MIT
         """,
     )
@@ -304,7 +302,7 @@ def test_the_volume_only_fields_are_never_sent_on_a_book(tmp_path: Path) -> None
         ("declared empty", "    abstract:\n"),
     ],
 )
-def test_a_version_that_states_no_abstract_inherits_the_volumes(
+def test_a_book_that_states_no_abstract_inherits_the_default(
     tmp_path: Path, label: str, version_body: str
 ) -> None:
     """An explicit YAML null reads the same as an absent key, and neither clears a default."""
@@ -313,12 +311,12 @@ def test_a_version_that_states_no_abstract_inherits_the_volumes(
         f"""\
 volume:
   name: primap-hist
-  discovery:
-    abstract: National greenhouse gas emissions.
+defaults:
+  abstract: National greenhouse gas emissions.
 build:
   notebook: build.py
-versions:
-  "v1.0.0":
+books:
+  - version: "v1.0.0"
     license: MIT
 {version_body}""",
     )
