@@ -1,17 +1,22 @@
 """What a feedstock declares
 
 A recipe can include:
-``volume:`` holds the facts that are true of the dataset whichever version is being built.
+``volume:`` holds the facts that identify the collection, whichever book is being built.
+``defaults:`` holds what every book starts from, and any book may override.
 ``build:`` holds the facts about how it is built.
-``versions:`` holds one entry per upstream version, and each entry restates itself in full,
-including the licence it goes out under and who may read it.
+``books:`` lists the books the feedstock can produce, one per upstream version.
 
 Everything lives in one ``bookshelf.yaml``.
+
+The sections are named after the domain model, so a recipe reads in the same words as the
+platform: a volume holds books, and a book holds resources.
 
 Three rules shape everything here:
 
 - Unknown keys are an error at every level, so a typo is never silently dropped.
-- A version inherits nothing from the version before it, so reading one version tells the whole story.
+- A book inherits from ``defaults:`` and from nowhere else,
+  so reading one book and the defaults above it tells the whole story.
+  No book carries anything forward from the book before it.
 - The recipe names no default version, so a version is stated exactly once, on the command line.
 """
 
@@ -32,7 +37,7 @@ from bookshelf._produce.visibility import INHERIT, VisibilityInput
 
 _SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 
-_TOP_LEVEL_KEYS = ("volume", "build", "versions")
+_TOP_LEVEL_KEYS = ("volume", "defaults", "build", "books")
 
 # The keys of the removed flat form.
 # Any of them at the top level means the recipe was written against the shape that no longer loads.
@@ -58,10 +63,10 @@ class PersonSpec(_Section):
 
 
 class DiscoveryFields(_Section):
-    """The catalogue metadata a volume may default and any version may override.
+    """The catalogue metadata ``defaults:`` may state and any book may override.
 
     Every field is optional at both levels.
-    A version's value wins where it is set, and the volume's applies everywhere else.
+    A book's value wins where it is set, and the default applies everywhere else.
     Nothing here is computed from the data.
     Coverage, variables, units and frequency are derived per resource by the platform,
     so declaring them in a recipe would only let them go stale.
@@ -87,27 +92,27 @@ class DiscoveryFields(_Section):
 
 
 class VolumeSection(_Section):
-    """The long-lived collection: what stays true across every version.
+    """The long-lived collection: what identifies it, whichever book is being built.
 
     ``name`` is the slug, and it is the one fact here that cannot change.
-    ``topics`` and ``keywords`` are the search vocabulary,
-    which is why they are declared once for the volume rather than per version.
-    Letting them vary would make a filter return a different volume depending on which edition matched.
+    ``keywords`` is the search vocabulary,
+    which is why it is declared once for the volume rather than per book.
+    Letting it vary would make a filter return a different volume depending on which edition matched.
 
-    A licence is not declared here.
-    Each version states its own, because a relicensed version is common
+    Neither a licence nor catalogue metadata is declared here.
+    Each book states its own licence, because a relicensed version is common
     and a default here would let one be published under the wrong terms without anyone writing it down.
+    Catalogue metadata sits under ``defaults:``,
+    because every field of it is a fact about a book that a volume merely supplies a starting value for.
     """
 
     name: str = Field(min_length=1)
     maintainers: list[PersonSpec] = Field(default_factory=list)
-    topics: list[str] = Field(default_factory=list)
     keywords: list[str] = Field(default_factory=list)
     update_cadence: str | None = None
     deprecated: bool = False
     superseded_by: str | None = None
     deprecation_note: str | None = None
-    discovery: DiscoveryFields = Field(default_factory=DiscoveryFields)
 
 
 class BuildSection(_Section):
@@ -116,8 +121,8 @@ class BuildSection(_Section):
     notebook: Path | None = None
 
 
-class ResourceSpec(_Section):
-    """One upstream input a version is built from.
+class _ResourceFields(_Section):
+    """The fields a resource declaration carries, each one optional.
 
     A resource is either remote or checked in, never both:
 
@@ -125,14 +130,17 @@ class ResourceSpec(_Section):
       against.
     - ``path`` names a file beside the recipe, and its digest is computed when it is read.
 
-    ``type`` is always declared, never inferred from the file extension,
+    ``type`` is the same :class:`~bookshelf._generated.models.ResourceType` the resource
+    registers under, so a recipe that loads cannot name a type the platform will refuse.
+    It is never inferred from the file extension,
     because the extension describes the container and the type describes the content.
-    It is the same :class:`~bookshelf._generated.models.ResourceType` the resource registers under,
-    so a recipe that loads cannot name a type the platform will refuse.
-    Nothing in this module fetches anything. The rules here are structural.
+
+    The rules here are structural, and nothing in this module fetches anything.
+    Whether a declaration is complete is :class:`ResourceSpec`'s question,
+    which is why this base asks only whether each stated field is well formed.
     """
 
-    type: models.ResourceType
+    type: models.ResourceType | None = None
     uri: str | None = Field(default=None, min_length=1)
     path: Path | None = None
     sha256: str | None = None
@@ -145,6 +153,8 @@ class ResourceSpec(_Section):
         The membership test runs behind an ``isinstance`` guard,
         so an unhashable value raises this error rather than a bare ``TypeError``.
         """
+        if value is None:
+            return None
         if not isinstance(value, str) or value not in set(models.ResourceType):
             allowed = ", ".join(sorted(models.ResourceType))
             raise ValueError(f"type must be one of {allowed}, got {value!r}")
@@ -172,6 +182,29 @@ class ResourceSpec(_Section):
             raise ValueError(f"sha256 must be 64 hex characters, got {value!r}")
         return None if value is None else value.lower()
 
+
+class ResourceDefaults(_ResourceFields):
+    """A starting point for a resource of the same name, stated once under ``defaults:``.
+
+    This is where the fields that do not move between books go, ``type`` most of all.
+    It is a template and nothing more.
+    A book that never names the resource does not get it,
+    because a default that could add a resource to a book would make the list of things a book
+    reads impossible to see from the book itself.
+    """
+
+
+class ResourceSpec(_ResourceFields):
+    """One upstream input a book is built from, complete.
+
+    This is what a book's declaration resolves to once its default has been merged under it,
+    so the completeness rules land on the merged result rather than on either half.
+    A default holding only ``type`` and a book holding only ``uri`` and ``sha256``
+    are each incomplete, and together they are a resource.
+    """
+
+    type: models.ResourceType
+
     @model_validator(mode="after")
     def _one_location_only(self) -> Self:
         if (self.uri is None) == (self.path is None):
@@ -187,24 +220,46 @@ class ResourceSpec(_Section):
         return self
 
 
-class VersionSpec(DiscoveryFields):
-    """One upstream version, stated in full.
+class DefaultsSection(_Section):
+    """What every book starts from.
 
-    A version carries whichever discovery fields it overrides,
-    its licence, its visibility, and its resources.
-    It inherits nothing from the version before it.
-    There is no ``extends`` and no carry-forward,
-    so a reader never has to walk backwards through the file to learn what a version is built from.
+    A book overrides any of it, and the merge is field by field rather than section by section,
+    so stating one discovery field on a book keeps the rest of the defaults.
 
-    ``license`` is required, so the terms a book is published under are always stated
-    next to the version they apply to.
-
-    ``visibility`` sits here for the same reason, because who may read a version
-    is a fact about that version rather than about the collection or about how it is built.
-    An embargoed version alongside published ones is ordinary.
-    Omitting it means ``hidden``, so the way to get it wrong is the way that shows nobody the data.
+    Nothing here is required, and a recipe that omits the section entirely behaves as it did
+    before the section existed.
     """
 
+    discovery: DiscoveryFields = Field(default_factory=DiscoveryFields)
+    visibility: str | None = None
+    resources: dict[str, ResourceDefaults] = Field(default_factory=dict)
+
+    @field_validator("visibility", mode="before")
+    @classmethod
+    def _a_known_tier(cls, value: Any) -> Any:  # noqa: ANN401
+        return _a_known_visibility(value)
+
+
+class BookSpec(DiscoveryFields):
+    """One book the feedstock can produce, named by the upstream version it is built from.
+
+    A book carries whichever discovery fields it overrides,
+    its licence, its visibility, and the resources it reads.
+    It inherits from ``defaults:`` and from nowhere else.
+    There is no ``extends`` and no carry-forward from the book before it,
+    so a reader never has to walk backwards through the file to learn what a book is built from.
+
+    ``license`` is required, so the terms a book goes out under are always stated next to it.
+    A default would let a relicensed book publish under the wrong terms
+    without anyone having written it down.
+
+    ``visibility`` may be defaulted, because an embargo usually covers a whole feedstock
+    and a book that lifts it says so.
+    Where neither states it the book is ``hidden``,
+    so the way to get it wrong is the way that shows nobody the data.
+    """
+
+    version: str = Field(min_length=1)
     license: str = Field(min_length=1)
     visibility: str | None = None
     resources: dict[str, ResourceSpec] = Field(default_factory=dict)
@@ -212,25 +267,29 @@ class VersionSpec(DiscoveryFields):
     @field_validator("visibility", mode="before")
     @classmethod
     def _a_known_tier(cls, value: Any) -> Any:  # noqa: ANN401
-        """Reject an unknown tier by name, rather than by pydantic's enum rendering.
-
-        The membership test runs behind an ``isinstance`` guard,
-        so an unhashable value raises this error rather than a bare ``TypeError``.
-        """
-        if value is None:
-            return None
-        if not isinstance(value, str) or value not in set(models.Visibility):
-            allowed = ", ".join(sorted(models.Visibility))
-            raise ValueError(f"visibility must be one of {allowed}, got {value!r}")
-        return value
+        return _a_known_visibility(value)
 
 
-class ResolvedVersion(BaseModel):
-    """One version with the volume's defaults already merged in.
+def _a_known_visibility(value: Any) -> Any:  # noqa: ANN401
+    """Reject an unknown tier by name, rather than by pydantic's enum rendering.
+
+    The membership test runs behind an ``isinstance`` guard,
+    so an unhashable value raises this error rather than a bare ``TypeError``.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, str) or value not in set(models.Visibility):
+        allowed = ", ".join(sorted(models.Visibility))
+        raise ValueError(f"visibility must be one of {allowed}, got {value!r}")
+    return value
+
+
+class ResolvedBook(BaseModel):
+    """One book with the recipe's defaults already merged in.
 
     This is what the recorder consumes.
-    ``sequence`` is the version's position in recipe order, counting from zero,
-    so a consumer can order versions without parsing a version string.
+    ``sequence`` is the book's position in recipe order, counting from zero,
+    so a consumer can order books without parsing a version string.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -244,51 +303,67 @@ class ResolvedVersion(BaseModel):
 
     @property
     def authors(self) -> tuple[dict[str, Any], ...]:
-        """The people credited with this version, as the producer surfaces take them."""
+        """The people credited with this book, as the producer surfaces take them."""
         return tuple(
             author.model_dump(exclude_none=True) for author in self.discovery.authors or ()
         )
 
 
 class RecordRecipe(BaseModel):
-    """A loaded recipe: one volume, one build, and the versions it can produce.
+    """A loaded recipe: one volume, one set of defaults, one build, and the books it can produce.
 
-    ``versions`` keeps recipe order,
-    which is the order form A's mapping states and the order form B's filenames sort into.
+    ``books`` keeps recipe order, which is the order the list states.
+    A book's resources are already merged with their defaults by the time they land here,
+    so this model holds effective resources and the loader is the only place the merge happens.
     """
 
     model_config = ConfigDict(frozen=True)
 
     volume: VolumeSection
+    defaults: DefaultsSection = Field(default_factory=DefaultsSection)
     build: BuildSection = Field(default_factory=BuildSection)
-    versions: dict[str, VersionSpec] = Field(default_factory=dict)
+    books: tuple[BookSpec, ...] = ()
 
-    def resolve(self, version: str) -> ResolvedVersion:
-        """Resolve one version against the volume's defaults.
+    @property
+    def versions(self) -> tuple[str, ...]:
+        """The versions the recipe can build, in recipe order."""
+        return tuple(book.version for book in self.books)
+
+    def resolve(self, version: str) -> ResolvedBook:
+        """Resolve one book against the recipe's defaults.
 
         This is the single place a declared value becomes an effective one,
         so a caller never merges the two levels itself.
         Raises :class:`~bookshelf._core.errors.BookshelfError` naming the available versions
-        when the recipe does not define ``version``.
+        when the recipe declares no book for ``version``.
         """
-        spec = self.versions.get(version)
-        if spec is None:
+        found = next(
+            (
+                (sequence, spec)
+                for sequence, spec in enumerate(self.books)
+                if spec.version == version
+            ),
+            None,
+        )
+        if found is None:
             raise BookshelfError(
-                f"the recipe defines no version {version!r}. {available_versions(self.versions)}"
+                f"the recipe declares no book for version {version!r}. "
+                f"{available_versions(self.versions)}"
             )
+        sequence, spec = found
         merged = {
             name: (
                 getattr(spec, name)
                 if getattr(spec, name) is not None
-                else getattr(self.volume.discovery, name)
+                else getattr(self.defaults.discovery, name)
             )
             for name in DiscoveryFields.model_fields
         }
-        return ResolvedVersion(
+        return ResolvedBook(
             version=version,
-            sequence=tuple(self.versions).index(version),
+            sequence=sequence,
             license=spec.license,
-            visibility=spec.visibility,
+            visibility=spec.visibility or self.defaults.visibility,
             discovery=DiscoveryFields(**merged),
             resources=dict(spec.resources),
         )
@@ -297,7 +372,7 @@ class RecordRecipe(BaseModel):
 def available_versions(versions: Collection[str]) -> str:
     """Name the versions a caller can choose between, or say there are none."""
     if not versions:
-        return "The recipe declares no versions. Add one under 'versions:'."
+        return "The recipe declares no books. Add one under 'books:' with a 'version:'."
     listed = ", ".join(repr(version) for version in versions)
     return f"The recipe declares {listed}."
 
@@ -374,39 +449,77 @@ def _section[SectionT: BaseModel](
         raise BookshelfError(f"{path} has {len(problems)} problems:\n{listed}") from exc
 
 
-def _version_documents(path: Path, raw: dict[str, Any]) -> dict[str, Any]:
-    """Collect the raw version bodies the recipe declares, keyed by version."""
-    declared = raw.get("versions")
+def _book_documents(path: Path, raw: dict[str, Any]) -> list[dict[str, Any]]:
+    """Collect the raw book bodies the recipe declares, in the order it states them."""
+    declared = raw.get("books")
     if declared is None:
-        return {}
-    if not isinstance(declared, dict):
-        raise BookshelfError(f"{path} versions must be a mapping of version to its body")
-    documents: dict[str, Any] = {}
-    for key, body in declared.items():
-        if not isinstance(key, str):
-            raise BookshelfError(f"{path} {_unquoted_version_key(key)}")
-        documents[key] = body
+        return []
+    if not isinstance(declared, list):
+        raise BookshelfError(
+            f"{path} books must be a list, one entry per book, each with a 'version:'"
+        )
+    documents: list[dict[str, Any]] = []
+    for index, body in enumerate(declared):
+        if body is None:
+            body = {}
+        if not isinstance(body, dict):
+            raise BookshelfError(f"{path} books[{index}] must be a mapping")
+        version = body.get("version")
+        if version is not None and not isinstance(version, str):
+            raise BookshelfError(f"{path} books[{index}] {_unquoted_version(version)}")
+        documents.append(body)
     return documents
 
 
-def _unquoted_version_key(key: Any) -> str:  # noqa: ANN401
-    """Name the fix for a version key YAML did not read as a string.
+def _unquoted_version(version: Any) -> str:  # noqa: ANN401
+    """Name the fix for a version YAML did not read as a string.
 
     A float gets the collision reasoning, because that is the case where quoting changes meaning
     rather than only type.
-    Everything else names what YAML made of the key, because the author cannot see that from
+    Everything else names what YAML made of the value, because the author cannot see that from
     the file.
     """
-    if isinstance(key, float):
+    if isinstance(version, float):
         return (
-            f'version key {key} is a number. Quote it as "{key}", '
+            f'version {version} is a number. Quote it as "{version}", '
             "because an unquoted version is read as a YAML float "
             "and 2.70 and 2.7 would collide"
         )
     return (
-        f"version key {key} is not a string, because YAML read it as a {type(key).__name__}. "
-        "Quote the key exactly as you wrote it, because a version is a string"
+        f"version {version} is not a string, because YAML read it as a {type(version).__name__}. "
+        "Quote it exactly as you wrote it, because a version is a string"
     )
+
+
+def _merge_resources(defaults: DefaultsSection, body: dict[str, Any]) -> Any:  # noqa: ANN401
+    """Lay a book's resource declarations over the defaults of the same name.
+
+    The merge runs on the raw mapping, before validation,
+    so a resource is checked for completeness once, as the thing the recorder will read.
+    Splitting ``type`` from ``uri`` across the two levels is the point of the section,
+    and validating either half alone would reject both.
+
+    A body that is not a mapping is left alone for the section validator to report,
+    because a merge cannot say anything useful about it that the validator will not say better.
+    """
+    declared = body.get("resources")
+    if not isinstance(declared, dict):
+        return declared
+    merged: dict[str, Any] = {}
+    for name, stated in declared.items():
+        default = defaults.resources.get(str(name))
+        if default is None or not isinstance(stated, dict):
+            merged[name] = stated
+            continue
+        under = default.model_dump(exclude_none=True)
+        if "path" in stated or "uri" in stated:
+            # A book that names its own location replaces the default's,
+            # so a default uri never sits beside a book path and trips the one-location rule.
+            under.pop("uri", None)
+            under.pop("path", None)
+            under.pop("sha256", None)
+        merged[name] = {**under, **stated}
+    return merged
 
 
 def load_record_recipe(path: Path) -> RecordRecipe:
@@ -422,7 +535,12 @@ def load_record_recipe(path: Path) -> RecordRecipe:
         raise BookshelfError(
             f"{path} uses the removed flat recipe form. "
             "Move 'collection' under 'volume: name:', 'notebook' under 'build:', "
-            "and declare each version under 'versions:'"
+            "and declare each book under 'books:'"
+        )
+    if "versions" in raw:
+        raise BookshelfError(
+            f"{path} declares 'versions:'. That section is now 'books:', "
+            "a list rather than a mapping, with the version stated as 'version:' inside each entry"
         )
     unknown = [key for key in raw if key not in _TOP_LEVEL_KEYS]
     if unknown:
@@ -435,40 +553,90 @@ def load_record_recipe(path: Path) -> RecordRecipe:
         raise BookshelfError(f"{path} declares no volume. Add 'volume:' with a 'name:' under it")
 
     volume_raw = raw.get("volume")
-    if isinstance(volume_raw, dict) and "license" in volume_raw:
-        raise BookshelfError(
-            f"{path} declares 'license' under 'volume:'. "
-            "A licence is stated per version, so move it onto every version under 'versions:'"
-        )
+    if isinstance(volume_raw, dict):
+        if "license" in volume_raw:
+            raise BookshelfError(
+                f"{path} declares 'license' under 'volume:'. "
+                "A licence is stated per book, so move it onto every book under 'books:'"
+            )
+        if "discovery" in volume_raw:
+            raise BookshelfError(
+                f"{path} declares 'discovery' under 'volume:'. "
+                "Catalogue metadata is defaulted for the whole recipe, "
+                "so move it to 'defaults: discovery:'"
+            )
+        if "topics" in volume_raw:
+            raise BookshelfError(
+                f"{path} declares 'topics' under 'volume:'. "
+                "Topics are gone, because they never named a curated set "
+                "and nothing distinguished one from a keyword. Use 'keywords:'"
+            )
 
     build_raw = raw.get("build")
     if isinstance(build_raw, dict) and "visibility" in build_raw:
         raise BookshelfError(
             f"{path} declares 'visibility' under 'build:'. "
-            "Visibility is stated per version, so move it onto every version "
-            "that is not hidden under 'versions:'"
+            "Visibility is a fact about a book rather than about how it is built, "
+            "so move it to 'defaults:' or onto the books it applies to"
         )
 
-    recipe = RecordRecipe(
+    defaults = _section(DefaultsSection, raw.get("defaults"), path=path, where="defaults")
+    books = []
+    for index, body in enumerate(_book_documents(path, raw)):
+        version = body.get("version")
+        where = f'books."{version}"' if isinstance(version, str) else f"books[{index}]"
+        books.append(
+            _section(
+                BookSpec,
+                {**body, "resources": _merge_resources(defaults, body)}
+                if "resources" in body
+                else body,
+                path=path,
+                where=where,
+            )
+        )
+    _one_book_per_version(path, books)
+
+    return RecordRecipe(
         volume=_section(VolumeSection, volume_raw, path=path, where="volume"),
+        defaults=defaults,
         build=_section(BuildSection, build_raw, path=path, where="build"),
-        versions={
-            version: _section(VersionSpec, body, path=path, where=f'versions."{version}"')
-            for version, body in _version_documents(path, raw).items()
-        },
+        books=tuple(books),
     )
-    return recipe
+
+
+def _one_book_per_version(path: Path, books: Collection[BookSpec]) -> None:
+    """Refuse a recipe that declares the same version twice.
+
+    A list cannot enforce this the way a mapping's keys did,
+    and two books claiming one version would make ``--version`` pick by position,
+    which is not a choice an author ever intends to express.
+    """
+    seen: set[str] = set()
+    repeated: set[str] = set()
+    for book in books:
+        if book.version in seen:
+            repeated.add(book.version)
+        seen.add(book.version)
+    if repeated:
+        listed = ", ".join(repr(version) for version in repeated)
+        raise BookshelfError(
+            f"{path} declares more than one book for {listed}. "
+            "A version names one book, so give each book its own version"
+        )
 
 
 def resolve_book_visibility(
     declared: VisibilityInput | None,
     *,
-    resolved: ResolvedVersion | None = None,
+    resolved: ResolvedBook | None = None,
     default: models.Visibility = models.Visibility.hidden,
 ) -> models.Visibility:
     """Resolve the tier a recorded book takes, which is also the default its resources take.
 
-    The rule is: the caller, then the version's ``visibility``, then ``default``.
+    The rule is: the caller, then the book's resolved ``visibility``, then ``default``.
+    The book's own value and the recipe's default were already reconciled by
+    :meth:`RecordRecipe.resolve`, so only one recipe-side value reaches here.
     ``None`` and :data:`~bookshelf._produce.visibility.INHERIT` both mean the caller said nothing.
     An empty string is invalid input to reject, never a signal to inherit the recipe's value.
 
@@ -482,12 +650,14 @@ def resolve_book_visibility(
 
 
 __all__ = [
+    "BookSpec",
     "BuildSection",
+    "DefaultsSection",
     "DiscoveryFields",
     "RecordRecipe",
-    "ResolvedVersion",
+    "ResolvedBook",
+    "ResourceDefaults",
     "ResourceSpec",
-    "VersionSpec",
     "VolumeSection",
     "available_versions",
     "load_record_recipe",

@@ -17,7 +17,7 @@ from bookshelf.publisher.bundle import Bundle
 from bookshelf.publisher.recipe import (
     PersonSpec,
     RecordRecipe,
-    ResolvedVersion,
+    ResolvedBook,
     load_record_recipe,
     resolve_book_visibility,
 )
@@ -33,16 +33,17 @@ _VERSION = "v1.0.0"
 _MINIMAL = """\
 volume:
   name: my-dataset
+defaults:
   discovery:
     authors:
       - name: Ada Lovelace
         email: ada@example.com
 build:
   notebook: build.py
-versions:
-  "v1.0.0":
+books:
+  - version: "v1.0.0"
     license: MIT
-{version_extra}"""
+{book_extra}"""
 
 _HEAD = """\
 volume:
@@ -50,9 +51,9 @@ volume:
   maintainers:
     - name: Jared Lewis
       email: jared@example.com
-  topics: [emissions, inventories]
   keywords: [ghg, national]
   update_cadence: annual
+defaults:
   discovery:
     title: PRIMAP-hist
     abstract: National greenhouse gas emissions.
@@ -60,12 +61,15 @@ volume:
     homepage_url: https://example.invalid/primap
     methodology_url: https://example.invalid/method
     repository_url: https://example.invalid/repo
+  resources:
+    raw:
+      type: tabular
 build:
   notebook: build.py
 """
 
-# One version body per version, indented under its mapping key to build the full recipe.
-_RELEASES = {
+# One book body per version, dedented and laid out as a list entry.
+_BOOKS = {
     "v2.6": """\
     doi: 10.5281/zenodo.10006301
     release_date: 2023-09-13
@@ -84,25 +88,24 @@ _RELEASES = {
         email: jared@example.com
     resources:
       raw:
-        type: tabular
         uri: https://example.invalid/primap.csv
         sha256: 77834f5f16197a463fe3df7e0eb3adda62a9e48355c9481926133986e35a9019
     """,
 }
 
 
-def _version_body(version: str) -> str:
-    """One version body, dedented."""
-    return textwrap.dedent(_RELEASES[version]).rstrip() + "\n"
+def _book_body(version: str) -> str:
+    """One book body, dedented."""
+    return textwrap.dedent(_BOOKS[version]).rstrip() + "\n"
 
 
 def _full_recipe() -> str:
-    """The whole recipe, versions indented under their mapping keys."""
+    """The whole recipe, each book a list entry under ``books:``."""
     blocks = "".join(
-        f'  "{version}":\n{textwrap.indent(_version_body(version), "    ")}'
-        for version in _RELEASES
+        f'  - version: "{version}"\n{textwrap.indent(_book_body(version), "    ")}'
+        for version in _BOOKS
     )
-    return _HEAD + "versions:\n" + blocks
+    return _HEAD + "books:\n" + blocks
 
 
 _FULL = _full_recipe()
@@ -126,10 +129,24 @@ def _write(tmp_path: Path, text: str) -> Path:
     return path
 
 
-def _write_recipe(tmp_path: Path, version_extra: str = "") -> Path:
-    """Write a minimal valid recipe, plus any extra keys on its single version."""
-    indented = f"    {version_extra}\n" if version_extra else ""
-    return _write(tmp_path, _MINIMAL.format(version_extra=indented))
+def _write_recipe(tmp_path: Path, book_extra: str = "") -> Path:
+    """Write a minimal valid recipe, plus any extra keys on its single book."""
+    indented = f"    {book_extra}\n" if book_extra else ""
+    return _write(tmp_path, _MINIMAL.format(book_extra=indented))
+
+
+def _one_book(tmp_path: Path, body: str, *, defaults: str = "") -> Path:
+    """Write a minimal recipe whose single book carries ``body``."""
+    book = textwrap.indent(textwrap.dedent(body).rstrip() + "\n", "    ")
+    path = tmp_path / "bookshelf.yaml"
+    path.write_text(
+        "volume:\n  name: my-dataset\n"
+        + (textwrap.dedent(defaults) if defaults else "")
+        + 'books:\n  - version: "v1.0"\n    license: MIT\n'
+        + book,
+        encoding="utf-8",
+    )
+    return path
 
 
 # ----------------------------------------------------------------------
@@ -140,41 +157,40 @@ def test_a_full_recipe_populates_every_section(tmp_path: Path) -> None:
 
     assert recipe.volume.name == "primap-hist"
     assert recipe.volume.maintainers == [PersonSpec(name="Jared Lewis", email="jared@example.com")]
-    assert recipe.volume.topics == ["emissions", "inventories"]
     assert recipe.volume.keywords == ["ghg", "national"]
     assert recipe.volume.update_cadence == "annual"
-    assert recipe.volume.discovery.title == "PRIMAP-hist"
-    assert recipe.volume.discovery.repository_url == "https://example.invalid/repo"
+    assert recipe.defaults.discovery.title == "PRIMAP-hist"
+    assert recipe.defaults.discovery.repository_url == "https://example.invalid/repo"
     assert recipe.build.notebook == Path("build.py")
-    assert tuple(recipe.versions) == ("v2.6", "v2.7")
+    assert recipe.versions == ("v2.6", "v2.7")
 
 
-def test_a_version_carries_its_declared_resource(tmp_path: Path) -> None:
-    version = load_record_recipe(_write(tmp_path, _FULL)).resolve("v2.7")
+def test_a_book_carries_its_declared_resource(tmp_path: Path) -> None:
+    book = load_record_recipe(_write(tmp_path, _FULL)).resolve("v2.7")
 
-    resource = version.resources["raw"]
+    resource = book.resources["raw"]
     assert resource.type == "tabular"
     assert resource.uri == "https://example.invalid/primap.csv"
     assert resource.sha256 == "77834f5f16197a463fe3df7e0eb3adda62a9e48355c9481926133986e35a9019"
     assert resource.path is None
 
 
-def test_a_version_does_not_inherit_the_previous_versions_resources(tmp_path: Path) -> None:
-    """Each version restates itself, so reading one tells the whole story."""
+def test_a_book_does_not_inherit_the_previous_books_resources(tmp_path: Path) -> None:
+    """Each book restates itself, so reading one tells the whole story."""
     recipe = load_record_recipe(_write(tmp_path, _FULL))
 
     assert recipe.resolve("v2.7").resources != {}
     assert recipe.resolve("v2.6").resources == {}
 
 
-def test_each_version_carries_the_licence_it_states(tmp_path: Path) -> None:
+def test_each_book_carries_the_licence_it_states(tmp_path: Path) -> None:
     recipe = load_record_recipe(_write(tmp_path, _FULL))
 
     assert recipe.resolve("v2.7").license == "CC-BY"
     assert recipe.resolve("v2.6").license == "CC-BY-NC"
 
 
-def test_a_version_publisher_overrides_the_volume_discovery_default(tmp_path: Path) -> None:
+def test_a_book_publisher_overrides_the_discovery_default(tmp_path: Path) -> None:
     recipe = load_record_recipe(_write(tmp_path, _FULL))
 
     assert recipe.resolve("v2.7").discovery.publisher == "Climate Resource"
@@ -184,15 +200,15 @@ def test_a_version_publisher_overrides_the_volume_discovery_default(tmp_path: Pa
     )
 
 
-def test_an_unstated_discovery_field_falls_through_to_the_volume(tmp_path: Path) -> None:
-    version = load_record_recipe(_write(tmp_path, _FULL)).resolve("v2.7")
+def test_an_unstated_discovery_field_falls_through_to_the_defaults(tmp_path: Path) -> None:
+    book = load_record_recipe(_write(tmp_path, _FULL)).resolve("v2.7")
 
-    assert version.discovery.title == "PRIMAP-hist"
-    assert version.discovery.release_date == date(2025, 8, 22)
+    assert book.discovery.title == "PRIMAP-hist"
+    assert book.discovery.release_date == date(2025, 8, 22)
 
 
-def test_version_order_follows_the_recipe_and_sequence_matches_it(tmp_path: Path) -> None:
-    """A consumer orders versions by position, never by parsing a version string."""
+def test_book_order_follows_the_recipe_and_sequence_matches_it(tmp_path: Path) -> None:
+    """A consumer orders books by position, never by parsing a version string."""
     recipe = load_record_recipe(_write(tmp_path, _FULL))
 
     assert [recipe.resolve(version).sequence for version in recipe.versions] == [0, 1]
@@ -202,8 +218,131 @@ def test_version_order_follows_the_recipe_and_sequence_matches_it(tmp_path: Path
 def test_an_unknown_version_names_the_versions_the_recipe_declares(tmp_path: Path) -> None:
     recipe = load_record_recipe(_write(tmp_path, _FULL))
 
-    with pytest.raises(BookshelfError, match=r"no version 'v9.9'.*'v2.6', 'v2.7'"):
+    with pytest.raises(BookshelfError, match=r"no book for version 'v9.9'.*'v2.6', 'v2.7'"):
         recipe.resolve("v9.9")
+
+
+# ----------------------------------------------------------------------
+# What ``defaults:`` supplies, and what a book overrides.
+# ----------------------------------------------------------------------
+def test_a_resource_default_supplies_the_type_the_book_leaves_out(tmp_path: Path) -> None:
+    """The type does not move between books, so it is stated once."""
+    book = load_record_recipe(_write(tmp_path, _FULL)).resolve("v2.7")
+
+    assert book.resources["raw"].type is models.ResourceType.tabular
+
+
+def test_a_book_overrides_a_resource_default(tmp_path: Path) -> None:
+    path = _one_book(
+        tmp_path,
+        "resources:\n  raw:\n    type: timeseries\n    path: a.csv",
+        defaults="defaults:\n  resources:\n    raw:\n      type: tabular\n",
+    )
+
+    assert load_record_recipe(path).resolve("v1.0").resources["raw"].type is (
+        models.ResourceType.timeseries
+    )
+
+
+def test_a_book_location_replaces_the_defaults_rather_than_joining_it(tmp_path: Path) -> None:
+    """A default uri beside a book path would trip the one-location rule for no reason."""
+    path = _one_book(
+        tmp_path,
+        "resources:\n  raw:\n    path: a.csv",
+        defaults=(
+            "defaults:\n"
+            "  resources:\n"
+            "    raw:\n"
+            "      type: tabular\n"
+            "      uri: https://example.invalid/a.csv\n"
+            "      sha256: " + "a" * 64 + "\n"
+        ),
+    )
+
+    resource = load_record_recipe(path).resolve("v1.0").resources["raw"]
+    assert resource.path == Path("a.csv")
+    assert resource.uri is None
+    assert resource.sha256 is None
+
+
+def test_a_resource_default_a_book_never_names_is_not_added_to_it(tmp_path: Path) -> None:
+    """A default that could add a resource would hide what a book reads from the book itself."""
+    path = _one_book(
+        tmp_path,
+        "release_date: 2024-01-01",
+        defaults="defaults:\n  resources:\n    raw:\n      type: tabular\n      path: a.csv\n",
+    )
+
+    assert load_record_recipe(path).resolve("v1.0").resources == {}
+
+
+def test_a_resource_that_is_incomplete_across_both_levels_is_rejected(tmp_path: Path) -> None:
+    """Completeness is asked of the merged resource, which is what the recorder reads."""
+    path = _one_book(
+        tmp_path,
+        "resources:\n  raw: {}",
+        defaults="defaults:\n  resources:\n    raw:\n      type: tabular\n",
+    )
+
+    with pytest.raises(BookshelfError, match="exactly one of uri or path"):
+        load_record_recipe(path)
+
+
+def test_a_default_visibility_applies_to_a_book_that_states_none(tmp_path: Path) -> None:
+    """An embargo usually covers a whole feedstock, so it is stated once."""
+    path = _one_book(
+        tmp_path, "release_date: 2024-01-01", defaults="defaults:\n  visibility: org\n"
+    )
+
+    assert load_record_recipe(path).resolve("v1.0").visibility == "org"
+
+
+def test_a_book_overrides_the_default_visibility(tmp_path: Path) -> None:
+    path = _one_book(tmp_path, "visibility: public", defaults="defaults:\n  visibility: hidden\n")
+
+    assert load_record_recipe(path).resolve("v1.0").visibility == "public"
+
+
+def test_a_recipe_without_a_defaults_section_loads(tmp_path: Path) -> None:
+    """The section is entirely optional, so a small feedstock never writes one."""
+    recipe = load_record_recipe(
+        _write(
+            tmp_path,
+            """\
+            volume:
+              name: my-dataset
+            books:
+              - version: "v1.0"
+                license: MIT
+            """,
+        )
+    )
+
+    assert recipe.resolve("v1.0").visibility is None
+    assert recipe.defaults.discovery.title is None
+
+
+def test_an_unknown_default_visibility_is_rejected_naming_the_allowed_values(
+    tmp_path: Path,
+) -> None:
+    path = _one_book(
+        tmp_path, "release_date: 2024-01-01", defaults="defaults:\n  visibility: everyone\n"
+    )
+
+    with pytest.raises(BookshelfError, match="visibility must be one of hidden, org, public"):
+        load_record_recipe(path)
+
+
+def test_a_resource_default_naming_an_unknown_type_is_rejected(tmp_path: Path) -> None:
+    """A default is validated where it is written, not only where it is used."""
+    path = _one_book(
+        tmp_path,
+        "release_date: 2024-01-01",
+        defaults="defaults:\n  resources:\n    raw:\n      type: csv\n",
+    )
+
+    with pytest.raises(BookshelfError, match="defaults.resources.raw.type: type must be one of"):
+        load_record_recipe(path)
 
 
 # ----------------------------------------------------------------------
@@ -220,10 +359,82 @@ def test_the_removed_flat_form_is_rejected_naming_the_new_shape(tmp_path: Path) 
     assert "removed flat recipe form" in message
     assert "'volume: name:'" in message
     assert "'build:'" in message
-    assert "'versions:'" in message
+    assert "'books:'" in message
 
 
-def test_an_unquoted_numeric_version_key_is_rejected_telling_the_author_to_quote_it(
+def test_the_versions_mapping_is_rejected_naming_the_list_that_replaced_it(tmp_path: Path) -> None:
+    """The generic unknown-key message would not say the shape changed as well as the name."""
+    path = _write(
+        tmp_path,
+        """\
+        volume:
+          name: my-dataset
+        versions:
+          "v1.0":
+            license: MIT
+        """,
+    )
+
+    with pytest.raises(BookshelfError) as excinfo:
+        load_record_recipe(path)
+
+    message = str(excinfo.value)
+    assert "now 'books:'" in message
+    assert "a list rather than a mapping" in message
+    assert "'version:' inside each entry" in message
+
+
+def test_books_stated_as_a_mapping_is_rejected(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        """\
+        volume:
+          name: my-dataset
+        books:
+          "v1.0":
+            license: MIT
+        """,
+    )
+
+    with pytest.raises(BookshelfError, match="books must be a list"):
+        load_record_recipe(path)
+
+
+def test_two_books_claiming_one_version_are_rejected(tmp_path: Path) -> None:
+    """A list cannot enforce this the way a mapping's keys did, so the loader does."""
+    path = _write(
+        tmp_path,
+        """\
+        volume:
+          name: my-dataset
+        books:
+          - version: "v1.0"
+            license: MIT
+          - version: "v1.0"
+            license: CC-BY
+        """,
+    )
+
+    with pytest.raises(BookshelfError, match="more than one book for 'v1.0'"):
+        load_record_recipe(path)
+
+
+def test_a_book_that_states_no_version_is_rejected(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        """\
+        volume:
+          name: my-dataset
+        books:
+          - license: MIT
+        """,
+    )
+
+    with pytest.raises(BookshelfError, match=re.escape("books[0].version is required")):
+        load_record_recipe(path)
+
+
+def test_an_unquoted_numeric_version_is_rejected_telling_the_author_to_quote_it(
     tmp_path: Path,
 ) -> None:
     """An unquoted 2.70 is a YAML float, so it would collide with 2.7."""
@@ -232,8 +443,9 @@ def test_an_unquoted_numeric_version_key_is_rejected_telling_the_author_to_quote
         """\
         volume:
           name: my-dataset
-        versions:
-          2.6: {}
+        books:
+          - version: 2.6
+            license: MIT
         """,
     )
 
@@ -246,11 +458,11 @@ def test_an_unquoted_numeric_version_key_is_rejected_telling_the_author_to_quote
 
 
 @pytest.mark.parametrize(
-    ("key", "read_as"),
-    [("yes", "bool"), ("2025-08-22", "date"), ("2", "int"), ("null", "NoneType")],
+    ("value", "read_as"),
+    [("yes", "bool"), ("2025-08-22", "date"), ("2", "int")],
 )
-def test_a_version_key_that_is_not_a_string_names_what_yaml_read_it_as(
-    tmp_path: Path, key: str, read_as: str
+def test_a_version_that_is_not_a_string_names_what_yaml_read_it_as(
+    tmp_path: Path, value: str, read_as: str
 ) -> None:
     """The float advice would be wrong here, so the message says what actually happened."""
     path = _write(
@@ -258,8 +470,9 @@ def test_a_version_key_that_is_not_a_string_names_what_yaml_read_it_as(
         f"""\
         volume:
           name: my-dataset
-        versions:
-          {key}: {{}}
+        books:
+          - version: {value}
+            license: MIT
         """,
     )
 
@@ -268,7 +481,7 @@ def test_a_version_key_that_is_not_a_string_names_what_yaml_read_it_as(
 
     message = str(excinfo.value)
     assert f"YAML read it as a {read_as}" in message
-    assert "Quote the key exactly as you wrote it" in message
+    assert "Quote it exactly as you wrote it" in message
     assert "would collide" not in message
 
 
@@ -292,12 +505,34 @@ def test_a_version_key_that_is_not_a_string_names_what_yaml_read_it_as(
             """,
         ),
         (
-            "volume.discovery.surplus",
+            "defaults.discovery.surplus",
             """\
             volume:
               name: my-dataset
+            defaults:
               discovery:
                 surplus: 1
+            """,
+        ),
+        (
+            "defaults.surplus",
+            """\
+            volume:
+              name: my-dataset
+            defaults:
+              surplus: 1
+            """,
+        ),
+        (
+            "defaults.resources.raw.surplus",
+            """\
+            volume:
+              name: my-dataset
+            defaults:
+              resources:
+                raw:
+                  type: tabular
+                  surplus: 1
             """,
         ),
         (
@@ -311,12 +546,13 @@ def test_a_version_key_that_is_not_a_string_names_what_yaml_read_it_as(
             """,
         ),
         (
-            'versions."v1.0".authors.0.surplus',
+            'books."v1.0".authors.0.surplus',
             """\
             volume:
               name: my-dataset
-            versions:
-              "v1.0":
+            books:
+              - version: "v1.0"
+                license: MIT
                 authors:
                   - name: Jared Lewis
                     surplus: 1
@@ -332,22 +568,23 @@ def test_a_version_key_that_is_not_a_string_names_what_yaml_read_it_as(
             """,
         ),
         (
-            'versions."v1.0".surplus',
+            'books."v1.0".surplus',
             """\
             volume:
               name: my-dataset
-            versions:
-              "v1.0":
+            books:
+              - version: "v1.0"
+                license: MIT
                 surplus: 1
             """,
         ),
         (
-            'versions."v1.0".resources.raw.surplus',
+            'books."v1.0".resources.raw.surplus',
             """\
             volume:
               name: my-dataset
-            versions:
-              "v1.0":
+            books:
+              - version: "v1.0"
                 license: MIT
                 resources:
                   raw:
@@ -393,22 +630,22 @@ def test_two_problems_in_one_section_are_listed_one_per_line(tmp_path: Path) -> 
     ("where", "recipe"),
     [
         (
-            'versions."v1.0".license',
+            'books."v1.0".license',
             """\
             volume:
               name: my-dataset
-            versions:
-              "v1.0":
+            books:
+              - version: "v1.0"
                 license: ""
             """,
         ),
         (
-            'versions."v1.0".resources.raw.uri',
+            'books."v1.0".resources.raw.uri',
             """\
             volume:
               name: my-dataset
-            versions:
-              "v1.0":
+            books:
+              - version: "v1.0"
                 license: MIT
                 resources:
                   raw:
@@ -432,33 +669,22 @@ def test_a_value_that_is_declared_but_empty_is_rejected(
 @pytest.mark.parametrize("value", ["/etc/passwd", "../outside/raw.csv", "nested/../../raw.csv"])
 def test_a_path_resource_that_leaves_the_feedstock_is_rejected(tmp_path: Path, value: str) -> None:
     """The check is structural, because the loader touches no filesystem."""
-    path = _one_version(tmp_path, f"resources:\n  raw:\n    type: tabular\n    path: {value}")
+    path = _one_book(tmp_path, f"resources:\n  raw:\n    type: tabular\n    path: {value}")
 
     with pytest.raises(BookshelfError, match="is relative to the recipe and stays beside it"):
         load_record_recipe(path)
 
 
 def test_a_path_resource_may_sit_in_a_subdirectory_of_the_feedstock(tmp_path: Path) -> None:
-    path = _one_version(tmp_path, "resources:\n  raw:\n    type: tabular\n    path: data/raw.csv")
+    path = _one_book(tmp_path, "resources:\n  raw:\n    type: tabular\n    path: data/raw.csv")
 
     assert load_record_recipe(path).resolve("v1.0").resources["raw"].path == Path("data/raw.csv")
 
 
-def _one_version(tmp_path: Path, body: str) -> Path:
-    """Write a minimal recipe whose single version carries ``body``."""
-    version = textwrap.indent(textwrap.dedent(body).rstrip() + "\n", "    ")
-    path = tmp_path / "bookshelf.yaml"
-    path.write_text(
-        'volume:\n  name: my-dataset\nversions:\n  "v1.0":\n    license: MIT\n' + version,
-        encoding="utf-8",
-    )
-    return path
-
-
 @pytest.mark.parametrize("body", ["release_date: 2024-01-01", "resources: {}"])
-def test_a_version_without_resources_loads(tmp_path: Path, body: str) -> None:
+def test_a_book_without_resources_loads(tmp_path: Path, body: str) -> None:
     """A build that constructs its frame inline has no resources, and that is legal."""
-    assert load_record_recipe(_one_version(tmp_path, body)).resolve("v1.0").resources == {}
+    assert load_record_recipe(_one_book(tmp_path, body)).resolve("v1.0").resources == {}
 
 
 @pytest.mark.parametrize(
@@ -474,7 +700,7 @@ def test_a_resource_that_is_not_one_locatable_input_is_rejected(
     tmp_path: Path, resource: str, expected: str
 ) -> None:
     body = "resources:\n  raw:\n" + textwrap.indent(resource, "    ")
-    path = _one_version(tmp_path, body)
+    path = _one_book(tmp_path, body)
 
     with pytest.raises(BookshelfError, match=expected):
         load_record_recipe(path)
@@ -482,7 +708,7 @@ def test_a_resource_that_is_not_one_locatable_input_is_rejected(
 
 def test_a_resource_type_the_platform_does_not_register_is_rejected(tmp_path: Path) -> None:
     """A recipe that loads cannot name a type the platform would refuse at registration."""
-    path = _one_version(tmp_path, "resources:\n  raw:\n    type: csv\n    path: a.csv")
+    path = _one_book(tmp_path, "resources:\n  raw:\n    type: csv\n    path: a.csv")
 
     with pytest.raises(
         BookshelfError,
@@ -496,33 +722,33 @@ def test_a_resource_type_that_is_not_a_string_stays_on_the_bookshelf_error_path(
     tmp_path: Path, value: str
 ) -> None:
     """An unhashable value must not escape as a raw TypeError from the membership test."""
-    path = _one_version(tmp_path, f"resources:\n  raw:\n    type: {value}\n    path: a.csv")
+    path = _one_book(tmp_path, f"resources:\n  raw:\n    type: {value}\n    path: a.csv")
 
     with pytest.raises(BookshelfError, match="type must be one of"):
         load_record_recipe(path)
 
 
 def test_a_resolved_resource_carries_the_type_as_the_platform_enum(tmp_path: Path) -> None:
-    path = _one_version(tmp_path, "resources:\n  raw:\n    type: tabular\n    path: a.csv")
+    path = _one_book(tmp_path, "resources:\n  raw:\n    type: tabular\n    path: a.csv")
 
     resource = load_record_recipe(path).resolve("v1.0").resources["raw"]
 
     assert resource.type is models.ResourceType.tabular
 
 
-def test_a_version_that_states_no_licence_is_rejected(tmp_path: Path) -> None:
+def test_a_book_that_states_no_licence_is_rejected(tmp_path: Path) -> None:
     """The terms a book is published under are never inferred."""
     path = _write(
         tmp_path,
         """\
         volume:
           name: my-dataset
-        versions:
-          "v1.0": {}
+        books:
+          - version: "v1.0"
         """,
     )
 
-    with pytest.raises(BookshelfError, match='versions."v1.0".license is required'):
+    with pytest.raises(BookshelfError, match='books."v1.0".license is required'):
         load_record_recipe(path)
 
 
@@ -534,13 +760,50 @@ def test_a_licence_under_the_volume_is_rejected_naming_where_it_moved(tmp_path: 
         volume:
           name: my-dataset
           license: MIT
-        versions:
-          "v1.0":
+        books:
+          - version: "v1.0"
             license: MIT
         """,
     )
 
-    with pytest.raises(BookshelfError, match="move it onto every version"):
+    with pytest.raises(BookshelfError, match="move it onto every book"):
+        load_record_recipe(path)
+
+
+def test_discovery_under_the_volume_is_rejected_naming_where_it_moved(tmp_path: Path) -> None:
+    """The section moved, so the generic unknown-key message would not name the fix."""
+    path = _write(
+        tmp_path,
+        """\
+        volume:
+          name: my-dataset
+          discovery:
+            title: My dataset
+        books:
+          - version: "v1.0"
+            license: MIT
+        """,
+    )
+
+    with pytest.raises(BookshelfError, match="move it to 'defaults: discovery:'"):
+        load_record_recipe(path)
+
+
+def test_topics_under_the_volume_are_rejected_naming_keywords(tmp_path: Path) -> None:
+    """Nothing distinguished a topic from a keyword, so only keywords remain."""
+    path = _write(
+        tmp_path,
+        """\
+        volume:
+          name: my-dataset
+          topics: [emissions]
+        books:
+          - version: "v1.0"
+            license: MIT
+        """,
+    )
+
+    with pytest.raises(BookshelfError, match="Topics are gone.*Use 'keywords:'"):
         load_record_recipe(path)
 
 
@@ -550,7 +813,7 @@ def test_a_recipe_with_no_volume_names_the_section_it_needs(tmp_path: Path) -> N
 
 
 # ----------------------------------------------------------------------
-# Visibility, which each version declares.
+# Visibility, which a book declares or takes from the defaults.
 # ----------------------------------------------------------------------
 def test_visibility_is_optional(tmp_path: Path) -> None:
     assert load_record_recipe(_write_recipe(tmp_path)).resolve(_VERSION).visibility is None
@@ -563,7 +826,7 @@ def test_every_visibility_tier_is_accepted(tmp_path: Path, value: str) -> None:
     assert recipe.resolve(_VERSION).visibility == value
 
 
-def test_one_version_can_be_embargoed_while_another_is_public(tmp_path: Path) -> None:
+def test_one_book_can_be_embargoed_while_another_is_public(tmp_path: Path) -> None:
     """The case build-level visibility could not express without editing the recipe twice."""
     recipe = load_record_recipe(_write(tmp_path, _FULL))
 
@@ -581,13 +844,13 @@ def test_visibility_under_build_names_where_it_moved_to(tmp_path: Path) -> None:
         build:
           notebook: build.py
           visibility: public
-        versions:
-          "v1.0.0":
+        books:
+          - version: "v1.0.0"
             license: MIT
         """,
     )
 
-    with pytest.raises(BookshelfError, match="Visibility is stated per version"):
+    with pytest.raises(BookshelfError, match="move it to 'defaults:' or onto the books"):
         load_record_recipe(path)
 
 
@@ -672,7 +935,7 @@ def test_a_build_that_repeats_the_recorded_version_is_accepted(tmp_path: Path) -
     assert book.metadata.version == _VERSION
 
 
-def test_a_recorded_build_takes_its_licence_from_the_resolved_version(tmp_path: Path) -> None:
+def test_a_recorded_build_takes_its_licence_from_the_resolved_book(tmp_path: Path) -> None:
     with _recording(_write_recipe(tmp_path), tmp_path / "bundle"):
         _, book = setup()
 
@@ -831,29 +1094,29 @@ def test_a_build_parameter_still_reaches_the_build(tmp_path: Path) -> None:
 
 
 def test_the_recorder_refuses_a_version_the_recipe_does_not_define(tmp_path: Path) -> None:
-    with pytest.raises(BookshelfError, match=r"no version 'v9.9'.*'v1.0.0'"):
+    with pytest.raises(BookshelfError, match=r"no book for version 'v9.9'.*'v1.0.0'"):
         _run(tmp_path, "import bookshelf\n", version="v9.9")
 
 
 # ----------------------------------------------------------------------
 # The visibility precedence rule on its own.
 # ----------------------------------------------------------------------
-def _resolved(visibility: str | None) -> ResolvedVersion:
+def _resolved(visibility: str | None) -> ResolvedBook:
     return RecordRecipe.model_validate(
         {
             "volume": {"name": "my-dataset"},
-            "versions": {_VERSION: {"license": "MIT", "visibility": visibility}},
+            "books": [{"version": _VERSION, "license": "MIT", "visibility": visibility}],
         }
     ).resolve(_VERSION)
 
 
-def test_the_caller_outranks_the_version() -> None:
+def test_the_caller_outranks_the_book() -> None:
     resolved = resolve_book_visibility("org", resolved=_resolved("public"))
 
     assert resolved is models.Visibility.org
 
 
-def test_the_version_applies_when_the_caller_says_nothing() -> None:
+def test_the_book_applies_when_the_caller_says_nothing() -> None:
     resolved = resolve_book_visibility(None, resolved=_resolved("public"))
 
     assert resolved is models.Visibility.public
@@ -877,7 +1140,7 @@ def test_an_omitted_tier_on_a_direct_draft_takes_the_sinks_default() -> None:
     assert resolved is models.Visibility.org
 
 
-def test_the_version_is_ignored_once_a_tier_is_declared_directly() -> None:
+def test_the_book_is_ignored_once_a_tier_is_declared_directly() -> None:
     """A recipe reaches the rule only through setup, never through a direct draft."""
     resolved = resolve_book_visibility(models.Visibility.hidden, resolved=_resolved("public"))
 

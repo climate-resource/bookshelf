@@ -4,8 +4,8 @@ volume:
 build:
   notebook: simple_build.py
 
-versions:
-  "v1.0.0":
+books:
+  - version: "v1.0.0"
     license: CC-BY-4.0
     visibility: public
     authors:

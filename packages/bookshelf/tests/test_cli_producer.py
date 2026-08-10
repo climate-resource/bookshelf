@@ -40,7 +40,7 @@ def _recipe(path: Path, *, notebook: str | None = "build.py") -> Path:
     lines = ["volume:", "  name: example"]
     if notebook is not None:
         lines.extend(["build:", f"  notebook: {notebook}"])
-    lines.extend(["versions:", f'  "{VERSION}":', "    license: MIT"])
+    lines.extend(["books:", f'  - version: "{VERSION}"', "    license: MIT"])
     path.write_text("\n".join(lines) + "\n")
     return path
 
@@ -343,7 +343,7 @@ def test_record_with_an_unknown_version_names_the_versions_the_recipe_declares(
     )
 
     assert result.exit_code == EXIT_USAGE
-    assert "no version 'v9.9.9'" in _plain(result.stderr)
+    assert "no book for version 'v9.9.9'" in _plain(result.stderr)
     assert f"'{VERSION}'" in _plain(result.stderr)
 
 

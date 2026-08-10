@@ -1,11 +1,16 @@
 # The recipe format
 
 A feedstock's recipe sits alongside a build script,
-and states the volume, the build, and each version the feedstock can produce.
-`bookshelf record --version` picks one of those versions and records it.
+and states the volume, what every book defaults to, the build,
+and each book the feedstock can produce.
+`bookshelf record --version` picks one of those books and records it.
 
 The aim is to collect the metadata for the books in a single location.
 This makes it easier to reason about and simplifies the build scripts.
+
+The sections are named after the domain model,
+so a recipe reads in the same words the platform uses: a volume holds books,
+and a book holds resources.
 
 ## Example
 
@@ -17,37 +22,41 @@ volume:
   maintainers:
     - name: Jared Lewis
       email: jared.lewis@climate-resource.com
-  topics: [emissions, inventories]
-  keywords: [ghg, national]
+  keywords: [ghg, national, emissions]
   update_cadence: annual
   # deprecated: true                       # the volume is no longer maintained
   # superseded_by: primap-hist-v3          # the slug that replaces it
   # deprecation_note: Replaced by v3.
-  discovery:                               # volume-level defaults, overridable per version
+
+defaults:                                  # what every book starts from
+  discovery:
     title: PRIMAP-hist
     abstract: National greenhouse gas emissions.
     publisher: Potsdam Institute for Climate Impact Research
     homepage_url: https://www.pik-potsdam.de/paris-reality-check/primap-hist/
     methodology_url: https://essd.copernicus.org/articles/17/3873/2025/
+  # visibility: hidden                     # optional, and hidden when it is left out
+  resources:
+    raw:
+      type: tabular                        # the type does not move between books
 
 build:
   notebook: build.py
 
-versions:
-  "v2.7":                      # a quoted string key, always
+books:
+  - version: "v2.7"            # a quoted string, always, and unique across the books
     doi: 10.5281/zenodo.17090760
     release_date: 2025-08-22
     description: Adds 2023, revises the third-party gap filling.
-    license: CC-BY             # Required for each version
-    visibility: public         # optional, and hidden when it is left out
+    license: CC-BY             # required for each book
+    visibility: public         # overrides the default
     publisher: Climate Resource
     release_url: https://zenodo.org/records/17090760
     authors:
       - name: Jared Lewis
         email: jared.lewis@climate-resource.com
     resources:
-      raw:
-        type: tabular            # one of the platform's resource types
+      raw:                     # type comes from defaults
         uri: https://zenodo.org/api/records/17090760/files/data.csv/content
         sha256: 77834f5f16197a463fe3df7e0eb3adda62a9e48355c9481926133986e35a9019
 ```
@@ -57,31 +66,32 @@ versions:
 A recipe declares only the resources a build reads.
 The resources a build writes are named by `book.write`, and never appear here.
 
-| Section               | Holds                                          | Changes per version?   |
+| Section               | Holds                                          | Changes per book?      |
 | --------------------- | ---------------------------------------------- | ---------------------- |
 | `volume:`             | identity and search vocabulary                 | no                     |
-| `volume.discovery:`   | catalogue defaults                             | overridable            |
+| `defaults:`           | what every book starts from                    | overridable            |
 | `build:`              | how it is built                                | no                     |
-| `versions.<version>:` | one upstream version, its terms and resources  | yes                    |
+| `books[]`             | one book, its terms and its resources          | yes                    |
 | computed              | coverage, variables, units, frequency, edition | assigned by the server |
 
 `volume.name` is the slug and cannot change.
 Everything else in `volume:` can.
 
-`topics` and `keywords` are declared once because they don't change between versions.
-Letting them vary would make a filter return a different volume
+`keywords` is declared once because it doesn't change between books.
+Letting it vary would make a filter return a different volume
 depending on which edition happened to match.
 Changes to the volume metadata are updated on the next publish.
 
-A version may override any `discovery` field.
-The effective value is the volume's default plus the version's override,
-resolved when the version is recorded and baked onto the book.
-Previous editions of the same upstream version may have different metadata.
+A book may override anything under `defaults:`.
+The merge is field by field rather than section by section,
+so stating one discovery field on a book keeps the rest of the defaults.
+The effective value is resolved when the book is recorded and baked onto it,
+which is why previous editions of the same upstream version may carry different metadata.
 
 `visibility` is the tier the recorded book takes, and the default every resource it writes takes.
-An embargoed version sitting alongside published ones is ordinary,
-so the same volume can hold a hidden book and a public one.
-Leaving it out means `hidden`.
+An embargo usually covers a whole feedstock, so it is stated once under `defaults:`,
+and a book that lifts it says so.
+Where neither states it the book is `hidden`.
 That is why it is optional where `license` is required.
 
 Nothing in the recipe describes the data itself.
@@ -91,21 +101,21 @@ are computed per resource by the platform and rolled up.
 
 ### The discovery fields
 
-Every field below is optional, and every one may be set on the volume, on a version, or on both.
-Where both set it, the version wins.
+Every field below is optional, and every one may be set under `defaults:`, on a book, or on both.
+Where both set it, the book wins.
 
 | Field               | Meaning                                                         |
 | ------------------- | --------------------------------------------------------------- |
 | `title`             | The human readable name of the dataset.                         |
 | `abstract`          | A short summary of what the dataset covers.                     |
-| `description`       | A longer note, typically what changed in this version.          |
+| `description`       | A longer note, typically what changed in this book.             |
 | `publisher`         | The organisation that published the data.                       |
 | `publisher_url`     | The publisher's homepage.                                       |
 | `authors`           | Who to credit, as a list of name, email, affiliation and orcid. |
 | `citation`          | The citation to use, as the publisher states it.                |
-| `doi`               | The upstream DOI for this version.                              |
+| `doi`               | The upstream DOI for this book.                                 |
 | `release_date`      | The date upstream published it.                                 |
-| `release_url`       | The page for this particular version.                           |
+| `release_url`       | The page for this particular release.                           |
 | `homepage_url`      | The dataset's landing page.                                     |
 | `documentation_url` | Where the dataset is documented.                                |
 | `methodology_url`   | The paper or note describing how it was produced.               |
@@ -116,30 +126,40 @@ Where both set it, the version wins.
 
 ## The rules
 
-- **Version keys are quoted strings.**
+- **`books:` is a list, and every book states a quoted `version:`.**
   An unquoted `2.6` is a YAML float, and `2.70` would then collide with `2.7`.
-- **Every version states its own `license`.**
+  A version names one book, so two books claiming the same one are rejected.
+- **Every book states its own `license`.**
   The terms a book is published under matter too much to be inferred,
-  and a relicensed version is common enough that a volume-level default
+  and a relicensed version is common enough that a default
   would let one go out under the wrong terms without anyone having written it down.
-- **A version states its own `visibility`, or it is hidden.**
-  There is no volume-level or build-level default,
-  so one version can be embargoed while the rest stay public.
-- **Versions do not inherit from each other.**
-  Each restates its resources in full.
-  There is no `extends` and no carry-forward from the previous version.
+- **A book takes its `visibility` from itself, then from `defaults:`, then `hidden`.**
+  So one book can be embargoed while the rest stay public,
+  and a feedstock that is hidden as a whole says so once.
+- **Books do not inherit from each other.**
+  A book inherits from `defaults:` and from nowhere else.
+  There is no `extends` and no carry-forward from the book before it,
+  so a reader never has to walk backwards through the file.
 - **Resources are optional.**
   A build that constructs its frame inline declares none.
+- **A resource default is a template, not an addition.**
+  A book that never names the resource does not get it,
+  because a default that could add one would hide what a book reads from the book itself.
+- **A book's location replaces the default's.**
+  Stating `path:` or `uri:` on a book drops the default's `uri:`, `path:` and `sha256:`,
+  so a default location never sits beside a book's and trips the one-location rule.
 - **A resource has `uri:` or `path:`, and not both.**
   `uri:` is remote and carries the `sha256` the fetch is checked against.
   `path:` is a file beside the recipe, and its digest is computed when it is read.
+  This is asked of the merged resource, so a default and a book may each hold half of it.
 - **A resource always declares its `type`**, which is never inferred from the file extension.
   It is one of `tabular`, `timeseries`, `geospatial`, `document` or `binary`,
   the same set the platform registers a resource under,
   so a recipe that loads cannot name a type registration would refuse.
+  This is the field that usually belongs under `defaults:`, because it does not move between books.
 - **Unknown keys are an error at every level**, so a typo is never silently dropped.
-- **Versions are ordered by the recipe**, in the order the mapping states them.
-  Each resolved version carries its position, so nothing has to parse a version string to sort.
+- **Books are ordered by the recipe**, in the order the list states them.
+  Each resolved book carries its position, so nothing has to parse a version string to sort.
 
 ## Versioning
 
@@ -179,7 +199,7 @@ while preserving the lower level functionality for more complex workflows.
 
 ## Open questions
 
-- Volume metadata beyond `topics` and `keywords` is meant to roll up into search.
+- Volume metadata beyond `keywords` is meant to roll up into search.
   The mechanism is not designed yet.
 - Does changing the discovery information trigger a new edition?
   Its pretty much free as we dedupicate data

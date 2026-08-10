@@ -22,7 +22,7 @@ from bookshelf.publisher.bundle import Bundle
 from bookshelf.publisher.notebook import ExecutedNotebook, execute_python_build
 from bookshelf.publisher.recipe import (
     RecordRecipe,
-    ResolvedVersion,
+    ResolvedBook,
     load_record_recipe,
     resolve_book_visibility,
 )
@@ -32,7 +32,7 @@ from bookshelf.publisher.recording import RecordedDraftBook, RecordingBookshelf
 @dataclass(slots=True)
 class _RecordingContext:
     recipe: RecordRecipe
-    resolved: ResolvedVersion
+    resolved: ResolvedBook
     bundle: Bundle
     bookshelf: RecordingBookshelf | None = None
     book: RecordedDraftBook | None = None

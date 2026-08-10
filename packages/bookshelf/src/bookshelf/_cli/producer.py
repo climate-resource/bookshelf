@@ -220,7 +220,7 @@ def record(
     version: str | None = typer.Option(
         None,
         "--version",
-        help="Required. Version to build, naming a key under 'versions:' in the recipe.",
+        help="Required. Version to build, naming a book under 'books:' in the recipe.",
     ),
     parameter: list[str] = typer.Option(
         [],
