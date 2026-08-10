@@ -39,15 +39,11 @@ from bookshelf._produce.facade import (
     LiveSink,
     ProduceSink,
 )
+from bookshelf._produce.facade import people as _people
 from bookshelf.cache import ContentCache
 
 _PAGE_SIZE = 100
 _MAX_PAGES = 1000
-
-
-def _people(values: Sequence[Mapping[str, Any]]) -> list[models.Author]:
-    """Validate a list of authors or maintainers, which share one shape."""
-    return [models.Author.model_validate(dict(value)) for value in values]
 
 
 def _volume_create(

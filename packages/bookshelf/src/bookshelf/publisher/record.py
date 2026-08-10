@@ -16,6 +16,7 @@ from bookshelf._core.config import UNSET, AuthInput
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf._produce.books import DraftBook
+from bookshelf._produce.facade import nests_discovery
 from bookshelf._produce.helpers import uuid7
 from bookshelf.facade import Bookshelf
 from bookshelf.publisher.bundle import Bundle
@@ -65,25 +66,16 @@ class SetupResult:
         return getattr(self.bs, name)
 
 
-_SEPARATELY_CARRIED_DISCOVERY = frozenset({"description", "authors"})
-"""Baked fields the draft call takes as their own argument rather than under ``discovery``."""
-
-
 def _resolved_discovery(resolved: ResolvedVersion) -> dict[str, Any]:
     """Read the effective discovery values off an already resolved version.
 
     The fields are walked rather than listed,
     so one added to the recipe later reaches the wire without another edit here.
-    Nothing is merged.
-    :meth:`~bookshelf.publisher.recipe.RecordRecipe.resolve` is the single place
-    a declared value becomes an effective one,
-    and this reads its answer.
     """
     return {
         name: value
         for name in DiscoveryFields.model_fields
-        if name not in _SEPARATELY_CARRIED_DISCOVERY
-        and (value := getattr(resolved.discovery, name)) is not None
+        if nests_discovery(name) and (value := getattr(resolved.discovery, name)) is not None
     }
 
 
@@ -125,12 +117,7 @@ def setup(
                 f"{context.resolved.version!r}. "
                 "Drop version= from the build file, because 'bookshelf record --version' states it"
             )
-        context.bookshelf = RecordingBookshelf(
-            context.bundle,
-            base_url,
-            auth=auth,
-            authors=context.resolved.authors,
-        )
+        context.bookshelf = RecordingBookshelf(context.bundle, base_url, auth=auth)
         discovery = _resolved_discovery(context.resolved)
         book = context.bookshelf.draft_book(
             collection or context.recipe.volume.name,

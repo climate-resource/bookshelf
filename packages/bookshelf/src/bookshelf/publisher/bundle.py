@@ -266,8 +266,7 @@ class BundleBook(BaseModel):
     ``entries`` carries the ``name_in_book -> resource`` membership.
     ``published`` records whether replay should publish the draft
     or leave it as a draft.
-    ``authors`` and ``discovery`` carry the editorial framing
-    the recipe resolved for this version,
+    ``authors`` and ``discovery`` carry the editorial framing the recipe resolved for this version,
     and replay sends both on the draft call
     so each book keeps its own copy of what was true when it was published.
     Publishing a later version therefore never rewrites what an earlier one says.

@@ -80,15 +80,15 @@ def _register_item(
 
 
 _DISCOVERY_WIRE_NAMES = {"release_date": "source_release_date"}
-"""The discovery fields the API spells differently from the recipe.
+"""The discovery fields the API spells differently from the recipe."""
 
-The recipe calls the upstream publication date ``release_date``.
-The API calls the same column ``source_release_date``,
-so the two are reconciled here rather than by renaming the recipe key.
-"""
+_NESTED_DISCOVERY = frozenset(models.BookDiscoveryInput.model_fields)
+"""The discovery fields the API nests. Whatever else a recipe resolves is baked on beside them."""
 
-_TOP_LEVEL_DISCOVERY = frozenset({"description", "authors"})
-"""Baked fields the draft request carries beside ``discovery`` rather than inside it."""
+
+def nests_discovery(name: str) -> bool:
+    """Whether the API carries this recipe field inside ``discovery`` rather than beside it."""
+    return _DISCOVERY_WIRE_NAMES.get(name, name) in _NESTED_DISCOVERY
 
 
 def _discovery_input(fields: Mapping[str, Any] | None) -> models.BookDiscoveryInput | None:
@@ -102,11 +102,17 @@ def _discovery_input(fields: Mapping[str, Any] | None) -> models.BookDiscoveryIn
     if not fields:
         return None
     declared = {
-        _DISCOVERY_WIRE_NAMES.get(name, name): value
+        wire: value
         for name, value in fields.items()
-        if name not in _TOP_LEVEL_DISCOVERY and value is not None
+        if (wire := _DISCOVERY_WIRE_NAMES.get(name, name)) in _NESTED_DISCOVERY
+        and value is not None
     }
     return models.BookDiscoveryInput(**declared) if declared else None
+
+
+def people(values: Sequence[Mapping[str, Any]]) -> list[models.Author]:
+    """Validate a list of authors or maintainers, which share one shape."""
+    return [models.Author.model_validate(dict(value)) for value in values]
 
 
 def _author_models(
@@ -114,12 +120,9 @@ def _author_models(
 ) -> list[models.Author] | None:
     """Wrap the credited people as the API's author objects.
 
-    An empty sequence reads the same as none at all,
-    because a book crediting nobody and a book declaring nothing say the same thing.
+    An empty sequence reads the same as none at all.
     """
-    if not authors:
-        return None
-    return [models.Author(**dict(author)) for author in authors]
+    return people(authors) if authors else None
 
 
 def _draft_request(

@@ -70,7 +70,6 @@ VOLUME: dict[str, Any] = {
     "metadata": {},
     "authors": [],
     "maintainers": [],
-    "citation": None,
     "created_at": TS,
     "updated_at": TS,
 }

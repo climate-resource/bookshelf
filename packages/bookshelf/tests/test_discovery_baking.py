@@ -27,8 +27,7 @@ from tests import _core_payloads as payloads
 
 BASE_URL = "https://bookshelf.test"
 
-# Every field the volume may default, so an inheriting version has something to inherit
-# for each one of them.
+# Every field the volume may default, so an inheriting version has something to inherit for each one of them.
 _VOLUME_DISCOVERY = {
     "title": "PRIMAP-hist",
     "abstract": "National greenhouse gas emissions.",
@@ -179,9 +178,6 @@ def _volume_writes(recorded: list[httpx.Request]) -> list[tuple[str, str]]:
     ]
 
 
-# ----------------------------------------------------------------------
-# Case 1: the headline. A later version never rewrites an earlier one.
-# ----------------------------------------------------------------------
 def test_publishing_a_later_version_does_not_rewrite_an_earlier_one(tmp_path: Path) -> None:
     """The whole point of baking: v2.6 keeps saying what v2.6 said, forever."""
     recipe = _write(tmp_path, _RECIPE)
@@ -203,9 +199,6 @@ def test_publishing_a_later_version_does_not_rewrite_an_earlier_one(tmp_path: Pa
     assert again == first
 
 
-# ----------------------------------------------------------------------
-# Cases 2 and 3: inheritance, and what an override leaves alone.
-# ----------------------------------------------------------------------
 def test_a_version_inherits_every_discovery_field_it_does_not_state(tmp_path: Path) -> None:
     recipe = _write(tmp_path, _RECIPE)
 
@@ -228,9 +221,6 @@ def test_an_override_changes_one_field_and_leaves_the_rest_inherited(tmp_path: P
     assert payload["discovery"] == expected
 
 
-# ----------------------------------------------------------------------
-# Case 4: a licence is stated per version, and never defaulted by the volume.
-# ----------------------------------------------------------------------
 def test_each_version_carries_the_licence_it_states(tmp_path: Path) -> None:
     recipe = _write(tmp_path, _RECIPE)
 
@@ -260,9 +250,6 @@ def test_a_licence_declared_on_the_volume_is_rejected(tmp_path: Path) -> None:
         load_record_recipe(recipe)
 
 
-# ----------------------------------------------------------------------
-# Case 5: the credited people.
-# ----------------------------------------------------------------------
 def test_the_authors_a_version_states_reach_the_wire_and_the_bundle(tmp_path: Path) -> None:
     recipe = _write(tmp_path, _RECIPE)
 
@@ -284,9 +271,6 @@ def test_a_version_that_states_no_authors_inherits_the_volumes(tmp_path: Path) -
     assert payload["authors"] == [{"name": "Ada Lovelace", "email": "ada@example.com"}]
 
 
-# ----------------------------------------------------------------------
-# Cases 6 and 7: what a book must never carry.
-# ----------------------------------------------------------------------
 def test_the_computed_fields_are_never_sent(tmp_path: Path) -> None:
     """The platform reads these off the bytes, so a declaration could only go stale."""
     recipe = _write(tmp_path, _RECIPE)
@@ -313,9 +297,6 @@ def test_the_volume_only_fields_are_never_sent_on_a_book(tmp_path: Path) -> None
     assert "name" not in payload
 
 
-# ----------------------------------------------------------------------
-# Case 8: an absent key is not a clear.
-# ----------------------------------------------------------------------
 @pytest.mark.parametrize(
     ("label", "version_body"),
     [
@@ -347,9 +328,6 @@ versions:
     assert payload["discovery"]["abstract"] == "National greenhouse gas emissions."
 
 
-# ----------------------------------------------------------------------
-# Case 9: the asynchronous twin.
-# ----------------------------------------------------------------------
 async def test_the_async_draft_sends_the_same_payload(tmp_path: Path) -> None:
     recipe = _write(tmp_path, _RECIPE)
     bundle = _record(recipe, tmp_path / "bundle", "v2.7")
