@@ -53,7 +53,6 @@ class Build:
 
     The recipe vocabulary lives here rather than on the facade,
     because it means something only while a recipe is driving the build.
-    ``bs`` and ``book`` remain for the SDK calls a build file still needs.
     """
 
     bs: Bookshelf | RecordingBookshelf
@@ -89,16 +88,13 @@ def setup(
     Under an active recording the version comes from ``bookshelf record --version``,
     so a build file names no version and the two can never disagree.
     Passing one that contradicts the recorder is an error rather than an override.
-    ``visibility`` and ``license`` likewise fall back to the recipe when omitted,
-    so a recorded build declares its framing in ``bookshelf.yaml`` rather than in the build file.
-    :func:`~bookshelf.publisher.recipe.resolve_book_visibility` states the tier that resolves,
-    and the default it then imposes on every resource the build records.
 
     Direct use has no recipe, so ``version`` is required,
     an omitted visibility is ``hidden`` and an omitted licence stays unset.
     """
     book: DraftBook | RecordedDraftBook
     context = _ACTIVE_RECORDING.get()
+
     if context is not None:
         if context.setup_called:
             raise BookshelfError("a recorded build must call bookshelf.setup once")
@@ -132,6 +128,7 @@ def setup(
         context.book = book
         context.setup_called = True
         return Build(context.bookshelf, book)
+
     if version is None:
         raise BookshelfError(
             "bookshelf.setup found no active recording, and no version was passed. "

@@ -48,7 +48,9 @@ class RegisterExternal(Protocol):
 
 @dataclass(slots=True)
 class ResolvedResource:
-    """A declared resource resolved: local bytes ready to read, and the pointer that catalogued them.
+    """A resolved resource
+
+    This contains a local file with bytes that are ready to read, and the pointer that catalogued them.
 
     This is deliberately not frozen.
     ``HasTrackingId`` declares a settable ``tracking_id``,
@@ -80,6 +82,7 @@ def resolve_resource(
 
     A ``uri`` resource is fetched through ``cache`` and verified against its declared digest.
     A ``path`` resource is read from beside the recipe and its digest is computed.
+
     Raises :class:`~bookshelf._core.errors.BookshelfError` naming the declared resources
     when the version does not declare ``name``.
     """

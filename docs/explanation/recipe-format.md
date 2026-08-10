@@ -203,14 +203,9 @@ build.write("by_country", by_country, used=[raw])
 build.write("by_region", by_region, used=[raw])
 ```
 
-`setup` returns a `Build`, which carries the recipe vocabulary: the resources it declares,
-and the book this run writes.
-That vocabulary means something only while a recipe is driving the build,
-so it lives here rather than on the `Bookshelf` facade,
-which knows nothing about recipes.
-`build.bs` and `build.book` reach the SDK underneath for anything the recipe does not cover.
-
+`setup` returns a `Build`, which provides the high-level functions to help build a book.
 `.use` and `.write` used here are a convenience wrapper on top of the lower level `activity` primitives.
+`build.bs` and `build.book` reach the SDK underneath for anything the recipe does not cover.
 For our simple feedstocks this will make it easier to understand,
 while preserving the lower level functionality for more complex workflows.
 
