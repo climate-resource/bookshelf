@@ -38,7 +38,8 @@ from bookshelf.publisher.bundle import (
     resource_filename,
     synthesise_pointer_hash,
 )
-from bookshelf.publisher.recipe import resolve_book_visibility
+from bookshelf.publisher.recipe import ResolvedVersion, resolve_book_visibility
+from bookshelf.publisher.resource import ResolvedResource, resolve_resource
 
 
 @dataclass(frozen=True, slots=True)
@@ -440,10 +441,14 @@ class RecordingSink:
         *,
         authors: Sequence[Mapping[str, Any]] = (),
         default_visibility: models.Visibility = models.Visibility.hidden,
+        resolved: ResolvedVersion | None = None,
+        recipe_dir: Path | None = None,
     ) -> None:
         self.bundle = bundle
         self._client = client
         self._cache = cache
+        self._resolved = resolved
+        self._recipe_dir = recipe_dir
         self._authors = tuple(dict(author) for author in authors)
         self._activity_started = False
         self.default_visibility = default_visibility
@@ -560,6 +565,19 @@ class RecordingSink:
             dedupe=dedupe,
         )
 
+    def use(self, name: str) -> ResolvedResource:
+        """Fetch, verify, cache and register the named resource of the recorded version."""
+        if self._resolved is None:
+            raise BookshelfError("this recording carries no version, so it declares no resources")
+        return resolve_resource(
+            name,
+            resources=self._resolved.resources,
+            doi=self._resolved.discovery.doi,
+            recipe_dir=self._recipe_dir,
+            cache=self._cache,
+            register_external=self.register_external,
+        )
+
     def record_document(
         self,
         data: bytes,
@@ -613,6 +631,8 @@ class RecordingBookshelf(Bookshelf):
         *,
         auth: AuthInput = UNSET,
         authors: Sequence[Mapping[str, Any]] = (),
+        resolved: ResolvedVersion | None = None,
+        recipe_dir: Path | None = None,
     ) -> None:
         super().__init__(base_url, auth=auth)
         self.bundle = bundle
@@ -624,12 +644,18 @@ class RecordingBookshelf(Bookshelf):
             self._client,
             self._cache,
             authors=authors,
+            resolved=resolved,
+            recipe_dir=recipe_dir,
         )
         # Every producer call moves to the recording adapter,
         # so reads stay live and writes land in the bundle.
         self.activity = self.recording_sink.activity
         self.register_external = self.recording_sink.register_external
         self.draft_book = self.recording_sink.draft_book
+
+    def use(self, name: str) -> ResolvedResource:
+        """Resolve one resource the recorded version declares."""
+        return self.recording_sink.use(name)
 
 
 def _bundle_used_ref(value: UsedInput) -> BundleUsedRef:

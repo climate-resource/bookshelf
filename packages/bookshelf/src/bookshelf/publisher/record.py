@@ -34,6 +34,7 @@ class _RecordingContext:
     recipe: RecordRecipe
     resolved: ResolvedBook
     bundle: Bundle
+    recipe_dir: Path | None = None
     bookshelf: RecordingBookshelf | None = None
     book: RecordedDraftBook | None = None
     setup_called: bool = False
@@ -107,6 +108,8 @@ def setup(
             base_url,
             auth=auth,
             authors=context.resolved.authors,
+            resolved=context.resolved,
+            recipe_dir=context.recipe_dir,
         )
         book = context.bookshelf.draft_book(
             collection or context.recipe.volume.name,
@@ -177,7 +180,12 @@ def run_record(
         dir=target.parent,
     ) as staging_dir:
         bundle = Bundle(Path(staging_dir))
-        context = _RecordingContext(recipe=recipe, resolved=resolved, bundle=bundle)
+        context = _RecordingContext(
+            recipe=recipe,
+            resolved=resolved,
+            bundle=bundle,
+            recipe_dir=recipe_path.resolve().parent,
+        )
         token = _ACTIVE_RECORDING.set(context)
         try:
             with tempfile.TemporaryDirectory(prefix="bookshelf-executed-") as artifacts:

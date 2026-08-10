@@ -195,7 +195,7 @@ With the recipe carrying the facts, the build file keeps only the processing:
 
 ```python
 bs, book = bookshelf.setup()          # the version comes from --version
-raw = bs.resource("raw")              # fetched, verified against the declared sha256, registered
+raw = bs.use("raw")                   # fetched, verified against the declared sha256, registered
 
 data = pd.read_csv(raw.path)
 ...
@@ -203,7 +203,7 @@ book.write("by_country", by_country, used=[raw])
 book.write("by_region", by_region, used=[raw])
 ```
 
-`.resource` and `.write` used here are a convenience wrapper on top of the lower level `activity` primitives.
+`.use` and `.write` used here are a convenience wrapper on top of the lower level `activity` primitives.
 For our simple feedstocks this will make it easier to understand,
 while preserving the lower level functionality for more complex workflows.
 
