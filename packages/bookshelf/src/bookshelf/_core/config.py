@@ -157,11 +157,12 @@ def auth_from_stored(stored: credentials.StoredCredentials) -> TokenProvider:
 
     # An agent record with no assertion is served by the refresh-token grant,
     # so what comes back is a refresh token and the rotation lands as a user record.
-    return _user_auth_from_stored(replace(stored, kind=CredentialKind.USER))
+    return _user_auth_from_stored(replace(stored, kind=CredentialKind.USER), stored.refresh_token)
 
 
-def _user_auth_from_stored(stored: credentials.StoredCredentials) -> RefreshTokenExchange:
-    assert stored.refresh_token is not None
+def _user_auth_from_stored(
+    stored: credentials.StoredCredentials, refresh_token: str
+) -> RefreshTokenExchange:
     client_id = oauth.resolve_workos_client_id(stored.api_url)
     if client_id is None:
         raise AuthConfigurationError(
@@ -173,7 +174,7 @@ def _user_auth_from_stored(stored: credentials.StoredCredentials) -> RefreshToke
 
     return RefreshTokenExchange(
         stored.access_token,
-        stored.refresh_token,
+        refresh_token,
         token_url=f"{oauth.get_workos_base_url()}/user_management/authenticate",
         client_id=client_id,
         expires_at=stored.expires_at.timestamp() if stored.expires_at is not None else None,

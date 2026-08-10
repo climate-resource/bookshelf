@@ -164,6 +164,23 @@ def test_token_without_a_token_url_is_a_usage_error(monkeypatch: pytest.MonkeyPa
     assert "BOOKSHELF_TOKEN_URL" in result.stderr
 
 
+def test_token_without_a_workos_client_id_is_a_credential_error() -> None:
+    """A stored login that cannot be refreshed exits 3, not as an unexpected failure."""
+    credentials.save_credentials(
+        "stale-token",
+        api_url=API_URL,
+        kind=credentials.CredentialKind.USER,
+        refresh_token="rt-old",
+        expires_at=datetime(2020, 1, 1, tzinfo=UTC),
+    )
+
+    result = runner.invoke(app, ["auth", "token"])
+
+    assert result.exit_code == 3
+    assert result.stdout == ""
+    assert "BOOKSHELF_WORKOS_CLIENT_ID" in result.stderr
+
+
 def test_token_reports_a_spent_credential(monkeypatch: pytest.MonkeyPatch) -> None:
     credentials.save_credentials(
         "stale-token",

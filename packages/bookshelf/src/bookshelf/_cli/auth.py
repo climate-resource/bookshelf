@@ -37,6 +37,11 @@ CLAIM_GRANT = "urn:workos:agent-auth:grant-type:claim"
 
 _AGENT_PLATFORM = "bookshelf-cli"
 
+_LOGIN_REMEDY = (
+    "Run 'bookshelf auth login' to sign in, "
+    "or 'bookshelf auth login --agent' to register an agent identity."
+)
+
 auth_app = typer.Typer(help="Manage authentication for the Bookshelf API.", no_args_is_help=True)
 
 
@@ -333,18 +338,16 @@ def auth_token(
             return
         if stored is None:
             raise CliError(
-                f"no stored credential for {base}. "
-                "Run 'bookshelf auth login' to sign in, or "
-                "'bookshelf auth login --agent' to register an agent identity.",
+                f"no stored credential for {base}. {_LOGIN_REMEDY}",
                 exit_code=EXIT_AUTH_REQUIRED,
             )
-        emit(
-            _current_token(
-                config.auth_from_stored(stored),
-                remedy="Run 'bookshelf auth login' to sign in again, "
-                "or 'bookshelf auth login --agent' to register an agent identity.",
-            )
-        )
+        try:
+            provider = config.auth_from_stored(stored)
+        except errors.AuthConfigurationError as exc:
+            # A stored login that cannot be refreshed is spent as far as this command goes,
+            # so it exits as a credential problem rather than an unexpected one.
+            raise CliError(f"{exc} {_LOGIN_REMEDY}", exit_code=EXIT_AUTH_REQUIRED) from exc
+        emit(_current_token(provider, remedy=_LOGIN_REMEDY))
 
 
 def _current_token(provider: TokenProvider, *, remedy: str) -> str:

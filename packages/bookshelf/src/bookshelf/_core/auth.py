@@ -160,8 +160,15 @@ class _RefreshingAuth(TokenProvider):
                     token_response = send(self._refresh_request())
                     token_response.read()
                     self._apply_token_response(token_response)
-        assert self._access_token is not None
-        return self._access_token
+        token = self._access_token
+        if token is None:
+            raise AuthenticationError(
+                "No access token is available after a refresh.",
+                status_code=401,
+                request_method="POST",
+                request_url=str(self._refresh_request().url),
+            )
+        return token
 
     def _authorized(self, request: httpx.Request) -> httpx.Request:
         """Stamp the current access token onto *request*."""

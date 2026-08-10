@@ -464,8 +464,8 @@ __all__ = [
     "OAuthError",
     "authorization_code_flow",
     "get_workos_base_url",
-    "require_workos_client_id",
     "poll_device_flow",
-    "start_device_flow",
+    "require_workos_client_id",
     "resolve_workos_client_id",
+    "start_device_flow",
 ]
