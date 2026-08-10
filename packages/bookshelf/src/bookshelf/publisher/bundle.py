@@ -266,10 +266,17 @@ class BundleBook(BaseModel):
     ``entries`` carries the ``name_in_book -> resource`` membership.
     ``published`` records whether replay should publish the draft
     or leave it as a draft.
-    ``authors`` is recorded for provenance only.
-    The draft API has no authors field,
-    and the seal excludes authors,
-    so replay never sends them.
+    ``authors`` and ``discovery`` carry the editorial framing
+    the recipe resolved for this version,
+    and replay sends both on the draft call
+    so each book keeps its own copy of what was true when it was published.
+    Publishing a later version therefore never rewrites what an earlier one says.
+    Neither enters the seal,
+    which stays byte-identical to the platform's over membership alone.
+
+    ``discovery`` is keyed by the recipe's own field names.
+    The API spells one of them differently,
+    and that is reconciled where the draft request is built.
 
     The framing is **pre-edition**
     and has no ``edition`` field.
@@ -287,6 +294,7 @@ class BundleBook(BaseModel):
     visibility: str = "hidden"
     license: str | None = None
     authors: list[dict[str, Any]] = Field(default_factory=list)
+    discovery: dict[str, Any] = Field(default_factory=dict)
     description: str | None = None
     citation_doi: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)

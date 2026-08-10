@@ -63,6 +63,8 @@ async def draft_bundle_book(bundle: Bundle, bs: AsyncBookshelf) -> AsyncDraftBoo
         license=book.license,
         metadata=book.metadata,
         bundle_hash=compute_book_bundle_hash(bundle.manifest),
+        discovery=book.discovery,
+        authors=book.authors,
     )
 
 
@@ -81,6 +83,8 @@ def draft_bundle_book_sync(bundle: Bundle, bs: Bookshelf) -> DraftBook:
         license=book.license,
         metadata=book.metadata,
         bundle_hash=compute_book_bundle_hash(bundle.manifest),
+        discovery=book.discovery,
+        authors=book.authors,
     )
 
 

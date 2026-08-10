@@ -21,6 +21,7 @@ from bookshelf.facade import Bookshelf
 from bookshelf.publisher.bundle import Bundle
 from bookshelf.publisher.notebook import ExecutedNotebook, execute_python_build
 from bookshelf.publisher.recipe import (
+    DiscoveryFields,
     RecordRecipe,
     ResolvedBook,
     load_record_recipe,
@@ -62,6 +63,28 @@ class SetupResult:
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self.bs, name)
+
+
+_SEPARATELY_CARRIED_DISCOVERY = frozenset({"description", "authors"})
+"""Baked fields the draft call takes as their own argument rather than under ``discovery``."""
+
+
+def _resolved_discovery(resolved: ResolvedVersion) -> dict[str, Any]:
+    """Read the effective discovery values off an already resolved version.
+
+    The fields are walked rather than listed,
+    so one added to the recipe later reaches the wire without another edit here.
+    Nothing is merged.
+    :meth:`~bookshelf.publisher.recipe.RecordRecipe.resolve` is the single place
+    a declared value becomes an effective one,
+    and this reads its answer.
+    """
+    return {
+        name: value
+        for name in DiscoveryFields.model_fields
+        if name not in _SEPARATELY_CARRIED_DISCOVERY
+        and (value := getattr(resolved.discovery, name)) is not None
+    }
 
 
 def setup(
@@ -108,11 +131,15 @@ def setup(
             auth=auth,
             authors=context.resolved.authors,
         )
+        discovery = _resolved_discovery(context.resolved)
         book = context.bookshelf.draft_book(
             collection or context.recipe.volume.name,
             version=context.resolved.version,
             visibility=resolve_book_visibility(visibility, resolved=context.resolved),
             license=license or context.resolved.license,
+            description=context.resolved.discovery.description,
+            discovery=discovery,
+            authors=context.resolved.authors,
         )
         if not isinstance(book, RecordedDraftBook):
             raise TypeError("recording sink returned a live draft book")

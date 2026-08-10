@@ -495,24 +495,34 @@ class RecordingSink:
         visibility: VisibilityInput = INHERIT,
         metadata: Mapping[str, Any] | None = None,
         bundle_hash: str | None = None,
+        discovery: Mapping[str, Any] | None = None,
+        authors: Sequence[Mapping[str, Any]] | None = None,
     ) -> RecordedDraftBook:
         """Record pre-edition book framing and return its local handle.
 
         The book's tier becomes the default for every resource this build records
         afterwards, under the rule :func:`~bookshelf.publisher.recipe.resolve_book_visibility` states.
+
+        The resolved discovery values are recorded as they arrive,
+        so the bundle is a complete record of what publishing will say
+        and ``bookshelf validate`` can be read as one.
         """
         del bundle_hash
         if license is None:
             raise ValueError("recorded books require an explicit license")
         book_visibility = resolve_book_visibility(visibility, default=self.default_visibility)
         self.default_visibility = book_visibility
+        credited = (
+            [dict(author) for author in authors] if authors is not None else list(self._authors)
+        )
         self.bundle.set_book(
             BundleBook(
                 volume=volume,
                 version=version,
                 visibility=book_visibility.value,
                 license=license,
-                authors=list(self._authors),
+                authors=credited,
+                discovery=dict(discovery or {}),
                 description=description,
                 citation_doi=citation_doi,
                 metadata=dict(metadata or {}),

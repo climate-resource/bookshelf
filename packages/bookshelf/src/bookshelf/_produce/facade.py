@@ -79,6 +79,49 @@ def _register_item(
     )
 
 
+_DISCOVERY_WIRE_NAMES = {"release_date": "source_release_date"}
+"""The discovery fields the API spells differently from the recipe.
+
+The recipe calls the upstream publication date ``release_date``.
+The API calls the same column ``source_release_date``,
+so the two are reconciled here rather than by renaming the recipe key.
+"""
+
+_TOP_LEVEL_DISCOVERY = frozenset({"description", "authors"})
+"""Baked fields the draft request carries beside ``discovery`` rather than inside it."""
+
+
+def _discovery_input(fields: Mapping[str, Any] | None) -> models.BookDiscoveryInput | None:
+    """Build the nested discovery object from a mapping keyed by the recipe's own names.
+
+    ``description`` and ``authors`` are baked onto the book too,
+    but the API carries them at the top level, so they travel separately.
+    A field left unset stays out of the object entirely,
+    which keeps an omission distinct from a declared null.
+    """
+    if not fields:
+        return None
+    declared = {
+        _DISCOVERY_WIRE_NAMES.get(name, name): value
+        for name, value in fields.items()
+        if name not in _TOP_LEVEL_DISCOVERY and value is not None
+    }
+    return models.BookDiscoveryInput(**declared) if declared else None
+
+
+def _author_models(
+    authors: Sequence[Mapping[str, Any]] | None,
+) -> list[models.Author] | None:
+    """Wrap the credited people as the API's author objects.
+
+    An empty sequence reads the same as none at all,
+    because a book crediting nobody and a book declaring nothing say the same thing.
+    """
+    if not authors:
+        return None
+    return [models.Author(**dict(author)) for author in authors]
+
+
 def _draft_request(
     volume: str,
     *,
@@ -89,8 +132,22 @@ def _draft_request(
     visibility: models.Visibility,
     metadata: Mapping[str, Any] | None,
     bundle_hash: str | None,
+    discovery: Mapping[str, Any] | None = None,
+    authors: Sequence[Mapping[str, Any]] | None = None,
 ) -> models.BookDraftRequest:
-    """Build the draft request, wrapping each optional string the API takes as a model."""
+    """Build the draft request, wrapping each optional string the API takes as a model.
+
+    ``discovery`` carries the values a recipe resolved for this version,
+    keyed by the recipe's field names.
+    They are baked onto the book, so a later version never rewrites what this one says.
+    """
+    baked: dict[str, Any] = {}
+    discovery_input = _discovery_input(discovery)
+    if discovery_input is not None:
+        baked["discovery"] = discovery_input
+    author_models = _author_models(authors)
+    if author_models is not None:
+        baked["authors"] = author_models
     return models.BookDraftRequest(
         series_name=volume,
         version=version,
@@ -100,6 +157,7 @@ def _draft_request(
         visibility=visibility,
         metadata=dict(metadata or {}),
         bundle_hash=_as_model(models.BundleHash, bundle_hash),
+        **baked,
     )
 
 
@@ -190,6 +248,8 @@ class LiveSink:
         visibility: VisibilityInput = INHERIT,
         metadata: Mapping[str, Any] | None = None,
         bundle_hash: str | None = None,
+        discovery: Mapping[str, Any] | None = None,
+        authors: Sequence[Mapping[str, Any]] | None = None,
     ) -> DraftBook:
         """Create a mutable draft whose membership changes remain intentional calls."""
         detail = self._client.draft_book(
@@ -202,6 +262,8 @@ class LiveSink:
                 visibility=_visibility(visibility, self.default_visibility),
                 metadata=metadata,
                 bundle_hash=bundle_hash,
+                discovery=discovery,
+                authors=authors,
             )
         )
         return DraftBook(self._client, detail)
@@ -294,6 +356,8 @@ class AsyncLiveSink:
         visibility: VisibilityInput = INHERIT,
         metadata: Mapping[str, Any] | None = None,
         bundle_hash: str | None = None,
+        discovery: Mapping[str, Any] | None = None,
+        authors: Sequence[Mapping[str, Any]] | None = None,
     ) -> AsyncDraftBook:
         """Create an asynchronous mutable draft book handle."""
         detail = await self._client.draft_book_async(
@@ -306,6 +370,8 @@ class AsyncLiveSink:
                 visibility=_visibility(visibility, self.default_visibility),
                 metadata=metadata,
                 bundle_hash=bundle_hash,
+                discovery=discovery,
+                authors=authors,
             )
         )
         return AsyncDraftBook(self._client, detail)
@@ -354,6 +420,8 @@ class _ProduceSink[ActivityT, ResourceT, DraftT](Protocol):
         visibility: VisibilityInput = INHERIT,
         metadata: Mapping[str, Any] | None = None,
         bundle_hash: str | None = None,
+        discovery: Mapping[str, Any] | None = None,
+        authors: Sequence[Mapping[str, Any]] | None = None,
     ) -> DraftT: ...
 
 
