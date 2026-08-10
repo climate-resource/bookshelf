@@ -197,12 +197,19 @@ This field is specific to the Bookshelf and is optional.
 | `version`         | required |          | the consumer-facing data version                                                 |
 | `visibility`      | optional | `hidden` | the tier of the book                                                             |
 | `license`         | optional | absent   | the SPDX licence                                                                 |
-| `authors`         | optional | `[]`     | recorded for provenance only                                                     |
+| `authors`         | optional | `[]`     | the people credited with this version, sent on the draft call                    |
+| `discovery`       | optional | absent   | the editorial metadata baked onto this book, keyed by the recipe's field names   |
 | `description`     | optional | absent   | free prose                                                                       |
 | `citation_doi`    | optional | absent   | a DOI for the dataset                                                            |
 | `metadata`        | optional | `{}`     | free-form metadata                                                               |
 | `entries`         | optional | `[]`     | the book's membership                                                            |
 | `published`       | optional | `false`  | whether the book should be published, or left a draft                            |
+
+`discovery` and `authors` hold values the recipe has already resolved,
+so the bundle records what will be published rather than what was declared.
+Replay sends both on the draft call,
+which is how each book keeps its own copy of what was true when it was published.
+Neither enters the bundle hash.
 
 Each entry in `entries` carries the membership and its own optional column descriptions:
 
