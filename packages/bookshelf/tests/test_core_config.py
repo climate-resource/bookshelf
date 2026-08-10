@@ -8,7 +8,12 @@ import httpx
 import pytest
 
 from bookshelf._core import config, credentials
-from bookshelf._core.auth import ClientCredentials, RefreshTokenExchange, StaticToken
+from bookshelf._core.auth import (
+    AnonymousFallback,
+    ClientCredentials,
+    RefreshTokenExchange,
+    StaticToken,
+)
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import AuthConfigurationError
 
@@ -102,7 +107,8 @@ def test_stored_credentials_resolve_to_refresh_exchange(
 ) -> None:
     stored(monkeypatch)
     auth = config.resolve_auth(config.UNSET)
-    assert isinstance(auth, RefreshTokenExchange)
+    assert isinstance(auth, AnonymousFallback)
+    assert isinstance(auth.inner, RefreshTokenExchange)
 
 
 def test_stored_refresh_exchange_persists_rotations(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -115,7 +121,8 @@ def test_stored_refresh_exchange_persists_rotations(monkeypatch: pytest.MonkeyPa
 
     monkeypatch.setattr(credentials, "save_credentials", fake_save)
     auth = config.resolve_auth(config.UNSET)
-    assert isinstance(auth, RefreshTokenExchange)
+    assert isinstance(auth, AnonymousFallback)
+    assert isinstance(auth.inner, RefreshTokenExchange)
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/authenticate"):
@@ -125,7 +132,7 @@ def test_stored_refresh_exchange_persists_rotations(monkeypatch: pytest.MonkeyPa
             )
         return httpx.Response(200, json={"ok": True})
 
-    auth._expires_at = 0.0
+    auth.inner._expires_at = 0.0
     with httpx.Client(transport=httpx.MockTransport(handler), auth=auth) as client:
         client.get("https://bookshelf.test/v1/books")
     assert saved["access_token"] == "new-tok"
@@ -149,7 +156,8 @@ def test_an_agent_record_without_an_assertion_rotates_as_a_user(
 
     monkeypatch.setattr(credentials, "save_credentials", fake_save)
     auth = config.resolve_auth(config.UNSET)
-    assert isinstance(auth, RefreshTokenExchange)
+    assert isinstance(auth, AnonymousFallback)
+    assert isinstance(auth.inner, RefreshTokenExchange)
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/authenticate"):
@@ -159,7 +167,7 @@ def test_an_agent_record_without_an_assertion_rotates_as_a_user(
             )
         return httpx.Response(200, json={"ok": True})
 
-    auth._expires_at = 0.0
+    auth.inner._expires_at = 0.0
     with httpx.Client(transport=httpx.MockTransport(handler), auth=auth) as client:
         client.get("https://bookshelf.test/v1/books")
 
@@ -181,8 +189,9 @@ def test_stored_without_refresh_token_resolves_to_static(
 ) -> None:
     creds = stored(monkeypatch, refresh_token=None)
     auth = config.resolve_auth(config.UNSET)
-    assert isinstance(auth, StaticToken)
-    assert auth._token == creds.access_token
+    assert isinstance(auth, AnonymousFallback)
+    assert isinstance(auth.inner, StaticToken)
+    assert auth.inner._token == creds.access_token
 
 
 def test_no_ambient_credentials_resolves_to_none() -> None:
@@ -198,3 +207,34 @@ def test_client_constructor_coerces_and_resolves(monkeypatch: pytest.MonkeyPatch
     client = BookshelfClient("https://arg.test")
     assert client._base_url == "https://arg.test"
     assert client._auth is None
+
+
+def test_a_spent_stored_login_degrades_to_anonymous(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A refresh the issuer refuses must not cost the caller the public books."""
+    stored(monkeypatch)
+    auth = config.resolve_auth(config.UNSET)
+    assert isinstance(auth, AnonymousFallback)
+    auth.inner._expires_at = 0.0
+
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/authenticate"):
+            return httpx.Response(
+                400, json={"error_description": "Refresh token already exchanged"}
+            )
+        seen.append(request.headers.get("authorization", ""))
+        return httpx.Response(200, json={"ok": True})
+
+    with (
+        httpx.Client(transport=httpx.MockTransport(handler), auth=auth) as client,
+        pytest.warns(UserWarning) as record,
+    ):
+        response = client.get("https://bookshelf.test/v1/books")
+
+    assert response.status_code == 200
+    assert seen == [""]
+    warning = str(record[0].message)
+    assert "bookshelf auth logout" in warning
+    assert "bookshelf auth login" in warning
+    assert "Refresh token already exchanged" in warning

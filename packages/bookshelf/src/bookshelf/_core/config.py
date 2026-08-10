@@ -11,6 +11,9 @@ Resolution when ``auth=`` is omitted follows the binding chain
    an agent record through its identity assertion
 4. unauthenticated (public reads)
 
+A stored credential the issuer refuses to refresh falls through to step 4 with a warning,
+because a spent login must not cost the caller the public data it never needed a login for.
+
 ``auth=`` also accepts a provider instance or a bare token string,
 and an explicit ``auth=None`` stays unauthenticated.
 """
@@ -25,6 +28,7 @@ import httpx
 
 from bookshelf._core import credentials
 from bookshelf._core.auth import (
+    AnonymousFallback,
     BsatAssertion,
     ClientCredentials,
     RefreshTokenExchange,
@@ -41,6 +45,14 @@ _DEFAULT_WORKOS_BASE_URL = "https://auth-api.climateresource.com.au"
 # Public WorkOS client ID for staging (safe to bundle for PKCE and refresh grants).
 # The production ID is not bundled and must arrive via $BOOKSHELF_WORKOS_CLIENT_ID.
 _STAGING_WORKOS_CLIENT_ID = "client_01KABZE0E62YS9H7BMV6YZGMD1"
+
+_SPENT_CREDENTIAL_MESSAGE = (
+    "The stored Bookshelf login could not be refreshed, "
+    "so this client is continuing anonymously and only public data is reachable. "
+    "Run 'bookshelf auth logout' to discard the stored credential, "
+    "or 'bookshelf auth login' to claim a fresh one "
+    "('bookshelf auth login --agent --claim --email you@org.com' for an agent identity)."
+)
 
 
 class _Unset(enum.Enum):
@@ -132,7 +144,7 @@ def _auth_from_environment(base_url: str | None) -> httpx.Auth | None:
             token_url=token_url,
         )
     if stored is not None:
-        return auth_from_stored(stored)
+        return AnonymousFallback(auth_from_stored(stored), message=_SPENT_CREDENTIAL_MESSAGE)
     return None
 
 
