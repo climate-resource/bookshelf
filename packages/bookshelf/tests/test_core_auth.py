@@ -7,6 +7,7 @@ so the sans-io flow, the refresh yields, and the locking are all covered on both
 import asyncio
 import json
 import time
+import warnings
 from base64 import urlsafe_b64encode
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -16,6 +17,7 @@ import pytest
 
 from bookshelf._core.auth import (
     REFRESH_LEEWAY,
+    AnonymousFallback,
     BsatAssertion,
     ClientCredentials,
     RefreshTokenExchange,
@@ -354,3 +356,71 @@ def test_locks_are_not_held_across_api_calls() -> None:
         client.get(API_URL)
     assert not auth._sync_lock.locked()
     assert not auth._async_lock.locked()
+
+
+def fallback(inner: httpx.Auth) -> AnonymousFallback:
+    return AnonymousFallback(inner, message="Falling back.")
+
+
+def test_anonymous_fallback_passes_a_working_credential_through() -> None:
+    issuer = TokenIssuer()
+    auth = fallback(ClientCredentials("cid", "secret", token_url=TOKEN_URL))
+    with sync_client(issuer, auth) as client:
+        response = client.get(API_URL)
+    assert response.status_code == 200
+    assert issuer.api_tokens == ["tok-1"]
+
+
+def test_anonymous_fallback_degrades_when_the_exchange_is_rejected() -> None:
+    issuer = TokenIssuer(token_status=400)
+    auth = fallback(ClientCredentials("cid", "secret", token_url=TOKEN_URL))
+    with sync_client(issuer, auth) as client, pytest.warns(UserWarning, match="Falling back."):
+        response = client.get(API_URL)
+    assert response.status_code == 200
+    assert issuer.api_tokens == [""]
+
+
+def test_anonymous_fallback_warns_once_and_stops_exchanging() -> None:
+    issuer = TokenIssuer(token_status=400)
+    auth = fallback(ClientCredentials("cid", "secret", token_url=TOKEN_URL))
+    with sync_client(issuer, auth) as client:
+        with pytest.warns(UserWarning):
+            client.get(API_URL)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            client.get(API_URL)
+    assert len(issuer.token_requests) == 1
+    assert issuer.api_tokens == ["", ""]
+
+
+def test_anonymous_fallback_raises_once_the_request_has_been_sent() -> None:
+    """A rejection after the request went out is a real failure, not a spent login."""
+    issuer = TokenIssuer()
+    auth = fallback(ClientCredentials("cid", "secret", token_url=TOKEN_URL))
+    with sync_client(issuer, auth) as client:
+        client.get(API_URL)
+        issuer.rejected_tokens.update({"tok-1", "tok-2"})
+        with pytest.raises(AuthenticationError):
+            client.get(API_URL)
+
+
+async def test_anonymous_fallback_degrades_on_the_async_surface() -> None:
+    issuer = TokenIssuer(token_status=400)
+    auth = fallback(ClientCredentials("cid", "secret", token_url=TOKEN_URL))
+    async with async_client(issuer, auth) as client:
+        with pytest.warns(UserWarning, match="Falling back."):
+            response = await client.get(API_URL)
+        await client.get(API_URL)
+    assert response.status_code == 200
+    assert issuer.api_tokens == ["", ""]
+    assert len(issuer.token_requests) == 1
+
+
+async def test_anonymous_fallback_raises_after_an_async_request_has_been_sent() -> None:
+    issuer = TokenIssuer()
+    auth = fallback(ClientCredentials("cid", "secret", token_url=TOKEN_URL))
+    async with async_client(issuer, auth) as client:
+        await client.get(API_URL)
+        issuer.rejected_tokens.update({"tok-1", "tok-2"})
+        with pytest.raises(AuthenticationError):
+            await client.get(API_URL)

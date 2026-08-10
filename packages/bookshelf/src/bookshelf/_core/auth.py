@@ -27,6 +27,7 @@ import binascii
 import json
 import threading
 import time
+import warnings
 from collections.abc import AsyncGenerator, Callable, Generator
 
 import httpx
@@ -320,6 +321,74 @@ class BsatAssertion(_RefreshingAuth):
             self._on_rotate(self._access_token, self._assertion, self._expires_at)
 
 
+class AnonymousFallback(httpx.Auth):
+    """Wrap a provider so a rejected token exchange degrades to unauthenticated requests.
+
+    A stored login whose refresh the issuer rejects is spent, and there is nothing
+    the process can do about it, so insisting on it would deny the caller the public
+    data that needs no credential at all.
+    Only the exchange that runs before the wrapped request goes out is covered.
+    Once a request has been sent under a token, a later rejection is a real failure
+    and is raised.
+
+    The first degradation warns with ``message``, and the wrapper stays anonymous
+    afterwards so one dead credential costs one doomed exchange per provider.
+    """
+
+    def __init__(self, inner: httpx.Auth, *, message: str) -> None:
+        self.inner = inner
+        self._message = message
+        self._degraded = False
+
+    def _degrade(self, exc: AuthenticationError) -> None:
+        self._degraded = True
+        warnings.warn(f"{self._message} The exchange failed with: {exc}", stacklevel=3)
+
+    def sync_auth_flow(
+        self, request: httpx.Request
+    ) -> Generator[httpx.Request, httpx.Response, None]:
+        if self._degraded:
+            yield request
+            return
+        flow = self.inner.sync_auth_flow(request)
+        sent = False
+        try:
+            outgoing = next(flow)
+            while True:
+                sent = sent or outgoing is request
+                response = yield outgoing
+                outgoing = flow.send(response)
+        except StopIteration:
+            return
+        except AuthenticationError as exc:
+            if sent:
+                raise
+            self._degrade(exc)
+        yield request
+
+    async def async_auth_flow(
+        self, request: httpx.Request
+    ) -> AsyncGenerator[httpx.Request, httpx.Response]:
+        if self._degraded:
+            yield request
+            return
+        flow = self.inner.async_auth_flow(request)
+        sent = False
+        try:
+            outgoing = await anext(flow)
+            while True:
+                sent = sent or outgoing is request
+                response = yield outgoing
+                outgoing = await flow.asend(response)
+        except StopAsyncIteration:
+            return
+        except AuthenticationError as exc:
+            if sent:
+                raise
+            self._degrade(exc)
+        yield request
+
+
 def _error_detail(response: httpx.Response) -> str:
     """Extract a human-readable detail from a failed token response."""
     try:
@@ -336,6 +405,7 @@ def _error_detail(response: httpx.Response) -> str:
 
 __all__ = [
     "REFRESH_LEEWAY",
+    "AnonymousFallback",
     "BsatAssertion",
     "ClientCredentials",
     "RefreshTokenExchange",
