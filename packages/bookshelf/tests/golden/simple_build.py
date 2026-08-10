@@ -64,21 +64,21 @@ summary = emissions.groupby("region", as_index=False)["value"].sum()
 with bs.activity(
     activity_id=ACTIVITY_ID,
     code_ref=CODE_REF,
-    config={"source": "golden/upstream", "statistic": "regional-sum"},
+    config={"source": "golden-upstream", "statistic": "regional-sum"},
     runner=RUNNER,
 ) as activity:
     # A pointer names bytes that stay where they are,
     # so the derived frames have real lineage without the build reaching the network.
     upstream = activity.register_external(
         type="tabular",
-        uri="https://example.invalid/golden/upstream-v1.0.0.csv",
-        logical_key="golden/upstream",
+        uri="https://example.invalid/golden-upstream-v1.0.0.csv",
+        name="golden-upstream",
         tracking_id=UPSTREAM_ID,
     )
     emissions_resource = activity.register(
         emissions,
         type="timeseries",
-        logical_key="golden/emissions",
+        name="golden-emissions",
         tracking_id=EMISSIONS_ID,
         used=[upstream],
     )
@@ -87,7 +87,7 @@ with bs.activity(
     summary_resource = activity.register(
         summary,
         type="tabular",
-        logical_key="golden/summary",
+        name="golden-summary",
         tracking_id=SUMMARY_ID,
         used=[emissions_resource],
     )

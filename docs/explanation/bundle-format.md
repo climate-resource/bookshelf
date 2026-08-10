@@ -13,7 +13,7 @@ This page specifies what is written to disk.
 It is written so that an implementation in another language can produce and read bundles
 without reading the Python that implements this one.
 
-The format in force is manifest schema version **1.1**.
+The format in force is manifest schema version **2.0**.
 
 ## Bundle directory
 
@@ -86,7 +86,7 @@ Every entry in `resources` has these fields.
 | `hash`         | required     | `sha256:<64 lowercase hex>` |           | the content hash, and the replay idempotency key                        |
 | `type`         | required     | string                      |           | what sort of resource this is, see below                                |
 | `kind`         | optional     | `managed` or `pointer`      | `managed` | which of the two variants this record is                                |
-| `logical_key`  | optional     | string                      | absent    | the stable name lineage refers to this resource by                      |
+| `name`         | optional     | string                      | absent    | the bundle-local name lineage refers to this resource by                |
 | `format`       | optional     | string                      | absent    | the declared storage format, absent when it is not known                |
 | `visibility`   | optional     | `hidden`, `org` or `public` | `hidden`  | the tier this resource records as                                       |
 | `tags`         | optional     | list of strings             | `[]`      | free-form labels                                                        |
@@ -96,6 +96,8 @@ Every entry in `resources` has these fields.
 | `external_uri` | pointer only | string                      | absent    | the external target                                                     |
 | `generated`    | optional     | boolean                     | `false`   | whether an activity produced this resource                              |
 | `used`         | optional     | list of references          | `[]`      | what this resource was derived from                                     |
+
+`name` is local to the bundle that registers it, and it carries no hierarchy.
 
 The `type` values currently in use are:
 
@@ -126,7 +128,10 @@ A pointer still carries a `hash`, so lineage and identity work the same for both
 When the producer knows the external content's digest, it records it.
 When it does not, the hash is synthesised so that a hashless pointer still has a stable identity:
 
-- Build the mapping `{"type": <type>, "logical_key": <logical_key or "">, "locations": [["external", <external_uri>]]}`.
+- Build the mapping `{"type": <type>, "locations": [["external", <external_uri>]]}`.
+  The name is deliberately not part of the seed,
+  so the same external pointer collides on the same canonical resource
+  no matter what the producer named it.
 - Serialise it as JSON with sorted keys and `,` and `:` separators and no whitespace.
 - The hash is `sha256:` followed by the hex digest of those UTF-8 bytes.
 
@@ -144,7 +149,7 @@ Each entry in `used` carries **exactly one** of two coordinates:
 ```yaml
 used:
   - tracking_id: 0197a000-0000-7000-8000-00000000b001
-  - logical_key: upstream/emissions
+  - name: upstream-emissions
 ```
 
 An entry with both, or with neither, is invalid.
@@ -152,8 +157,10 @@ An entry with both, or with neither, is invalid.
 A recorded reference is resolved again when the bundle is replayed.
 A `tracking_id` is rewritten by the client to the id the server returned for that input,
 because a registration may be answered with a resource the server already holds.
-A `logical_key` is resolved by the server at registration time,
-so the edge it mints depends on what the server holds when the replay happens.
+A `name` is resolved by the server at registration time,
+against the resources registered by that same request and nothing else.
+There is no lookup outside the request,
+so the same bundle always resolves to the same inputs however often it is replayed.
 
 A recorded reference is therefore the run's claim about its inputs,
 and the minted edge names the resource that claim resolved to.
@@ -197,12 +204,18 @@ This field is specific to the Bookshelf and is optional.
 | `version`         | required |          | the consumer-facing data version                                                 |
 | `visibility`      | optional | `hidden` | the tier of the book                                                             |
 | `license`         | optional | absent   | the SPDX licence                                                                 |
-| `authors`         | optional | `[]`     | recorded for provenance only                                                     |
+| `authors`         | optional | `[]`     | the people credited with this version, sent on the draft call                    |
+| `discovery`       | optional | absent   | the editorial metadata baked onto this book, keyed by the recipe's field names   |
 | `description`     | optional | absent   | free prose                                                                       |
-| `citation_doi`    | optional | absent   | a DOI for the dataset                                                            |
 | `metadata`        | optional | `{}`     | free-form metadata                                                               |
 | `entries`         | optional | `[]`     | the book's membership                                                            |
 | `published`       | optional | `false`  | whether the book should be published, or left a draft                            |
+
+`discovery` and `authors` hold values the recipe has already resolved,
+so the bundle records what will be published rather than what was declared.
+Replay sends both on the draft call,
+which is how each book keeps its own copy of what was true when it was published.
+Neither enters the bundle hash.
 
 Each entry in `entries` carries the membership and its own optional column descriptions:
 
@@ -244,7 +257,7 @@ before anything is published anywhere.
 ## Versioning
 
 `schema_version` is `<major>.<minor>`.
-A reader models one major version, and this specification describes major 1.
+A reader models one major version, and this specification describes major 2.
 
 - A **newer minor** loads.
   Minor changes are additive, and a reader ignores fields it does not model.
@@ -253,6 +266,7 @@ A reader models one major version, and this specification describes major 1.
   A reader must raise rather than interpret it,
   because a major change means a field it does model may now mean something else.
   Reading it anyway would silently drop meaning.
+- An **older major** is migrated on read, and the loaded manifest reports the version it was migrated to.
 - A `schema_version` that is not a string, or whose major part is not an integer, is refused.
 - An absent `schema_version` is read as the current version.
 
@@ -351,7 +365,7 @@ resources:
   generated: false
   hash: sha256:c6dd00dc24e5ddcf21081c662e8264bbc0cf7d10986181f961545eaef0e4051c
   kind: pointer
-  logical_key: upstream/emissions
+  name: upstream-emissions
   metadata: {}
   tags: []
   tracking_id: 0197a000-0000-7000-8000-00000000b001
@@ -363,7 +377,7 @@ resources:
   generated: true
   hash: sha256:7198966a1a10c93fe40255d2c8e49b750e2cc7d3c9f56e4d06ac7e595e9afaa0
   kind: managed
-  logical_key: emissions/co2
+  name: emissions-co2
   metadata: {}
   size: 1396
   tags: []
@@ -372,7 +386,7 @@ resources:
   used:
   - tracking_id: 0197a000-0000-7000-8000-00000000b001
   visibility: public
-schema_version: '1.1'
+schema_version: '2.0'
 writer:
   pyarrow: 23.0.0
 ```
@@ -380,7 +394,7 @@ writer:
 Reading it back:
 
 - The pointer carries no bytes and no `size`, so `resources/` holds one file, not two.
-- Its hash was synthesised from its type, logical key and URI,
+- Its hash was synthesised from its type and URI,
   because the producer did not know the upstream digest.
 - The managed resource cites the pointer by `tracking_id`, which is the lineage edge.
 - The book publishes both under names of its own choosing, and carries no edition.

@@ -171,11 +171,13 @@ def test_volume_create_rejects_unreadable_metadata(
 def test_volume_update_patches_only_what_is_given(monkeypatch: pytest.MonkeyPatch) -> None:
     recorded = _patch_client(monkeypatch, 200, payloads.VOLUME)
 
-    result = runner.invoke(app, ["volume", "update", "example", "--citation", "Cite me", "--json"])
+    result = runner.invoke(
+        app, ["volume", "update", "example", "--description", "Now with units", "--json"]
+    )
 
     assert result.exit_code == EXIT_OK
     assert (recorded[0].method, recorded[0].url.path) == ("PATCH", "/v1/volumes/example")
-    assert json.loads(recorded[0].content) == {"citation": "Cite me"}
+    assert json.loads(recorded[0].content) == {"description": "Now with units"}
 
 
 def test_volume_update_refuses_an_empty_patch(monkeypatch: pytest.MonkeyPatch) -> None:

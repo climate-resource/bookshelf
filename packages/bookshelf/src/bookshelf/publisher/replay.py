@@ -58,11 +58,12 @@ async def draft_bundle_book(bundle: Bundle, bs: AsyncBookshelf) -> AsyncDraftBoo
         book.volume,
         version=book.version,
         description=book.description,
-        citation_doi=book.citation_doi,
         visibility=book.visibility,
         license=book.license,
         metadata=book.metadata,
         bundle_hash=compute_book_bundle_hash(bundle.manifest),
+        discovery=book.discovery,
+        authors=book.authors,
     )
 
 
@@ -76,11 +77,12 @@ def draft_bundle_book_sync(bundle: Bundle, bs: Bookshelf) -> DraftBook:
         book.volume,
         version=book.version,
         description=book.description,
-        citation_doi=book.citation_doi,
         visibility=book.visibility,
         license=book.license,
         metadata=book.metadata,
         bundle_hash=compute_book_bundle_hash(bundle.manifest),
+        discovery=book.discovery,
+        authors=book.authors,
     )
 
 
@@ -133,7 +135,7 @@ async def replay_bundle(
             type=resource.type,
             uri=resource.external_uri,
             hash=resource.hash,
-            logical_key=resource.logical_key,
+            name=resource.name,
             visibility=resource.visibility,
             tags=resource.tags,
             metadata=resource.metadata,
@@ -160,7 +162,7 @@ async def replay_bundle(
                         type=resource.type,
                         uri=resource.external_uri,
                         hash=resource.hash,
-                        logical_key=resource.logical_key,
+                        name=resource.name,
                         used=used,
                         visibility=resource.visibility,
                         tags=resource.tags,
@@ -172,7 +174,7 @@ async def replay_bundle(
                     handle = await live_activity.register(
                         recorded.resource_bytes(resource),
                         type=resource.type,
-                        logical_key=resource.logical_key,
+                        name=resource.name,
                         used=used,
                         visibility=resource.visibility,
                         tags=resource.tags,
@@ -230,7 +232,7 @@ def replay_bundle_sync(
             type=resource.type,
             uri=resource.external_uri,
             hash=resource.hash,
-            logical_key=resource.logical_key,
+            name=resource.name,
             visibility=resource.visibility,
             tags=resource.tags,
             metadata=resource.metadata,
@@ -257,7 +259,7 @@ def replay_bundle_sync(
                         type=resource.type,
                         uri=resource.external_uri,
                         hash=resource.hash,
-                        logical_key=resource.logical_key,
+                        name=resource.name,
                         used=used,
                         visibility=resource.visibility,
                         tags=resource.tags,
@@ -269,7 +271,7 @@ def replay_bundle_sync(
                     handle = live_activity.register(
                         recorded.resource_bytes(resource),
                         type=resource.type,
-                        logical_key=resource.logical_key,
+                        name=resource.name,
                         used=used,
                         visibility=resource.visibility,
                         tags=resource.tags,
@@ -326,11 +328,7 @@ def _resource_used(
                     "which the bundle records after it. "
                     "Inputs must be registered before whatever consumes them."
                 )
-        key = (
-            ("tracking_id", str(value))
-            if isinstance(value, UUID)
-            else ("logical_key", value.logical_key)
-        )
+        key = ("tracking_id", str(value)) if isinstance(value, UUID) else ("name", value.name)
         if key not in seen:
             seen.add(key)
             values.append(value)
@@ -340,8 +338,8 @@ def _resource_used(
 def _used_value(reference: BundleUsedRef) -> Used | UUID:
     if reference.tracking_id is not None:
         return reference.tracking_id
-    if reference.logical_key is not None:
-        return Used(logical_key=reference.logical_key)
+    if reference.name is not None:
+        return Used(name=reference.name)
     raise ValueError("recorded used reference has no coordinate")
 
 

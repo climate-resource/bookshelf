@@ -65,7 +65,6 @@ def _emit_volume(volume: models.VolumeResponse, *, json_output: bool) -> None:
                 "name": volume.name,
                 "license": volume.license,
                 "description": volume.description,
-                "citation": volume.citation,
                 "authors": authors,
                 "maintainers": maintainers,
                 "metadata": volume.metadata,
@@ -77,12 +76,10 @@ def _emit_volume(volume: models.VolumeResponse, *, json_output: bool) -> None:
     lines = [
         volume.name,
         field("Id", volume.id),
-        field("Licence", volume.license),
+        field("Licence", volume.license or "-"),
     ]
     if volume.description is not None:
         lines.append(field("Description", volume.description))
-    if volume.citation is not None:
-        lines.append(field("Citation", volume.citation))
     if authors:
         lines.append(field("Authors", ", ".join(authors)))
     if maintainers:
@@ -96,7 +93,6 @@ def volume_create(
     name: str = typer.Argument(help="Volume name, in alphanumerics, hyphens and underscores."),
     licence: str = typer.Option(..., "--licence", help="SPDX licence identifier."),
     description: str | None = typer.Option(None, "--description", help="Long-form description."),
-    citation: str | None = typer.Option(None, "--citation", help="How to cite the dataset."),
     author: list[str] = typer.Option([], "--author", help="Author name. Repeatable."),
     maintainer: list[str] = typer.Option([], "--maintainer", help="Maintainer name. Repeatable."),
     metadata: Path | None = typer.Option(
@@ -117,7 +113,6 @@ def volume_create(
                 name,
                 license=licence,
                 description=description,
-                citation=citation,
                 authors=_people_from_names(author),
                 maintainers=_people_from_names(maintainer),
                 metadata=document,
@@ -129,7 +124,6 @@ def volume_create(
 def volume_update(
     name: str = typer.Argument(help="Volume to update."),
     description: str | None = typer.Option(None, "--description", help="Long-form description."),
-    citation: str | None = typer.Option(None, "--citation", help="How to cite the dataset."),
     author: list[str] = typer.Option([], "--author", help="Author name. Repeatable."),
     maintainer: list[str] = typer.Option([], "--maintainer", help="Maintainer name. Repeatable."),
     metadata: Path | None = typer.Option(
@@ -143,7 +137,7 @@ def volume_update(
         document = _metadata(metadata)
         authors = _people_from_names(author)
         maintainers = _people_from_names(maintainer)
-        given = (description, citation, document, authors, maintainers)
+        given = (description, document, authors, maintainers)
         if all(value is None for value in given):
             raise CliError(
                 "update needs at least one field to change. "
@@ -154,7 +148,6 @@ def volume_update(
             updated = client.update_volume(
                 name,
                 description=description,
-                citation=citation,
                 authors=authors,
                 maintainers=maintainers,
                 metadata=document,

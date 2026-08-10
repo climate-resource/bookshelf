@@ -14,13 +14,16 @@ import yaml
 
 from bookshelf._core.config import UNSET, AuthInput
 from bookshelf._core.errors import BookshelfError
+from bookshelf._core.names import flatten_to_resource_name
 from bookshelf._generated import models
 from bookshelf._produce.books import DraftBook
+from bookshelf._produce.facade import nests_discovery
 from bookshelf._produce.helpers import uuid7
 from bookshelf.facade import Bookshelf
 from bookshelf.publisher.bundle import Bundle
 from bookshelf.publisher.notebook import ExecutedNotebook, execute_python_build
 from bookshelf.publisher.recipe import (
+    DiscoveryFields,
     RecordRecipe,
     ResolvedBook,
     load_record_recipe,
@@ -64,6 +67,19 @@ class SetupResult:
         return getattr(self.bs, name)
 
 
+def _resolved_discovery(resolved: ResolvedBook) -> dict[str, Any]:
+    """Read the effective discovery values off an already resolved book.
+
+    The fields are walked rather than listed,
+    so one added to the recipe later reaches the wire without another edit here.
+    """
+    return {
+        name: value
+        for name in DiscoveryFields.model_fields
+        if nests_discovery(name) and (value := getattr(resolved.discovery, name)) is not None
+    }
+
+
 def setup(
     *,
     version: str | None = None,
@@ -102,17 +118,16 @@ def setup(
                 f"{context.resolved.version!r}. "
                 "Drop version= from the build file, because 'bookshelf record --version' states it"
             )
-        context.bookshelf = RecordingBookshelf(
-            context.bundle,
-            base_url,
-            auth=auth,
-            authors=context.resolved.authors,
-        )
+        context.bookshelf = RecordingBookshelf(context.bundle, base_url, auth=auth)
+        discovery = _resolved_discovery(context.resolved)
         book = context.bookshelf.draft_book(
             collection or context.recipe.volume.name,
             version=context.resolved.version,
             visibility=resolve_book_visibility(visibility, resolved=context.resolved),
             license=license or context.resolved.license,
+            description=context.resolved.discovery.description,
+            discovery=discovery,
+            authors=context.resolved.authors,
         )
         if not isinstance(book, RecordedDraftBook):
             raise TypeError("recording sink returned a live draft book")
@@ -224,7 +239,7 @@ def _record_executed_documents(
     for path, name_in_book, kind in documents:
         resource = context.bookshelf.recording_sink.record_document(
             path.read_bytes(),
-            logical_key=f"document/{name_in_book}",
+            name=flatten_to_resource_name(f"document-{name_in_book}"),
             metadata={"kind": kind, "notebook_name": executed.name},
         )
         context.book.attach(resource, name_in_book=name_in_book, data_dictionary=[])

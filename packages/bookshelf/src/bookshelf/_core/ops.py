@@ -252,7 +252,9 @@ LIST_RESOURCES = _op(
         success_statuses=(200,),
         error_statuses=(401, 422),
         supplied_parameters=(
-            ("query", "logical_key"),
+            ("query", "volume"),
+            ("query", "name"),
+            ("query", "hash"),
             ("query", "type"),
             ("query", "tags"),
             ("query", "owner_org_id"),
@@ -844,7 +846,9 @@ def parse_list_book_entries(response: ApiResponse) -> models.BookEntriesResponse
 
 def build_list_resources(
     *,
-    logical_key: str | None = None,
+    volume: str | None = None,
+    name: str | None = None,
+    hash: str | None = None,
     type: str | None = None,
     tags: Sequence[str] | None = None,
     owner_org_id: str | None = None,
@@ -856,7 +860,9 @@ def build_list_resources(
         method="GET",
         path=LIST_RESOURCES.path_template,
         params=_params(
-            logical_key=logical_key,
+            volume=volume,
+            name=name,
+            hash=hash,
             type=type,
             tags=tags,
             owner_org_id=owner_org_id,

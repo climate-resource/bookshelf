@@ -62,7 +62,7 @@ draft = bs.draft_book("demo-sdk-howto", version="v1.1.0", license="CC-BY-4.0")
 pointer = bs.register_external(
     type="tabular",
     uri="https://zenodo.org/records/4741285/files/CEDS_v2021-04-21_emissions.zip",
-    logical_key="demo-sdk-howto/ceds-upstream",
+    name="ceds-upstream",
     metadata={"source": "Zenodo", "doi": "10.5281/zenodo.4741285"},
     tags=["external", "upstream"],
 )
@@ -121,7 +121,7 @@ with bs.activity(
     mirrored = activity.register_external(
         type="tabular",
         uri="https://example.climateresource.com.au/ceds/mirror.parquet",
-        logical_key="demo-sdk-howto/ceds-mirror",
+        name="ceds-mirror",
         used=[pointer],
     )
     outputs = activity.register_many(
@@ -129,13 +129,15 @@ with bs.activity(
             RegisterItem(
                 obj=series(offset),
                 type="timeseries",
-                logical_key=f"demo-sdk-howto/batch/{index}",
+                name=f"demo-sdk-howto-batch-{index}",
             )
             for index, offset in enumerate([0.0, 1.5, 3.0])
         ],
     )
 
-mirrored.tracking_id, [item.metadata.logical_key for item in outputs]
+# A name is a write-time coordinate, so the read model does not echo it back.
+# The manifest below is where the recorded names are read from.
+mirrored.tracking_id, [item.tracking_id for item in outputs]
 
 # %% [markdown]
 # ## What a mixed bundle looks like
@@ -159,7 +161,7 @@ for path in sorted(bundle_root.rglob("*")):
 manifest = yaml.safe_load((bundle_root / "manifest.lock").read_text())
 
 for record in manifest["resources"]:
-    print(f"{record['kind']:<8} {record['logical_key']:<34} {record.get('external_uri', '')}")
+    print(f"{record['kind']:<8} {record['name']:<34} {record.get('external_uri', '')}")
 
 # %% [markdown]
 # ## Batch limits and partial failure
@@ -197,21 +199,21 @@ for record in manifest["resources"]:
 # because the server resolves it rather than the recorder.
 
 # %%
-{record["logical_key"]: record["dedupe"] for record in manifest["resources"]}
+{record["name"]: record["dedupe"] for record in manifest["resources"]}
 
 # %% [markdown]
 # On replay, byte identical items owned by one organisation
 # collapse to the first canonical resource,
-# even when a later item supplies a different logical key.
-# The first resource's logical key stays canonical.
+# even when a later item supplies a different name.
+# The first resource's name stays canonical.
 #
 # Through a live facade the handle reports this on `registration_status`.
 #
 # ```python
 # with Bookshelf() as bs:
 #     with bs.activity(code_ref="...") as activity:
-#         first = activity.register(frame, type="timeseries", logical_key="a")
-#         second = activity.register(frame, type="timeseries", logical_key="b")
+#         first = activity.register(frame, type="timeseries", name="a")
+#         second = activity.register(frame, type="timeseries", name="b")
 #
 # first.registration_status               # created
 # second.registration_status              # aliased

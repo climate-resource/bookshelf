@@ -1036,9 +1036,7 @@ def test_recorded_resources_take_the_books_visibility(tmp_path: Path) -> None:
             activity.register(b"data", type="tabular")
             activity.register_many([RegisterItem(b"batched", type="tabular")])
             activity.register_external(type="tabular", uri="https://example.invalid/data.csv")
-        bs.recording_sink.record_document(
-            b"<html/>", logical_key="document/build.html", metadata={}
-        )
+        bs.recording_sink.record_document(b"<html/>", name="document-build.html", metadata={})
         recorded = [r.visibility for r in bs.bundle.manifest.resources]
 
     assert recorded == ["public", "public", "public", "public"]
