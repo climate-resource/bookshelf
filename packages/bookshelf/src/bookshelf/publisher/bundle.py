@@ -294,7 +294,7 @@ class BundleBook(BaseModel):
     visibility: str = "hidden"
     license: str | None = None
     authors: list[dict[str, Any]] = Field(default_factory=list)
-    discovery: dict[str, Any] = Field(default_factory=dict)
+    discovery: dict[str, Any] | None = None
     description: str | None = None
     citation_doi: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)

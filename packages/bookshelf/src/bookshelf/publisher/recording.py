@@ -522,7 +522,7 @@ class RecordingSink:
                 visibility=book_visibility.value,
                 license=license,
                 authors=credited,
-                discovery=dict(discovery or {}),
+                discovery=dict(discovery) if discovery else None,
                 description=description,
                 citation_doi=citation_doi,
                 metadata=dict(metadata or {}),

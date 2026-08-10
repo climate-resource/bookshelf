@@ -185,7 +185,7 @@ def _show_volume(client: BookshelfClient, parsed: Address, json_output: bool) ->
     lines = [f"{volume.name}   {title}".rstrip()]
     if discovery and discovery.publisher:
         lines.append(field("Publisher", discovery.publisher.root))
-    lines.append(field("Licence", volume.license))
+    lines.append(field("Licence", volume.license or "-"))
     if discovery and discovery.topics:
         lines.append(field("Topics", ", ".join(discovery.topics)))
     if discovery and discovery.spatial_coverage:
