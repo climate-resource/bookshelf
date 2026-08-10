@@ -66,8 +66,8 @@ class SetupResult:
         return getattr(self.bs, name)
 
 
-def _resolved_discovery(resolved: ResolvedVersion) -> dict[str, Any]:
-    """Read the effective discovery values off an already resolved version.
+def _resolved_discovery(resolved: ResolvedBook) -> dict[str, Any]:
+    """Read the effective discovery values off an already resolved book.
 
     The fields are walked rather than listed,
     so one added to the recipe later reaches the wire without another edit here.
