@@ -126,9 +126,6 @@ def _pointers(bs: RecordingBookshelf) -> list[BundleResource]:
     return [r for r in bs.bundle.manifest.resources if r.kind == "pointer"]
 
 
-# ----------------------------------------------------------------------
-# The uri form: fetched through the cache and verified.
-# ----------------------------------------------------------------------
 def test_a_uri_resource_fetches_once_and_reads_back(tmp_path: Path, server: _Server) -> None:
     with _recording(_write_recipe(tmp_path, _URI_VERSION), tmp_path / "bundle"):
         build = setup()
@@ -168,9 +165,6 @@ def test_a_digest_mismatch_is_a_hard_failure(tmp_path: Path, server: _Server) ->
     assert list((tmp_path / "content-cache").iterdir()) == []
 
 
-# ----------------------------------------------------------------------
-# The path form: read from beside the recipe, digest computed.
-# ----------------------------------------------------------------------
 def test_a_path_resource_resolves_and_computes_its_digest(tmp_path: Path) -> None:
     recipe = _write_recipe(tmp_path, _PATH_VERSION)
     data = _write_data(tmp_path)
@@ -231,9 +225,6 @@ def test_a_missing_path_resource_names_the_resolved_path(tmp_path: Path) -> None
     assert str((tmp_path / "data" / "raw.csv").resolve()) in str(excinfo.value)
 
 
-# ----------------------------------------------------------------------
-# Name resolution.
-# ----------------------------------------------------------------------
 def test_an_unknown_resource_name_lists_the_declared_ones(tmp_path: Path, server: _Server) -> None:
     with _recording(_write_recipe(tmp_path, _URI_VERSION), tmp_path / "bundle"):
         build = setup()
@@ -266,9 +257,6 @@ def test_a_direct_build_refuses_to_resolve_a_resource() -> None:
             build.use("raw")
 
 
-# ----------------------------------------------------------------------
-# The registered pointer.
-# ----------------------------------------------------------------------
 def _written_pointers(bs: RecordingBookshelf, bundle_path: Path) -> list[BundleResource]:
     """Write the bundle and read its pointers back, so the assertion is on the manifest on disk."""
     bs.bundle.write()

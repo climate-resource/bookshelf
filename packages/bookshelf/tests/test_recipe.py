@@ -150,9 +150,6 @@ def _one_book(tmp_path: Path, body: str, *, defaults: str = "") -> Path:
     return path
 
 
-# ----------------------------------------------------------------------
-# One sectioned file.
-# ----------------------------------------------------------------------
 def test_a_full_recipe_populates_every_section(tmp_path: Path) -> None:
     recipe = load_record_recipe(_write(tmp_path, _FULL))
 
@@ -223,9 +220,6 @@ def test_an_unknown_version_names_the_versions_the_recipe_declares(tmp_path: Pat
         recipe.resolve("v9.9")
 
 
-# ----------------------------------------------------------------------
-# What ``defaults:`` supplies, and what a book overrides.
-# ----------------------------------------------------------------------
 def test_a_resource_default_supplies_the_type_the_book_leaves_out(tmp_path: Path) -> None:
     """The type does not move between books, so it is stated once."""
     book = load_record_recipe(_write(tmp_path, _FULL)).resolve("v2.7")
@@ -346,9 +340,6 @@ def test_a_resource_default_naming_an_unknown_type_is_rejected(tmp_path: Path) -
         load_record_recipe(path)
 
 
-# ----------------------------------------------------------------------
-# The rules the loader enforces.
-# ----------------------------------------------------------------------
 def test_the_removed_flat_form_is_rejected_naming_the_new_shape(tmp_path: Path) -> None:
     """The message a feedstock author sees is the whole migration guide they get."""
     path = _write(tmp_path, _FLAT)
@@ -857,9 +848,6 @@ def test_a_recipe_with_no_volume_names_the_section_it_needs(tmp_path: Path) -> N
         load_record_recipe(_write(tmp_path, "build:\n  notebook: build.py\n"))
 
 
-# ----------------------------------------------------------------------
-# Visibility, which a book declares or takes from the defaults.
-# ----------------------------------------------------------------------
 def test_visibility_is_optional(tmp_path: Path) -> None:
     assert load_record_recipe(_write_recipe(tmp_path)).resolve(_VERSION).visibility is None
 
@@ -1025,9 +1013,6 @@ def test_a_recipe_that_is_silent_leaves_the_book_hidden(tmp_path: Path) -> None:
     assert book.metadata.visibility is models.Visibility.hidden
 
 
-# ----------------------------------------------------------------------
-# The book's tier is the default for the resources the build records.
-# ----------------------------------------------------------------------
 def test_recorded_resources_take_the_books_visibility(tmp_path: Path) -> None:
     """A public book records public resources, so a generated feedstock can publish."""
     with _recording(_write_recipe(tmp_path, "visibility: public"), tmp_path / "bundle"):
@@ -1067,9 +1052,6 @@ def test_a_hidden_book_still_records_hidden_resources(tmp_path: Path) -> None:
     assert recorded == ["hidden"]
 
 
-# ----------------------------------------------------------------------
-# The recorder, driving a real build file.
-# ----------------------------------------------------------------------
 def _run(
     tmp_path: Path,
     resource: str,
@@ -1143,9 +1125,6 @@ def test_the_recorder_refuses_a_version_the_recipe_does_not_define(tmp_path: Pat
         _run(tmp_path, "import bookshelf\n", version="v9.9")
 
 
-# ----------------------------------------------------------------------
-# The visibility precedence rule on its own.
-# ----------------------------------------------------------------------
 def _resolved(visibility: str | None) -> ResolvedBook:
     return RecordRecipe.model_validate(
         {
