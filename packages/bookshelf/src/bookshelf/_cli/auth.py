@@ -319,7 +319,17 @@ def auth_token(
             emit(os.environ["BOOKSHELF_TOKEN"])
             return
         if source is CredentialSource.CLIENT_CREDENTIALS:
-            emit(_current_token(_client_credentials_provider()))
+            try:
+                machine = config.client_credentials_from_environment()
+            except errors.AuthConfigurationError as exc:
+                raise CliError(str(exc), exit_code=EXIT_USAGE) from exc
+            emit(
+                _current_token(
+                    machine,
+                    remedy="Check BOOKSHELF_CLIENT_ID, BOOKSHELF_CLIENT_SECRET "
+                    "and BOOKSHELF_TOKEN_URL against the issuer.",
+                )
+            )
             return
         if stored is None:
             raise CliError(
@@ -328,19 +338,16 @@ def auth_token(
                 "'bookshelf auth login --agent' to register an agent identity.",
                 exit_code=EXIT_AUTH_REQUIRED,
             )
-        emit(_current_token(config.auth_from_stored(stored)))
+        emit(
+            _current_token(
+                config.auth_from_stored(stored),
+                remedy="Run 'bookshelf auth login' to sign in again, "
+                "or 'bookshelf auth login --agent' to register an agent identity.",
+            )
+        )
 
 
-def _client_credentials_provider() -> TokenProvider:
-    try:
-        provider = config.resolve_auth(config.UNSET)
-    except errors.AuthConfigurationError as exc:
-        raise CliError(str(exc), exit_code=EXIT_USAGE) from exc
-    assert isinstance(provider, TokenProvider)
-    return provider
-
-
-def _current_token(provider: TokenProvider) -> str:
+def _current_token(provider: TokenProvider, *, remedy: str) -> str:
     """Ask a provider for a token that is current, exchanging for a new one when one is due.
 
     The provider owns the staleness check, the single-flight lock
@@ -354,9 +361,7 @@ def _current_token(provider: TokenProvider) -> str:
         raise CliError(f"token endpoint unreachable: {exc}", exit_code=EXIT_NETWORK) from exc
     except errors.AuthenticationError as exc:
         raise CliError(
-            f"the stored credential could not be exchanged for a fresh token: {exc.detail} "
-            "Run 'bookshelf auth login' to sign in again, "
-            "or 'bookshelf auth login --agent' to register an agent identity.",
+            f"the credential could not be exchanged for a fresh token: {exc.detail} {remedy}",
             exit_code=EXIT_AUTH_REQUIRED,
         ) from exc
 

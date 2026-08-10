@@ -177,7 +177,7 @@ def test_an_agent_record_without_an_assertion_rotates_as_a_user(
 def test_stored_without_workos_client_id_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """Silently degrading to a static token would kill rotation mid-process."""
     stored(monkeypatch)
-    monkeypatch.setattr(oauth, "workos_client_id", lambda _api_url: None)
+    monkeypatch.setattr(oauth, "resolve_workos_client_id", lambda _api_url: None)
     with pytest.raises(AuthConfigurationError):
         config.resolve_auth(config.UNSET)
 

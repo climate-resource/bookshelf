@@ -88,9 +88,13 @@ class StoredCredentials:
             self,
             access_token=access_token,
             expires_at=expires_at,
-            refresh_token=refresh_token or self.refresh_token,
-            identity_assertion=identity_assertion or self.identity_assertion,
-            assertion_expires_at=assertion_expires_at or self.assertion_expires_at,
+            refresh_token=self.refresh_token if refresh_token is None else refresh_token,
+            identity_assertion=(
+                self.identity_assertion if identity_assertion is None else identity_assertion
+            ),
+            assertion_expires_at=(
+                self.assertion_expires_at if assertion_expires_at is None else assertion_expires_at
+            ),
         )
 
 
@@ -287,8 +291,6 @@ def save_credentials(
     """Persist one freshly acquired credential and make it active for its deployment.
 
     This is the shape a login has, where there is no prior record to build on.
-    A rotation has one, so it goes through :meth:`StoredCredentials.with_token`
-    and :func:`save_record` instead.
     """
     save_record(
         StoredCredentials(
@@ -310,8 +312,8 @@ def save_credentials(
 def save_record(record: StoredCredentials) -> None:
     """Persist one credential record and make it active for its deployment.
 
-    When ``expires_at`` is ``None`` the expiry is derived from the access token's
-    JWT ``exp`` claim, staying ``None`` only when the token carries no ``exp``.
+    A record with no ``expires_at`` takes its expiry from the access token's JWT ``exp`` claim,
+    staying open-ended only when the token carries no ``exp``.
     """
     expires_at = record.expires_at
     if expires_at is None:

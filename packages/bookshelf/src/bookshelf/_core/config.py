@@ -125,21 +125,26 @@ def _auth_from_environment(base_url: str | None) -> httpx.Auth | None:
     if source is CredentialSource.ENV_TOKEN:
         return StaticToken(os.environ["BOOKSHELF_TOKEN"])
     if source is CredentialSource.CLIENT_CREDENTIALS:
-        token_url = os.environ.get("BOOKSHELF_TOKEN_URL")
-        if not token_url:
-            raise AuthConfigurationError(
-                "BOOKSHELF_CLIENT_ID and BOOKSHELF_CLIENT_SECRET are set "
-                "but BOOKSHELF_TOKEN_URL is not. "
-                "Set BOOKSHELF_TOKEN_URL to the issuer's client-credentials token endpoint."
-            )
-        return ClientCredentials(
-            os.environ["BOOKSHELF_CLIENT_ID"],
-            os.environ["BOOKSHELF_CLIENT_SECRET"],
-            token_url=token_url,
-        )
+        return client_credentials_from_environment()
     if stored is not None:
         return AnonymousFallback(auth_from_stored(stored), message=_SPENT_CREDENTIAL_MESSAGE)
     return None
+
+
+def client_credentials_from_environment() -> ClientCredentials:
+    """Build the machine credential named by ``$BOOKSHELF_CLIENT_ID`` and its siblings."""
+    token_url = os.environ.get("BOOKSHELF_TOKEN_URL")
+    if not token_url:
+        raise AuthConfigurationError(
+            "BOOKSHELF_CLIENT_ID and BOOKSHELF_CLIENT_SECRET are set "
+            "but BOOKSHELF_TOKEN_URL is not. "
+            "Set BOOKSHELF_TOKEN_URL to the issuer's client-credentials token endpoint."
+        )
+    return ClientCredentials(
+        os.environ["BOOKSHELF_CLIENT_ID"],
+        os.environ["BOOKSHELF_CLIENT_SECRET"],
+        token_url=token_url,
+    )
 
 
 def auth_from_stored(stored: credentials.StoredCredentials) -> TokenProvider:
@@ -157,7 +162,7 @@ def auth_from_stored(stored: credentials.StoredCredentials) -> TokenProvider:
 
 def _user_auth_from_stored(stored: credentials.StoredCredentials) -> RefreshTokenExchange:
     assert stored.refresh_token is not None
-    client_id = oauth.workos_client_id(stored.api_url)
+    client_id = oauth.resolve_workos_client_id(stored.api_url)
     if client_id is None:
         raise AuthConfigurationError(
             "Stored credentials carry a refresh token but no WorkOS client ID is available, "
@@ -215,6 +220,7 @@ __all__ = [
     "AuthInput",
     "CredentialSource",
     "auth_from_stored",
+    "client_credentials_from_environment",
     "resolve_ambient_credential",
     "resolve_auth",
     "resolve_base_url",

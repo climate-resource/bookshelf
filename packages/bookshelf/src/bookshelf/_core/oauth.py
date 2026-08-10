@@ -159,14 +159,14 @@ def is_staging_api_url(api_url: str) -> bool:
     return any(part == "staging" for label in host.split(".") for part in label.split("-"))
 
 
-def workos_client_id(api_url: str = "") -> str | None:
+def resolve_workos_client_id(api_url: str = "") -> str | None:
     """Return the WorkOS client ID from ``$BOOKSHELF_WORKOS_CLIENT_ID`` or pick one by API URL.
 
     The staging client ID is bundled.
     The production client ID is not,
     so a non-staging URL with no environment variable resolves to ``None``.
     Callers decide what an unresolvable client ID means:
-    :func:`get_workos_client_id` raises,
+    :func:`require_workos_client_id` raises,
     the SDK's ambient resolution raises ``AuthConfigurationError`` instead.
     """
     env_id = os.environ.get("BOOKSHELF_WORKOS_CLIENT_ID")
@@ -177,9 +177,9 @@ def workos_client_id(api_url: str = "") -> str | None:
     return None
 
 
-def get_workos_client_id(api_url: str = "") -> str:
+def require_workos_client_id(api_url: str = "") -> str:
     """Return the WorkOS client ID for an interactive login, raising when none resolves."""
-    client_id = workos_client_id(api_url)
+    client_id = resolve_workos_client_id(api_url)
     if client_id is not None:
         return client_id
     raise OAuthError(
@@ -255,7 +255,7 @@ def authorization_code_flow(
     dict
         Token response with ``access_token``, ``refresh_token``, ``expires_in``.
     """
-    client_id = get_workos_client_id(api_url)
+    client_id = require_workos_client_id(api_url)
     workos_url = get_workos_base_url()
 
     code_verifier = generate_code_verifier()
@@ -382,7 +382,7 @@ def start_device_flow(
     transport: httpx.BaseTransport | None = None,
 ) -> DeviceFlowInfo:
     """Start a device authorization flow and return the user code + verification URI."""
-    client_id = get_workos_client_id(api_url)
+    client_id = require_workos_client_id(api_url)
     workos_url = get_workos_base_url()
 
     with httpx.Client(timeout=30.0, transport=transport) as client:
@@ -416,7 +416,7 @@ def poll_device_flow(
     Honors ``authorization_pending`` and ``slow_down`` per RFC 8628.
     Raises ``OAuthError`` on denial, expiry, or timeout.
     """
-    client_id = get_workos_client_id(api_url)
+    client_id = require_workos_client_id(api_url)
     workos_url = get_workos_base_url()
     interval = device_flow.interval
     max_time = timeout if timeout is not None else device_flow.expires_in
@@ -464,8 +464,8 @@ __all__ = [
     "OAuthError",
     "authorization_code_flow",
     "get_workos_base_url",
-    "get_workos_client_id",
+    "require_workos_client_id",
     "poll_device_flow",
     "start_device_flow",
-    "workos_client_id",
+    "resolve_workos_client_id",
 ]

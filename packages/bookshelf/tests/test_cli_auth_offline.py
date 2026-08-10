@@ -134,6 +134,36 @@ def test_token_refreshes_through_the_provider_and_rewrites_the_record(
     assert record.organization_id == "org_123"
 
 
+def test_token_mints_client_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BOOKSHELF_CLIENT_ID", "cid")
+    monkeypatch.setenv("BOOKSHELF_CLIENT_SECRET", "secret")
+    monkeypatch.setenv("BOOKSHELF_TOKEN_URL", "https://issuer.test/token")
+    exchanges: list[dict[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        exchanges.append(dict(httpx.QueryParams(request.content.decode())))
+        return httpx.Response(200, json={"access_token": "minted-token", "expires_in": 3600})
+
+    _mock_out_the_token_endpoint(monkeypatch, httpx.MockTransport(handler))
+
+    result = runner.invoke(app, ["auth", "token"])
+
+    assert result.exit_code == 0
+    assert result.stdout == "minted-token\n"
+    assert exchanges[0]["grant_type"] == "client_credentials"
+
+
+def test_token_without_a_token_url_is_a_usage_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BOOKSHELF_CLIENT_ID", "cid")
+    monkeypatch.setenv("BOOKSHELF_CLIENT_SECRET", "secret")
+
+    result = runner.invoke(app, ["auth", "token"])
+
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    assert "BOOKSHELF_TOKEN_URL" in result.stderr
+
+
 def test_token_reports_a_spent_credential(monkeypatch: pytest.MonkeyPatch) -> None:
     credentials.save_credentials(
         "stale-token",
