@@ -2,7 +2,7 @@
 
 A recipe states each upstream input once, under ``resources:``.
 :func:`resolve_resource` turns one declared name into local bytes and a catalogued pointer,
-so a build file reads an input with ``bs.use("raw")`` and nothing else.
+so a build file reads an input with ``build.use("raw")`` and nothing else.
 
 The ``uri`` and ``path`` forms differ only in how the bytes and the digest are obtained.
 Both end in the same registration.
