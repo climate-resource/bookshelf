@@ -60,6 +60,38 @@
         }
       }
     },
+    "/health/public-storage": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Public Storage Check",
+        "description": "Check that presigned URLs signed against the public endpoint are fetchable.\n\nKubernetes liveness and readiness probes must not use this endpoint.\nIt makes an external round trip through the public presigned host,\nso gating a pod on it would crash-loop the API on an ingress or DNS wobble.\nPoint an external synthetic check or alert at it instead.",
+        "operationId": "healthPublicStorageCheck",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicStorageResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicStorageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/me": {
       "get": {
         "tags": [
@@ -744,7 +776,7 @@
           "volumes"
         ],
         "summary": "Update Volume",
-        "description": "Update a volume.\n\nRequires write permission. License cannot be changed.",
+        "description": "Update a volume.\n\nRequires write permission. The slug ``name`` is the only immutable field.",
         "operationId": "volumesUpdateVolume",
         "security": [
           {
@@ -2189,7 +2221,7 @@
           "resources"
         ],
         "summary": "Get Resource Facets",
-        "description": "Get unique values per column for filter UIs.\n\nSupports pre-filtering: ?region=USA returns facets for USA data only.\nUseful for building dynamic filter controls.",
+        "description": "Get unique values per column for filter UIs.\n\nSupports pre-filtering: ?region=USA returns facets for USA data only.\nCounts are taken over the rows that survive the filter,\nso refining one dimension re-derives the others.",
         "operationId": "resourcesGetResourceFacets",
         "security": [
           {},
@@ -3580,7 +3612,7 @@
         ],
         "parameters": [
           {
-            "name": "logical_key",
+            "name": "volume",
             "in": "query",
             "required": false,
             "schema": {
@@ -3592,10 +3624,46 @@
                   "type": "null"
                 }
               ],
-              "description": "Exact match on the resource's logical key.",
-              "title": "Logical Key"
+              "description": "Filter to resources belonging to a book in this volume. Resources not attached to a book are excluded.",
+              "title": "Volume"
             },
-            "description": "Exact match on the resource's logical key."
+            "description": "Filter to resources belonging to a book in this volume. Resources not attached to a book are excluded."
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact match on the resource's name.",
+              "title": "Name"
+            },
+            "description": "Exact match on the resource's name."
+          },
+          {
+            "name": "hash",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact match on the canonical content hash. A bare 64-character hex is accepted and normalised to ``sha256:<hex>``.",
+              "title": "Hash"
+            },
+            "description": "Exact match on the canonical content hash. A bare 64-character hex is accepted and normalised to ``sha256:<hex>``."
           },
           {
             "name": "type",
@@ -3657,11 +3725,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "When true, return only the most-recent resource per logical key.",
+              "description": "When true, return only the most-recent resource per (volume, name) pair. Resources not attached to a book are excluded, because they have no volume.",
               "default": false,
               "title": "Latest"
             },
-            "description": "When true, return only the most-recent resource per logical key."
+            "description": "When true, return only the most-recent resource per (volume, name) pair. Resources not attached to a book are excluded, because they have no volume."
           },
           {
             "name": "limit",
@@ -4801,6 +4869,61 @@
         ]
       }
     },
+    "/v1/bundles/replay": {
+      "post": {
+        "tags": [
+          "bundles"
+        ],
+        "summary": "Replay Bundle",
+        "description": "Replay a whole recorded bundle in one transaction.\n\nRegisters every resource, mints the recorded activity's provenance edges,\ndrafts the book, attaches every entry and publishes it when the framing asks for it.\nAny failure rolls all of that back, so there is no partial state and no per-item outcome to inspect.\n\nThe server computes the seal that identifies the book's content,\nso replaying the same bundle twice converges on one edition rather than minting a second.",
+        "operationId": "bundlesReplayBundle",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BundleReplayRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleReplayResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/v1/resources/uploads": {
       "post": {
         "tags": [
@@ -5027,7 +5150,7 @@
                   "$ref": "#/components/schemas/UsedRefByTrackingId"
                 },
                 {
-                  "$ref": "#/components/schemas/UsedRefByLogicalKey"
+                  "$ref": "#/components/schemas/UsedRefByResourceName"
                 }
               ]
             },
@@ -5398,7 +5521,20 @@
               }
             ],
             "title": "Citation Doi",
-            "description": "Citation DOI for the book."
+            "description": "Read-only mirror of ``discovery.doi``. Read the discovery profile instead.",
+            "deprecated": true
+          },
+          "authors": {
+            "items": {
+              "$ref": "#/components/schemas/Author"
+            },
+            "type": "array",
+            "title": "Authors",
+            "description": "Authors credited on this release."
+          },
+          "discovery": {
+            "$ref": "#/components/schemas/BookDiscovery",
+            "description": "Discovery profile baked onto this release."
           },
           "metadata": {
             "additionalProperties": true,
@@ -5466,6 +5602,468 @@
         "title": "BookDetail",
         "description": "Detail view for a book."
       },
+      "BookDiscovery": {
+        "properties": {
+          "spatial_coverage": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Spatial Coverage",
+            "description": "Regions covered, such as 'global' or ISO 3166 codes"
+          },
+          "temporal_coverage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TemporalCoverage"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Span of time the data describes"
+          },
+          "variables": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Variables",
+            "description": "Variables reported"
+          },
+          "units": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Units",
+            "description": "Units used by the variables"
+          },
+          "scenarios": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Scenarios",
+            "description": "Scenarios or models covered"
+          },
+          "frequency": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frequency",
+            "description": "Observation frequency, such as 'annual'"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title",
+            "description": "Human-readable display title"
+          },
+          "abstract": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abstract",
+            "description": "Concise dataset summary"
+          },
+          "publisher": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher",
+            "description": "Source or publisher organisation"
+          },
+          "publisher_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher Url",
+            "description": "Publisher homepage"
+          },
+          "homepage_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Homepage Url",
+            "description": "Dataset homepage"
+          },
+          "documentation_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documentation Url",
+            "description": "Documentation"
+          },
+          "methodology_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Methodology Url",
+            "description": "Methodology write-up"
+          },
+          "repository_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repository Url",
+            "description": "Source code repository"
+          },
+          "release_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Url",
+            "description": "Landing page for this specific release"
+          },
+          "source_release_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Release Date",
+            "description": "Date the upstream source released this data"
+          },
+          "license_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Url",
+            "description": "Licence text URL"
+          },
+          "doi": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doi",
+            "description": "DOI for the dataset"
+          },
+          "citation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation",
+            "description": "Citation string for referencing this release"
+          },
+          "intended_uses": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intended Uses",
+            "description": "What the data suits"
+          },
+          "limitations": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limitations",
+            "description": "Known limitations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "BookDiscovery",
+        "description": "The discovery profile baked onto one book, as it reads back.\n\nA book is one immutable release, so this is where a release-specific fact lives:\nthe title it went out under, the DOI it was minted with, the citation a reader should use.\nThe recorder resolves the producer's volume-level default against its per-release override\nand sends the resolved value,\nso the platform stores what it was given and never resolves anything itself.\n\nThe computed facets are derived by the platform from the book's resources and are rejected on write,\nwhich is why the write shape (:class:`BookDiscoveryInput`) does not carry them."
+      },
+      "BookDiscoveryInput": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title",
+            "description": "Human-readable display title"
+          },
+          "abstract": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abstract",
+            "description": "Concise dataset summary"
+          },
+          "publisher": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher",
+            "description": "Source or publisher organisation"
+          },
+          "publisher_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher Url",
+            "description": "Publisher homepage"
+          },
+          "homepage_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Homepage Url",
+            "description": "Dataset homepage"
+          },
+          "documentation_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documentation Url",
+            "description": "Documentation"
+          },
+          "methodology_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Methodology Url",
+            "description": "Methodology write-up"
+          },
+          "repository_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repository Url",
+            "description": "Source code repository"
+          },
+          "release_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Url",
+            "description": "Landing page for this specific release"
+          },
+          "source_release_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Release Date",
+            "description": "Date the upstream source released this data"
+          },
+          "license_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Url",
+            "description": "Licence text URL"
+          },
+          "doi": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doi",
+            "description": "DOI for the dataset"
+          },
+          "citation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation",
+            "description": "Citation string for referencing this release"
+          },
+          "intended_uses": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intended Uses",
+            "description": "What the data suits"
+          },
+          "limitations": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limitations",
+            "description": "Known limitations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "BookDiscoveryInput",
+        "description": "The discovery facts a producer may bake onto a book.\n\nThe computed facets that :class:`BookDiscovery` reads back are absent here on purpose.\nSending one is a 422 rather than a stored claim the platform would then have to decide\nwhether to believe."
+      },
       "BookDraftRequest": {
         "properties": {
           "version": {
@@ -5487,19 +6085,6 @@
             "title": "Description",
             "description": "Optional long-form description."
           },
-          "citation_doi": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 500
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Citation Doi",
-            "description": "Optional citation DOI for the book."
-          },
           "license": {
             "anyOf": [
               {
@@ -5517,6 +6102,18 @@
             "$ref": "#/components/schemas/Visibility",
             "description": "Initial visibility tier; defaults to ``hidden``.",
             "default": "hidden"
+          },
+          "authors": {
+            "items": {
+              "$ref": "#/components/schemas/Author"
+            },
+            "type": "array",
+            "title": "Authors",
+            "description": "Authors credited on this release. Defaults to empty rather than to the volume."
+          },
+          "discovery": {
+            "$ref": "#/components/schemas/BookDiscoveryInput",
+            "description": "Discovery profile baked onto this release. The recorder resolves the producer's volume-level default against its per-release override and sends the resolved value."
           },
           "metadata": {
             "additionalProperties": true,
@@ -5538,6 +6135,24 @@
             ],
             "title": "Bundle Hash",
             "description": "Lowercase SHA-256 hex digest acting as the draft idempotency key. When supplied, drafting is idempotent on ``(series, version, bundle_hash)``: an existing draft or published book carrying this key is returned rather than minting a new edition, and the key is recompute-asserted against the actual membership at publish. Must be exactly 64 lowercase hex characters."
+          },
+          "processing": {
+            "items": {
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array",
+              "maxItems": 2,
+              "minItems": 2
+            },
+            "type": "array",
+            "title": "Processing",
+            "description": "The producing run's processing fingerprint: the ``[code_ref, config_hash]`` pairs for the activities that generated this book's members. The platform deduplicates and sorts them before storing, so the order they are sent in does not matter. This is provenance recorded on the book. It is not part of the bundle hash and does not affect editions, so a rebuild whose code changed but whose data did not converges on the existing edition. An empty list is legal and is what a book with no generating activity carries."
           },
           "series_name": {
             "type": "string",
@@ -6259,6 +6874,91 @@
         "title": "BulkRegisterResponse",
         "description": "Response for the offline-flush bulk endpoint."
       },
+      "BundleReplayRequest": {
+        "properties": {
+          "activity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReplayActivity"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The recorded activity. ``null`` for a bundle with no generated outputs."
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayResource"
+            },
+            "type": "array",
+            "maxItems": 1000,
+            "title": "Resources",
+            "description": "Every resource in the bundle, inputs before the outputs derived from them."
+          },
+          "book": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReplayBook"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The book framing. Omit entirely for a resources-only replay."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "BundleReplayRequest",
+        "description": "Request body for ``POST /v1/bundles/replay``."
+      },
+      "BundleReplayResponse": {
+        "properties": {
+          "book": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BookDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The resulting book, or ``null`` for a resources-only replay."
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayResourceResult"
+            },
+            "type": "array",
+            "title": "Resources",
+            "description": "Per-resource outcomes, in request order."
+          },
+          "dedupe_hits": {
+            "type": "integer",
+            "title": "Dedupe Hits",
+            "description": "How many resources resolved to content the deployment already held. Independent of what was written, so a converged replay still reports the resources it recognised."
+          },
+          "resource_count": {
+            "type": "integer",
+            "title": "Resource Count",
+            "description": "How many resources the request carried."
+          },
+          "converged": {
+            "type": "boolean",
+            "title": "Converged",
+            "description": "True when the request matched a book already published under this seal, so the book work was a no-op and the book metadata in the request was ignored. It says nothing on its own about the resources: read their per-resource status. A replay that recognised the book before writing reports every resource as ``skipped``, whereas one that discovered a concurrent publish only as it wrote reports what it registered."
+          }
+        },
+        "type": "object",
+        "required": [
+          "dedupe_hits",
+          "resource_count",
+          "converged"
+        ],
+        "title": "BundleReplayResponse",
+        "description": "Response for ``POST /v1/bundles/replay``."
+      },
       "ChartAxesConfig": {
         "properties": {
           "x": {
@@ -6922,74 +7622,6 @@
       },
       "DiscoveryProfile": {
         "properties": {
-          "title": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title",
-            "description": "Human-readable display title"
-          },
-          "abstract": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 5000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Abstract",
-            "description": "Concise dataset summary"
-          },
-          "publisher": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Publisher",
-            "description": "Source or publisher organisation"
-          },
-          "publisher_url": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Publisher Url",
-            "description": "Publisher homepage"
-          },
-          "topics": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Topics",
-            "description": "Dataset themes or topics"
-          },
-          "keywords": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Keywords",
-            "description": "Free-form keywords"
-          },
           "spatial_coverage": {
             "items": {
               "type": "string"
@@ -7045,6 +7677,58 @@
             ],
             "title": "Frequency",
             "description": "Observation frequency, such as 'annual'"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title",
+            "description": "Human-readable display title"
+          },
+          "abstract": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abstract",
+            "description": "Concise dataset summary"
+          },
+          "publisher": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher",
+            "description": "Source or publisher organisation"
+          },
+          "publisher_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher Url",
+            "description": "Publisher homepage"
           },
           "homepage_url": {
             "anyOf": [
@@ -7111,19 +7795,6 @@
             "title": "Release Url",
             "description": "Landing page for this specific release"
           },
-          "update_cadence": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 100
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Update Cadence",
-            "description": "How often the source is refreshed"
-          },
           "source_release_date": {
             "anyOf": [
               {
@@ -7136,20 +7807,6 @@
             ],
             "title": "Source Release Date",
             "description": "Date the upstream source released this data"
-          },
-          "data_vintage": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "maximum": 10000.0,
-                "minimum": -10000.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Data Vintage",
-            "description": "Last year the underlying data runs through"
           },
           "license_url": {
             "anyOf": [
@@ -7247,12 +7904,41 @@
             ],
             "title": "Deprecation Note",
             "description": "Why the volume was deprecated"
+          },
+          "topics": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Topics",
+            "description": "Dataset themes or topics"
+          },
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Keywords",
+            "description": "Free-form keywords"
+          },
+          "update_cadence": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Update Cadence",
+            "description": "How often the source is refreshed"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "title": "DiscoveryProfile",
-        "description": "Typed discovery and release metadata for a volume.\n\nThis is the consumer-facing profile the catalogue reads.\nIt answers what the dataset is, what it covers, how current it is\nand whether it is still fit to use,\nwithout clients having to interpret arbitrary keys in ``metadata``.\nField names follow DCAT and DataCite concepts where they line up.\nUnknown keys are rejected rather than ignored, so a caller who misspells a\nfield, or sends one the profile deliberately does not carry, hears about it\ninstead of silently losing the value."
+        "description": "Typed discovery and release metadata for a volume.\n\nThis is the consumer-facing profile the catalogue reads, and it is a read shape only.\nIt answers what the dataset is, what it covers, how current it is\nand whether it is still fit to use,\nwithout clients having to interpret arbitrary keys in ``metadata``.\nField names follow DCAT and DataCite concepts where they line up.\nUnknown keys are rejected rather than ignored, so a caller who misspells a\nfield, or sends one the profile deliberately does not carry, hears about it\ninstead of silently losing the value.\n\nMost of these facts belong to a release rather than to the series,\nso they are baked onto the book at draft time\nand composed back onto the volume on read from the latest published book.\n:class:`VolumeDiscoveryInput` is what a caller may actually write to a volume,\nand it carries only the facts that hold across every release."
       },
       "DownloadResponse": {
         "properties": {
@@ -7589,17 +8275,6 @@
           "visibility": {
             "$ref": "#/components/schemas/Visibility"
           },
-          "logical_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Logical Key"
-          },
           "owner_org_id": {
             "type": "string",
             "title": "Owner Org Id"
@@ -7622,7 +8297,6 @@
           "external_uri",
           "tags",
           "visibility",
-          "logical_key",
           "owner_org_id"
         ],
         "title": "EntryRead",
@@ -8579,6 +9253,47 @@
         "title": "ProvDocument",
         "description": "A PROV-JSON document.\n\nPydantic is used for the response schema so OpenAPI advertises the shape;\nthe body is intentionally permissive (extra keys allowed)."
       },
+      "PublicStorageResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "healthy",
+              "unhealthy",
+              "skipped"
+            ],
+            "title": "Status"
+          },
+          "endpoint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Endpoint"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "PublicStorageResponse",
+        "description": "Public presigned-endpoint probe response."
+      },
       "ReadinessResponse": {
         "properties": {
           "status": {
@@ -8656,17 +9371,18 @@
             "title": "Format",
             "description": "Optional declared storage format (``parquet`` or ``csv``). When set it must be one of the supported query formats; when omitted the format is inferred from the location suffix at query time."
           },
-          "logical_key": {
+          "name": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]{0,199}$"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Logical Key",
-            "description": "Optional producer-defined logical identifier."
+            "title": "Name",
+            "description": "Optional producer-chosen name for this resource, local to the bundle. Lower-case, no slashes, at most 200 characters."
           },
           "visibility": {
             "$ref": "#/components/schemas/Visibility",
@@ -8747,17 +9463,18 @@
             "title": "Format",
             "description": "Optional declared storage format (``parquet`` or ``csv``). When set it must be one of the supported query formats; when omitted the format is inferred from the location suffix at query time."
           },
-          "logical_key": {
+          "name": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]{0,199}$"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Logical Key",
-            "description": "Optional producer-defined logical identifier."
+            "title": "Name",
+            "description": "Optional producer-chosen name for this resource, local to the bundle. Lower-case, no slashes, at most 200 characters."
           },
           "visibility": {
             "$ref": "#/components/schemas/Visibility",
@@ -9067,20 +9784,7 @@
             "type": "string",
             "format": "uuid",
             "title": "Tracking Id",
-            "description": "The resource's tracking id after registration."
-          },
-          "aliased_to": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Aliased To",
-            "description": "Canonical tracking id when ``status == 'aliased'``. Absent or ``null`` for ``created`` and ``merged`` outcomes."
+            "description": "The canonical tracking id after registration. On an ``aliased`` outcome this is the existing resource the proposed id collapsed onto, not the id that was proposed."
           },
           "event_id": {
             "anyOf": [
@@ -9103,6 +9807,344 @@
         ],
         "title": "RegistrationOutcome",
         "description": "Outcome of a single registration call."
+      },
+      "ReplayActivity": {
+        "properties": {
+          "activity_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Id",
+            "description": "Client-mintable activity id. The server mints one when omitted. Supplying it is what lets a repeated replay find the same activity and mint no duplicate provenance edges."
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Producer-supplied activity kind tag."
+          },
+          "code_ref": {
+            "type": "string",
+            "title": "Code Ref",
+            "description": "``{repo_url}@{git_sha}`` reference."
+          },
+          "config_hash": {
+            "type": "string",
+            "title": "Config Hash",
+            "description": "Producer-computed pipeline config hash."
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Parameters",
+            "description": "Inline parameters for the run."
+          },
+          "runner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runner",
+            "description": "Free-form runner identifier."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "code_ref",
+          "config_hash"
+        ],
+        "title": "ReplayActivity",
+        "description": "The activity that produced this bundle's generated resources."
+      },
+      "ReplayBook": {
+        "properties": {
+          "volume": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Volume",
+            "description": "Name of the parent series (volume)."
+          },
+          "version": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Version",
+            "description": "Semantic version slug."
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/Visibility",
+            "description": "Visibility tier for the book.",
+            "default": "hidden"
+          },
+          "license": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License",
+            "description": "SPDX licence identifier. Defaults to the volume's licence when omitted."
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Optional long-form description."
+          },
+          "discovery": {
+            "$ref": "#/components/schemas/BookDiscoveryInput",
+            "description": "Discovery profile baked onto this release, the DOI and the citation among it."
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata",
+            "description": "Optional metadata blob copied onto the book."
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayEntry"
+            },
+            "type": "array",
+            "title": "Entries",
+            "description": "The book's membership, in any order."
+          },
+          "published": {
+            "type": "boolean",
+            "title": "Published",
+            "description": "True to publish the book in the same transaction, false to leave a draft.",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "volume",
+          "version"
+        ],
+        "title": "ReplayBook",
+        "description": "The book framing recorded in the bundle, pre-edition.\n\nThere is no ``edition`` and no seal.\nThe server assigns the edition and computes the seal,\nso two replays of the same bundle converge on one edition rather than racing to name it."
+      },
+      "ReplayEntry": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,199}$",
+            "title": "Name",
+            "description": "Name of a resource carried by this request. It is also the entry's name within the book."
+          },
+          "data_dictionary": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DataDictionaryEntry"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Dictionary",
+            "description": "Column descriptions for this entry."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ReplayEntry",
+        "description": "One membership row in the book framing, naming a resource in this request."
+      },
+      "ReplayResource": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,199}$",
+            "title": "Name",
+            "description": "Bundle-local name, unique within this request. Lower-case, no slashes, at most 200 characters. Every ``used`` reference and every book entry names a resource by this."
+          },
+          "hash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Hash",
+            "description": "Canonical content hash as ``sha256:<hex>`` in lower case. It drives registration dedupe and it is what the seal covers."
+          },
+          "type": {
+            "$ref": "#/components/schemas/ResourceType",
+            "description": "Canonical resource type."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "managed",
+              "pointer"
+            ],
+            "title": "ReplayResourceKind",
+            "description": "``managed`` when the platform hosts the bytes, ``pointer`` when it does not.",
+            "default": "managed"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format",
+            "description": "Optional declared storage format (``parquet`` or ``csv``). Inferred from the location suffix at query time when omitted."
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/Visibility",
+            "description": "Three-tier visibility tier.",
+            "default": "hidden"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "description": "Free-form tag list."
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata",
+            "description": "Arbitrary JSON metadata."
+          },
+          "dedupe": {
+            "type": "boolean",
+            "title": "Dedupe",
+            "description": "When ``True`` (default) a resource whose content hash the org already holds resolves to that canonical resource and is reported as ``aliased``. Set to ``False`` so each edition owns a distinct row even for identical bytes.",
+            "default": true
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes",
+            "description": "Byte length of a managed resource. Advisory: the platform reads the authoritative size from storage and falls back to this when the object cannot be read. Must be omitted for a pointer."
+          },
+          "external_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Uri",
+            "description": "Pointer target. Required for ``kind='pointer'`` and forbidden otherwise."
+          },
+          "storage_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Storage Path",
+            "description": "Managed storage key returned by the earlier upload call. Forbidden for a pointer. May be omitted when the bytes have not landed yet."
+          },
+          "generated": {
+            "type": "boolean",
+            "title": "Generated",
+            "description": "True when the recorded activity produced this resource. A generated resource requires an ``activity`` on the request.",
+            "default": false
+          },
+          "used": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Used",
+            "description": "Names of the resources this one was derived from. Each name must belong to a resource EARLIER in this request's ``resources`` list, so inputs are always registered before whatever consumes them."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "hash",
+          "type"
+        ],
+        "title": "ReplayResource",
+        "description": "One resource in the bundle.\n\n``kind`` is the explicit discriminator between the two variants.\nA ``pointer`` carries the ``external_uri`` the platform must not re-host.\nA ``managed`` resource is re-hosted by the platform,\nand its bytes are uploaded before this call through ``POST /v1/resources/uploads``,\nso it carries the resulting ``storage_path`` rather than the bytes themselves."
+      },
+      "ReplayResourceResult": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "The bundle-local name from the request."
+          },
+          "tracking_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tracking Id",
+            "description": "The canonical tracking id this name holds. On an ``aliased`` outcome it is the resource the deployment already had. On a ``skipped`` outcome it is what the deployment holds under this name without this request writing anything, and ``null`` when it holds nothing."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "created",
+              "merged",
+              "aliased",
+              "skipped"
+            ],
+            "title": "ReplayResourceStatus",
+            "description": "What this replay wrote for the resource. ``created``, ``merged`` or ``aliased`` mean it was registered. ``skipped`` means nothing was written for it, which is what a replay that converged before writing reports for every resource it carries."
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "status"
+        ],
+        "title": "ReplayResourceResult",
+        "description": "What one named resource resolved to."
       },
       "ResourceCreate": {
         "properties": {
@@ -9261,18 +10303,6 @@
           "type": {
             "$ref": "#/components/schemas/ResourceType",
             "description": "Canonical resource type."
-          },
-          "logical_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Logical Key",
-            "description": "Optional producer-defined logical identifier."
           },
           "hash": {
             "type": "string",
@@ -9887,22 +10917,22 @@
         "title": "UploadPartInfo",
         "description": "Information for uploading a single part."
       },
-      "UsedRefByLogicalKey": {
+      "UsedRefByResourceName": {
         "properties": {
-          "logical_key": {
+          "resource_name": {
             "type": "string",
             "minLength": 1,
-            "title": "Logical Key",
-            "description": "Logical key of the resource the activity used."
+            "title": "Resource Name",
+            "description": "Name of a resource registered by this same request."
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "logical_key"
+          "resource_name"
         ],
-        "title": "UsedRefByLogicalKey",
-        "description": "A ``used`` input referenced by ``logical_key``.\n\nResolved against the build's own just-registered set first,\nthen org-wide to the most-recent non-invalidated resource sharing the key."
+        "title": "UsedRefByResourceName",
+        "description": "A ``used`` input referenced by its ``name`` within this request.\n\nResolution is confined to the resources registered by this request.\nThere is no lookup outside it, so the same payload always resolves\nto the same inputs no matter when it is sent."
       },
       "UsedRefByTrackingId": {
         "properties": {
@@ -10107,9 +11137,16 @@
             "description": "Optional long-form description"
           },
           "license": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "License",
-            "description": "SPDX license identifier"
+            "description": "SPDX license identifier, the default a book inherits"
           },
           "metadata": {
             "additionalProperties": true,
@@ -10133,28 +11170,14 @@
             "title": "Maintainers",
             "description": "List of maintainers"
           },
-          "citation": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Citation",
-            "description": "Citation string for referencing this dataset"
-          },
           "discovery": {
-            "$ref": "#/components/schemas/DiscoveryProfile",
-            "description": "Typed discovery and release metadata"
+            "$ref": "#/components/schemas/VolumeDiscoveryInput",
+            "description": "Typed discovery metadata that holds across every release"
           }
         },
         "type": "object",
         "required": [
-          "name",
-          "license"
+          "name"
         ],
         "title": "VolumeCreate",
         "description": "Schema for creating a new volume."
@@ -10185,7 +11208,14 @@
             "title": "Description"
           },
           "license": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "License"
           },
           "metadata": {
@@ -10195,7 +11225,7 @@
           },
           "discovery": {
             "$ref": "#/components/schemas/DiscoveryProfile",
-            "description": "Typed discovery and release metadata"
+            "description": "Discovery metadata, composed from the latest published book"
           },
           "authors": {
             "items": {
@@ -10210,17 +11240,6 @@
             },
             "type": "array",
             "title": "Maintainers"
-          },
-          "citation": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Citation"
           },
           "created_at": {
             "type": "string",
@@ -10253,7 +11272,6 @@
           "metadata",
           "authors",
           "maintainers",
-          "citation",
           "created_at",
           "updated_at",
           "versions",
@@ -10261,6 +11279,75 @@
         ],
         "title": "VolumeDetailResponse",
         "description": "Detailed volume response with versions and stats."
+      },
+      "VolumeDiscoveryInput": {
+        "properties": {
+          "deprecated": {
+            "type": "boolean",
+            "title": "Deprecated",
+            "description": "Whether the volume is no longer maintained",
+            "default": false
+          },
+          "superseded_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superseded By",
+            "description": "Name of the volume that replaces this one"
+          },
+          "deprecation_note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deprecation Note",
+            "description": "Why the volume was deprecated"
+          },
+          "topics": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Topics",
+            "description": "Dataset themes or topics"
+          },
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Keywords",
+            "description": "Free-form keywords"
+          },
+          "update_cadence": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Update Cadence",
+            "description": "How often the source is refreshed"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "VolumeDiscoveryInput",
+        "description": "The discovery facts a caller may write to a volume.\n\nA volume is the whole series, so it may only declare what stays true across every release.\nEverything else is a fact about one release and belongs on the book,\nwhich is why sending ``title`` or ``doi`` here is rejected\nrather than quietly accepted and then overwritten by the next publish.\n\n``topics`` and ``keywords`` are the search vocabulary and are deliberately volume-level:\nif they varied per release, filtering on one would give a different answer\ndepending on which edition happened to match."
       },
       "VolumeFacets": {
         "properties": {
@@ -10361,7 +11448,14 @@
             "title": "Description"
           },
           "license": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "License"
           },
           "authors": {
@@ -10380,17 +11474,6 @@
             "title": "Maintainers",
             "description": "List of maintainers"
           },
-          "citation": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Citation"
-          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -10403,7 +11486,7 @@
           },
           "discovery": {
             "$ref": "#/components/schemas/DiscoveryProfile",
-            "description": "Typed discovery and release metadata"
+            "description": "Discovery metadata, composed from the latest published book"
           },
           "latest_version": {
             "anyOf": [
@@ -10538,7 +11621,14 @@
             "title": "Description"
           },
           "license": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "License"
           },
           "metadata": {
@@ -10548,7 +11638,7 @@
           },
           "discovery": {
             "$ref": "#/components/schemas/DiscoveryProfile",
-            "description": "Typed discovery and release metadata"
+            "description": "Discovery metadata, composed from the latest published book"
           },
           "authors": {
             "items": {
@@ -10563,17 +11653,6 @@
             },
             "type": "array",
             "title": "Maintainers"
-          },
-          "citation": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Citation"
           },
           "created_at": {
             "type": "string",
@@ -10596,7 +11675,6 @@
           "metadata",
           "authors",
           "maintainers",
-          "citation",
           "created_at",
           "updated_at"
         ],
@@ -10647,6 +11725,18 @@
             "title": "Description",
             "description": "Updated description"
           },
+          "license": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License",
+            "description": "Updated SPDX license identifier, the default a book inherits"
+          },
           "metadata": {
             "anyOf": [
               {
@@ -10690,23 +11780,10 @@
             "title": "Maintainers",
             "description": "Updated maintainers list (replaces existing)"
           },
-          "citation": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Citation",
-            "description": "Updated citation string"
-          },
           "discovery": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/DiscoveryProfile"
+                "$ref": "#/components/schemas/VolumeDiscoveryInput"
               },
               {
                 "type": "null"
@@ -10717,7 +11794,7 @@
         },
         "type": "object",
         "title": "VolumeUpdate",
-        "description": "Schema for updating a volume (license cannot be changed)."
+        "description": "Schema for updating a volume.\n\nThe slug ``name`` is the only immutable field, so it has no entry here.\nEverything else about a volume, its licence included, is a statement\nsomebody may need to correct later."
       },
       "WalkNode": {
         "properties": {
@@ -10786,18 +11863,6 @@
               }
             ],
             "description": "Canonical resource type (resource only)."
-          },
-          "logical_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Logical Key",
-            "description": "Producer logical key (resource only)."
           },
           "code_ref": {
             "anyOf": [

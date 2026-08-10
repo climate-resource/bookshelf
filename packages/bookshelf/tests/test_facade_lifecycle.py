@@ -45,7 +45,6 @@ def test_create_volume_sends_the_named_fields_only() -> None:
             "example",
             license="MIT",
             description="Country emissions",
-            citation="Cite me",
             authors=[{"name": "A Person"}],
         )
 
@@ -56,7 +55,6 @@ def test_create_volume_sends_the_named_fields_only() -> None:
         "name": "example",
         "license": "MIT",
         "description": "Country emissions",
-        "citation": "Cite me",
         "authors": [{"name": "A Person"}],
     }
 
@@ -128,8 +126,8 @@ async def test_async_facade_matches_the_sync_one() -> None:
 
     updated: list[httpx.Request] = []
     async with _async(updated, 200, payloads.VOLUME) as client:
-        await client.update_volume("example", citation="Cite me")
-    assert _body(updated[0]) == {"citation": "Cite me"}
+        await client.update_volume("example", description="Now with units")
+    assert _body(updated[0]) == {"description": "Now with units"}
 
     deleted: list[httpx.Request] = []
     async with _async(deleted, 204) as client:

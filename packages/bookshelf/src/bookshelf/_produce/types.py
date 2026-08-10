@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 from uuid import UUID
 
 from bookshelf._core.errors import BookshelfError
+from bookshelf._core.names import validate_resource_name
 from bookshelf._generated import models
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
 
@@ -17,13 +18,16 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class Used:
-    """Resolve a resource input by its producer-supplied logical key."""
+    """Resolve a resource input by the name it was registered under.
 
-    logical_key: str
+    Resolution is confined to the resources registered by the same request.
+    A resource produced by an earlier build is referenced by its tracking id instead.
+    """
+
+    name: str
 
     def __post_init__(self) -> None:
-        if not self.logical_key:
-            raise ValueError("logical_key must not be empty")
+        validate_resource_name(self.name)
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,19 +37,23 @@ class RegisterItem:
     With the default ``dedupe=True``,
     byte-identical objects owned by the same organisation
     collapse to one canonical resource,
-    even when their logical keys differ.
-    The first resource's logical key remains canonical.
+    even when their names differ.
+    The first resource's name remains canonical.
     """
 
     obj: object
     type: str | models.ResourceType
-    logical_key: str | None = None
+    name: str | None = None
     visibility: VisibilityInput = INHERIT
     tags: Sequence[str] = ()
     metadata: Mapping[str, Any] | None = None
     tracking_id: UUID | None = None
     format: str | None = None
     dedupe: bool = True
+
+    def __post_init__(self) -> None:
+        if self.name is not None:
+            validate_resource_name(self.name)
 
 
 class HasTrackingId(Protocol):

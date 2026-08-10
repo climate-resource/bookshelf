@@ -162,7 +162,7 @@ with bs.activity(
     output = activity.register(
         derived,
         type="timeseries",
-        logical_key="demo-sdk-howto/scenario-mean",
+        name="scenario_mean",
         used=[source],
     )
 
@@ -172,8 +172,7 @@ output.tracking_id
 # `used=` records the inputs this output was derived from.
 # A bare string or UUID is read as a tracking id,
 # a handle like the `BookEntry` above supplies its own,
-# and `Used(logical_key=...)` resolves by producer supplied key instead.
-#
+# and `Used(name=...)` resolves by the name another resource in the same registration request was given.#
 # Replay does not resolve these references again,
 # so the published edition's lineage is exactly what this notebook expressed.
 

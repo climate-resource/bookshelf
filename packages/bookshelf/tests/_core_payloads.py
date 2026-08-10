@@ -70,7 +70,6 @@ VOLUME: dict[str, Any] = {
     "metadata": {},
     "authors": [],
     "maintainers": [],
-    "citation": None,
     "created_at": TS,
     "updated_at": TS,
 }
@@ -136,7 +135,7 @@ PROBLEM_CONFLICT: dict[str, Any] = {
     "type": "https://bookshelf.example/problems/conflict",
     "title": "Conflict",
     "status": 409,
-    "detail": "logical_key already registered with a different hash",
+    "detail": "name already registered with a different hash",
 }
 
 

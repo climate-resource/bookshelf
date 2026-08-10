@@ -25,9 +25,6 @@ from bookshelf._produce.helpers import (
     registered_resource_type as _registered_resource_type,
 )
 from bookshelf._produce.helpers import (
-    registered_tracking_id as _registered_tracking_id,
-)
-from bookshelf._produce.helpers import (
     registration_results as _registration_results,
 )
 from bookshelf._produce.helpers import (
@@ -104,7 +101,7 @@ class Activity:
         obj: object,
         *,
         type: str | models.ResourceType,
-        logical_key: str | None = None,
+        name: str | None = None,
         used: Sequence[UsedInput] = (),
         visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
@@ -123,7 +120,7 @@ class Activity:
                 RegisterItem(
                     obj=obj,
                     type=type,
-                    logical_key=logical_key,
+                    name=name,
                     visibility=visibility,
                     tags=tags,
                     metadata=metadata,
@@ -168,7 +165,7 @@ class Activity:
         type: str | models.ResourceType,
         uri: str,
         hash: str | None = None,
-        logical_key: str | None = None,
+        name: str | None = None,
         used: Sequence[UsedInput] = (),
         visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
@@ -186,7 +183,7 @@ class Activity:
             tracking_id=tracking_id or _uuid7(),
             type=resource_type,
             hash=hash,
-            logical_key=logical_key,
+            name=name,
             visibility=_visibility(visibility, self.default_visibility),
             tags=list(tags),
             metadata=dict(metadata or {}),
@@ -197,7 +194,7 @@ class Activity:
         return Resource(
             self._client,
             self._cache,
-            _registered_tracking_id(outcome),
+            tracking_id=outcome.tracking_id,
             resource_type=_registered_resource_type(outcome, resource_type),
             registration_outcome=outcome,
         )
@@ -210,7 +207,7 @@ class Activity:
         return Resource(
             self._client,
             self._cache,
-            _registered_tracking_id(outcome),
+            tracking_id=outcome.tracking_id,
             resource_type=_registered_resource_type(outcome, item.type),
             registration_outcome=outcome,
         )
@@ -268,7 +265,7 @@ class Activity:
             type=resource_type,
             hash=serialised.hash,
             format=entry.format or serialised.format,
-            logical_key=entry.logical_key,
+            name=entry.name,
             visibility=_visibility(entry.visibility, self.default_visibility),
             tags=list(entry.tags),
             metadata=dict(entry.metadata or {}),
@@ -366,7 +363,7 @@ class AsyncActivity:
         obj: object,
         *,
         type: str | models.ResourceType,
-        logical_key: str | None = None,
+        name: str | None = None,
         used: Sequence[UsedInput] = (),
         visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
@@ -385,7 +382,7 @@ class AsyncActivity:
                 RegisterItem(
                     obj=obj,
                     type=type,
-                    logical_key=logical_key,
+                    name=name,
                     visibility=visibility,
                     tags=tags,
                     metadata=metadata,
@@ -433,7 +430,7 @@ class AsyncActivity:
         type: str | models.ResourceType,
         uri: str,
         hash: str | None = None,
-        logical_key: str | None = None,
+        name: str | None = None,
         used: Sequence[UsedInput] = (),
         visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
@@ -451,7 +448,7 @@ class AsyncActivity:
             tracking_id=tracking_id or _uuid7(),
             type=resource_type,
             hash=hash,
-            logical_key=logical_key,
+            name=name,
             visibility=_visibility(visibility, self.default_visibility),
             tags=list(tags),
             metadata=dict(metadata or {}),
@@ -462,7 +459,7 @@ class AsyncActivity:
         return AsyncResource(
             self._client,
             self._cache,
-            _registered_tracking_id(outcome),
+            tracking_id=outcome.tracking_id,
             resource_type=_registered_resource_type(outcome, resource_type),
             registration_outcome=outcome,
         )
@@ -475,7 +472,7 @@ class AsyncActivity:
         return AsyncResource(
             self._client,
             self._cache,
-            _registered_tracking_id(outcome),
+            tracking_id=outcome.tracking_id,
             resource_type=_registered_resource_type(outcome, item.type),
             registration_outcome=outcome,
         )
@@ -533,7 +530,7 @@ class AsyncActivity:
             type=resource_type,
             hash=serialised.hash,
             format=entry.format or serialised.format,
-            logical_key=entry.logical_key,
+            name=entry.name,
             visibility=_visibility(entry.visibility, self.default_visibility),
             tags=list(entry.tags),
             metadata=dict(entry.metadata or {}),

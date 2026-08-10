@@ -7,7 +7,9 @@ from uuid import UUID, uuid4
 import pytest
 
 from bookshelf._core.errors import BookshelfError
+from bookshelf._core.hashing import canonical_json_bytes
 from bookshelf.publisher.bundle import (
+    BUNDLE_SCHEMA_VERSION,
     Bundle,
     BundleBook,
     InvalidBundleError,
@@ -205,8 +207,69 @@ def test_an_unknown_key_inside_writer_is_ignored(tmp_path: Path) -> None:
     assert loaded.manifest.writer.pyarrow == "1.2.3"
 
 
-def test_a_manifest_declaring_the_previous_minor_still_loads(tmp_path: Path) -> None:
-    """The minor bump is additive, so the reader refuses only a newer major."""
+def test_a_manifest_declaring_an_older_major_is_migrated_up(tmp_path: Path) -> None:
+    """The reader refuses only a newer major, and stamps what it migrated an older one to."""
     loaded = _read_manifest_text(tmp_path, "schema_version: '1.0'\nresources: []\n")
 
-    assert loaded.manifest.schema_version == "1.0"
+    assert loaded.manifest.schema_version == BUNDLE_SCHEMA_VERSION
+
+
+def test_the_synthesised_pointer_hash_matches_the_backend_seed() -> None:
+    """Pin the seed the backend hashes, because the two have to agree byte for byte.
+
+    The backend computes this in ``_synthesise_hash``
+    (``backend/src/bookshelf_api/services/registration.py``)
+    over ``{type, sorted(locations)}``.
+    Adding a field on either side changes the digest,
+    and a pointer registered by the SDK then stops colliding with its canonical resource.
+    """
+    uri = "https://example.invalid/data.csv"
+    seed = b'{"locations":[["external","https://example.invalid/data.csv"]],"type":"tabular"}'
+
+    assert canonical_json_bytes({"type": "tabular", "locations": [["external", uri]]}) == seed
+    assert synthesise_pointer_hash(type_="tabular", external_uri=uri) == (
+        "sha256:7cf03fca2d1e24ee4c78e8d6f814e47b60ca5203a001e034bd2c8240e4a90bbe"
+    )
+
+
+def test_a_v1_manifest_migrates_its_logical_keys_onto_names(tmp_path: Path) -> None:
+    """A v1 bundle still replays, so its keys are rewritten rather than dropped."""
+    loaded = _read_manifest_text(
+        tmp_path,
+        "schema_version: '1.1'\n"
+        "resources:\n"
+        "- tracking_id: 0197a000-0000-7000-8000-00000000b001\n"
+        "  hash: sha256:" + "a" * 64 + "\n"
+        "  type: tabular\n"
+        "  logical_key: upstream/emissions\n"
+        "- tracking_id: 0197a000-0000-7000-8000-00000000b002\n"
+        "  hash: sha256:" + "b" * 64 + "\n"
+        "  type: timeseries\n"
+        "  logical_key: Document/Build.py.ipynb\n"
+        "  used:\n"
+        "  - logical_key: upstream/emissions\n",
+    )
+
+    assert [resource.name for resource in loaded.manifest.resources] == [
+        "upstream-emissions",
+        "document-build.py.ipynb",
+    ]
+    assert loaded.manifest.resources[1].used[0].name == "upstream-emissions"
+
+
+def test_two_v1_keys_that_collide_on_one_name_are_refused(tmp_path: Path) -> None:
+    """Merging them would join two lineage edges into one, so the read fails instead."""
+    with pytest.raises(ValueError, match="both migrate to"):
+        _read_manifest_text(
+            tmp_path,
+            "schema_version: '1.1'\n"
+            "resources:\n"
+            "- tracking_id: 0197a000-0000-7000-8000-00000000b001\n"
+            "  hash: sha256:" + "a" * 64 + "\n"
+            "  type: tabular\n"
+            "  logical_key: a/b\n"
+            "- tracking_id: 0197a000-0000-7000-8000-00000000b002\n"
+            "  hash: sha256:" + "b" * 64 + "\n"
+            "  type: tabular\n"
+            "  logical_key: a:b\n",
+        )
