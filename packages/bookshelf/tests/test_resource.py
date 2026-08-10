@@ -6,12 +6,15 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock
+from uuid import UUID
 
 import httpx
 import pytest
 
-from bookshelf._core.errors import BookshelfError
+from bookshelf._core.errors import BookshelfError, NotFoundError
+from bookshelf._generated import models
 from bookshelf._produce.books import DraftBook
 from bookshelf.facade import Bookshelf
 from bookshelf.publisher import resource as resource_module
@@ -55,6 +58,14 @@ resources:
     type: tabular
     path: data/raw.csv
 """
+
+_REFERENCE_VERSION = """\
+resources:
+  raw:
+    uri: bookshelf://primap-hist/v2.7_e002/by_country
+"""
+
+_PUBLISHED_ID = UUID("0193f0f3-0000-7000-8000-000000000001")
 
 
 def _write_recipe(tmp_path: Path, version_body: str) -> Path:
@@ -124,6 +135,56 @@ def server(monkeypatch: pytest.MonkeyPatch) -> _Server:
 
 def _pointers(bs: RecordingBookshelf) -> list[BundleResource]:
     return [r for r in bs.bundle.manifest.resources if r.kind == "pointer"]
+
+
+@dataclass
+class _PublishedEntry:
+    """One entry of a published book, as the consuming facade hands it over."""
+
+    path: Path
+    tracking_id: UUID = _PUBLISHED_ID
+    type: models.ResourceType = models.ResourceType.timeseries
+
+    @property
+    def metadata(self) -> SimpleNamespace:
+        return SimpleNamespace(hash=f"sha256:{_SHA256}")
+
+    def as_path(self) -> Path:
+        return self.path
+
+
+@dataclass
+class _PublishedBook:
+    """A published book, plus a record of the coordinate it was looked up by."""
+
+    entries: dict[str, _PublishedEntry]
+    looked_up: list[tuple[str, str, int | None]] = field(default_factory=list)
+
+    @property
+    def entry_names(self) -> tuple[str, ...]:
+        return tuple(self.entries)
+
+    def __getitem__(self, name_in_book: str) -> _PublishedEntry:
+        try:
+            return self.entries[name_in_book]
+        except KeyError:
+            available = ", ".join(sorted(self.entries)) or "(none)"
+            raise KeyError(f"has no entry {name_in_book!r}, available: {available}") from None
+
+    def lookup(self, volume: str, version: str, *, edition: int | None = None) -> "_PublishedBook":
+        self.looked_up.append((volume, version, edition))
+        return self
+
+
+@pytest.fixture
+def published(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _PublishedBook:
+    """Serve one published book through the facade's read path, never the network."""
+    cached = tmp_path / "published" / "by_country.csv"
+    cached.parent.mkdir(parents=True, exist_ok=True)
+    cached.write_bytes(_PAYLOAD)
+    book = _PublishedBook({"by_country": _PublishedEntry(cached)})
+    monkeypatch.setattr(Bookshelf, "book", book.lookup)
+    return book
 
 
 def test_a_uri_resource_fetches_once_and_reads_back(tmp_path: Path, server: _Server) -> None:
@@ -247,6 +308,105 @@ def test_a_version_without_resources_reports_the_unknown_name(tmp_path: Path) ->
     message = str(excinfo.value)
     assert "declares no resource 'raw'" in message
     assert "declares no resources" in message
+
+
+def test_a_bookshelf_resource_resolves_to_the_published_resource(
+    tmp_path: Path, published: _PublishedBook
+) -> None:
+    """The reference is a lookup, so the tracking id is the platform's rather than a new one."""
+    with _recording(_write_recipe(tmp_path, _REFERENCE_VERSION), tmp_path / "bundle"):
+        build = setup()
+        raw = build.use("raw")
+
+        assert raw.tracking_id == _PUBLISHED_ID
+        assert raw.path.read_bytes() == _PAYLOAD
+        assert raw.hash == f"sha256:{_SHA256}"
+        assert _pointers(build.bs) == []
+    assert published.looked_up == [("primap-hist", "v2.7", 2)]
+
+
+def test_a_bookshelf_resource_is_cited_as_lineage_without_being_registered(
+    tmp_path: Path, published: _PublishedBook
+) -> None:
+    """The derived resource cites the original, which replay passes through to the server."""
+    bundle_path = tmp_path / "bundle"
+    with _recording(_write_recipe(tmp_path, _REFERENCE_VERSION), bundle_path):
+        build = setup()
+        raw = build.use("raw")
+        with build.bs.activity(kind="build", code_ref="test") as activity:
+            derived = activity.register(b"data", type="tabular", used=[raw])
+        recorded = {r.tracking_id: r for r in build.bs.bundle.manifest.resources}
+
+    assert BundleUsedRef(tracking_id=_PUBLISHED_ID) in recorded[derived.tracking_id].used
+    assert _PUBLISHED_ID not in recorded
+
+
+def test_a_bookshelf_reference_without_an_entry_resolves_a_single_entry_book(
+    tmp_path: Path, published: _PublishedBook
+) -> None:
+    body = "resources:\n  raw:\n    uri: bookshelf://primap-hist/v2.7_e002\n"
+
+    with _recording(_write_recipe(tmp_path, body), tmp_path / "bundle"):
+        build = setup()
+
+        assert build.use("raw").tracking_id == _PUBLISHED_ID
+
+
+def test_a_bookshelf_reference_without_an_entry_names_the_entries_it_could_take(
+    tmp_path: Path, published: _PublishedBook
+) -> None:
+    published.entries["by_gas"] = published.entries["by_country"]
+    body = "resources:\n  raw:\n    uri: bookshelf://primap-hist/v2.7_e002\n"
+
+    with _recording(_write_recipe(tmp_path, body), tmp_path / "bundle"):
+        build = setup()
+        with pytest.raises(BookshelfError) as excinfo:
+            build.use("raw")
+
+    message = str(excinfo.value)
+    assert "'by_country'" in message
+    assert "'by_gas'" in message
+
+
+def test_a_bookshelf_reference_to_an_entry_the_book_lacks_is_rejected(
+    tmp_path: Path, published: _PublishedBook
+) -> None:
+    body = "resources:\n  raw:\n    uri: bookshelf://primap-hist/v2.7_e002/by_gas\n"
+
+    with _recording(_write_recipe(tmp_path, body), tmp_path / "bundle"):
+        build = setup()
+        with pytest.raises(BookshelfError, match="has no entry 'by_gas'"):
+            build.use("raw")
+
+
+def test_a_bookshelf_reference_to_an_unpublished_book_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def missing(volume: str, version: str, *, edition: int | None = None) -> None:
+        raise NotFoundError("no such book", status_code=404)
+
+    monkeypatch.setattr(Bookshelf, "book", staticmethod(missing))
+
+    with _recording(_write_recipe(tmp_path, _REFERENCE_VERSION), tmp_path / "bundle"):
+        build = setup()
+        with pytest.raises(BookshelfError, match="which is not published"):
+            build.use("raw")
+
+
+def test_a_declared_type_that_the_published_resource_contradicts_is_rejected(
+    tmp_path: Path, published: _PublishedBook
+) -> None:
+    """A stated type is checked, because reading the wrong shape fails later and less clearly."""
+    body = (
+        "resources:\n  raw:\n"
+        "    type: tabular\n"
+        "    uri: bookshelf://primap-hist/v2.7_e002/by_country\n"
+    )
+
+    with _recording(_write_recipe(tmp_path, body), tmp_path / "bundle"):
+        build = setup()
+        with pytest.raises(BookshelfError, match="declares type tabular"):
+            build.use("raw")
 
 
 def test_a_direct_build_refuses_to_resolve_a_resource() -> None:

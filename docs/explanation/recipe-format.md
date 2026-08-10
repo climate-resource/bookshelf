@@ -162,11 +162,37 @@ They sit flat at both levels, and where both set it, the book wins.
   `uri:` is remote and carries the `sha256` the fetch is checked against.
   `path:` is a file beside the recipe, and its digest is computed when it is read.
   This is asked of the merged resource, so a default and a book may each hold half of it.
+- **A `bookshelf://` uri states no `sha256`.**
+  The platform holds the resource already, so the digest comes from it.
+  Stating one is rejected rather than checked, because a recipe cannot know it in advance.
 - **A resource always declares its `type`**, which is never inferred from the file extension.
   It is one of `tabular`, `timeseries`, `geospatial`, `document` or `binary`,
   the same set the platform registers a resource under,
   so a recipe that loads cannot name a type registration would refuse.
   This is the field that usually belongs under `defaults:`, because it does not move between books.
+  A `bookshelf://` resource may leave it out, because the platform already states it.
+  Where it is stated it is checked, and a resource of another type is an error.
+
+### Building on a published book
+
+A resource whose `uri:` uses the `bookshelf://` scheme names data the platform already holds:
+
+```yaml
+resources:
+  primap:
+    uri: bookshelf://primap-hist/v2.7_e002/by_country
+```
+
+The coordinate is `bookshelf://<volume>/<version>_e<edition>/<entry>`.
+
+- Leave the entry off and the book must hold exactly one, or the error names the ones it holds.
+- Leave the edition off and the platform answers with the newest.
+  A recipe that wants the same bytes every time states the edition.
+
+Nothing is fetched from upstream and nothing new is catalogued.
+The reference resolves to the existing resource,
+so `build.use("primap")` hands back the tracking id the platform already assigned
+and `used=[primap]` cites the original rather than a copy of it.
 - **Unknown keys are an error at every level**, so a typo is never silently dropped.
 - **Books are ordered by the recipe**, in the order the list states them.
   Each resolved book carries its position, so nothing has to parse a version string to sort.

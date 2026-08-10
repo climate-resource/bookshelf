@@ -68,10 +68,12 @@ from bookshelf.publisher.recording import (
     RecordingBookshelf,
     RecordingSink,
 )
+from bookshelf.publisher.reference import BookshelfReference
 from bookshelf.publisher.replay import replay_bundle, replay_bundle_sync
 from bookshelf.publisher.resource import ResolvedResource, resolve_resource
 
 __all__ = [
+    "BookshelfReference",
     "Bundle",
     "BundleManifest",
     "PublishOutcome",

@@ -39,7 +39,7 @@ from bookshelf.publisher.bundle import (
     synthesise_pointer_hash,
 )
 from bookshelf.publisher.recipe import ResolvedBook, resolve_book_visibility
-from bookshelf.publisher.resource import ResolvedResource, resolve_resource
+from bookshelf.publisher.resource import LookupBook, ResolvedResource, resolve_resource
 
 
 @dataclass(frozen=True, slots=True)
@@ -443,12 +443,14 @@ class RecordingSink:
         default_visibility: models.Visibility = models.Visibility.hidden,
         resolved: ResolvedBook | None = None,
         recipe_dir: Path | None = None,
+        lookup_book: LookupBook | None = None,
     ) -> None:
         self.bundle = bundle
         self._client = client
         self._cache = cache
         self._resolved = resolved
         self._recipe_dir = recipe_dir
+        self._lookup_book = lookup_book
         self._authors = tuple(dict(author) for author in authors)
         self._activity_started = False
         self.default_visibility = default_visibility
@@ -576,6 +578,7 @@ class RecordingSink:
             recipe_dir=self._recipe_dir,
             cache=self._cache,
             register_external=self.register_external,
+            lookup_book=self._lookup_book,
         )
 
     def record_document(
@@ -646,6 +649,9 @@ class RecordingBookshelf(Bookshelf):
             authors=authors,
             resolved=resolved,
             recipe_dir=recipe_dir,
+            # A bookshelf reference is a live read, so it goes through the same facade a
+            # consumer uses. Reads stay live on this facade even though writes do not.
+            lookup_book=self.book,
         )
         # Every producer call moves to the recording adapter,
         # so reads stay live and writes land in the bundle.

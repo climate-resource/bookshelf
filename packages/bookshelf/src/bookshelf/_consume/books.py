@@ -23,6 +23,11 @@ class _BookBase:
         self.book_id = UUID(metadata.id)
         self._entries = {entry.name_in_book: entry for entry in entries}
 
+    @property
+    def entry_names(self) -> tuple[str, ...]:
+        """The entries this book indexes, in the order the platform lists them."""
+        return tuple(self._entries)
+
     def _repr_html_(self) -> str:
         entries = ", ".join(sorted(self._entries)) or "none"
         return summary_table(
