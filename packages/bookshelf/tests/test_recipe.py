@@ -37,10 +37,9 @@ _MINIMAL = """\
 volume:
   name: my-dataset
 defaults:
-  discovery:
-    authors:
-      - name: Ada Lovelace
-        email: ada@example.com
+  authors:
+    - name: Ada Lovelace
+      email: ada@example.com
 build:
   notebook: build.py
 books:
@@ -57,13 +56,12 @@ volume:
   keywords: [ghg, national]
   update_cadence: annual
 defaults:
-  discovery:
-    title: PRIMAP-hist
-    abstract: National greenhouse gas emissions.
-    publisher: Potsdam Institute for Climate Impact Research
-    homepage_url: https://example.invalid/primap
-    methodology_url: https://example.invalid/method
-    repository_url: https://example.invalid/repo
+  title: PRIMAP-hist
+  abstract: National greenhouse gas emissions.
+  publisher: Potsdam Institute for Climate Impact Research
+  homepage_url: https://example.invalid/primap
+  methodology_url: https://example.invalid/method
+  repository_url: https://example.invalid/repo
   resources:
     raw:
       type: tabular
@@ -162,8 +160,8 @@ def test_a_full_recipe_populates_every_section(tmp_path: Path) -> None:
     assert recipe.volume.maintainers == [PersonSpec(name="Jared Lewis", email="jared@example.com")]
     assert recipe.volume.keywords == ["ghg", "national"]
     assert recipe.volume.update_cadence == "annual"
-    assert recipe.defaults.discovery.title == "PRIMAP-hist"
-    assert recipe.defaults.discovery.repository_url == "https://example.invalid/repo"
+    assert recipe.defaults.title == "PRIMAP-hist"
+    assert recipe.defaults.repository_url == "https://example.invalid/repo"
     assert recipe.build.notebook == Path("build.py")
     assert recipe.versions == ("v2.6", "v2.7")
 
@@ -322,7 +320,7 @@ def test_a_recipe_without_a_defaults_section_loads(tmp_path: Path) -> None:
     )
 
     assert recipe.resolve("v1.0").visibility is None
-    assert recipe.defaults.discovery.title is None
+    assert recipe.defaults.title is None
 
 
 def test_an_unknown_default_visibility_is_rejected_naming_the_allowed_values(
@@ -520,13 +518,14 @@ def test_a_version_that_is_not_a_string_names_what_yaml_read_it_as(
             """,
         ),
         (
-            "defaults.discovery.surplus",
+            "defaults.authors.0.emial",
             """\
             volume:
               name: my-dataset
             defaults:
-              discovery:
-                surplus: 1
+              authors:
+                - name: Jared Lewis
+                  emial: jared@example.com
             """,
         ),
         (
@@ -800,8 +799,39 @@ def test_discovery_under_the_volume_is_rejected_naming_where_it_moved(tmp_path: 
         """,
     )
 
-    with pytest.raises(BookshelfError, match="move it to 'defaults: discovery:'"):
+    with pytest.raises(BookshelfError, match="move the fields under it straight into 'defaults:'"):
         load_record_recipe(path)
+
+
+def test_a_discovery_block_under_defaults_is_rejected_naming_the_flat_shape(
+    tmp_path: Path,
+) -> None:
+    """The fields sit flat, so the nesting that once held them names its own fix."""
+    path = _write(
+        tmp_path,
+        """\
+        volume:
+          name: my-dataset
+        defaults:
+          discovery:
+            title: My dataset
+        books:
+          - version: "v1.0"
+            license: MIT
+        """,
+    )
+
+    with pytest.raises(BookshelfError, match="move the fields under it up one level"):
+        load_record_recipe(path)
+
+
+def test_a_discovery_field_sits_flat_under_defaults(tmp_path: Path) -> None:
+    """Defaults and a book carry the same field set, which is what the merge wants."""
+    path = _one_book(
+        tmp_path, "release_date: 2024-01-01", defaults="defaults:\n  title: My dataset\n"
+    )
+
+    assert load_record_recipe(path).resolve("v1.0").discovery.title == "My dataset"
 
 
 def test_topics_under_the_volume_are_rejected_naming_keywords(tmp_path: Path) -> None:

@@ -219,16 +219,18 @@ class ResourceSpec(_ResourceFields):
         return self
 
 
-class DefaultsSection(_Section):
+class DefaultsSection(DiscoveryFields):
     """What every book starts from.
 
     A book overrides any of it, and the merge is field by field rather than section by section,
     so stating one discovery field on a book keeps the rest of the defaults.
 
+    The discovery fields sit flat here, exactly as they sit on a book,
+    so the two levels of a field-by-field merge have the same shape.
+
     Nothing here is required.
     """
 
-    discovery: DiscoveryFields = Field(default_factory=DiscoveryFields)
     visibility: str | None = None
     resources: dict[str, ResourceDefaults] = Field(default_factory=dict)
 
@@ -376,7 +378,7 @@ class RecordRecipe(BaseModel):
             name: (
                 getattr(spec, name)
                 if getattr(spec, name) is not None
-                else getattr(self.defaults.discovery, name)
+                else getattr(self.defaults, name)
             )
             for name in DiscoveryFields.model_fields
         }
@@ -584,7 +586,7 @@ def load_record_recipe(path: Path) -> RecordRecipe:
             raise BookshelfError(
                 f"{path} declares 'discovery' under 'volume:'. "
                 "Catalogue metadata is defaulted for the whole recipe, "
-                "so move it to 'defaults: discovery:'"
+                "so move the fields under it straight into 'defaults:'"
             )
         if "topics" in volume_raw:
             raise BookshelfError(
@@ -601,7 +603,15 @@ def load_record_recipe(path: Path) -> RecordRecipe:
             "so move it to 'defaults:' or onto the books it applies to"
         )
 
-    defaults = _section(DefaultsSection, raw.get("defaults"), path=path, where="defaults")
+    defaults_raw = raw.get("defaults")
+    if isinstance(defaults_raw, dict) and "discovery" in defaults_raw:
+        raise BookshelfError(
+            f"{path} declares 'discovery' under 'defaults:'. "
+            "The discovery fields sit flat, the same way they sit on a book, "
+            "so move the fields under it up one level"
+        )
+
+    defaults = _section(DefaultsSection, defaults_raw, path=path, where="defaults")
     books = []
     for index, body in enumerate(_book_documents(path, raw)):
         version = body.get("version")

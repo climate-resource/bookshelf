@@ -29,17 +29,16 @@ volume:
   # deprecation_note: Replaced by v3.
 
 defaults:                                  # what every book starts from
-  discovery:
-    title: PRIMAP-hist
-    abstract: National greenhouse gas emissions.
-    publisher: Potsdam Institute for Climate Impact Research
-    homepage_url: https://www.pik-potsdam.de/paris-reality-check/primap-hist/
-    methodology_url: https://essd.copernicus.org/articles/17/3873/2025/
-    authors:
-      - name: Gütschow, J.
-      - name: Busch, D.
-      - name: Pflüger, M.
-        email: ...
+  title: PRIMAP-hist
+  abstract: National greenhouse gas emissions.
+  publisher: Potsdam Institute for Climate Impact Research
+  homepage_url: https://www.pik-potsdam.de/paris-reality-check/primap-hist/
+  methodology_url: https://essd.copernicus.org/articles/17/3873/2025/
+  authors:
+    - name: Gütschow, J.
+    - name: Busch, D.
+    - name: Pflüger, M.
+      email: ...
   # visibility: hidden                     # optional, and hidden when it is left out
   resources:
     raw:
@@ -95,6 +94,7 @@ Changes to the volume metadata are updated on the next publish.
 A book may override anything under `defaults:`.
 The merge is field by field rather than section by section,
 so stating one discovery field on a book keeps the rest of the defaults.
+The fields sit flat at both levels, so `defaults:` and a book entry read the same way.
 The effective value is resolved when the book is recorded and baked onto it,
 which is why previous editions of the same upstream version may carry different metadata.
 
@@ -112,7 +112,7 @@ are computed per resource by the platform and rolled up.
 ### The discovery fields
 
 Every field below is optional, and every one may be set under `defaults:`, on a book, or on both.
-Where both set it, the book wins.
+They sit flat at both levels, and where both set it, the book wins.
 
 | Field               | Meaning                                                         |
 | ------------------- | --------------------------------------------------------------- |
