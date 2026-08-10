@@ -25,9 +25,6 @@ from bookshelf._produce.helpers import (
     registered_resource_type as _registered_resource_type,
 )
 from bookshelf._produce.helpers import (
-    registered_tracking_id as _registered_tracking_id,
-)
-from bookshelf._produce.helpers import (
     registration_results as _registration_results,
 )
 from bookshelf._produce.helpers import (
@@ -197,7 +194,7 @@ class Activity:
         return Resource(
             self._client,
             self._cache,
-            _registered_tracking_id(outcome),
+            tracking_id=outcome.tracking_id,
             resource_type=_registered_resource_type(outcome, resource_type),
             registration_outcome=outcome,
         )
@@ -210,7 +207,7 @@ class Activity:
         return Resource(
             self._client,
             self._cache,
-            _registered_tracking_id(outcome),
+            tracking_id=outcome.tracking_id,
             resource_type=_registered_resource_type(outcome, item.type),
             registration_outcome=outcome,
         )
@@ -462,7 +459,7 @@ class AsyncActivity:
         return AsyncResource(
             self._client,
             self._cache,
-            _registered_tracking_id(outcome),
+            tracking_id=outcome.tracking_id,
             resource_type=_registered_resource_type(outcome, resource_type),
             registration_outcome=outcome,
         )
@@ -475,7 +472,7 @@ class AsyncActivity:
         return AsyncResource(
             self._client,
             self._cache,
-            _registered_tracking_id(outcome),
+            tracking_id=outcome.tracking_id,
             resource_type=_registered_resource_type(outcome, item.type),
             registration_outcome=outcome,
         )

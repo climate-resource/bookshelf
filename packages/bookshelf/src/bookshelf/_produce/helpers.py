@@ -59,15 +59,6 @@ def visibility(
     return resolve_visibility(value, default)
 
 
-def registered_tracking_id(outcome: models.RegistrationOutcome) -> UUID:
-    """Return the canonical id while preserving the original outcome.
-
-    ``tracking_id`` is canonical on every status,
-    so an aliased outcome already reports the resource the proposed id collapsed onto.
-    """
-    return outcome.tracking_id
-
-
 def registered_resource_type(
     outcome: models.RegistrationOutcome,
     requested: models.ResourceType,
@@ -185,7 +176,6 @@ __all__ = [
     "paired_successes",
     "raise_partial_registration",
     "registered_resource_type",
-    "registered_tracking_id",
     "registration_results",
     "resource_type",
     "runner",
