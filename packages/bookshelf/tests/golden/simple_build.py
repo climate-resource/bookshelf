@@ -41,7 +41,7 @@ EMISSIONS_ID = UUID("0197a000-0000-7000-8000-00000000b002")
 SUMMARY_ID = UUID("0197a000-0000-7000-8000-00000000b003")
 
 # %%
-bs, book = bookshelf.setup(version="v1.0.0")
+build = bookshelf.setup()
 
 # %% [markdown]
 # ## The derived frames
@@ -61,7 +61,7 @@ emissions = pd.DataFrame(
 summary = emissions.groupby("region", as_index=False)["value"].sum()
 
 # %%
-with bs.activity(
+with build.bs.activity(
     activity_id=ACTIVITY_ID,
     code_ref=CODE_REF,
     config={"source": "golden/upstream", "statistic": "regional-sum"},
@@ -96,6 +96,6 @@ with bs.activity(
 # ## Framing the book
 
 # %%
-book.attach(emissions_resource, name_in_book="emissions")
-book.attach(summary_resource, name_in_book="summary")
-book.publish()
+build.book.attach(emissions_resource, name_in_book="emissions")
+build.book.attach(summary_resource, name_in_book="summary")
+build.book.publish()

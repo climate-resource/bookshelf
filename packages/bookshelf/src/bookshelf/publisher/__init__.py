@@ -56,7 +56,7 @@ from bookshelf.publisher.bundle import (
 from bookshelf.publisher.publish import PublishOutcome, publish_bundle
 from bookshelf.publisher.recipe import RecordRecipe, load_record_recipe
 from bookshelf.publisher.record import (
-    SetupResult,
+    Build,
     parse_parameters,
     run_record,
     setup,
@@ -69,6 +69,7 @@ from bookshelf.publisher.recording import (
     RecordingSink,
 )
 from bookshelf.publisher.replay import replay_bundle, replay_bundle_sync
+from bookshelf.publisher.resource import ResolvedResource, resolve_resource
 
 __all__ = [
     "Bundle",
@@ -80,13 +81,15 @@ __all__ = [
     "RecordingActivity",
     "RecordingBookshelf",
     "RecordingSink",
-    "SetupResult",
+    "Build",
+    "ResolvedResource",
     "compute_book_bundle_hash",
     "load_record_recipe",
     "parse_parameters",
     "publish_bundle",
     "replay_bundle",
     "replay_bundle_sync",
+    "resolve_resource",
     "run_record",
     "setup",
 ]
