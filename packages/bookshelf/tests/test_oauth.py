@@ -59,6 +59,14 @@ def test_client_id_production_no_env_raises(monkeypatch: pytest.MonkeyPatch) -> 
         _oauth.get_workos_client_id(production_url)
 
 
+def test_unresolvable_client_id_is_none_for_the_ambient_chain(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """One resolver, two failure shapes: a login raises, ambient resolution decides for itself."""
+    monkeypatch.delenv("BOOKSHELF_WORKOS_CLIENT_ID", raising=False)
+    assert _oauth.workos_client_id("https://api.bookshelf.example/v1") is None
+
+
 def test_client_id_production_with_env_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
     """Setting BOOKSHELF_WORKOS_CLIENT_ID must satisfy production login."""
     monkeypatch.setenv("BOOKSHELF_WORKOS_CLIENT_ID", "client_prod_custom")
@@ -126,29 +134,6 @@ def test_poll_device_flow_times_out() -> None:
     )
     with pytest.raises(_oauth.OAuthError, match="Timed out"):
         _oauth.poll_device_flow(_flow(), timeout=0, transport=transport)
-
-
-def test_refresh_access_token_returns_rotated_token() -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        body = dict(parse_qsl(request.content.decode()))
-        assert body["grant_type"] == "refresh_token"
-        assert body["refresh_token"] == "ref-old"
-        return httpx.Response(200, json={"access_token": "new", "refresh_token": "ref-new"})
-
-    data = _oauth.refresh_access_token("ref-old", transport=httpx.MockTransport(handler))
-    assert data["refresh_token"] == "ref-new"
-
-
-def test_refresh_access_token_failure_raises() -> None:
-    transport = httpx.MockTransport(lambda _: httpx.Response(401, json={"message": "revoked"}))
-    with pytest.raises(_oauth.OAuthError, match="revoked"):
-        _oauth.refresh_access_token("ref", transport=transport)
-
-
-def test_error_detail_handles_non_object_json() -> None:
-    response = httpx.Response(400, json=["invalid request"])
-
-    assert _oauth._error_detail(response) == response.text
 
 
 def test_callback_page_escapes_provider_error() -> None:

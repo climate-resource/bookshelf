@@ -21,30 +21,24 @@ and an explicit ``auth=None`` stays unauthenticated.
 import enum
 import os
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import UTC, datetime
-from typing import Any
 
 import httpx
 
-from bookshelf._core import credentials
+from bookshelf._core import credentials, oauth
 from bookshelf._core.auth import (
     AnonymousFallback,
     BsatAssertion,
     ClientCredentials,
     RefreshTokenExchange,
     StaticToken,
+    TokenProvider,
 )
+from bookshelf._core.credentials import CredentialKind
 from bookshelf._core.errors import AuthConfigurationError
-from bookshelf._core.oauth import is_staging_api_url
 
 PRODUCTION_API_URL = "https://api.climateresource.com.au/bookshelf"
-
-# The custom auth domain, so refreshed tokens carry the same issuer the backends pin.
-_DEFAULT_WORKOS_BASE_URL = "https://auth-api.climateresource.com.au"
-
-# Public WorkOS client ID for staging (safe to bundle for PKCE and refresh grants).
-# The production ID is not bundled and must arrive via $BOOKSHELF_WORKOS_CLIENT_ID.
-_STAGING_WORKOS_CLIENT_ID = "client_01KABZE0E62YS9H7BMV6YZGMD1"
 
 _SPENT_CREDENTIAL_MESSAGE = (
     "The stored Bookshelf login could not be refreshed, "
@@ -148,16 +142,23 @@ def _auth_from_environment(base_url: str | None) -> httpx.Auth | None:
     return None
 
 
-def auth_from_stored(stored: credentials.StoredCredentials) -> httpx.Auth:
+def auth_from_stored(stored: credentials.StoredCredentials) -> TokenProvider:
     """Build the refreshing provider matching one stored credential record."""
-    if stored.kind == "agent" and stored.identity_assertion is not None:
+    if stored.kind is CredentialKind.AGENT and stored.identity_assertion is not None:
         return _agent_auth_from_stored(stored)
 
     if stored.refresh_token is None:
         return StaticToken(stored.access_token)
 
-    workos_client_id = _workos_client_id(stored.api_url)
-    if workos_client_id is None:
+    # An agent record with no assertion is served by the refresh-token grant,
+    # so what comes back is a refresh token and the rotation lands as a user record.
+    return _user_auth_from_stored(replace(stored, kind=CredentialKind.USER))
+
+
+def _user_auth_from_stored(stored: credentials.StoredCredentials) -> RefreshTokenExchange:
+    assert stored.refresh_token is not None
+    client_id = oauth.workos_client_id(stored.api_url)
+    if client_id is None:
         raise AuthConfigurationError(
             "Stored credentials carry a refresh token but no WorkOS client ID is available, "
             "so they cannot be refreshed and would expire mid-process. "
@@ -165,15 +166,13 @@ def auth_from_stored(stored: credentials.StoredCredentials) -> httpx.Auth:
             "or pass an explicit auth= provider."
         )
 
-    workos_base = os.environ.get("BOOKSHELF_WORKOS_BASE_URL", _DEFAULT_WORKOS_BASE_URL)
-
     return RefreshTokenExchange(
         stored.access_token,
         stored.refresh_token,
-        token_url=f"{workos_base}/user_management/authenticate",
-        client_id=workos_client_id,
+        token_url=f"{oauth.get_workos_base_url()}/user_management/authenticate",
+        client_id=client_id,
         expires_at=stored.expires_at.timestamp() if stored.expires_at is not None else None,
-        on_rotate=_rotation_sink(stored, kind="user"),
+        on_rotate=_rotation_sink(stored),
     )
 
 
@@ -184,55 +183,30 @@ def _agent_auth_from_stored(stored: credentials.StoredCredentials) -> BsatAssert
         base_url=stored.api_url,
         access_token=stored.access_token,
         expires_at=stored.expires_at.timestamp() if stored.expires_at is not None else None,
-        on_rotate=_rotation_sink(stored, kind="agent"),
+        on_rotate=_rotation_sink(stored),
     )
 
 
 def _rotation_sink(
-    stored: credentials.StoredCredentials, *, kind: str
+    stored: credentials.StoredCredentials,
 ) -> Callable[[str, str | None, float | None], None]:
     """Build the callback that writes a rotated credential back over the record it came from.
 
     Both providers rotate one secret alongside the access token,
     a refresh token for a user and a reissued identity assertion for an agent,
     so they hand it over in the same position.
-    ``kind`` names the provider that was built, which is not always the record's own kind:
-    an agent record with no assertion is served by the refresh-token provider.
     """
 
     def persist(access_token: str, secret: str | None, expires_at: float | None) -> None:
-        rotated: dict[str, Any] = (
-            {
-                "identity_assertion": secret,
-                "assertion_expires_at": stored.assertion_expires_at,
-                "claimed": stored.claimed,
-            }
-            if kind == "agent"
-            else {"refresh_token": secret}
+        moment = datetime.fromtimestamp(expires_at, tz=UTC) if expires_at is not None else None
+        rotated = (
+            stored.with_token(access_token, expires_at=moment, identity_assertion=secret)
+            if stored.kind is CredentialKind.AGENT
+            else stored.with_token(access_token, expires_at=moment, refresh_token=secret)
         )
-        credentials.save_credentials(
-            access_token,
-            api_url=stored.api_url,
-            kind=kind,
-            expires_at=(
-                datetime.fromtimestamp(expires_at, tz=UTC) if expires_at is not None else None
-            ),
-            subject=stored.subject,
-            organization_id=stored.organization_id,
-            **rotated,
-        )
+        credentials.save_record(rotated)
 
     return persist
-
-
-def _workos_client_id(api_url: str) -> str | None:
-    """Return the WorkOS client ID from the environment, or the bundled staging ID."""
-    env_id = os.environ.get("BOOKSHELF_WORKOS_CLIENT_ID")
-    if env_id:
-        return env_id
-    if is_staging_api_url(api_url):
-        return _STAGING_WORKOS_CLIENT_ID
-    return None
 
 
 __all__ = [

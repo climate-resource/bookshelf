@@ -23,6 +23,8 @@ from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx
 
+from bookshelf._core.auth import error_detail
+
 # Public WorkOS client IDs are safe to hardcode
 # for PKCE and device-code apps.
 # The production ID is not bundled.
@@ -157,18 +159,29 @@ def is_staging_api_url(api_url: str) -> bool:
     return any(part == "staging" for label in host.split(".") for part in label.split("-"))
 
 
-def get_workos_client_id(api_url: str = "") -> str:
+def workos_client_id(api_url: str = "") -> str | None:
     """Return the WorkOS client ID from ``$BOOKSHELF_WORKOS_CLIENT_ID`` or pick one by API URL.
 
     The staging client ID is bundled.
-    The production client ID is not bundled and must be supplied via the environment variable,
-    omitting it on a non-staging URL raises ``OAuthError`` with an actionable message.
+    The production client ID is not,
+    so a non-staging URL with no environment variable resolves to ``None``.
+    Callers decide what an unresolvable client ID means:
+    :func:`get_workos_client_id` raises,
+    the SDK's ambient resolution raises ``AuthConfigurationError`` instead.
     """
     env_id = os.environ.get("BOOKSHELF_WORKOS_CLIENT_ID")
     if env_id:
         return env_id
     if is_staging_api_url(api_url):
-        return _CLIENT_IDS["staging"]  # type: ignore[return-value]
+        return _CLIENT_IDS["staging"]
+    return None
+
+
+def get_workos_client_id(api_url: str = "") -> str:
+    """Return the WorkOS client ID for an interactive login, raising when none resolves."""
+    client_id = workos_client_id(api_url)
+    if client_id is not None:
+        return client_id
     raise OAuthError(
         "Production login requires setting the BOOKSHELF_WORKOS_CLIENT_ID environment variable. "
         "The production WorkOS client ID is not bundled in the SDK. "
@@ -346,7 +359,7 @@ def _exchange_authorization_code(
             },
         )
     if not response.is_success:
-        raise OAuthError(f"Token exchange failed: {_error_detail(response)}")
+        raise OAuthError(f"Token exchange failed: {error_detail(response)}")
     token_data: dict[str, Any] = response.json()
     return token_data
 
@@ -378,7 +391,7 @@ def start_device_flow(
             data={"client_id": client_id},
         )
     if not response.is_success:
-        raise OAuthError(f"Failed to start device flow: {_error_detail(response)}")
+        raise OAuthError(f"Failed to start device flow: {error_detail(response)}")
 
     data = response.json()
     return DeviceFlowInfo(
@@ -446,51 +459,13 @@ def poll_device_flow(
     raise OAuthError("Timed out waiting for device authorization.")
 
 
-def refresh_access_token(
-    refresh_token: str,
-    api_url: str = "",
-    *,
-    transport: httpx.BaseTransport | None = None,
-) -> dict[str, Any]:
-    """Refresh an access token using a refresh token.
-
-    WorkOS rotates refresh tokens on each use,
-    so callers must persist the new ``refresh_token`` from the response.
-    """
-    client_id = get_workos_client_id(api_url)
-    workos_url = get_workos_base_url()
-
-    with httpx.Client(timeout=30.0, transport=transport) as client:
-        response = client.post(
-            f"{workos_url}/user_management/authenticate",
-            data={
-                "grant_type": "refresh_token",
-                "refresh_token": refresh_token,
-                "client_id": client_id,
-            },
-        )
-    if not response.is_success:
-        raise OAuthError(f"Token refresh failed: {_error_detail(response)}")
-    token_data: dict[str, Any] = response.json()
-    return token_data
-
-
-def _error_detail(response: httpx.Response) -> str:
-    """Extract a human-readable error detail from a failed WorkOS response."""
-    try:
-        payload = response.json()
-    except ValueError:
-        return response.text
-    if isinstance(payload, dict):
-        return str(payload.get("message", response.text))
-    return response.text
-
-
 __all__ = [
     "DeviceFlowInfo",
     "OAuthError",
     "authorization_code_flow",
+    "get_workos_base_url",
+    "get_workos_client_id",
     "poll_device_flow",
-    "refresh_access_token",
     "start_device_flow",
+    "workos_client_id",
 ]

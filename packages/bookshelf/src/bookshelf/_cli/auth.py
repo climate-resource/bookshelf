@@ -10,6 +10,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import httpx
 import typer
 
 from bookshelf._cli._runtime import (
@@ -26,9 +27,10 @@ from bookshelf._cli._runtime import (
     note,
 )
 from bookshelf._core import config, credentials, errors, oauth
-from bookshelf._core.auth import JWT_BEARER_GRANT, REFRESH_LEEWAY, decode_jwt_expiry
+from bookshelf._core.auth import JWT_BEARER_GRANT, TokenProvider, decode_jwt_expiry
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import CredentialSource, resolve_base_url
+from bookshelf._core.credentials import CredentialKind
 from bookshelf._generated import models
 
 CLAIM_GRANT = "urn:workos:agent-auth:grant-type:claim"
@@ -133,7 +135,7 @@ def _login_user(base: str, *, no_browser: bool, json_output: bool) -> None:
     credentials.save_credentials(
         access_token,
         api_url=base,
-        kind="user",
+        kind=CredentialKind.USER,
         refresh_token=str(refresh_token) if refresh_token else None,
         expires_at=expires_at,
         subject=me.email,
@@ -178,7 +180,7 @@ def _login_agent_anonymous(base: str, *, json_output: bool) -> None:
     credentials.save_credentials(
         grant.access_token,
         api_url=base,
-        kind="agent",
+        kind=CredentialKind.AGENT,
         expires_at=expires_at,
         identity_assertion=assertion,
         assertion_expires_at=assertion_expires,
@@ -239,7 +241,7 @@ def _login_agent_claim(base: str, *, email: str, json_output: bool) -> None:
     credentials.save_credentials(
         grant.access_token,
         api_url=base,
-        kind="agent",
+        kind=CredentialKind.AGENT,
         expires_at=expires_at,
         identity_assertion=grant.identity_assertion,
         assertion_expires_at=grant.assertion_expires,
@@ -317,7 +319,7 @@ def auth_token(
             emit(os.environ["BOOKSHELF_TOKEN"])
             return
         if source is CredentialSource.CLIENT_CREDENTIALS:
-            emit(_mint_client_credentials())
+            emit(_current_token(_client_credentials_provider()))
             return
         if stored is None:
             raise CliError(
@@ -326,93 +328,37 @@ def auth_token(
                 "'bookshelf auth login --agent' to register an agent identity.",
                 exit_code=EXIT_AUTH_REQUIRED,
             )
-        emit(_fresh_access_token(base, stored))
+        emit(_current_token(config.auth_from_stored(stored)))
 
 
-def _mint_client_credentials() -> str:
-    token_url = os.environ.get("BOOKSHELF_TOKEN_URL")
-    if not token_url:
-        raise CliError(
-            "BOOKSHELF_CLIENT_ID and BOOKSHELF_CLIENT_SECRET are set but BOOKSHELF_TOKEN_URL "
-            "is not. Set BOOKSHELF_TOKEN_URL to the issuer's client-credentials token endpoint.",
-            exit_code=EXIT_USAGE,
-        )
-    import httpx
-
+def _client_credentials_provider() -> TokenProvider:
     try:
-        response = httpx.post(
-            token_url,
-            data={
-                "grant_type": "client_credentials",
-                "client_id": os.environ["BOOKSHELF_CLIENT_ID"],
-                "client_secret": os.environ["BOOKSHELF_CLIENT_SECRET"],
-            },
-            timeout=30.0,
-        )
+        provider = config.resolve_auth(config.UNSET)
+    except errors.AuthConfigurationError as exc:
+        raise CliError(str(exc), exit_code=EXIT_USAGE) from exc
+    assert isinstance(provider, TokenProvider)
+    return provider
+
+
+def _current_token(provider: TokenProvider) -> str:
+    """Ask a provider for a token that is current, exchanging for a new one when one is due.
+
+    The provider owns the staleness check, the single-flight lock
+    and writing a rotated credential back over the record it came from,
+    so printing a token and sending a request cannot disagree about any of them.
+    """
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            return provider.access_token(client.send)
     except httpx.TransportError as exc:
         raise CliError(f"token endpoint unreachable: {exc}", exit_code=EXIT_NETWORK) from exc
-    if not response.is_success:
+    except errors.AuthenticationError as exc:
         raise CliError(
-            f"client-credentials mint failed with HTTP {response.status_code}.",
+            f"the stored credential could not be exchanged for a fresh token: {exc.detail} "
+            "Run 'bookshelf auth login' to sign in again, "
+            "or 'bookshelf auth login --agent' to register an agent identity.",
             exit_code=EXIT_AUTH_REQUIRED,
-        )
-    return str(response.json()["access_token"])
-
-
-def _fresh_access_token(base: str, stored: credentials.StoredCredentials) -> str:
-    if stored.expires_at is None:
-        return stored.access_token
-    if (stored.expires_at - _now()).total_seconds() > REFRESH_LEEWAY:
-        return stored.access_token
-
-    if stored.kind == "agent" and stored.identity_assertion is not None:
-        try:
-            with BookshelfClient(base, auth=None) as client:
-                grant = client.agent_token_exchange(
-                    models.BodyAgentTokenExchange(
-                        grant_type=JWT_BEARER_GRANT, assertion=stored.identity_assertion
-                    )
-                )
-        except errors.OAuthProtocolError as exc:
-            raise CliError(
-                f"stored agent assertion was rejected: {exc.detail} "
-                "Run 'bookshelf auth login --agent' to register again.",
-                exit_code=EXIT_AUTH_REQUIRED,
-            ) from exc
-        credentials.save_credentials(
-            grant.access_token,
-            api_url=base,
-            kind="agent",
-            expires_at=_expiry_from(grant.expires_in),
-            identity_assertion=grant.identity_assertion or stored.identity_assertion,
-            assertion_expires_at=grant.assertion_expires or stored.assertion_expires_at,
-            subject=stored.subject,
-            organization_id=stored.organization_id,
-            claimed=stored.claimed,
-        )
-        return grant.access_token
-
-    if stored.refresh_token is not None:
-        try:
-            token_data = oauth.refresh_access_token(stored.refresh_token, api_url=base)
-        except oauth.OAuthError as exc:
-            raise CliError(
-                f"stored login could not be refreshed: {exc} Run 'bookshelf auth login'.",
-                exit_code=EXIT_AUTH_REQUIRED,
-            ) from exc
-        access_token = str(token_data["access_token"])
-        credentials.save_credentials(
-            access_token,
-            api_url=base,
-            kind="user",
-            refresh_token=str(token_data.get("refresh_token") or stored.refresh_token),
-            expires_at=_expiry_from(token_data.get("expires_in")),
-            subject=stored.subject,
-            organization_id=stored.organization_id,
-        )
-        return access_token
-
-    return stored.access_token
+        ) from exc
 
 
 @auth_app.command("whoami")
@@ -487,11 +433,11 @@ def _fill_offline(
         report["kind"] = "user"
         return
     assert stored is not None
-    report["kind"] = stored.kind
+    report["kind"] = str(stored.kind)
     report["id"] = stored.subject
     report["organization_id"] = stored.organization_id
     report["expires_at"] = iso(stored.expires_at)
-    if stored.kind == "agent":
+    if stored.kind is CredentialKind.AGENT:
         report["claimed"] = bool(stored.claimed)
         if not stored.claimed:
             report["reaches"] = "public"
@@ -576,7 +522,7 @@ def auth_logout(
 
         failed: list[str] = []
         for record in records:
-            if record.kind != "agent" or no_revoke:
+            if record.kind is not CredentialKind.AGENT or no_revoke:
                 continue
             try:
                 with BookshelfClient(record.api_url, auth=None) as client:
@@ -618,7 +564,7 @@ def auth_list(
             if json_output:
                 emit_json(
                     {
-                        "kind": record.kind,
+                        "kind": str(record.kind),
                         "id": record.subject,
                         "api_url": record.api_url,
                         "active": is_active,
@@ -631,7 +577,7 @@ def auth_list(
             marker = "*" if is_active else " "
             expiry = (
                 f"assertion {_relative(record.assertion_expires_at)}"
-                if record.kind == "agent"
+                if record.kind is CredentialKind.AGENT
                 else f"expires {_relative(record.expires_at)}"
             )
             emit(

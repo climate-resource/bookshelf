@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 
-from bookshelf._core import config, credentials
+from bookshelf._core import config, credentials, oauth
 from bookshelf._core.auth import (
     AnonymousFallback,
     ClientCredentials,
@@ -42,6 +42,8 @@ def stored(
         expires_at=datetime.fromtimestamp(time.time() + 10_000, tz=UTC),
         api_url="https://bookshelf-staging.ovh.climateresource.com.au",
         refresh_token=refresh_token,
+        subject="reader@example.com",
+        organization_id="org_123",
     )
     monkeypatch.setattr(credentials, "load_credentials", lambda _api_url=None: creds)
     return creds
@@ -113,13 +115,8 @@ def test_stored_credentials_resolve_to_refresh_exchange(
 
 def test_stored_refresh_exchange_persists_rotations(monkeypatch: pytest.MonkeyPatch) -> None:
     stored(monkeypatch)
-    saved: dict[str, object] = {}
-
-    def fake_save(access_token: str, **kwargs: object) -> None:
-        saved["access_token"] = access_token
-        saved.update(kwargs)
-
-    monkeypatch.setattr(credentials, "save_credentials", fake_save)
+    saved: list[credentials.StoredCredentials] = []
+    monkeypatch.setattr(credentials, "save_record", saved.append)
     auth = config.resolve_auth(config.UNSET)
     assert isinstance(auth, AnonymousFallback)
     assert isinstance(auth.inner, RefreshTokenExchange)
@@ -135,8 +132,11 @@ def test_stored_refresh_exchange_persists_rotations(monkeypatch: pytest.MonkeyPa
     auth.inner._expires_at = 0.0
     with httpx.Client(transport=httpx.MockTransport(handler), auth=auth) as client:
         client.get("https://bookshelf.test/v1/books")
-    assert saved["access_token"] == "new-tok"
-    assert saved["refresh_token"] == "rt-2"
+    assert saved[0].access_token == "new-tok"
+    assert saved[0].refresh_token == "rt-2"
+    # The record the rotation came from is what is written back.
+    assert saved[0].subject == "reader@example.com"
+    assert saved[0].organization_id == "org_123"
 
 
 def test_an_agent_record_without_an_assertion_rotates_as_a_user(
@@ -147,14 +147,12 @@ def test_an_agent_record_without_an_assertion_rotates_as_a_user(
     An agent record with no assertion is served by the refresh-token provider,
     so what comes back is a refresh token and it has to be stored as one.
     """
-    agent_record = replace(stored(monkeypatch), kind="agent", identity_assertion=None)
+    agent_record = replace(
+        stored(monkeypatch), kind=credentials.CredentialKind.AGENT, identity_assertion=None
+    )
     monkeypatch.setattr(credentials, "load_credentials", lambda _api_url=None: agent_record)
-    saved: dict[str, object] = {}
-
-    def fake_save(access_token: str, **kwargs: object) -> None:
-        saved.update(kwargs)
-
-    monkeypatch.setattr(credentials, "save_credentials", fake_save)
+    saved: list[credentials.StoredCredentials] = []
+    monkeypatch.setattr(credentials, "save_record", saved.append)
     auth = config.resolve_auth(config.UNSET)
     assert isinstance(auth, AnonymousFallback)
     assert isinstance(auth.inner, RefreshTokenExchange)
@@ -171,15 +169,15 @@ def test_an_agent_record_without_an_assertion_rotates_as_a_user(
     with httpx.Client(transport=httpx.MockTransport(handler), auth=auth) as client:
         client.get("https://bookshelf.test/v1/books")
 
-    assert saved["kind"] == "user"
-    assert saved["refresh_token"] == "rt-2"
-    assert "identity_assertion" not in saved
+    assert saved[0].kind is credentials.CredentialKind.USER
+    assert saved[0].refresh_token == "rt-2"
+    assert saved[0].identity_assertion is None
 
 
 def test_stored_without_workos_client_id_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """Silently degrading to a static token would kill rotation mid-process."""
     stored(monkeypatch)
-    monkeypatch.setattr(config, "_workos_client_id", lambda _api_url: None)
+    monkeypatch.setattr(oauth, "workos_client_id", lambda _api_url: None)
     with pytest.raises(AuthConfigurationError):
         config.resolve_auth(config.UNSET)
 
