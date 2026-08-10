@@ -35,6 +35,16 @@ from bookshelf._generated import models
 
 _USER_AGENT = "bookshelf-python"
 
+# A connection that never came up carried no bytes to the server,
+# so replaying it cannot duplicate a write even for a non-idempotent method.
+_PRE_SEND_FAILURES = (httpx.ConnectError, httpx.ConnectTimeout)
+
+
+def _should_retry_transport_error(
+    policy: RetryPolicy, req: ApiRequest, exc: httpx.TransportError
+) -> bool:
+    return policy.should_retry_method(req.method) or isinstance(exc, _PRE_SEND_FAILURES)
+
 
 class BookshelfClient:
     """Long-lived unified client over both httpx surfaces.
@@ -160,11 +170,13 @@ class BookshelfClient:
                     auth=None if req.absolute_url is not None else httpx.USE_CLIENT_DEFAULT,
                 )
             except httpx.TransportError as exc:
-                if attempt >= self._retry.max_attempts:
+                if attempt >= self._retry.max_attempts or not _should_retry_transport_error(
+                    self._retry, req, exc
+                ):
                     raise TransportError(str(exc)) from exc
             else:
                 if (
-                    not self._retry.should_retry_status(response.status_code)
+                    not self._retry.should_retry_response(req.method, response.status_code)
                     or attempt >= self._retry.max_attempts
                 ):
                     return self._api_response(response)
@@ -182,11 +194,13 @@ class BookshelfClient:
                     auth=None if req.absolute_url is not None else httpx.USE_CLIENT_DEFAULT,
                 )
             except httpx.TransportError as exc:
-                if attempt >= self._retry.max_attempts:
+                if attempt >= self._retry.max_attempts or not _should_retry_transport_error(
+                    self._retry, req, exc
+                ):
                     raise TransportError(str(exc)) from exc
             else:
                 if (
-                    not self._retry.should_retry_status(response.status_code)
+                    not self._retry.should_retry_response(req.method, response.status_code)
                     or attempt >= self._retry.max_attempts
                 ):
                     return self._api_response(response)
