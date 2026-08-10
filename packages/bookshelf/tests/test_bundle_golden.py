@@ -37,6 +37,7 @@ GOLDEN_DIR = Path(__file__).parent / "golden"
 BUILD_PATH = GOLDEN_DIR / "simple_build.py"
 RECIPE_PATH = GOLDEN_DIR / "bookshelf.yaml"
 SIMPLE_GOLDEN = GOLDEN_DIR / "simple"
+GOLDEN_VERSION = "v1.0.0"
 
 
 def _record_golden_bundle(tmp_path: Path) -> Bundle:
@@ -46,6 +47,7 @@ def _record_golden_bundle(tmp_path: Path) -> Bundle:
         build_path=BUILD_PATH,
         recipe_path=RECIPE_PATH,
         bundle_path=bundle_path,
+        version=GOLDEN_VERSION,
         cwd=GOLDEN_DIR,
     )
     return Bundle.read_validated(bundle_path)

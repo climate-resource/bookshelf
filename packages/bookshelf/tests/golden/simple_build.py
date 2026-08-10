@@ -41,7 +41,7 @@ EMISSIONS_ID = UUID("0197a000-0000-7000-8000-00000000b002")
 SUMMARY_ID = UUID("0197a000-0000-7000-8000-00000000b003")
 
 # %%
-bs, book = bookshelf.setup(version="v1.0.0")
+bs, book = bookshelf.setup()
 
 # %% [markdown]
 # ## The derived frames
