@@ -377,8 +377,7 @@ def _migrate_v1_names(raw: dict[str, Any]) -> None:
 
     A name is local to its bundle now,
     so remapping every key in one manifest by the same rule preserves what the run meant.
-    Two distinct keys that flatten onto one name would not,
-    so that raises instead.
+    Two distinct keys that flatten onto one name would not so that raises instead.
     """
     seen: dict[str, str] = {}
     for resource in raw.get("resources") or []:
@@ -405,11 +404,9 @@ def _prepare_manifest(raw: dict[str, Any]) -> None:
     """Settle a raw manifest's schema version in place, ready for validation.
 
     A newer minor is forward-compatible.
-    The models ignore unknown fields,
-    so an additive change still loads.
+    The models ignore unknown fields, so an additive change still loads.
     A newer major signals a breaking change.
-    Loading it under the current semantics
-    could silently drop fields that carry new meaning,
+    Loading it under the current semantics could silently drop fields that carry new meaning,
     so raise rather than misinterpret the bundle.
     An older major is migrated up to the current one.
     """
@@ -844,14 +841,11 @@ class Bundle:
     def read(cls, root: Path) -> Bundle:
         """Load an existing bundle directory.
 
-        Within the supported major,
-        the manifest is parsed tolerantly with ``extra="ignore"``.
+        Within the supported major, the manifest is parsed tolerantly with ``extra="ignore"``.
         A bundle written by a later minor therefore still loads
         and keeps only the fields this schema models.
         A newer major raises :class:`ValueError`
         instead of being reinterpreted under the current semantics.
-        A v1 manifest is migrated on the way in,
-        which rewrites its ``logical_key`` fields onto v2 ``name`` fields.
 
         The read is structural.
         A bundle recorded as a draft loads here and replays as a draft.

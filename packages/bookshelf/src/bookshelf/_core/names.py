@@ -16,11 +16,7 @@ _OUTSIDE_NAME_CHARS = re.compile(rf"[^{_NAME_CHARS}]")
 
 
 def validate_resource_name(value: str) -> str:
-    """Return ``value`` unchanged, or raise ``ValueError`` if it is not a usable name.
-
-    Names carry no hierarchy.
-    A producer wanting one flattens it, so ``document/build.html`` becomes ``document-build.html``.
-    """
+    """Return ``value`` unchanged, or raise ``ValueError`` if it is not a usable name."""
     if not RESOURCE_NAME_PATTERN.match(value):
         raise ValueError(
             "name must start with a letter or digit and use only "
