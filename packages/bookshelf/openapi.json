@@ -744,7 +744,7 @@
           "volumes"
         ],
         "summary": "Update Volume",
-        "description": "Update a volume.\n\nRequires write permission. License cannot be changed.",
+        "description": "Update a volume.\n\nRequires write permission. The slug ``name`` is the only immutable field.",
         "operationId": "volumesUpdateVolume",
         "security": [
           {
@@ -5400,6 +5400,18 @@
             "title": "Citation Doi",
             "description": "Citation DOI for the book."
           },
+          "authors": {
+            "items": {
+              "$ref": "#/components/schemas/Author"
+            },
+            "type": "array",
+            "title": "Authors",
+            "description": "Authors credited on this release."
+          },
+          "discovery": {
+            "$ref": "#/components/schemas/BookDiscovery",
+            "description": "Discovery profile baked onto this release."
+          },
           "metadata": {
             "additionalProperties": true,
             "type": "object",
@@ -5466,6 +5478,468 @@
         "title": "BookDetail",
         "description": "Detail view for a book."
       },
+      "BookDiscovery": {
+        "properties": {
+          "spatial_coverage": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Spatial Coverage",
+            "description": "Regions covered, such as 'global' or ISO 3166 codes"
+          },
+          "temporal_coverage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TemporalCoverage"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Span of time the data describes"
+          },
+          "variables": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Variables",
+            "description": "Variables reported"
+          },
+          "units": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Units",
+            "description": "Units used by the variables"
+          },
+          "scenarios": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Scenarios",
+            "description": "Scenarios or models covered"
+          },
+          "frequency": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frequency",
+            "description": "Observation frequency, such as 'annual'"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title",
+            "description": "Human-readable display title"
+          },
+          "abstract": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abstract",
+            "description": "Concise dataset summary"
+          },
+          "publisher": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher",
+            "description": "Source or publisher organisation"
+          },
+          "publisher_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher Url",
+            "description": "Publisher homepage"
+          },
+          "homepage_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Homepage Url",
+            "description": "Dataset homepage"
+          },
+          "documentation_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documentation Url",
+            "description": "Documentation"
+          },
+          "methodology_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Methodology Url",
+            "description": "Methodology write-up"
+          },
+          "repository_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repository Url",
+            "description": "Source code repository"
+          },
+          "release_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Url",
+            "description": "Landing page for this specific release"
+          },
+          "source_release_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Release Date",
+            "description": "Date the upstream source released this data"
+          },
+          "license_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Url",
+            "description": "Licence text URL"
+          },
+          "doi": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doi",
+            "description": "DOI for the dataset"
+          },
+          "citation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation",
+            "description": "Citation string for referencing this release"
+          },
+          "intended_uses": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intended Uses",
+            "description": "What the data suits"
+          },
+          "limitations": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limitations",
+            "description": "Known limitations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "BookDiscovery",
+        "description": "The discovery profile baked onto one book, as it reads back.\n\nA book is one immutable release, so this is where a release-specific fact lives:\nthe title it went out under, the DOI it was minted with, the citation a reader should use.\nThe recorder resolves the producer's volume-level default against its per-release override\nand sends the resolved value,\nso the platform stores what it was given and never resolves anything itself.\n\nThe computed facets are derived by the platform from the book's resources and are rejected on write,\nwhich is why the write shape (:class:`BookDiscoveryInput`) does not carry them."
+      },
+      "BookDiscoveryInput": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title",
+            "description": "Human-readable display title"
+          },
+          "abstract": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abstract",
+            "description": "Concise dataset summary"
+          },
+          "publisher": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher",
+            "description": "Source or publisher organisation"
+          },
+          "publisher_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher Url",
+            "description": "Publisher homepage"
+          },
+          "homepage_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Homepage Url",
+            "description": "Dataset homepage"
+          },
+          "documentation_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documentation Url",
+            "description": "Documentation"
+          },
+          "methodology_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Methodology Url",
+            "description": "Methodology write-up"
+          },
+          "repository_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repository Url",
+            "description": "Source code repository"
+          },
+          "release_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Url",
+            "description": "Landing page for this specific release"
+          },
+          "source_release_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Release Date",
+            "description": "Date the upstream source released this data"
+          },
+          "license_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Url",
+            "description": "Licence text URL"
+          },
+          "doi": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doi",
+            "description": "DOI for the dataset"
+          },
+          "citation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation",
+            "description": "Citation string for referencing this release"
+          },
+          "intended_uses": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intended Uses",
+            "description": "What the data suits"
+          },
+          "limitations": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limitations",
+            "description": "Known limitations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "BookDiscoveryInput",
+        "description": "The discovery facts a producer may bake onto a book.\n\nThe computed facets that :class:`BookDiscovery` reads back are absent here on purpose.\nSending one is a 422 rather than a stored claim the platform would then have to decide\nwhether to believe."
+      },
       "BookDraftRequest": {
         "properties": {
           "version": {
@@ -5517,6 +5991,18 @@
             "$ref": "#/components/schemas/Visibility",
             "description": "Initial visibility tier; defaults to ``hidden``.",
             "default": "hidden"
+          },
+          "authors": {
+            "items": {
+              "$ref": "#/components/schemas/Author"
+            },
+            "type": "array",
+            "title": "Authors",
+            "description": "Authors credited on this release. Defaults to empty rather than to the volume."
+          },
+          "discovery": {
+            "$ref": "#/components/schemas/BookDiscoveryInput",
+            "description": "Discovery profile baked onto this release. The recorder resolves the producer's volume-level default against its per-release override and sends the resolved value."
           },
           "metadata": {
             "additionalProperties": true,
@@ -6922,74 +7408,6 @@
       },
       "DiscoveryProfile": {
         "properties": {
-          "title": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title",
-            "description": "Human-readable display title"
-          },
-          "abstract": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 5000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Abstract",
-            "description": "Concise dataset summary"
-          },
-          "publisher": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Publisher",
-            "description": "Source or publisher organisation"
-          },
-          "publisher_url": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Publisher Url",
-            "description": "Publisher homepage"
-          },
-          "topics": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Topics",
-            "description": "Dataset themes or topics"
-          },
-          "keywords": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Keywords",
-            "description": "Free-form keywords"
-          },
           "spatial_coverage": {
             "items": {
               "type": "string"
@@ -7045,6 +7463,58 @@
             ],
             "title": "Frequency",
             "description": "Observation frequency, such as 'annual'"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title",
+            "description": "Human-readable display title"
+          },
+          "abstract": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abstract",
+            "description": "Concise dataset summary"
+          },
+          "publisher": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher",
+            "description": "Source or publisher organisation"
+          },
+          "publisher_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher Url",
+            "description": "Publisher homepage"
           },
           "homepage_url": {
             "anyOf": [
@@ -7111,19 +7581,6 @@
             "title": "Release Url",
             "description": "Landing page for this specific release"
           },
-          "update_cadence": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 100
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Update Cadence",
-            "description": "How often the source is refreshed"
-          },
           "source_release_date": {
             "anyOf": [
               {
@@ -7136,20 +7593,6 @@
             ],
             "title": "Source Release Date",
             "description": "Date the upstream source released this data"
-          },
-          "data_vintage": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "maximum": 10000.0,
-                "minimum": -10000.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Data Vintage",
-            "description": "Last year the underlying data runs through"
           },
           "license_url": {
             "anyOf": [
@@ -7247,12 +7690,41 @@
             ],
             "title": "Deprecation Note",
             "description": "Why the volume was deprecated"
+          },
+          "topics": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Topics",
+            "description": "Dataset themes or topics"
+          },
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Keywords",
+            "description": "Free-form keywords"
+          },
+          "update_cadence": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Update Cadence",
+            "description": "How often the source is refreshed"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "title": "DiscoveryProfile",
-        "description": "Typed discovery and release metadata for a volume.\n\nThis is the consumer-facing profile the catalogue reads.\nIt answers what the dataset is, what it covers, how current it is\nand whether it is still fit to use,\nwithout clients having to interpret arbitrary keys in ``metadata``.\nField names follow DCAT and DataCite concepts where they line up.\nUnknown keys are rejected rather than ignored, so a caller who misspells a\nfield, or sends one the profile deliberately does not carry, hears about it\ninstead of silently losing the value."
+        "description": "Typed discovery and release metadata for a volume.\n\nThis is the consumer-facing profile the catalogue reads, and it is a read shape only.\nIt answers what the dataset is, what it covers, how current it is\nand whether it is still fit to use,\nwithout clients having to interpret arbitrary keys in ``metadata``.\nField names follow DCAT and DataCite concepts where they line up.\nUnknown keys are rejected rather than ignored, so a caller who misspells a\nfield, or sends one the profile deliberately does not carry, hears about it\ninstead of silently losing the value.\n\nMost of these facts belong to a release rather than to the series,\nso they are baked onto the book at draft time\nand composed back onto the volume on read from the latest published book.\n:class:`VolumeDiscoveryInput` is what a caller may actually write to a volume,\nand it carries only the facts that hold across every release."
       },
       "DownloadResponse": {
         "properties": {
@@ -10107,9 +10579,16 @@
             "description": "Optional long-form description"
           },
           "license": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "License",
-            "description": "SPDX license identifier"
+            "description": "SPDX license identifier, the default a book inherits"
           },
           "metadata": {
             "additionalProperties": true,
@@ -10133,28 +10612,14 @@
             "title": "Maintainers",
             "description": "List of maintainers"
           },
-          "citation": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Citation",
-            "description": "Citation string for referencing this dataset"
-          },
           "discovery": {
-            "$ref": "#/components/schemas/DiscoveryProfile",
-            "description": "Typed discovery and release metadata"
+            "$ref": "#/components/schemas/VolumeDiscoveryInput",
+            "description": "Typed discovery metadata that holds across every release"
           }
         },
         "type": "object",
         "required": [
-          "name",
-          "license"
+          "name"
         ],
         "title": "VolumeCreate",
         "description": "Schema for creating a new volume."
@@ -10185,7 +10650,14 @@
             "title": "Description"
           },
           "license": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "License"
           },
           "metadata": {
@@ -10195,7 +10667,7 @@
           },
           "discovery": {
             "$ref": "#/components/schemas/DiscoveryProfile",
-            "description": "Typed discovery and release metadata"
+            "description": "Discovery metadata, composed from the latest published book"
           },
           "authors": {
             "items": {
@@ -10210,17 +10682,6 @@
             },
             "type": "array",
             "title": "Maintainers"
-          },
-          "citation": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Citation"
           },
           "created_at": {
             "type": "string",
@@ -10253,7 +10714,6 @@
           "metadata",
           "authors",
           "maintainers",
-          "citation",
           "created_at",
           "updated_at",
           "versions",
@@ -10261,6 +10721,75 @@
         ],
         "title": "VolumeDetailResponse",
         "description": "Detailed volume response with versions and stats."
+      },
+      "VolumeDiscoveryInput": {
+        "properties": {
+          "deprecated": {
+            "type": "boolean",
+            "title": "Deprecated",
+            "description": "Whether the volume is no longer maintained",
+            "default": false
+          },
+          "superseded_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superseded By",
+            "description": "Name of the volume that replaces this one"
+          },
+          "deprecation_note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deprecation Note",
+            "description": "Why the volume was deprecated"
+          },
+          "topics": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Topics",
+            "description": "Dataset themes or topics"
+          },
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Keywords",
+            "description": "Free-form keywords"
+          },
+          "update_cadence": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Update Cadence",
+            "description": "How often the source is refreshed"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "VolumeDiscoveryInput",
+        "description": "The discovery facts a caller may write to a volume.\n\nA volume is the whole series, so it may only declare what stays true across every release.\nEverything else is a fact about one release and belongs on the book,\nwhich is why sending ``title`` or ``doi`` here is rejected\nrather than quietly accepted and then overwritten by the next publish.\n\n``topics`` and ``keywords`` are the search vocabulary and are deliberately volume-level:\nif they varied per release, filtering on one would give a different answer\ndepending on which edition happened to match."
       },
       "VolumeFacets": {
         "properties": {
@@ -10361,7 +10890,14 @@
             "title": "Description"
           },
           "license": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "License"
           },
           "authors": {
@@ -10380,17 +10916,6 @@
             "title": "Maintainers",
             "description": "List of maintainers"
           },
-          "citation": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Citation"
-          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -10403,7 +10928,7 @@
           },
           "discovery": {
             "$ref": "#/components/schemas/DiscoveryProfile",
-            "description": "Typed discovery and release metadata"
+            "description": "Discovery metadata, composed from the latest published book"
           },
           "latest_version": {
             "anyOf": [
@@ -10538,7 +11063,14 @@
             "title": "Description"
           },
           "license": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "License"
           },
           "metadata": {
@@ -10548,7 +11080,7 @@
           },
           "discovery": {
             "$ref": "#/components/schemas/DiscoveryProfile",
-            "description": "Typed discovery and release metadata"
+            "description": "Discovery metadata, composed from the latest published book"
           },
           "authors": {
             "items": {
@@ -10563,17 +11095,6 @@
             },
             "type": "array",
             "title": "Maintainers"
-          },
-          "citation": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Citation"
           },
           "created_at": {
             "type": "string",
@@ -10596,7 +11117,6 @@
           "metadata",
           "authors",
           "maintainers",
-          "citation",
           "created_at",
           "updated_at"
         ],
@@ -10647,6 +11167,18 @@
             "title": "Description",
             "description": "Updated description"
           },
+          "license": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License",
+            "description": "Updated SPDX license identifier, the default a book inherits"
+          },
           "metadata": {
             "anyOf": [
               {
@@ -10690,23 +11222,10 @@
             "title": "Maintainers",
             "description": "Updated maintainers list (replaces existing)"
           },
-          "citation": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Citation",
-            "description": "Updated citation string"
-          },
           "discovery": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/DiscoveryProfile"
+                "$ref": "#/components/schemas/VolumeDiscoveryInput"
               },
               {
                 "type": "null"
@@ -10717,7 +11236,7 @@
         },
         "type": "object",
         "title": "VolumeUpdate",
-        "description": "Schema for updating a volume (license cannot be changed)."
+        "description": "Schema for updating a volume.\n\nThe slug ``name`` is the only immutable field, so it has no entry here.\nEverything else about a volume, its licence included, is a statement\nsomebody may need to correct later."
       },
       "WalkNode": {
         "properties": {

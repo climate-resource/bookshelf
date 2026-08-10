@@ -132,6 +132,162 @@ class BookCreate(BaseModel):
     ] = None
 
 
+class Frequency(RootModel[str]):
+    root: Annotated[
+        str,
+        Field(
+            description="Observation frequency, such as 'annual'", max_length=100, title="Frequency"
+        ),
+    ]
+
+
+class Title(RootModel[str]):
+    root: Annotated[
+        str, Field(description="Human-readable display title", max_length=200, title="Title")
+    ]
+
+
+class Abstract(RootModel[str]):
+    root: Annotated[
+        str, Field(description="Concise dataset summary", max_length=5000, title="Abstract")
+    ]
+
+
+class Publisher(RootModel[str]):
+    root: Annotated[
+        str,
+        Field(description="Source or publisher organisation", max_length=200, title="Publisher"),
+    ]
+
+
+class PublisherUrl(RootModel[str]):
+    root: Annotated[
+        str, Field(description="Publisher homepage", max_length=2000, title="Publisher Url")
+    ]
+
+
+class HomepageUrl(RootModel[str]):
+    root: Annotated[
+        str, Field(description="Dataset homepage", max_length=2000, title="Homepage Url")
+    ]
+
+
+class DocumentationUrl(RootModel[str]):
+    root: Annotated[
+        str, Field(description="Documentation", max_length=2000, title="Documentation Url")
+    ]
+
+
+class MethodologyUrl(RootModel[str]):
+    root: Annotated[
+        str, Field(description="Methodology write-up", max_length=2000, title="Methodology Url")
+    ]
+
+
+class RepositoryUrl(RootModel[str]):
+    root: Annotated[
+        str, Field(description="Source code repository", max_length=2000, title="Repository Url")
+    ]
+
+
+class ReleaseUrl(RootModel[str]):
+    root: Annotated[
+        str,
+        Field(
+            description="Landing page for this specific release",
+            max_length=2000,
+            title="Release Url",
+        ),
+    ]
+
+
+class LicenseUrl(RootModel[str]):
+    root: Annotated[
+        str, Field(description="Licence text URL", max_length=2000, title="License Url")
+    ]
+
+
+class Doi(RootModel[str]):
+    root: Annotated[str, Field(description="DOI for the dataset", max_length=200, title="Doi")]
+
+
+class Citation(RootModel[str]):
+    root: Annotated[
+        str,
+        Field(
+            description="Citation string for referencing this release",
+            max_length=2000,
+            title="Citation",
+        ),
+    ]
+
+
+class IntendedUses(RootModel[str]):
+    root: Annotated[
+        str, Field(description="What the data suits", max_length=2000, title="Intended Uses")
+    ]
+
+
+class Limitations(RootModel[str]):
+    root: Annotated[
+        str, Field(description="Known limitations", max_length=2000, title="Limitations")
+    ]
+
+
+class BookDiscoveryInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    title: Annotated[
+        Title | None, Field(description="Human-readable display title", title="Title")
+    ] = None
+    abstract: Annotated[
+        Abstract | None, Field(description="Concise dataset summary", title="Abstract")
+    ] = None
+    publisher: Annotated[
+        Publisher | None, Field(description="Source or publisher organisation", title="Publisher")
+    ] = None
+    publisher_url: Annotated[
+        PublisherUrl | None, Field(description="Publisher homepage", title="Publisher Url")
+    ] = None
+    homepage_url: Annotated[
+        HomepageUrl | None, Field(description="Dataset homepage", title="Homepage Url")
+    ] = None
+    documentation_url: Annotated[
+        DocumentationUrl | None, Field(description="Documentation", title="Documentation Url")
+    ] = None
+    methodology_url: Annotated[
+        MethodologyUrl | None, Field(description="Methodology write-up", title="Methodology Url")
+    ] = None
+    repository_url: Annotated[
+        RepositoryUrl | None, Field(description="Source code repository", title="Repository Url")
+    ] = None
+    release_url: Annotated[
+        ReleaseUrl | None,
+        Field(description="Landing page for this specific release", title="Release Url"),
+    ] = None
+    source_release_date: Annotated[
+        date_aliased | None,
+        Field(
+            description="Date the upstream source released this data", title="Source Release Date"
+        ),
+    ] = None
+    license_url: Annotated[
+        LicenseUrl | None, Field(description="Licence text URL", title="License Url")
+    ] = None
+    doi: Annotated[Doi | None, Field(description="DOI for the dataset", title="Doi")] = None
+    citation: Annotated[
+        Citation | None,
+        Field(description="Citation string for referencing this release", title="Citation"),
+    ] = None
+    intended_uses: Annotated[
+        IntendedUses | None, Field(description="What the data suits", title="Intended Uses")
+    ] = None
+    limitations: Annotated[
+        Limitations | None, Field(description="Known limitations", title="Limitations")
+    ] = None
+
+
 class CitationDoi(RootModel[str]):
     root: Annotated[
         str,
@@ -490,129 +646,6 @@ class DatasetStyle(BaseModel):
     ] = None
 
 
-class Title(RootModel[str]):
-    root: Annotated[
-        str, Field(description="Human-readable display title", max_length=200, title="Title")
-    ]
-
-
-class Abstract(RootModel[str]):
-    root: Annotated[
-        str, Field(description="Concise dataset summary", max_length=5000, title="Abstract")
-    ]
-
-
-class Publisher(RootModel[str]):
-    root: Annotated[
-        str,
-        Field(description="Source or publisher organisation", max_length=200, title="Publisher"),
-    ]
-
-
-class PublisherUrl(RootModel[str]):
-    root: Annotated[
-        str, Field(description="Publisher homepage", max_length=2000, title="Publisher Url")
-    ]
-
-
-class Frequency(RootModel[str]):
-    root: Annotated[
-        str,
-        Field(
-            description="Observation frequency, such as 'annual'", max_length=100, title="Frequency"
-        ),
-    ]
-
-
-class HomepageUrl(RootModel[str]):
-    root: Annotated[
-        str, Field(description="Dataset homepage", max_length=2000, title="Homepage Url")
-    ]
-
-
-class DocumentationUrl(RootModel[str]):
-    root: Annotated[
-        str, Field(description="Documentation", max_length=2000, title="Documentation Url")
-    ]
-
-
-class MethodologyUrl(RootModel[str]):
-    root: Annotated[
-        str, Field(description="Methodology write-up", max_length=2000, title="Methodology Url")
-    ]
-
-
-class RepositoryUrl(RootModel[str]):
-    root: Annotated[
-        str, Field(description="Source code repository", max_length=2000, title="Repository Url")
-    ]
-
-
-class ReleaseUrl(RootModel[str]):
-    root: Annotated[
-        str,
-        Field(
-            description="Landing page for this specific release",
-            max_length=2000,
-            title="Release Url",
-        ),
-    ]
-
-
-class UpdateCadence(RootModel[str]):
-    root: Annotated[
-        str,
-        Field(
-            description="How often the source is refreshed", max_length=100, title="Update Cadence"
-        ),
-    ]
-
-
-class DataVintage(RootModel[int]):
-    root: Annotated[
-        int,
-        Field(
-            description="Last year the underlying data runs through",
-            ge=-10000,
-            le=10000,
-            title="Data Vintage",
-        ),
-    ]
-
-
-class LicenseUrl(RootModel[str]):
-    root: Annotated[
-        str, Field(description="Licence text URL", max_length=2000, title="License Url")
-    ]
-
-
-class Doi(RootModel[str]):
-    root: Annotated[str, Field(description="DOI for the dataset", max_length=200, title="Doi")]
-
-
-class Citation(RootModel[str]):
-    root: Annotated[
-        str,
-        Field(
-            description="Citation string for referencing this release",
-            max_length=2000,
-            title="Citation",
-        ),
-    ]
-
-
-class IntendedUses(RootModel[str]):
-    root: Annotated[
-        str, Field(description="What the data suits", max_length=2000, title="Intended Uses")
-    ]
-
-
-class Limitations(RootModel[str]):
-    root: Annotated[
-        str, Field(description="Known limitations", max_length=2000, title="Limitations")
-    ]
-
-
 class SupersededBy(RootModel[str]):
     root: Annotated[
         str,
@@ -629,6 +662,15 @@ class DeprecationNote(RootModel[str]):
         str,
         Field(
             description="Why the volume was deprecated", max_length=2000, title="Deprecation Note"
+        ),
+    ]
+
+
+class UpdateCadence(RootModel[str]):
+    root: Annotated[
+        str,
+        Field(
+            description="How often the source is refreshed", max_length=100, title="Update Cadence"
         ),
     ]
 
@@ -1177,15 +1219,32 @@ class Description2(RootModel[str]):
     ]
 
 
-class Citation1(RootModel[str]):
-    root: Annotated[
-        str,
-        Field(
-            description="Citation string for referencing this dataset",
-            max_length=2000,
-            title="Citation",
-        ),
-    ]
+class VolumeDiscoveryInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    deprecated: Annotated[
+        bool | None,
+        Field(description="Whether the volume is no longer maintained", title="Deprecated"),
+    ] = False
+    superseded_by: Annotated[
+        SupersededBy | None,
+        Field(description="Name of the volume that replaces this one", title="Superseded By"),
+    ] = None
+    deprecation_note: Annotated[
+        DeprecationNote | None,
+        Field(description="Why the volume was deprecated", title="Deprecation Note"),
+    ] = None
+    topics: Annotated[
+        list[str] | None, Field(description="Dataset themes or topics", title="Topics")
+    ] = None
+    keywords: Annotated[
+        list[str] | None, Field(description="Free-form keywords", title="Keywords")
+    ] = None
+    update_cadence: Annotated[
+        UpdateCadence | None,
+        Field(description="How often the source is refreshed", title="Update Cadence"),
+    ] = None
 
 
 class VolumeFacets(BaseModel):
@@ -1217,10 +1276,33 @@ class Description3(RootModel[str]):
     ]
 
 
-class Citation2(RootModel[str]):
-    root: Annotated[
-        str, Field(description="Updated citation string", max_length=2000, title="Citation")
-    ]
+class VolumeUpdate(BaseModel):
+    description: Annotated[
+        Description3 | None, Field(description="Updated description", title="Description")
+    ] = None
+    license: Annotated[
+        str | None,
+        Field(
+            description="Updated SPDX license identifier, the default a book inherits",
+            title="License",
+        ),
+    ] = None
+    metadata: Annotated[
+        dict[str, Any] | None,
+        Field(description="Updated metadata (replaces existing)", title="Metadata"),
+    ] = None
+    authors: Annotated[
+        list[Author] | None,
+        Field(description="Updated authors list (replaces existing)", title="Authors"),
+    ] = None
+    maintainers: Annotated[
+        list[Author] | None,
+        Field(description="Updated maintainers list (replaces existing)", title="Maintainers"),
+    ] = None
+    discovery: Annotated[
+        VolumeDiscoveryInput | None,
+        Field(description="Updated discovery profile (replaces existing)"),
+    ] = None
 
 
 class Type2(StrEnum):
@@ -1359,6 +1441,83 @@ class ActivityEnvelope(BaseModel):
     ] = None
 
 
+class BookDiscovery(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    spatial_coverage: Annotated[
+        list[str] | None,
+        Field(
+            description="Regions covered, such as 'global' or ISO 3166 codes",
+            title="Spatial Coverage",
+        ),
+    ] = None
+    temporal_coverage: Annotated[
+        TemporalCoverage | None, Field(description="Span of time the data describes")
+    ] = None
+    variables: Annotated[
+        list[str] | None, Field(description="Variables reported", title="Variables")
+    ] = None
+    units: Annotated[
+        list[str] | None, Field(description="Units used by the variables", title="Units")
+    ] = None
+    scenarios: Annotated[
+        list[str] | None, Field(description="Scenarios or models covered", title="Scenarios")
+    ] = None
+    frequency: Annotated[
+        Frequency | None,
+        Field(description="Observation frequency, such as 'annual'", title="Frequency"),
+    ] = None
+    title: Annotated[
+        Title | None, Field(description="Human-readable display title", title="Title")
+    ] = None
+    abstract: Annotated[
+        Abstract | None, Field(description="Concise dataset summary", title="Abstract")
+    ] = None
+    publisher: Annotated[
+        Publisher | None, Field(description="Source or publisher organisation", title="Publisher")
+    ] = None
+    publisher_url: Annotated[
+        PublisherUrl | None, Field(description="Publisher homepage", title="Publisher Url")
+    ] = None
+    homepage_url: Annotated[
+        HomepageUrl | None, Field(description="Dataset homepage", title="Homepage Url")
+    ] = None
+    documentation_url: Annotated[
+        DocumentationUrl | None, Field(description="Documentation", title="Documentation Url")
+    ] = None
+    methodology_url: Annotated[
+        MethodologyUrl | None, Field(description="Methodology write-up", title="Methodology Url")
+    ] = None
+    repository_url: Annotated[
+        RepositoryUrl | None, Field(description="Source code repository", title="Repository Url")
+    ] = None
+    release_url: Annotated[
+        ReleaseUrl | None,
+        Field(description="Landing page for this specific release", title="Release Url"),
+    ] = None
+    source_release_date: Annotated[
+        date_aliased | None,
+        Field(
+            description="Date the upstream source released this data", title="Source Release Date"
+        ),
+    ] = None
+    license_url: Annotated[
+        LicenseUrl | None, Field(description="Licence text URL", title="License Url")
+    ] = None
+    doi: Annotated[Doi | None, Field(description="DOI for the dataset", title="Doi")] = None
+    citation: Annotated[
+        Citation | None,
+        Field(description="Citation string for referencing this release", title="Citation"),
+    ] = None
+    intended_uses: Annotated[
+        IntendedUses | None, Field(description="What the data suits", title="Intended Uses")
+    ] = None
+    limitations: Annotated[
+        Limitations | None, Field(description="Known limitations", title="Limitations")
+    ] = None
+
+
 class BookDraftRequest(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -1384,6 +1543,19 @@ class BookDraftRequest(BaseModel):
     visibility: Annotated[
         Visibility | None, Field(description="Initial visibility tier; defaults to ``hidden``.")
     ] = Visibility.hidden
+    authors: Annotated[
+        list[Author] | None,
+        Field(
+            description="Authors credited on this release. Defaults to empty rather than to the volume.",
+            title="Authors",
+        ),
+    ] = None
+    discovery: Annotated[
+        BookDiscoveryInput | None,
+        Field(
+            description="Discovery profile baked onto this release. The recorder resolves the producer's volume-level default against its per-release override and sends the resolved value."
+        ),
+    ] = None
     metadata: Annotated[
         dict[str, Any] | None,
         Field(description="Optional metadata blob copied onto the new book.", title="Metadata"),
@@ -1573,24 +1745,6 @@ class DiscoveryProfile(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    title: Annotated[
-        Title | None, Field(description="Human-readable display title", title="Title")
-    ] = None
-    abstract: Annotated[
-        Abstract | None, Field(description="Concise dataset summary", title="Abstract")
-    ] = None
-    publisher: Annotated[
-        Publisher | None, Field(description="Source or publisher organisation", title="Publisher")
-    ] = None
-    publisher_url: Annotated[
-        PublisherUrl | None, Field(description="Publisher homepage", title="Publisher Url")
-    ] = None
-    topics: Annotated[
-        list[str] | None, Field(description="Dataset themes or topics", title="Topics")
-    ] = None
-    keywords: Annotated[
-        list[str] | None, Field(description="Free-form keywords", title="Keywords")
-    ] = None
     spatial_coverage: Annotated[
         list[str] | None,
         Field(
@@ -1614,6 +1768,18 @@ class DiscoveryProfile(BaseModel):
         Frequency | None,
         Field(description="Observation frequency, such as 'annual'", title="Frequency"),
     ] = None
+    title: Annotated[
+        Title | None, Field(description="Human-readable display title", title="Title")
+    ] = None
+    abstract: Annotated[
+        Abstract | None, Field(description="Concise dataset summary", title="Abstract")
+    ] = None
+    publisher: Annotated[
+        Publisher | None, Field(description="Source or publisher organisation", title="Publisher")
+    ] = None
+    publisher_url: Annotated[
+        PublisherUrl | None, Field(description="Publisher homepage", title="Publisher Url")
+    ] = None
     homepage_url: Annotated[
         HomepageUrl | None, Field(description="Dataset homepage", title="Homepage Url")
     ] = None
@@ -1630,19 +1796,11 @@ class DiscoveryProfile(BaseModel):
         ReleaseUrl | None,
         Field(description="Landing page for this specific release", title="Release Url"),
     ] = None
-    update_cadence: Annotated[
-        UpdateCadence | None,
-        Field(description="How often the source is refreshed", title="Update Cadence"),
-    ] = None
     source_release_date: Annotated[
         date_aliased | None,
         Field(
             description="Date the upstream source released this data", title="Source Release Date"
         ),
-    ] = None
-    data_vintage: Annotated[
-        DataVintage | None,
-        Field(description="Last year the underlying data runs through", title="Data Vintage"),
     ] = None
     license_url: Annotated[
         LicenseUrl | None, Field(description="Licence text URL", title="License Url")
@@ -1669,6 +1827,16 @@ class DiscoveryProfile(BaseModel):
     deprecation_note: Annotated[
         DeprecationNote | None,
         Field(description="Why the volume was deprecated", title="Deprecation Note"),
+    ] = None
+    topics: Annotated[
+        list[str] | None, Field(description="Dataset themes or topics", title="Topics")
+    ] = None
+    keywords: Annotated[
+        list[str] | None, Field(description="Free-form keywords", title="Keywords")
+    ] = None
+    update_cadence: Annotated[
+        UpdateCadence | None,
+        Field(description="How often the source is refreshed", title="Update Cadence"),
     ] = None
 
 
@@ -2134,7 +2302,10 @@ class VolumeCreate(BaseModel):
         Description2 | None,
         Field(description="Optional long-form description", title="Description"),
     ] = None
-    license: Annotated[str, Field(description="SPDX license identifier", title="License")]
+    license: Annotated[
+        str | None,
+        Field(description="SPDX license identifier, the default a book inherits", title="License"),
+    ] = None
     metadata: Annotated[
         dict[str, Any] | None, Field(description="Arbitrary JSON metadata", title="Metadata")
     ] = None
@@ -2144,12 +2315,9 @@ class VolumeCreate(BaseModel):
     maintainers: Annotated[
         list[Author] | None, Field(description="List of maintainers", title="Maintainers")
     ] = None
-    citation: Annotated[
-        Citation1 | None,
-        Field(description="Citation string for referencing this dataset", title="Citation"),
-    ] = None
     discovery: Annotated[
-        DiscoveryProfile | None, Field(description="Typed discovery and release metadata")
+        VolumeDiscoveryInput | None,
+        Field(description="Typed discovery metadata that holds across every release"),
     ] = None
 
 
@@ -2158,14 +2326,14 @@ class VolumeDetailResponse(BaseModel):
     name: Annotated[str, Field(title="Name")]
     owner_org_id: Annotated[str, Field(title="Owner Org Id")]
     description: Annotated[str | None, Field(title="Description")]
-    license: Annotated[str, Field(title="License")]
+    license: Annotated[str | None, Field(title="License")]
     metadata: Annotated[dict[str, Any], Field(title="Metadata")]
     discovery: Annotated[
-        DiscoveryProfile | None, Field(description="Typed discovery and release metadata")
+        DiscoveryProfile | None,
+        Field(description="Discovery metadata, composed from the latest published book"),
     ] = None
     authors: Annotated[list[Author], Field(title="Authors")]
     maintainers: Annotated[list[Author], Field(title="Maintainers")]
-    citation: Annotated[str | None, Field(title="Citation")]
     created_at: Annotated[AwareDatetime, Field(title="Created At")]
     updated_at: Annotated[AwareDatetime, Field(title="Updated At")]
     versions: Annotated[list[VersionInfo], Field(title="Versions")]
@@ -2177,18 +2345,18 @@ class VolumeListItem(BaseModel):
     name: Annotated[str, Field(title="Name")]
     owner_org_id: Annotated[str, Field(title="Owner Org Id")]
     description: Annotated[str | None, Field(title="Description")]
-    license: Annotated[str, Field(title="License")]
+    license: Annotated[str | None, Field(title="License")]
     authors: Annotated[
         list[Author] | None, Field(description="List of authors/contributors", title="Authors")
     ] = None
     maintainers: Annotated[
         list[Author] | None, Field(description="List of maintainers", title="Maintainers")
     ] = None
-    citation: Annotated[str | None, Field(title="Citation")] = None
     created_at: Annotated[AwareDatetime, Field(title="Created At")]
     updated_at: Annotated[AwareDatetime, Field(title="Updated At")]
     discovery: Annotated[
-        DiscoveryProfile | None, Field(description="Typed discovery and release metadata")
+        DiscoveryProfile | None,
+        Field(description="Discovery metadata, composed from the latest published book"),
     ] = None
     latest_version: Annotated[
         str | None, Field(description="Most recent version string", title="Latest Version")
@@ -2228,40 +2396,16 @@ class VolumeResponse(BaseModel):
     name: Annotated[str, Field(title="Name")]
     owner_org_id: Annotated[str, Field(title="Owner Org Id")]
     description: Annotated[str | None, Field(title="Description")]
-    license: Annotated[str, Field(title="License")]
+    license: Annotated[str | None, Field(title="License")]
     metadata: Annotated[dict[str, Any], Field(title="Metadata")]
     discovery: Annotated[
-        DiscoveryProfile | None, Field(description="Typed discovery and release metadata")
+        DiscoveryProfile | None,
+        Field(description="Discovery metadata, composed from the latest published book"),
     ] = None
     authors: Annotated[list[Author], Field(title="Authors")]
     maintainers: Annotated[list[Author], Field(title="Maintainers")]
-    citation: Annotated[str | None, Field(title="Citation")]
     created_at: Annotated[AwareDatetime, Field(title="Created At")]
     updated_at: Annotated[AwareDatetime, Field(title="Updated At")]
-
-
-class VolumeUpdate(BaseModel):
-    description: Annotated[
-        Description3 | None, Field(description="Updated description", title="Description")
-    ] = None
-    metadata: Annotated[
-        dict[str, Any] | None,
-        Field(description="Updated metadata (replaces existing)", title="Metadata"),
-    ] = None
-    authors: Annotated[
-        list[Author] | None,
-        Field(description="Updated authors list (replaces existing)", title="Authors"),
-    ] = None
-    maintainers: Annotated[
-        list[Author] | None,
-        Field(description="Updated maintainers list (replaces existing)", title="Maintainers"),
-    ] = None
-    citation: Annotated[
-        Citation2 | None, Field(description="Updated citation string", title="Citation")
-    ] = None
-    discovery: Annotated[
-        DiscoveryProfile | None, Field(description="Updated discovery profile (replaces existing)")
-    ] = None
 
 
 class BookDetail(BaseModel):
@@ -2290,6 +2434,12 @@ class BookDetail(BaseModel):
     ] = None
     citation_doi: Annotated[
         str | None, Field(description="Citation DOI for the book.", title="Citation Doi")
+    ] = None
+    authors: Annotated[
+        list[Author] | None, Field(description="Authors credited on this release.", title="Authors")
+    ] = None
+    discovery: Annotated[
+        BookDiscovery | None, Field(description="Discovery profile baked onto this release.")
     ] = None
     metadata: Annotated[
         dict[str, Any] | None, Field(description="Free-form metadata blob.", title="Metadata")
