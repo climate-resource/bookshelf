@@ -568,7 +568,12 @@ class RecordingSink:
         )
 
     def use(self, name: str) -> ResolvedResource:
-        """Fetch, verify, cache and register the named resource of the recorded version."""
+        """Resolve the named resource of the recorded version.
+
+        A fetched or checked-in resource is verified, cached and registered as a pointer.
+        A ``bookshelf://`` resource is looked up instead, and registers nothing,
+        because the platform already holds it.
+        """
         if self._resolved is None:
             raise BookshelfError("this recording carries no version, so it declares no resources")
         return resolve_resource(
