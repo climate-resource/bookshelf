@@ -36,6 +36,7 @@ defaults:                                  # what every book starts from
     homepage_url: https://www.pik-potsdam.de/paris-reality-check/primap-hist/
     methodology_url: https://essd.copernicus.org/articles/17/3873/2025/
   # visibility: hidden                     # optional, and hidden when it is left out
+  license: CC-BY
   resources:
     raw:
       type: tabular                        # the type does not move between books
@@ -58,6 +59,21 @@ books:
     resources:
       raw:                     # type comes from defaults
         uri: https://zenodo.org/api/records/17090760/files/data.csv/content
+        sha256: 77834f5f16197a463fe3df7e0eb3adda62a9e48355c9481926133986e35a9019
+  - version: "v2.8b1"          # a quoted string, always, and unique across the books
+    doi: 10.5281/zenodo.17090760
+    release_date: 2025-08-22
+    description: Adds 2023, revises the third-party gap filling.
+    license: CC-BY
+    visibility: hidden
+    publisher: Climate Resource
+    release_url: https://zenodo.org/records/17090760
+    authors:
+      - name: Jared Lewis
+        email: jared.lewis@climate-resource.com
+    resources:
+      raw:                     # type comes from defaults
+        uri: file://data/
         sha256: 77834f5f16197a463fe3df7e0eb3adda62a9e48355c9481926133986e35a9019
 ```
 

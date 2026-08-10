@@ -8,6 +8,7 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
@@ -15,9 +16,11 @@ from bookshelf._produce.types import RegisterItem
 from bookshelf._produce.visibility import INHERIT
 from bookshelf.publisher.bundle import Bundle
 from bookshelf.publisher.recipe import (
+    BookSpec,
     PersonSpec,
     RecordRecipe,
     ResolvedBook,
+    VolumeSection,
     load_record_recipe,
     resolve_book_visibility,
 )
@@ -401,7 +404,7 @@ def test_books_stated_as_a_mapping_is_rejected(tmp_path: Path) -> None:
 
 
 def test_two_books_claiming_one_version_are_rejected(tmp_path: Path) -> None:
-    """A list cannot enforce this the way a mapping's keys did, so the loader does."""
+    """Two books claiming one version would make ``--version`` pick by position."""
     path = _write(
         tmp_path,
         """\
@@ -417,6 +420,18 @@ def test_two_books_claiming_one_version_are_rejected(tmp_path: Path) -> None:
 
     with pytest.raises(BookshelfError, match="more than one book for 'v1.0'"):
         load_record_recipe(path)
+
+
+def test_a_repeated_version_is_refused_however_the_recipe_was_built(tmp_path: Path) -> None:
+    """The rule sits on the model, so building one directly cannot skip it."""
+    with pytest.raises(ValidationError, match="more than one book for 'v1.0'"):
+        RecordRecipe(
+            volume=VolumeSection(name="my-dataset"),
+            books=(
+                BookSpec(version="v1.0", license="MIT"),
+                BookSpec(version="v1.0", license="CC-BY"),
+            ),
+        )
 
 
 def test_a_book_that_states_no_version_is_rejected(tmp_path: Path) -> None:

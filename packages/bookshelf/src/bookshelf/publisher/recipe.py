@@ -136,8 +136,7 @@ class _ResourceFields(_Section):
     because the extension describes the container and the type describes the content.
 
     The rules here are structural, and nothing in this module fetches anything.
-    Whether a declaration is complete is :class:`ResourceSpec`'s question,
-    which is why this base asks only whether each stated field is well formed.
+    Each stated field is checked on its own, and every field is optional.
     """
 
     type: models.ResourceType | None = None
@@ -226,8 +225,7 @@ class DefaultsSection(_Section):
     A book overrides any of it, and the merge is field by field rather than section by section,
     so stating one discovery field on a book keeps the rest of the defaults.
 
-    Nothing here is required, and a recipe that omits the section entirely behaves as it did
-    before the section existed.
+    Nothing here is required.
     """
 
     discovery: DiscoveryFields = Field(default_factory=DiscoveryFields)
@@ -323,6 +321,29 @@ class RecordRecipe(BaseModel):
     defaults: DefaultsSection = Field(default_factory=DefaultsSection)
     build: BuildSection = Field(default_factory=BuildSection)
     books: tuple[BookSpec, ...] = ()
+
+    @model_validator(mode="after")
+    def _one_book_per_version(self) -> Self:
+        """Refuse a recipe that declares the same version twice.
+
+        Two books claiming one version would make ``--version`` pick by position,
+        which is not a choice an author ever intends to express.
+        It sits on the model rather than in the loader so that ``resolve`` can trust it
+        however the recipe was built.
+        """
+        seen: set[str] = set()
+        repeated: set[str] = set()
+        for book in self.books:
+            if book.version in seen:
+                repeated.add(book.version)
+            seen.add(book.version)
+        if repeated:
+            listed = ", ".join(repr(version) for version in sorted(repeated))
+            raise ValueError(
+                f"declares more than one book for {listed}. "
+                "A version names one book, so give each book its own version"
+            )
+        return self
 
     @property
     def versions(self) -> tuple[str, ...]:
@@ -595,35 +616,18 @@ def load_record_recipe(path: Path) -> RecordRecipe:
                 where=where,
             )
         )
-    _one_book_per_version(path, books)
-
-    return RecordRecipe(
-        volume=_section(VolumeSection, volume_raw, path=path, where="volume"),
-        defaults=defaults,
-        build=_section(BuildSection, build_raw, path=path, where="build"),
-        books=tuple(books),
-    )
-
-
-def _one_book_per_version(path: Path, books: Collection[BookSpec]) -> None:
-    """Refuse a recipe that declares the same version twice.
-
-    A list cannot enforce this the way a mapping's keys did,
-    and two books claiming one version would make ``--version`` pick by position,
-    which is not a choice an author ever intends to express.
-    """
-    seen: set[str] = set()
-    repeated: set[str] = set()
-    for book in books:
-        if book.version in seen:
-            repeated.add(book.version)
-        seen.add(book.version)
-    if repeated:
-        listed = ", ".join(repr(version) for version in repeated)
-        raise BookshelfError(
-            f"{path} declares more than one book for {listed}. "
-            "A version names one book, so give each book its own version"
+    try:
+        return RecordRecipe(
+            volume=_section(VolumeSection, volume_raw, path=path, where="volume"),
+            defaults=defaults,
+            build=_section(BuildSection, build_raw, path=path, where="build"),
+            books=tuple(books),
         )
+    except ValidationError as exc:
+        # The whole-recipe rules live on the model, so their message arrives through pydantic
+        # and gets the path prefix here, like every other refusal the loader raises.
+        problem = exc.errors()[0]["msg"].removeprefix("Value error, ")
+        raise BookshelfError(f"{path} {problem}") from exc
 
 
 def resolve_book_visibility(
