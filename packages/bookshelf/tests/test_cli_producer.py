@@ -37,10 +37,10 @@ VERSION = "v1.0.0"
 
 def _recipe(path: Path, *, notebook: str | None = "build.py") -> Path:
     """Write a minimal valid record recipe, optionally without a notebook."""
-    lines = ["volume:", "  name: example", "  license: MIT"]
+    lines = ["volume:", "  name: example"]
     if notebook is not None:
         lines.extend(["build:", f"  notebook: {notebook}"])
-    lines.extend(["releases:", f'  "{VERSION}": {{}}'])
+    lines.extend(["versions:", f'  "{VERSION}":', "    license: MIT"])
     path.write_text("\n".join(lines) + "\n")
     return path
 
@@ -316,10 +316,10 @@ def test_record_validates_the_recipe_even_when_a_build_file_is_given(tmp_path: P
     assert result.exit_code == EXIT_USAGE
 
 
-def test_record_without_a_version_names_the_releases_the_recipe_declares(
+def test_record_without_a_version_names_the_versions_the_recipe_declares(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """There is no default release, so the message lists them rather than sending the caller away."""
+    """There is no default version, so the message lists them rather than sending the caller away."""
     _recipe(tmp_path / "bookshelf.yaml")
     (tmp_path / "build.py").write_text("x = 1\n")
     monkeypatch.chdir(tmp_path)
@@ -331,7 +331,7 @@ def test_record_without_a_version_names_the_releases_the_recipe_declares(
     assert f"'{VERSION}'" in _plain(result.stderr)
 
 
-def test_record_with_an_unknown_version_names_the_releases_the_recipe_declares(
+def test_record_with_an_unknown_version_names_the_versions_the_recipe_declares(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _recipe(tmp_path / "bookshelf.yaml")
@@ -343,7 +343,7 @@ def test_record_with_an_unknown_version_names_the_releases_the_recipe_declares(
     )
 
     assert result.exit_code == EXIT_USAGE
-    assert "no release 'v9.9.9'" in _plain(result.stderr)
+    assert "no version 'v9.9.9'" in _plain(result.stderr)
     assert f"'{VERSION}'" in _plain(result.stderr)
 
 

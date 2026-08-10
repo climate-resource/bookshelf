@@ -1,25 +1,22 @@
-"""What a feedstock declares once: its volume, its build, and each release it can produce.
+"""What a feedstock declares
 
-A recipe is sectioned.
-``volume:`` holds the facts that are true of the dataset whichever release is being built.
+A recipe can include:
+``volume:`` holds the facts that are true of the dataset whichever version is being built.
 ``build:`` holds the facts about how it is built.
-``releases:`` holds one entry per upstream version, and each entry restates itself in full.
+``versions:`` holds one entry per upstream version, and each entry restates itself in full,
+including the licence it goes out under and who may read it.
 
-The same content loads from either of two layouts.
-Form A puts everything in one ``bookshelf.yaml``.
-Form B keeps ``volume:`` and ``build:`` in ``bookshelf.yaml``
-and puts one file per release under ``releases/<version>.yaml``.
-The two produce an identical :class:`RecordRecipe`,
-so a feedstock can move between them without changing what is recorded.
+Everything lives in one ``bookshelf.yaml``.
 
 Three rules shape everything here:
 
 - Unknown keys are an error at every level, so a typo is never silently dropped.
-- A release inherits nothing from the release before it, so reading one release tells the whole story.
-- The recipe names no default release, so a version is stated exactly once, on the command line.
+- A version inherits nothing from the version before it, so reading one version tells the whole story.
+- The recipe names no default version, so a version is stated exactly once, on the command line.
 """
 
 import re
+from collections.abc import Collection
 from datetime import date
 from pathlib import Path
 from typing import Any, Self, get_args
@@ -33,11 +30,9 @@ from bookshelf._generated import models
 from bookshelf._produce.helpers import visibility as _visibility
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
 
-RELEASES_DIRNAME = "releases"
-_RELEASE_SUFFIXES = (".yaml", ".yml")
 _SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 
-_TOP_LEVEL_KEYS = ("volume", "build", RELEASES_DIRNAME)
+_TOP_LEVEL_KEYS = ("volume", "build", "versions")
 
 # The keys of the removed flat form.
 # Any of them at the top level means the recipe was written against the shape that no longer loads.
@@ -50,11 +45,23 @@ class _Section(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
+class PersonSpec(_Section):
+    """One credited person, in the shape the platform's author field takes.
+
+    ``name`` is the only required field.
+    """
+
+    name: str = Field(min_length=1)
+    email: str | None = Field(default=None, min_length=1)
+    affiliation: str | None = Field(default=None, min_length=1)
+    orcid: str | None = Field(default=None, min_length=1)
+
+
 class DiscoveryFields(_Section):
-    """The catalogue metadata a volume may default and any release may override.
+    """The catalogue metadata a volume may default and any version may override.
 
     Every field is optional at both levels.
-    A release's value wins where it is set, and the volume's applies everywhere else.
+    A version's value wins where it is set, and the volume's applies everywhere else.
     Nothing here is computed from the data.
     Coverage, variables, units and frequency are derived per resource by the platform,
     so declaring them in a recipe would only let them go stale.
@@ -74,24 +81,26 @@ class DiscoveryFields(_Section):
     intended_uses: str | None = None
     limitations: str | None = None
     doi: str | None = None
-    source_release_date: date | None = None
+    release_date: date | None = None
     description: str | None = None
-    authors: list[dict[str, Any]] | None = None
+    authors: list[PersonSpec] | None = None
 
 
 class VolumeSection(_Section):
-    """The long-lived collection: what stays true across every release.
+    """The long-lived collection: what stays true across every version.
 
     ``name`` is the slug, and it is the one fact here that cannot change.
-    ``license`` is the default every release takes unless it declares its own.
     ``topics`` and ``keywords`` are the search vocabulary,
-    which is why they are declared once for the volume rather than per release.
+    which is why they are declared once for the volume rather than per version.
     Letting them vary would make a filter return a different volume depending on which edition matched.
+
+    A licence is not declared here.
+    Each version states its own, because a relicensed version is common
+    and a default here would let one be published under the wrong terms without anyone writing it down.
     """
 
     name: str = Field(min_length=1)
-    license: str | None = Field(default=None, min_length=1)
-    maintainers: list[dict[str, Any]] = Field(default_factory=list)
+    maintainers: list[PersonSpec] = Field(default_factory=list)
     topics: list[str] = Field(default_factory=list)
     keywords: list[str] = Field(default_factory=list)
     update_cadence: str | None = None
@@ -102,35 +111,15 @@ class VolumeSection(_Section):
 
 
 class BuildSection(_Section):
-    """How the dataset is built, and the tier what it produces is published at.
-
-    Visibility sits here rather than on the volume,
-    because it is a property of what a build publishes rather than of the collection's identity.
-    """
+    """How the dataset is built."""
 
     notebook: Path | None = None
-    visibility: str | None = None
-
-    @field_validator("visibility", mode="before")
-    @classmethod
-    def _a_known_tier(cls, value: Any) -> Any:  # noqa: ANN401
-        """Reject an unknown tier by name, rather than by pydantic's enum rendering.
-
-        The membership test runs behind an ``isinstance`` guard,
-        so an unhashable value raises this error rather than a bare ``TypeError``.
-        """
-        if value is None:
-            return None
-        if not isinstance(value, str) or value not in set(models.Visibility):
-            allowed = ", ".join(sorted(models.Visibility))
-            raise ValueError(f"visibility must be one of {allowed}, got {value!r}")
-        return value
 
 
-class SourceSpec(_Section):
-    """One upstream input a release is built from.
+class ResourceSpec(_Section):
+    """One upstream input a version is built from.
 
-    A source is either remote or checked in, never both:
+    A resource is either remote or checked in, never both:
 
     - ``uri`` names something to fetch, and its declared ``sha256`` is what the fetch is checked
       against.
@@ -149,14 +138,14 @@ class SourceSpec(_Section):
     @field_validator("path")
     @classmethod
     def _a_path_beside_the_recipe(cls, value: Path | None) -> Path | None:
-        """Keep a path source inside the feedstock, as a structural check rather than a lookup.
+        """Keep a path resource inside the feedstock, as a structural check rather than a lookup.
 
         The loader touches no filesystem, so this rejects the shapes that could never be
         checked in beside the recipe rather than asking whether the file is there.
         """
         if value is not None and (value.is_absolute() or ".." in value.parts):
             raise ValueError(
-                "a path source is relative to the recipe and stays beside it. "
+                "a path resource is relative to the recipe and stays beside it. "
                 "Check the file in next to bookshelf.yaml, or use uri for something remote"
             )
         return value
@@ -172,36 +161,61 @@ class SourceSpec(_Section):
     def _one_location_only(self) -> Self:
         if (self.uri is None) == (self.path is None):
             raise ValueError(
-                "a source declares exactly one of uri or path. "
+                "a resource declares exactly one of uri or path. "
                 "Use uri for something to fetch, or path for a file beside the recipe"
             )
         if self.uri is not None and self.sha256 is None:
             raise ValueError(
-                "a uri source declares the sha256 the fetch is checked against. "
+                "a uri resource declares the sha256 the fetch is checked against. "
                 "Add sha256, or check the file in and use path instead"
             )
         return self
 
 
-class ReleaseSpec(DiscoveryFields):
+class VersionSpec(DiscoveryFields):
     """One upstream version, stated in full.
 
-    A release carries whichever discovery fields it overrides, its licence, and its sources.
-    It inherits nothing from the release before it.
+    A version carries whichever discovery fields it overrides,
+    its licence, its visibility, and its resources.
+    It inherits nothing from the version before it.
     There is no ``extends`` and no carry-forward,
-    so a reader never has to walk backwards through the file to learn what a release is built from.
+    so a reader never has to walk backwards through the file to learn what a version is built from.
+
+    ``license`` is required, so the terms a book is published under are always stated
+    next to the version they apply to.
+
+    ``visibility`` sits here for the same reason, because who may read a version
+    is a fact about that version rather than about the collection or about how it is built.
+    An embargoed version alongside published ones is ordinary.
+    Omitting it means ``hidden``, so the way to get it wrong is the way that shows nobody the data.
     """
 
-    license: str | None = Field(default=None, min_length=1)
-    sources: dict[str, SourceSpec] = Field(default_factory=dict)
+    license: str = Field(min_length=1)
+    visibility: str | None = None
+    resources: dict[str, ResourceSpec] = Field(default_factory=dict)
+
+    @field_validator("visibility", mode="before")
+    @classmethod
+    def _a_known_tier(cls, value: Any) -> Any:  # noqa: ANN401
+        """Reject an unknown tier by name, rather than by pydantic's enum rendering.
+
+        The membership test runs behind an ``isinstance`` guard,
+        so an unhashable value raises this error rather than a bare ``TypeError``.
+        """
+        if value is None:
+            return None
+        if not isinstance(value, str) or value not in set(models.Visibility):
+            allowed = ", ".join(sorted(models.Visibility))
+            raise ValueError(f"visibility must be one of {allowed}, got {value!r}")
+        return value
 
 
-class ResolvedRelease(BaseModel):
-    """One release with the volume's defaults already merged in.
+class ResolvedVersion(BaseModel):
+    """One version with the volume's defaults already merged in.
 
     This is what the recorder consumes.
-    ``sequence`` is the release's position in recipe order, counting from zero,
-    so a consumer can order releases without parsing a version string.
+    ``sequence`` is the version's position in recipe order, counting from zero,
+    so a consumer can order versions without parsing a version string.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -209,19 +223,22 @@ class ResolvedRelease(BaseModel):
     version: str
     sequence: int
     license: str
+    visibility: str | None
     discovery: DiscoveryFields
-    sources: dict[str, SourceSpec] = Field(default_factory=dict)
+    resources: dict[str, ResourceSpec] = Field(default_factory=dict)
 
     @property
     def authors(self) -> tuple[dict[str, Any], ...]:
-        """The people credited with this release, as the producer surfaces take them."""
-        return tuple(dict(author) for author in self.discovery.authors or ())
+        """The people credited with this version, as the producer surfaces take them."""
+        return tuple(
+            author.model_dump(exclude_none=True) for author in self.discovery.authors or ()
+        )
 
 
 class RecordRecipe(BaseModel):
-    """A loaded recipe: one volume, one build, and the releases it can produce.
+    """A loaded recipe: one volume, one build, and the versions it can produce.
 
-    ``releases`` keeps recipe order,
+    ``versions`` keeps recipe order,
     which is the order form A's mapping states and the order form B's filenames sort into.
     """
 
@@ -229,25 +246,20 @@ class RecordRecipe(BaseModel):
 
     volume: VolumeSection
     build: BuildSection = Field(default_factory=BuildSection)
-    releases: dict[str, ReleaseSpec] = Field(default_factory=dict)
+    versions: dict[str, VersionSpec] = Field(default_factory=dict)
 
-    @property
-    def versions(self) -> tuple[str, ...]:
-        """Every version this recipe defines, in recipe order."""
-        return tuple(self.releases)
-
-    def release(self, version: str) -> ResolvedRelease:
-        """Resolve one release against the volume's defaults.
+    def resolve(self, version: str) -> ResolvedVersion:
+        """Resolve one version against the volume's defaults.
 
         This is the single place a declared value becomes an effective one,
         so a caller never merges the two levels itself.
-        Raises :class:`~bookshelf._core.errors.BookshelfError` naming the available releases
+        Raises :class:`~bookshelf._core.errors.BookshelfError` naming the available versions
         when the recipe does not define ``version``.
         """
-        spec = self.releases.get(version)
+        spec = self.versions.get(version)
         if spec is None:
             raise BookshelfError(
-                f"the recipe defines no release {version!r}. {available_releases(self.versions)}"
+                f"the recipe defines no version {version!r}. {available_versions(self.versions)}"
             )
         merged = {
             name: (
@@ -257,25 +269,20 @@ class RecordRecipe(BaseModel):
             )
             for name in DiscoveryFields.model_fields
         }
-        license_ = spec.license or self.volume.license
-        if license_ is None:
-            raise BookshelfError(
-                f"release {version!r} has no licence. "
-                "Set 'license:' under 'volume:' for every release, or on this release"
-            )
-        return ResolvedRelease(
+        return ResolvedVersion(
             version=version,
-            sequence=self.versions.index(version),
-            license=license_,
+            sequence=tuple(self.versions).index(version),
+            license=spec.license,
+            visibility=spec.visibility,
             discovery=DiscoveryFields(**merged),
-            sources=dict(spec.sources),
+            resources=dict(spec.resources),
         )
 
 
-def available_releases(versions: tuple[str, ...]) -> str:
-    """Name the releases a caller can choose between, or say there are none."""
+def available_versions(versions: Collection[str]) -> str:
+    """Name the versions a caller can choose between, or say there are none."""
     if not versions:
-        return "The recipe declares no releases. Add one under 'releases:'."
+        return "The recipe declares no versions. Add one under 'versions:'."
     listed = ", ".join(repr(version) for version in versions)
     return f"The recipe declares {listed}."
 
@@ -352,38 +359,23 @@ def _section[SectionT: BaseModel](
         raise BookshelfError(f"{path} has {len(problems)} problems:\n{listed}") from exc
 
 
-def _release_documents(path: Path, raw: dict[str, Any]) -> dict[str, Any]:
-    """Collect the raw release bodies from whichever of the two layouts the feedstock uses.
-
-    A recipe that uses both layouts is rejected rather than merged,
-    because merging would make the file that states a release depend on which one loaded first.
-    """
-    directory = path.parent / RELEASES_DIRNAME
-    declared = raw.get(RELEASES_DIRNAME)
-    # A directory that holds no release file is not a layout choice.
-    # It is a placeholder such as `.keep`, so it neither shadows the key nor loads zero releases.
-    from_directory = _releases_from_directory(directory) if directory.is_dir() else {}
-    if from_directory:
-        if declared is not None:
-            raise BookshelfError(
-                f"{path} declares 'releases:' and {directory} also holds release files. "
-                "Keep the releases in one place: drop the key, or delete the directory"
-            )
-        return from_directory
+def _version_documents(path: Path, raw: dict[str, Any]) -> dict[str, Any]:
+    """Collect the raw version bodies the recipe declares, keyed by version."""
+    declared = raw.get("versions")
     if declared is None:
         return {}
     if not isinstance(declared, dict):
-        raise BookshelfError(f"{path} releases must be a mapping of version to release")
+        raise BookshelfError(f"{path} versions must be a mapping of version to its body")
     documents: dict[str, Any] = {}
     for key, body in declared.items():
         if not isinstance(key, str):
-            raise BookshelfError(f"{path} {_unquoted_release_key(key)}")
+            raise BookshelfError(f"{path} {_unquoted_version_key(key)}")
         documents[key] = body
     return documents
 
 
-def _unquoted_release_key(key: Any) -> str:  # noqa: ANN401
-    """Name the fix for a release key YAML did not read as a string.
+def _unquoted_version_key(key: Any) -> str:  # noqa: ANN401
+    """Name the fix for a version key YAML did not read as a string.
 
     A float gets the collision reasoning, because that is the case where quoting changes meaning
     rather than only type.
@@ -392,35 +384,18 @@ def _unquoted_release_key(key: Any) -> str:  # noqa: ANN401
     """
     if isinstance(key, float):
         return (
-            f'release key {key} is a number. Quote it as "{key}", '
+            f'version key {key} is a number. Quote it as "{key}", '
             "because an unquoted version is read as a YAML float "
             "and 2.70 and 2.7 would collide"
         )
     return (
-        f"release key {key} is not a string, because YAML read it as a {type(key).__name__}. "
+        f"version key {key} is not a string, because YAML read it as a {type(key).__name__}. "
         "Quote the key exactly as you wrote it, because a version is a string"
     )
 
 
-def _releases_from_directory(directory: Path) -> dict[str, Any]:
-    """Read one release per file, ordered by filename, with the file stem as the version."""
-    files = sorted(
-        (child for child in directory.iterdir() if child.suffix.lower() in _RELEASE_SUFFIXES),
-        key=lambda child: child.name,
-    )
-    documents: dict[str, Any] = {}
-    for child in files:
-        if child.stem in documents:
-            raise BookshelfError(
-                f"{directory} declares release {child.stem!r} twice, once per file extension. "
-                "Keep one file per release"
-            )
-        documents[child.stem] = yaml.safe_load(child.read_text(encoding="utf-8")) or {}
-    return documents
-
-
 def load_record_recipe(path: Path) -> RecordRecipe:
-    """Load a sectioned recipe from ``path``, in either of its two layouts.
+    """Load a sectioned recipe from ``path``.
 
     Every rule the recipe promises is enforced here,
     so a recipe that loads is one the recorder can run without rechecking it.
@@ -432,7 +407,7 @@ def load_record_recipe(path: Path) -> RecordRecipe:
         raise BookshelfError(
             f"{path} uses the removed flat recipe form. "
             "Move 'collection' under 'volume: name:', 'notebook' under 'build:', "
-            "and declare each release under 'releases:'"
+            "and declare each version under 'versions:'"
         )
     unknown = [key for key in raw if key not in _TOP_LEVEL_KEYS]
     if unknown:
@@ -444,33 +419,41 @@ def load_record_recipe(path: Path) -> RecordRecipe:
     if "volume" not in raw:
         raise BookshelfError(f"{path} declares no volume. Add 'volume:' with a 'name:' under it")
 
+    volume_raw = raw.get("volume")
+    if isinstance(volume_raw, dict) and "license" in volume_raw:
+        raise BookshelfError(
+            f"{path} declares 'license' under 'volume:'. "
+            "A licence is stated per version, so move it onto every version under 'versions:'"
+        )
+
+    build_raw = raw.get("build")
+    if isinstance(build_raw, dict) and "visibility" in build_raw:
+        raise BookshelfError(
+            f"{path} declares 'visibility' under 'build:'. "
+            "Visibility is stated per version, so move it onto every version "
+            "that is not hidden under 'versions:'"
+        )
+
     recipe = RecordRecipe(
-        volume=_section(VolumeSection, raw.get("volume"), path=path, where="volume"),
-        build=_section(BuildSection, raw.get("build"), path=path, where="build"),
-        releases={
-            version: _section(ReleaseSpec, body, path=path, where=f'releases."{version}"')
-            for version, body in _release_documents(path, raw).items()
+        volume=_section(VolumeSection, volume_raw, path=path, where="volume"),
+        build=_section(BuildSection, build_raw, path=path, where="build"),
+        versions={
+            version: _section(VersionSpec, body, path=path, where=f'versions."{version}"')
+            for version, body in _version_documents(path, raw).items()
         },
     )
-    # Resolve every release, not just the one being built,
-    # so a recipe that would fail on some other version fails now rather than on the day it is built.
-    for version in recipe.versions:
-        try:
-            recipe.release(version)
-        except BookshelfError as exc:
-            raise BookshelfError(f"{path} {exc}") from exc
     return recipe
 
 
 def resolve_book_visibility(
     declared: VisibilityInput | None,
     *,
-    recipe: RecordRecipe | None = None,
+    resolved: ResolvedVersion | None = None,
     default: models.Visibility = models.Visibility.hidden,
 ) -> models.Visibility:
     """Resolve the tier a recorded book takes, which is also the default its resources take.
 
-    The rule is: the caller, then the recipe's ``build.visibility``, then ``default``.
+    The rule is: the caller, then the version's ``visibility``, then ``default``.
     ``None`` and :data:`~bookshelf._produce.visibility.INHERIT` both mean the caller said nothing.
     An empty string is invalid input to reject, never a signal to inherit the recipe's value.
 
@@ -479,20 +462,19 @@ def resolve_book_visibility(
     A registration that passes its own ``visibility=`` narrows or widens that one resource.
     """
     if declared is None or declared is INHERIT:
-        declared = (recipe.build.visibility if recipe is not None else None) or default
+        declared = (resolved.visibility if resolved is not None else None) or default
     return _visibility(declared, default)
 
 
 __all__ = [
-    "RELEASES_DIRNAME",
     "BuildSection",
     "DiscoveryFields",
     "RecordRecipe",
-    "ReleaseSpec",
-    "ResolvedRelease",
-    "SourceSpec",
+    "ResolvedVersion",
+    "ResourceSpec",
+    "VersionSpec",
     "VolumeSection",
-    "available_releases",
+    "available_versions",
     "load_record_recipe",
     "resolve_book_visibility",
 ]

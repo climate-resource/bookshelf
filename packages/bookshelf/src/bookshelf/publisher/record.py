@@ -22,7 +22,7 @@ from bookshelf.publisher.bundle import Bundle
 from bookshelf.publisher.notebook import ExecutedNotebook, execute_python_build
 from bookshelf.publisher.recipe import (
     RecordRecipe,
-    ResolvedRelease,
+    ResolvedVersion,
     load_record_recipe,
     resolve_book_visibility,
 )
@@ -32,7 +32,7 @@ from bookshelf.publisher.recording import RecordedDraftBook, RecordingBookshelf
 @dataclass(slots=True)
 class _RecordingContext:
     recipe: RecordRecipe
-    release: ResolvedRelease
+    resolved: ResolvedVersion
     bundle: Bundle
     bookshelf: RecordingBookshelf | None = None
     book: RecordedDraftBook | None = None
@@ -96,23 +96,23 @@ def setup(
                 f"build collection {collection!r} does not match recipe volume "
                 f"{context.recipe.volume.name!r}"
             )
-        if version is not None and version != context.release.version:
+        if version is not None and version != context.resolved.version:
             raise BookshelfError(
                 f"build version {version!r} does not match the recorded version "
-                f"{context.release.version!r}. "
+                f"{context.resolved.version!r}. "
                 "Drop version= from the build file, because 'bookshelf record --version' states it"
             )
         context.bookshelf = RecordingBookshelf(
             context.bundle,
             base_url,
             auth=auth,
-            authors=context.release.authors,
+            authors=context.resolved.authors,
         )
         book = context.bookshelf.draft_book(
             collection or context.recipe.volume.name,
-            version=context.release.version,
-            visibility=resolve_book_visibility(visibility, recipe=context.recipe),
-            license=license or context.release.license,
+            version=context.resolved.version,
+            visibility=resolve_book_visibility(visibility, resolved=context.resolved),
+            license=license or context.resolved.license,
         )
         if not isinstance(book, RecordedDraftBook):
             raise TypeError("recording sink returned a live draft book")
@@ -153,13 +153,13 @@ def run_record(
 ) -> dict[str, Any]:
     """Execute a standalone Jupytext build file into a reviewable bundle.
 
-    ``version`` selects the release from the recipe, and it is the only place a version is stated.
+    ``version`` selects the version from the recipe, and it is the only place a version is stated.
     It reaches the build through the recording context rather than through ``parameters``,
     so a build file cannot shadow it with a top-level assignment.
     """
     workdir = cwd or Path.cwd()
     recipe = load_record_recipe(recipe_path)
-    release = recipe.release(version)
+    resolved = recipe.resolve(version)
     selected = build_path or recipe.build.notebook
     if selected is None:
         raise BookshelfError("pass a build file or set notebook under 'build:' in bookshelf.yaml")
@@ -177,7 +177,7 @@ def run_record(
         dir=target.parent,
     ) as staging_dir:
         bundle = Bundle(Path(staging_dir))
-        context = _RecordingContext(recipe=recipe, release=release, bundle=bundle)
+        context = _RecordingContext(recipe=recipe, resolved=resolved, bundle=bundle)
         token = _ACTIVE_RECORDING.set(context)
         try:
             with tempfile.TemporaryDirectory(prefix="bookshelf-executed-") as artifacts:

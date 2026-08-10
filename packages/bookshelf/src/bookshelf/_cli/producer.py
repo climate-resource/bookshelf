@@ -50,7 +50,7 @@ from bookshelf.publisher import (
     run_record,
 )
 from bookshelf.publisher.bundle import InvalidBundleError
-from bookshelf.publisher.recipe import available_releases
+from bookshelf.publisher.recipe import available_versions
 
 _RECORD_REQUIREMENTS = ("nbformat", "nbconvert")
 _PAGE_SIZE = 100
@@ -99,21 +99,21 @@ def _load_recipe(path: Path) -> RecordRecipe:
 
 
 def _resolve_version(version: str | None, loaded: RecordRecipe) -> str:
-    """Resolve which release to build, naming the ones the recipe declares either way.
+    """Resolve which version to build, naming the ones the recipe declares either way.
 
     ``--version`` is required rather than defaulted,
     because a default in the recipe would be a second place a version is stated.
-    Both the omitted case and the unknown case list the releases,
+    Both the omitted case and the unknown case list the versions,
     so the message is the answer rather than a prompt to go and read the recipe.
     """
     if version is None:
         raise CliError(
-            f"record needs --version naming the release to build. "
-            f"{available_releases(loaded.versions)}",
+            f"record needs --version naming the version to build. "
+            f"{available_versions(loaded.versions)}",
             exit_code=EXIT_USAGE,
         )
     try:
-        loaded.release(version)
+        loaded.resolve(version)
     except BookshelfError as exc:
         raise CliError(str(exc), exit_code=EXIT_USAGE) from exc
     return version
@@ -220,7 +220,7 @@ def record(
     version: str | None = typer.Option(
         None,
         "--version",
-        help="Required. Release to build, naming a key under 'releases:' in the recipe.",
+        help="Required. Version to build, naming a key under 'versions:' in the recipe.",
     ),
     parameter: list[str] = typer.Option(
         [],
