@@ -34,8 +34,8 @@ volume:
   name: my-dataset
 build:
   notebook: build.py
-versions:
-  "v1.0.0":
+books:
+  - version: "v1.0.0"
     license: MIT
 {version_body}
 """

@@ -38,7 +38,7 @@ from bookshelf.publisher.bundle import (
     resource_filename,
     synthesise_pointer_hash,
 )
-from bookshelf.publisher.recipe import ResolvedVersion, resolve_book_visibility
+from bookshelf.publisher.recipe import ResolvedBook, resolve_book_visibility
 from bookshelf.publisher.resource import ResolvedResource, resolve_resource
 
 
@@ -441,7 +441,7 @@ class RecordingSink:
         *,
         authors: Sequence[Mapping[str, Any]] = (),
         default_visibility: models.Visibility = models.Visibility.hidden,
-        resolved: ResolvedVersion | None = None,
+        resolved: ResolvedBook | None = None,
         recipe_dir: Path | None = None,
     ) -> None:
         self.bundle = bundle
@@ -631,7 +631,7 @@ class RecordingBookshelf(Bookshelf):
         *,
         auth: AuthInput = UNSET,
         authors: Sequence[Mapping[str, Any]] = (),
-        resolved: ResolvedVersion | None = None,
+        resolved: ResolvedBook | None = None,
         recipe_dir: Path | None = None,
     ) -> None:
         super().__init__(base_url, auth=auth)
