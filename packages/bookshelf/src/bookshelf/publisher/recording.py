@@ -649,8 +649,7 @@ class RecordingBookshelf(Bookshelf):
             authors=authors,
             resolved=resolved,
             recipe_dir=recipe_dir,
-            # A bookshelf reference is a live read, so it goes through the same facade a
-            # consumer uses. Reads stay live on this facade even though writes do not.
+            # A bookshelf reference is a read, so it goes through the same facade a consumer uses.
             lookup_book=self.book,
         )
         # Every producer call moves to the recording adapter,

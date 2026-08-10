@@ -149,7 +149,10 @@ def resolve_resource(
     if reference is not None:
         return _referenced(name, reference=reference, declared=spec.type, lookup_book=lookup_book)
     if spec.type is None:
-        raise BookshelfError(f"resource {name!r} states no type")
+        raise BookshelfError(
+            f"resource {name!r} states no type. "
+            "Add type, or name a bookshelf resource, whose type the platform states"
+        )
     if spec.path is not None:
         # A checked-in file has no remote location, so the pointer records where it sits
         # in the feedstock rather than a URI the platform could resolve.

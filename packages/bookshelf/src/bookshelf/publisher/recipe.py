@@ -213,8 +213,8 @@ class ResourceSpec(_ResourceFields):
     def reference(self) -> BookshelfReference | None:
         """The published resource this declaration names, or ``None`` for a fetch or a file.
 
-        The URI was parsed once already to validate the declaration,
-        so a resolver reads the reference from here rather than parsing the string again.
+        Raises :class:`ValueError` where the URI takes the scheme without the coordinate,
+        which is what makes reading it enough to validate it.
         """
         if self.uri is None or not is_reference(self.uri):
             return None
@@ -227,8 +227,7 @@ class ResourceSpec(_ResourceFields):
                 "a resource declares exactly one of uri or path. "
                 "Use uri for something to fetch, or path for a file beside the recipe"
             )
-        if self.uri is not None and is_reference(self.uri):
-            BookshelfReference.parse(self.uri)
+        if self.reference is not None:
             if self.sha256 is not None:
                 raise ValueError(
                     "a bookshelf resource takes its digest from the platform, so it states no "

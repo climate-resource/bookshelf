@@ -172,6 +172,9 @@ They sit flat at both levels, and where both set it, the book wins.
   This is the field that usually belongs under `defaults:`, because it does not move between books.
   A `bookshelf://` resource may leave it out, because the platform already states it.
   Where it is stated it is checked, and a resource of another type is an error.
+- **Unknown keys are an error at every level**, so a typo is never silently dropped.
+- **Books are ordered by the recipe**, in the order the list states them.
+  Each resolved book carries its position, so nothing has to parse a version string to sort.
 
 ### Building on a published book
 
@@ -193,9 +196,6 @@ Nothing is fetched from upstream and nothing new is catalogued.
 The reference resolves to the existing resource,
 so `build.use("primap")` hands back the tracking id the platform already assigned
 and `used=[primap]` cites the original rather than a copy of it.
-- **Unknown keys are an error at every level**, so a typo is never silently dropped.
-- **Books are ordered by the recipe**, in the order the list states them.
-  Each resolved book carries its position, so nothing has to parse a version string to sort.
 
 ## Versioning
 
