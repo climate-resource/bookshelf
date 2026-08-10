@@ -34,6 +34,7 @@ from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf._produce.helpers import visibility as _visibility
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
+from bookshelf.publisher.reference import BookshelfReference, is_reference
 
 _SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 
@@ -124,16 +125,22 @@ class BuildSection(_Section):
 class _ResourceFields(_Section):
     """The fields a resource declaration carries, each one optional.
 
-    A resource is either remote or checked in, never both:
+    A resource has exactly one location, and it takes one of three forms:
 
     - ``uri`` names something to fetch, and its declared ``sha256`` is what the fetch is checked
       against.
+    - a ``uri`` under the ``bookshelf://`` scheme names data the platform already holds,
+      as :class:`~bookshelf.publisher.reference.BookshelfReference` describes.
+      It states no ``sha256``, because the platform is where that digest comes from.
     - ``path`` names a file beside the recipe, and its digest is computed when it is read.
 
     ``type`` is the same :class:`~bookshelf._generated.models.ResourceType` the resource
     registers under, so a recipe that loads cannot name a type the platform will refuse.
     It is never inferred from the file extension,
     because the extension describes the container and the type describes the content.
+    A ``bookshelf://`` resource may leave it out, because it registers nothing and the
+    platform already states the type. Where it is stated the resolved resource is checked
+    against it.
 
     The rules here are structural, and nothing in this module fetches anything.
     Each stated field is checked on its own, and every field is optional.
@@ -202,19 +209,40 @@ class ResourceSpec(_ResourceFields):
     are each incomplete, and together they are a resource.
     """
 
-    type: models.ResourceType
+    @property
+    def reference(self) -> BookshelfReference | None:
+        """The published resource this declaration names, or ``None`` for a fetch or a file.
+
+        Raises :class:`ValueError` where the URI takes the scheme without the coordinate,
+        which is what makes reading it enough to validate it.
+        """
+        if self.uri is None or not is_reference(self.uri):
+            return None
+        return BookshelfReference.parse(self.uri)
 
     @model_validator(mode="after")
-    def _one_location_only(self) -> Self:
+    def _one_complete_location(self) -> Self:
         if (self.uri is None) == (self.path is None):
             raise ValueError(
                 "a resource declares exactly one of uri or path. "
                 "Use uri for something to fetch, or path for a file beside the recipe"
             )
+        if self.reference is not None:
+            if self.sha256 is not None:
+                raise ValueError(
+                    "a bookshelf resource takes its digest from the platform, so it states no "
+                    "sha256. Remove sha256, or name something to fetch with an http uri instead"
+                )
+            return self
         if self.uri is not None and self.sha256 is None:
             raise ValueError(
                 "a uri resource declares the sha256 the fetch is checked against. "
                 "Add sha256, or check the file in and use path instead"
+            )
+        if self.type is None:
+            raise ValueError(
+                "type is required, because a resource states the type it registers under. "
+                f"It is one of: {', '.join(sorted(models.ResourceType))}"
             )
         return self
 

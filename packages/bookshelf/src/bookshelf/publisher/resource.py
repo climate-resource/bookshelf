@@ -6,6 +6,11 @@ so a build file reads an input with ``build.use("raw")`` and nothing else.
 
 The ``uri`` and ``path`` forms differ only in how the bytes and the digest are obtained.
 Both end in the same registration.
+
+A ``bookshelf://`` reference ends somewhere else.
+The platform already holds that resource, so the resolver looks it up rather than registering it,
+and the pointer it returns is the resource itself.
+This is what makes a book that is built from another book cite the original rather than a copy.
 """
 
 import hashlib
@@ -17,11 +22,12 @@ from uuid import UUID
 
 import httpx
 
-from bookshelf._core.errors import BookshelfError
+from bookshelf._core.errors import BookshelfError, NotFoundError
 from bookshelf._generated import models
 from bookshelf._produce.types import HasTrackingId
 from bookshelf.cache import ContentCache
 from bookshelf.publisher.recipe import ResourceSpec
+from bookshelf.publisher.reference import BookshelfReference
 
 DOWNLOAD_TIMEOUT = 600.0
 _CHUNK_BYTES = 1 << 20
@@ -43,6 +49,48 @@ class RegisterExternal(Protocol):
         metadata: Mapping[str, Any] | None,
     ) -> HasTrackingId:
         """Catalogue an external pointer and return its handle."""
+        ...
+
+
+class PublishedEntry(Protocol):
+    """One entry of a published book, as a reference resolves to it."""
+
+    tracking_id: UUID
+
+    @property
+    def metadata(self) -> models.ResourceRead:
+        """The platform's projection of the resource, which is where its digest comes from."""
+        ...
+
+    @property
+    def type(self) -> models.ResourceType:
+        """The type the platform registered the resource under."""
+        ...
+
+    def as_path(self) -> Path:
+        """Stream and verify the bytes, returning the cached local path."""
+        ...
+
+
+class PublishedBook(Protocol):
+    """One published book, indexed by entry name."""
+
+    @property
+    def entry_names(self) -> tuple[str, ...]:
+        """The names this book indexes."""
+        ...
+
+    def __getitem__(self, name_in_book: str) -> PublishedEntry: ...
+
+
+class LookupBook(Protocol):
+    """The one read a ``bookshelf://`` reference makes.
+
+    The consuming facade satisfies this, so the resolver holds no client of its own.
+    """
+
+    def __call__(self, volume: str, version: str, *, edition: int | None = None) -> PublishedBook:
+        """Resolve a published book, defaulting to the newest edition."""
         ...
 
 
@@ -77,11 +125,17 @@ def resolve_resource(
     recipe_dir: Path | None,
     cache: ContentCache,
     register_external: RegisterExternal,
+    lookup_book: LookupBook | None = None,
 ) -> ResolvedResource:
-    """Resolve one declared resource into local bytes and a registered pointer.
+    """Resolve one declared resource into local bytes and a pointer.
 
     A ``uri`` resource is fetched through ``cache`` and verified against its declared digest.
     A ``path`` resource is read from beside the recipe and its digest is computed.
+    Both are then catalogued with ``register_external``.
+
+    A ``bookshelf://`` resource is looked up with ``lookup_book`` instead.
+    Nothing is registered for it, because the platform already holds it,
+    and the pointer returned is the published resource itself.
 
     Raises :class:`~bookshelf._core.errors.BookshelfError` naming the declared resources
     when the version does not declare ``name``.
@@ -90,6 +144,14 @@ def resolve_resource(
     if spec is None:
         raise BookshelfError(
             f"the version declares no resource {name!r}. {_available_resources(resources)}"
+        )
+    reference = spec.reference
+    if reference is not None:
+        return _referenced(name, reference=reference, declared=spec.type, lookup_book=lookup_book)
+    if spec.type is None:
+        raise BookshelfError(
+            f"resource {name!r} states no type. "
+            "Add type, or name a bookshelf resource, whose type the platform states"
         )
     if spec.path is not None:
         # A checked-in file has no remote location, so the pointer records where it sits
@@ -115,6 +177,63 @@ def resolve_resource(
         hash=content_hash,
         pointer=pointer,
         tracking_id=pointer.tracking_id,
+    )
+
+
+def _referenced(
+    name: str,
+    *,
+    reference: BookshelfReference,
+    declared: models.ResourceType | None,
+    lookup_book: LookupBook | None,
+) -> ResolvedResource:
+    """Resolve one ``bookshelf://`` reference into the published resource it names.
+
+    The bytes come down through the consuming cache, which verifies them against the digest
+    the platform states, so nothing here hashes anything itself.
+
+    A stated ``type`` is checked rather than trusted.
+    A recipe may name a type that the resource does not have,
+    and reading the wrong shape is a failure worth catching before the build starts.
+    """
+    if lookup_book is None:
+        raise BookshelfError(
+            f"resource {name!r} names {reference.uri}, "
+            "but this build resolves no bookshelf references"
+        )
+    try:
+        book = lookup_book(reference.volume, reference.version, edition=reference.edition)
+    except NotFoundError as exc:
+        raise BookshelfError(
+            f"resource {name!r} names {reference.uri}, which is not published: {exc}"
+        ) from exc
+    name_in_book = reference.name_in_book
+    if name_in_book is None:
+        entries = book.entry_names
+        if len(entries) != 1:
+            listed = ", ".join(repr(entry) for entry in entries) or "none"
+            raise BookshelfError(
+                f"resource {name!r} names the book {reference.uri} rather than an entry of it, "
+                f"and that book holds {len(entries)} entries: {listed}. "
+                f"Name one, as {reference.uri}/<entry>"
+            )
+        name_in_book = entries[0]
+    try:
+        entry = book[name_in_book]
+    except KeyError as exc:
+        raise BookshelfError(f"resource {name!r} names {reference.uri}, and {exc}") from exc
+    if declared is not None and entry.type != declared:
+        raise BookshelfError(
+            f"resource {name!r} declares type {declared.value}, "
+            f"but {reference.uri} is {entry.type.value}. "
+            "Correct the type, or leave it out and take the platform's"
+        )
+    return ResolvedResource(
+        name=name,
+        path=entry.as_path(),
+        hash=entry.metadata.hash,
+        pointer=entry,
+        tracking_id=entry.tracking_id,
     )
 
 
@@ -190,4 +309,11 @@ def _checked_in(name: str, *, relative: Path, recipe_dir: Path | None) -> tuple[
     return resolved, f"sha256:{digest.hexdigest()}"
 
 
-__all__ = ["DOWNLOAD_TIMEOUT", "ResolvedResource", "resolve_resource"]
+__all__ = [
+    "DOWNLOAD_TIMEOUT",
+    "LookupBook",
+    "PublishedBook",
+    "PublishedEntry",
+    "ResolvedResource",
+    "resolve_resource",
+]

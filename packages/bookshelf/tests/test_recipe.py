@@ -30,6 +30,7 @@ from bookshelf.publisher.record import (
     run_record,
     setup,
 )
+from bookshelf.publisher.reference import BookshelfReference
 
 _VERSION = "v1.0.0"
 
@@ -684,6 +685,60 @@ def test_a_path_resource_may_sit_in_a_subdirectory_of_the_feedstock(tmp_path: Pa
     path = _one_book(tmp_path, "resources:\n  raw:\n    type: tabular\n    path: data/raw.csv")
 
     assert load_record_recipe(path).resolve("v1.0").resources["raw"].path == Path("data/raw.csv")
+
+
+def test_a_bookshelf_resource_states_neither_a_digest_nor_a_type(tmp_path: Path) -> None:
+    """Both are facts the platform already holds, so a recipe restating them could go stale."""
+    path = _one_book(
+        tmp_path, "resources:\n  raw:\n    uri: bookshelf://primap-hist/v2.7_e002/by_country"
+    )
+
+    spec = load_record_recipe(path).resolve("v1.0").resources["raw"]
+
+    assert spec.type is None
+    assert spec.reference == BookshelfReference(
+        volume="primap-hist", version="v2.7", edition=2, name_in_book="by_country"
+    )
+
+
+def test_a_resource_that_is_fetched_carries_no_reference(tmp_path: Path) -> None:
+    body = f"resources:\n  raw:\n    type: tabular\n    uri: https://x.invalid/a\n    sha256: {'a' * 64}"
+
+    assert (
+        load_record_recipe(_one_book(tmp_path, body)).resolve("v1.0").resources["raw"].reference
+        is None
+    )
+
+
+def test_a_bookshelf_resource_that_states_a_digest_is_rejected(tmp_path: Path) -> None:
+    body = (
+        "resources:\n  raw:\n"
+        "    uri: bookshelf://primap-hist/v2.7_e002/by_country\n"
+        f"    sha256: {'a' * 64}"
+    )
+
+    with pytest.raises(BookshelfError, match="takes its digest from the platform"):
+        load_record_recipe(_one_book(tmp_path, body))
+
+
+def test_a_bookshelf_resource_that_is_not_a_coordinate_is_rejected(tmp_path: Path) -> None:
+    path = _one_book(tmp_path, "resources:\n  raw:\n    uri: bookshelf://primap-hist")
+
+    with pytest.raises(BookshelfError, match="is not a bookshelf reference"):
+        load_record_recipe(path)
+
+
+def test_a_bookshelf_resource_may_still_state_the_type_it_expects(tmp_path: Path) -> None:
+    """A default naming the type for a whole feedstock reaches a bookshelf resource too."""
+    path = _one_book(
+        tmp_path,
+        "resources:\n  raw:\n    uri: bookshelf://primap-hist/v2.7_e002/by_country",
+        defaults="defaults:\n  resources:\n    raw:\n      type: timeseries\n",
+    )
+
+    assert load_record_recipe(path).resolve("v1.0").resources["raw"].type == (
+        models.ResourceType.timeseries
+    )
 
 
 @pytest.mark.parametrize("body", ["release_date: 2024-01-01", "resources: {}"])
