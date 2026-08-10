@@ -56,7 +56,7 @@ from bookshelf.publisher.bundle import (
 from bookshelf.publisher.publish import PublishOutcome, publish_bundle
 from bookshelf.publisher.recipe import RecordRecipe, load_record_recipe
 from bookshelf.publisher.record import (
-    SetupResult,
+    Build,
     parse_parameters,
     run_record,
     setup,
@@ -81,7 +81,7 @@ __all__ = [
     "RecordingActivity",
     "RecordingBookshelf",
     "RecordingSink",
-    "SetupResult",
+    "Build",
     "ResolvedResource",
     "compute_book_bundle_hash",
     "load_record_recipe",

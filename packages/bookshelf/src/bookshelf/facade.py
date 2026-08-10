@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Self
+from typing import Any, Self
 from uuid import UUID
 
 import httpx
@@ -40,9 +40,6 @@ from bookshelf._produce.facade import (
     ProduceSink,
 )
 from bookshelf.cache import ContentCache
-
-if TYPE_CHECKING:
-    from bookshelf.publisher.resource import ResolvedResource
 
 _PAGE_SIZE = 100
 _MAX_PAGES = 1000
@@ -146,16 +143,6 @@ def _missing_book(volume: str, version: str, edition: int | None) -> NotFoundErr
     )
 
 
-def _no_active_recording(name: str) -> BookshelfError:
-    """Say why a plain facade cannot resolve a declared resource, and name both ways forward."""
-    return BookshelfError(
-        f"bs.use({name!r}) found no active recording. "
-        "Resources are declared in the recipe, which the recorder reads, "
-        "so run the build file with 'bookshelf record'. "
-        "Fetch the file and call register_external to build against the API directly."
-    )
-
-
 class Bookshelf:
     """Synchronous facade for consuming, cataloguing, and curating resources."""
 
@@ -193,14 +180,6 @@ class Bookshelf:
     def close(self) -> None:
         """Close the sync transport if it was opened."""
         self._client.close()
-
-    def use(self, name: str) -> ResolvedResource:
-        """Resolve a resource the recipe declares, which only a recorded build can do.
-
-        A resource is declared in the recipe against a version,
-        and outside a recording there is no recipe to read one from.
-        """
-        raise _no_active_recording(name)
 
     def resource(self, tracking_id: str | UUID) -> Resource:
         """Resolve an exact tracking id into a lean Resource."""
@@ -435,15 +414,6 @@ class AsyncBookshelf:
     async def aclose(self) -> None:
         """Close both transport surfaces if either was opened."""
         await self._client.aclose()
-
-    async def use(self, name: str) -> ResolvedResource:
-        """Resolve a resource the recipe declares, which only a recorded build can do.
-
-        A resource is declared in the recipe against a version,
-        and outside a recording there is no recipe to read one from.
-        The recorder is synchronous, so no resolving variant exists on this facade.
-        """
-        raise _no_active_recording(name)
 
     async def resource(self, tracking_id: str | UUID) -> AsyncResource:
         """Resolve an exact tracking id into a lean async Resource."""

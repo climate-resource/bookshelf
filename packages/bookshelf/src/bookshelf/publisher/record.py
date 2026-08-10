@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import shutil
 import tempfile
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
@@ -27,6 +27,7 @@ from bookshelf.publisher.recipe import (
     resolve_book_visibility,
 )
 from bookshelf.publisher.recording import RecordedDraftBook, RecordingBookshelf
+from bookshelf.publisher.resource import ResolvedResource
 
 
 @dataclass(slots=True)
@@ -46,23 +47,32 @@ _ACTIVE_RECORDING: ContextVar[_RecordingContext | None] = ContextVar(
 )
 
 
-class SetupResult:
-    """Pair returned by explicit build setup."""
+@dataclass(frozen=True, slots=True)
+class Build:
+    """One build in progress: the resources the recipe declares, and the book it writes.
 
-    def __init__(
-        self,
-        bs: Bookshelf | RecordingBookshelf,
-        book: DraftBook | RecordedDraftBook,
-    ) -> None:
-        self.bs = bs
-        self.book = book
+    The recipe vocabulary lives here rather than on the facade,
+    because it means something only while a recipe is driving the build.
+    ``bs`` and ``book`` remain for the SDK calls a build file still needs.
+    """
 
-    def __iter__(self) -> Iterator[Any]:
-        yield self.bs
-        yield self.book
+    bs: Bookshelf | RecordingBookshelf
+    book: DraftBook | RecordedDraftBook
 
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self.bs, name)
+    def use(self, name: str) -> ResolvedResource:
+        """Fetch, verify, cache and register a resource the recipe declares.
+
+        Only a recorded build can do this.
+        A direct build has no recipe, so there is nothing to resolve a name against.
+        """
+        if not isinstance(self.bs, RecordingBookshelf):
+            raise BookshelfError(
+                f"build.use({name!r}) found no active recording. "
+                "Resources are declared in the recipe, which the recorder reads, "
+                "so run the build file with 'bookshelf record'. "
+                "Fetch the file and call register_external to build against the API directly."
+            )
+        return self.bs.use(name)
 
 
 def setup(
@@ -73,7 +83,7 @@ def setup(
     collection: str | None = None,
     base_url: str | None = None,
     auth: AuthInput = UNSET,
-) -> SetupResult:
+) -> Build:
     """Construct live or recording handles for a standalone build file.
 
     Under an active recording the version comes from ``bookshelf record --version``,
@@ -121,7 +131,7 @@ def setup(
             raise TypeError("recording sink returned a live draft book")
         context.book = book
         context.setup_called = True
-        return SetupResult(context.bookshelf, book)
+        return Build(context.bookshelf, book)
     if version is None:
         raise BookshelfError(
             "bookshelf.setup found no active recording, and no version was passed. "
@@ -142,7 +152,7 @@ def setup(
         visibility=visibility if visibility is not None else models.Visibility.hidden,
         license=license,
     )
-    return SetupResult(bs, book)
+    return Build(bs, book)
 
 
 def run_record(
@@ -265,7 +275,7 @@ def parse_parameters(values: Sequence[str]) -> dict[str, Any]:
 
 
 __all__ = [
-    "SetupResult",
+    "Build",
     "parse_parameters",
     "run_record",
     "setup",

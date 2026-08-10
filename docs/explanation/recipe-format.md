@@ -194,14 +194,21 @@ Publishing the a unchanged book is idempotent resulting in an unchanged edition.
 With the recipe carrying the facts, the build file keeps only the processing:
 
 ```python
-bs, book = bookshelf.setup()          # the version comes from --version
-raw = bs.use("raw")                   # fetched, verified against the declared sha256, registered
+build = bookshelf.setup()             # the version comes from --version
+raw = build.use("raw")                # fetched, verified against the declared sha256, registered
 
 data = pd.read_csv(raw.path)
 ...
-book.write("by_country", by_country, used=[raw])
-book.write("by_region", by_region, used=[raw])
+build.write("by_country", by_country, used=[raw])
+build.write("by_region", by_region, used=[raw])
 ```
+
+`setup` returns a `Build`, which carries the recipe vocabulary: the resources it declares,
+and the book this run writes.
+That vocabulary means something only while a recipe is driving the build,
+so it lives here rather than on the `Bookshelf` facade,
+which knows nothing about recipes.
+`build.bs` and `build.book` reach the SDK underneath for anything the recipe does not cover.
 
 `.use` and `.write` used here are a convenience wrapper on top of the lower level `activity` primitives.
 For our simple feedstocks this will make it easier to understand,
