@@ -35,15 +35,9 @@ from bookshelf._generated import models
 
 _USER_AGENT = "bookshelf-python"
 
-# A connection that never came up carried no bytes to the server,
-# so replaying it cannot duplicate a write even for a non-idempotent method.
+# The httpx failures that prove no bytes reached the server.
+# A read or write timeout does not qualify, because the request may already be in flight.
 _PRE_SEND_FAILURES = (httpx.ConnectError, httpx.ConnectTimeout)
-
-
-def _should_retry_transport_error(
-    policy: RetryPolicy, req: ApiRequest, exc: httpx.TransportError
-) -> bool:
-    return policy.should_retry_method(req.method) or isinstance(exc, _PRE_SEND_FAILURES)
 
 
 class BookshelfClient:
@@ -170,17 +164,16 @@ class BookshelfClient:
             try:
                 response = client.send(request, auth=auth)
             except httpx.TransportError as exc:
-                if attempt >= self._retry.max_attempts or not _should_retry_transport_error(
-                    self._retry, req, exc
-                ):
+                delay = self._retry.retry_after_transport_error(
+                    req.method, attempt, pre_send=isinstance(exc, _PRE_SEND_FAILURES)
+                )
+                if delay is None:
                     raise TransportError(str(exc)) from exc
             else:
-                if (
-                    not self._retry.should_retry_response(req.method, response.status_code)
-                    or attempt >= self._retry.max_attempts
-                ):
+                delay = self._retry.retry_after_response(req.method, attempt, response.status_code)
+                if delay is None:
                     return self._api_response(response)
-            time.sleep(self._retry.delay(attempt))
+            time.sleep(delay)
 
     async def _send_async(self, req: ApiRequest) -> ApiResponse:
         client = self._async_client
@@ -194,17 +187,16 @@ class BookshelfClient:
             try:
                 response = await client.send(request, auth=auth)
             except httpx.TransportError as exc:
-                if attempt >= self._retry.max_attempts or not _should_retry_transport_error(
-                    self._retry, req, exc
-                ):
+                delay = self._retry.retry_after_transport_error(
+                    req.method, attempt, pre_send=isinstance(exc, _PRE_SEND_FAILURES)
+                )
+                if delay is None:
                     raise TransportError(str(exc)) from exc
             else:
-                if (
-                    not self._retry.should_retry_response(req.method, response.status_code)
-                    or attempt >= self._retry.max_attempts
-                ):
+                delay = self._retry.retry_after_response(req.method, attempt, response.status_code)
+                if delay is None:
                     return self._api_response(response)
-            await asyncio.sleep(self._retry.delay(attempt))
+            await asyncio.sleep(delay)
 
     def query_resource_dataframe(
         self,
