@@ -9,39 +9,7 @@ from uuid import UUID
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
-from bookshelf._produce.helpers import (
-    MAX_REGISTRATION_BATCH as _MAX_REGISTRATION_BATCH,
-)
-from bookshelf._produce.helpers import (
-    activity_envelope as _activity_envelope,
-)
-from bookshelf._produce.helpers import (
-    external_item as _external_item,
-)
-from bookshelf._produce.helpers import (
-    paired_successes as _paired_successes,
-)
-from bookshelf._produce.helpers import (
-    raise_partial_registration as _raise_partial_registration,
-)
-from bookshelf._produce.helpers import (
-    registered_resource_type as _registered_resource_type,
-)
-from bookshelf._produce.helpers import (
-    registration_results as _registration_results,
-)
-from bookshelf._produce.helpers import (
-    resource_type as _resource_type,
-)
-from bookshelf._produce.helpers import (
-    single_success as _single_success,
-)
-from bookshelf._produce.helpers import (
-    uuid7 as _uuid7,
-)
-from bookshelf._produce.helpers import (
-    visibility as _visibility,
-)
+from bookshelf._produce import helpers
 from bookshelf._produce.resources import AsyncResource, Resource
 from bookshelf._produce.serialise import serialise
 from bookshelf._produce.types import (
@@ -147,8 +115,10 @@ class Activity:
         ``used=`` records the inputs consumed by every output in this call.
         """
         self._require_entered()
-        if atomic and len(entries) > _MAX_REGISTRATION_BATCH:
-            raise ValueError(f"atomic registrations are limited to {_MAX_REGISTRATION_BATCH} items")
+        if atomic and len(entries) > helpers.MAX_REGISTRATION_BATCH:
+            raise ValueError(
+                f"atomic registrations are limited to {helpers.MAX_REGISTRATION_BATCH} items"
+            )
         items = [self._materialise(entry) for entry in entries]
         try:
             outcomes = self._register_items(items, used=used, atomic=atomic)
@@ -159,7 +129,7 @@ class Activity:
             raise
         return [
             self._resource_from_outcome(outcome, item)
-            for outcome, item in _paired_successes(outcomes, items)
+            for outcome, item in helpers.paired_successes(outcomes, items)
         ]
 
     def register_external(
@@ -181,23 +151,23 @@ class Activity:
         ``used=`` records the inputs consumed by this resource.
         """
         self._require_entered()
-        item = _external_item(
+        item = helpers.external_item(
             type=type,
             uri=uri,
             hash=hash,
             name=name,
-            visibility=_visibility(visibility, self.default_visibility),
+            visibility=helpers.visibility(visibility, self.default_visibility),
             tags=tags,
             metadata=metadata,
             tracking_id=tracking_id,
             dedupe=dedupe,
         )
-        outcome = _single_success(self._register_items([item], used=used, atomic=True))
+        outcome = helpers.single_success(self._register_items([item], used=used, atomic=True))
         return Resource(
             self._client,
             self._cache,
             tracking_id=outcome.tracking_id,
-            resource_type=_registered_resource_type(outcome, item.type),
+            resource_type=helpers.registered_resource_type(outcome, item.type),
             registration_outcome=outcome,
         )
 
@@ -210,7 +180,7 @@ class Activity:
             self._client,
             self._cache,
             tracking_id=outcome.tracking_id,
-            resource_type=_registered_resource_type(outcome, item.type),
+            resource_type=helpers.registered_resource_type(outcome, item.type),
             registration_outcome=outcome,
         )
 
@@ -222,7 +192,7 @@ class Activity:
         return self._resource_from_outcome(success.outcome, items[success.index])
 
     def _materialise(self, entry: RegisterItem) -> models.RegisterResourceItem:
-        resource_type = _resource_type(entry.type)
+        resource_type = helpers.resource_type(entry.type)
         serialised = serialise(entry.obj, type=resource_type.value)
         plan = self._client.initiate_ingest_upload(
             models.IngestUploadInitiateRequest(
@@ -261,12 +231,12 @@ class Activity:
                     )
                 )
         return models.RegisterResourceItem(
-            tracking_id=entry.tracking_id or _uuid7(),
+            tracking_id=entry.tracking_id or helpers.uuid7(),
             type=resource_type,
             hash=serialised.hash,
             format=entry.format or serialised.format,
             name=entry.name,
-            visibility=_visibility(entry.visibility, self.default_visibility),
+            visibility=helpers.visibility(entry.visibility, self.default_visibility),
             tags=list(entry.tags),
             metadata=dict(entry.metadata or {}),
             locations=[models.LocationInput(shelf="managed", path=plan.storage_path)],
@@ -280,13 +250,15 @@ class Activity:
         used: Sequence[UsedInput],
         atomic: bool,
     ) -> list[RegistrationSuccess]:
-        if atomic and len(items) > _MAX_REGISTRATION_BATCH:
-            raise ValueError(f"atomic registrations are limited to {_MAX_REGISTRATION_BATCH} items")
+        if atomic and len(items) > helpers.MAX_REGISTRATION_BATCH:
+            raise ValueError(
+                f"atomic registrations are limited to {helpers.MAX_REGISTRATION_BATCH} items"
+            )
         # An atomic batch always goes in one request.
-        chunk_size = max(len(items), 1) if atomic else _MAX_REGISTRATION_BATCH
+        chunk_size = max(len(items), 1) if atomic else helpers.MAX_REGISTRATION_BATCH
         successful: list[RegistrationSuccess] = []
         failures: list[RegistrationFailure] = []
-        envelope = _activity_envelope(
+        envelope = helpers.activity_envelope(
             activity_id=self.activity_id,
             kind=self.kind,
             code_ref=self.code_ref,
@@ -303,13 +275,13 @@ class Activity:
                     atomic=atomic,
                 )
             )
-            chunk_successful, chunk_failures = _registration_results(
+            chunk_successful, chunk_failures = helpers.registration_results(
                 response,
                 index_offset=start,
             )
             successful.extend(chunk_successful)
             failures.extend(chunk_failures)
-        _raise_partial_registration(successful, failures)
+        helpers.raise_partial_registration(successful, failures)
         return successful
 
 
@@ -408,8 +380,10 @@ class AsyncActivity:
         ``used=`` records the inputs consumed by every output in this call.
         """
         self._require_entered()
-        if atomic and len(entries) > _MAX_REGISTRATION_BATCH:
-            raise ValueError(f"atomic registrations are limited to {_MAX_REGISTRATION_BATCH} items")
+        if atomic and len(entries) > helpers.MAX_REGISTRATION_BATCH:
+            raise ValueError(
+                f"atomic registrations are limited to {helpers.MAX_REGISTRATION_BATCH} items"
+            )
         items: list[models.RegisterResourceItem] = []
         for entry in entries:
             items.append(await self._materialise(entry))
@@ -422,7 +396,7 @@ class AsyncActivity:
             raise
         return [
             self._resource_from_outcome(outcome, item)
-            for outcome, item in _paired_successes(outcomes, items)
+            for outcome, item in helpers.paired_successes(outcomes, items)
         ]
 
     async def register_external(
@@ -444,23 +418,23 @@ class AsyncActivity:
         ``used=`` records the inputs consumed by this resource.
         """
         self._require_entered()
-        item = _external_item(
+        item = helpers.external_item(
             type=type,
             uri=uri,
             hash=hash,
             name=name,
-            visibility=_visibility(visibility, self.default_visibility),
+            visibility=helpers.visibility(visibility, self.default_visibility),
             tags=tags,
             metadata=metadata,
             tracking_id=tracking_id,
             dedupe=dedupe,
         )
-        outcome = _single_success(await self._register_items([item], used=used, atomic=True))
+        outcome = helpers.single_success(await self._register_items([item], used=used, atomic=True))
         return AsyncResource(
             self._client,
             self._cache,
             tracking_id=outcome.tracking_id,
-            resource_type=_registered_resource_type(outcome, item.type),
+            resource_type=helpers.registered_resource_type(outcome, item.type),
             registration_outcome=outcome,
         )
 
@@ -473,7 +447,7 @@ class AsyncActivity:
             self._client,
             self._cache,
             tracking_id=outcome.tracking_id,
-            resource_type=_registered_resource_type(outcome, item.type),
+            resource_type=helpers.registered_resource_type(outcome, item.type),
             registration_outcome=outcome,
         )
 
@@ -485,7 +459,7 @@ class AsyncActivity:
         return self._resource_from_outcome(success.outcome, items[success.index])
 
     async def _materialise(self, entry: RegisterItem) -> models.RegisterResourceItem:
-        resource_type = _resource_type(entry.type)
+        resource_type = helpers.resource_type(entry.type)
         serialised = serialise(entry.obj, type=resource_type.value)
         plan = await self._client.initiate_ingest_upload_async(
             models.IngestUploadInitiateRequest(
@@ -524,12 +498,12 @@ class AsyncActivity:
                     )
                 )
         return models.RegisterResourceItem(
-            tracking_id=entry.tracking_id or _uuid7(),
+            tracking_id=entry.tracking_id or helpers.uuid7(),
             type=resource_type,
             hash=serialised.hash,
             format=entry.format or serialised.format,
             name=entry.name,
-            visibility=_visibility(entry.visibility, self.default_visibility),
+            visibility=helpers.visibility(entry.visibility, self.default_visibility),
             tags=list(entry.tags),
             metadata=dict(entry.metadata or {}),
             locations=[models.LocationInput(shelf="managed", path=plan.storage_path)],
@@ -543,13 +517,15 @@ class AsyncActivity:
         used: Sequence[UsedInput],
         atomic: bool,
     ) -> list[RegistrationSuccess]:
-        if atomic and len(items) > _MAX_REGISTRATION_BATCH:
-            raise ValueError(f"atomic registrations are limited to {_MAX_REGISTRATION_BATCH} items")
+        if atomic and len(items) > helpers.MAX_REGISTRATION_BATCH:
+            raise ValueError(
+                f"atomic registrations are limited to {helpers.MAX_REGISTRATION_BATCH} items"
+            )
         # An atomic batch always goes in one request.
-        chunk_size = max(len(items), 1) if atomic else _MAX_REGISTRATION_BATCH
+        chunk_size = max(len(items), 1) if atomic else helpers.MAX_REGISTRATION_BATCH
         successful: list[RegistrationSuccess] = []
         failures: list[RegistrationFailure] = []
-        envelope = _activity_envelope(
+        envelope = helpers.activity_envelope(
             activity_id=self.activity_id,
             kind=self.kind,
             code_ref=self.code_ref,
@@ -566,13 +542,13 @@ class AsyncActivity:
                     atomic=atomic,
                 )
             )
-            chunk_successful, chunk_failures = _registration_results(
+            chunk_successful, chunk_failures = helpers.registration_results(
                 response,
                 index_offset=start,
             )
             successful.extend(chunk_successful)
             failures.extend(chunk_failures)
-        _raise_partial_registration(successful, failures)
+        helpers.raise_partial_registration(successful, failures)
         return successful
 
 
