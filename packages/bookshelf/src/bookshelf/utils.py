@@ -73,7 +73,7 @@ def create_local_cache(path: str | pathlib.Path | None = None) -> pathlib.Path:
 
     pooch.utils.make_local_storage(path)
 
-    return pathlib.Path(path)  # type: ignore
+    return pathlib.Path(path)
 
 
 def download(
@@ -214,7 +214,7 @@ def get_env_var(
     name = name.upper()
     if raise_on_missing and default is None and name not in os.environ:
         raise ValueError(f"Environment variable {name} not set. Check configuration")
-    return os.environ.get(name, default)
+    return os.environ.get(name, default)  # type: ignore
 
 
 def get_remote_bookshelf(bookshelf: str | None) -> str:
