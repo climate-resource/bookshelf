@@ -5,9 +5,9 @@ description: |
   HadCRUT5 is a gridded dataset of global historical surface temperature anomalies relative to a 1961-1990
   reference period. Data are available for each month from January 1850 onwards.
 cite_as: |
-  Morice, C.P., J.J. Kennedy, N.A. Rayner, J.P. Winn, E. Hogan, R.E. Killick, R.J.H. Dunn, T.J. Osborn,
-  P.D. Jones and I.R. Simpson (in press) An updated assessment of near-surface temperature change from
-  1850: the HadCRUT5 dataset. Journal of Geophysical Research (Atmospheres) doi:10.1029/2019JD032361
+  Morice, C. P., Kennedy, J. J., Rayner, N. A., Winn, J. P., Hogan, E., Killick, R. E., et al. (2021). An
+  updated assessment of near-surface temperature change from 1850: the HadCRUT5 data set. Journal of Geophysical
+  Research: Atmospheres, 126, e2019JD032361. https://doi.org/10.1029/2019JD032361
   And include the following acknowledgement:
   HadCRUT.[version number] data were obtained from http://www.metoffice.gov.uk/hadobs/hadcrut5 on
   [date downloaded] and are © British Crown Copyright, Met Office [year of first publication], provided
