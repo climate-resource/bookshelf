@@ -1,5 +1,5 @@
 name: hadcrut
-edition: 1
+edition: 2
 license: OGL v3
 description: |
   HadCRUT5 is a gridded dataset of global historical surface temperature anomalies relative to a 1961-1990

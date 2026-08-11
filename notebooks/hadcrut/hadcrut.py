@@ -50,11 +50,11 @@ local_bookshelf
 
 # %%
 data_monthly = metadata.download_file(0)
-data_annualy = metadata.download_file(1)
+data_annual = metadata.download_file(1)
 
 # %%
 df_monthly = pd.read_csv(data_monthly, index_col=0)
-df_annualy = pd.read_csv(data_annualy, index_col=0)
+df_annual = pd.read_csv(data_annual, index_col=0)
 
 # %%
 column_rename = {
@@ -63,8 +63,8 @@ column_rename = {
     "Upper confidence limit (97.5%)": "Temperature|Anomaly|Upper confidence limit (97.5%)",
 }
 df_monthly = df_monthly.rename(column_rename, axis=1).T
-df_annualy = df_annualy.rename(column_rename, axis=1).T
-for df in [df_monthly, df_annualy]:
+df_annual = df_annual.rename(column_rename, axis=1).T
+for df in [df_monthly, df_annual]:
     df.index.name = "variable"
     df["scenario"] = "historical"
     df["model"] = "CRUTEM5+HadSST4"
@@ -84,7 +84,7 @@ scmdata.ScmRun(df_monthly).timeseries(time_axis="year-month")
 book = LocalBook.create_from_metadata(metadata, local_bookshelf=local_bookshelf)
 
 # %%
-book.add_timeseries("annualy", scmdata.ScmRun(df_annualy))
+book.add_timeseries("annual", scmdata.ScmRun(df_annual))
 book.add_timeseries("monthly", scmdata.ScmRun(df_monthly))
 
 # %%
