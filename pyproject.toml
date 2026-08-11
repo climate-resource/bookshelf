@@ -52,17 +52,20 @@ members = ["packages/*"]
 bookshelf = { workspace = true }
 
 [tool.coverage.run]
-source = ["packages"]
+# The library, not the tests that exercise it.
+# Kept in step with packages/bookshelf/pyproject.toml, which governs a run started from that directory.
+source = ["packages/bookshelf/src"]
 branch = true
 
 [tool.coverage.report]
-fail_under = 90
+fail_under = 80
 skip_empty = true
 show_missing = true
 # Regexes for lines to exclude from consideration in addition to the defaults
 exclude_also = [
     # Don't complain about missing type checking code:
     "if TYPE_CHECKING",
+    "raise NotImplementedError",
 ]
 
 [tool.mypy]

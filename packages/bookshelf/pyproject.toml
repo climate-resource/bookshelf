@@ -123,10 +123,15 @@ codegen = [
 
 [tool.coverage.run]
 source = ["src/bookshelf"]
+branch = true
 
 [tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "if TYPE_CHECKING:",
+# Kept in step with the root pyproject.toml, which governs a run started from the repository root.
+# A run from either directory measures the same tree against the same gate.
+fail_under = 80
+skip_empty = true
+show_missing = true
+exclude_also = [
+    "if TYPE_CHECKING",
     "raise NotImplementedError",
 ]
