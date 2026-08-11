@@ -1,7 +1,8 @@
 """Transient retry policy: in-process backoff on 5xx and network failures only.
 
 Idempotent re-submission is the outage story, so the policy is deliberately light.
-The client handles the retry loop.
+The client owns the loop and the sleeping.
+Every decision inside that loop comes from this module.
 
 A retry replays the request, so it is only safe when replaying cannot change the server state twice.
 The policy therefore keys off the request method as well as the response status.
@@ -42,3 +43,27 @@ class RetryPolicy:
         """Sleep seconds before retry ``attempt`` (1-based: the first retry is attempt 1)."""
         ceiling = min(self.backoff_cap, self.backoff_base * (2 ** (attempt - 1)))
         return random.uniform(0.0, ceiling)
+
+    def retry_after_response(self, method: str, attempt: int, status_code: int) -> float | None:
+        """Seconds to sleep before replaying a request that came back with ``status_code``.
+
+        None means stop, because the outcome is not retryable or because ``attempt`` used up the budget.
+        ``attempt`` is the attempt that just finished, counting from 1.
+        """
+        return self._delay_if_retryable(attempt, self.should_retry_response(method, status_code))
+
+    def retry_after_transport_error(
+        self, method: str, attempt: int, *, pre_send: bool
+    ) -> float | None:
+        """Seconds to sleep before replaying a request that never came back with a response.
+
+        None means stop, because the failure is not retryable or because ``attempt`` used up the budget.
+        ``pre_send`` marks a failure that never reached the server,
+        so replaying it cannot duplicate a write even for a non-idempotent method.
+        """
+        return self._delay_if_retryable(attempt, pre_send or self.should_retry_method(method))
+
+    def _delay_if_retryable(self, attempt: int, retryable: bool) -> float | None:
+        if not retryable or attempt >= self.max_attempts:
+            return None
+        return self.delay(attempt)
