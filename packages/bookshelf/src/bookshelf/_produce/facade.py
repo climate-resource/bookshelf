@@ -10,32 +10,9 @@ from pydantic import RootModel
 
 from bookshelf._core.client import BookshelfClient
 from bookshelf._generated import models
+from bookshelf._produce import helpers
 from bookshelf._produce.activities import Activity, AsyncActivity
 from bookshelf._produce.books import AsyncDraftBook, DraftBook
-from bookshelf._produce.helpers import (
-    external_item as _external_item,
-)
-from bookshelf._produce.helpers import (
-    raise_partial_registration as _raise_partial_registration,
-)
-from bookshelf._produce.helpers import (
-    registered_resource_type as _registered_resource_type,
-)
-from bookshelf._produce.helpers import (
-    registration_results as _registration_results,
-)
-from bookshelf._produce.helpers import (
-    runner as _runner,
-)
-from bookshelf._produce.helpers import (
-    single_success as _single_success,
-)
-from bookshelf._produce.helpers import (
-    uuid7 as _uuid7,
-)
-from bookshelf._produce.helpers import (
-    visibility as _visibility,
-)
 from bookshelf._produce.provenance import derive_code_ref
 from bookshelf._produce.resources import AsyncResource, Resource
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
@@ -161,11 +138,11 @@ class LiveSink:
         return Activity(
             self._client,
             self._cache,
-            activity_id=activity_id or _uuid7(),
+            activity_id=activity_id or helpers.uuid7(),
             kind=kind,
             code_ref=code_ref or derive_code_ref(),
             config=dict(config or {}),
-            runner=runner or _runner(),
+            runner=runner or helpers.runner(),
             config_hash=config_hash,
             default_visibility=self.default_visibility,
         )
@@ -184,12 +161,12 @@ class LiveSink:
         dedupe: bool = True,
     ) -> Resource:
         """Catalogue an external pointer without attributing it to an activity."""
-        item = _external_item(
+        item = helpers.external_item(
             type=type,
             uri=uri,
             hash=hash,
             name=name,
-            visibility=_visibility(visibility, self.default_visibility),
+            visibility=helpers.visibility(visibility, self.default_visibility),
             tags=tags,
             metadata=metadata,
             tracking_id=tracking_id,
@@ -198,14 +175,14 @@ class LiveSink:
         response = self._client.register_resources(
             models.RegisterResourcesRequest(items=[item], atomic=True)
         )
-        successful, failures = _registration_results(response)
-        _raise_partial_registration(successful, failures)
-        outcome = _single_success(successful)
+        successful, failures = helpers.registration_results(response)
+        helpers.raise_partial_registration(successful, failures)
+        outcome = helpers.single_success(successful)
         return Resource(
             self._client,
             self._cache,
             tracking_id=outcome.tracking_id,
-            resource_type=_registered_resource_type(outcome, item.type),
+            resource_type=helpers.registered_resource_type(outcome, item.type),
             registration_outcome=outcome,
         )
 
@@ -229,7 +206,7 @@ class LiveSink:
                 version=version,
                 description=description,
                 license=license,
-                visibility=_visibility(visibility, self.default_visibility),
+                visibility=helpers.visibility(visibility, self.default_visibility),
                 metadata=metadata,
                 bundle_hash=bundle_hash,
                 discovery=discovery,
@@ -267,11 +244,11 @@ class AsyncLiveSink:
         return AsyncActivity(
             self._client,
             self._cache,
-            activity_id=activity_id or _uuid7(),
+            activity_id=activity_id or helpers.uuid7(),
             kind=kind,
             code_ref=code_ref or derive_code_ref(),
             config=dict(config or {}),
-            runner=runner or _runner(),
+            runner=runner or helpers.runner(),
             config_hash=config_hash,
             default_visibility=self.default_visibility,
         )
@@ -290,12 +267,12 @@ class AsyncLiveSink:
         dedupe: bool = True,
     ) -> AsyncResource:
         """Catalogue an external pointer without attributing it to an activity."""
-        item = _external_item(
+        item = helpers.external_item(
             type=type,
             uri=uri,
             hash=hash,
             name=name,
-            visibility=_visibility(visibility, self.default_visibility),
+            visibility=helpers.visibility(visibility, self.default_visibility),
             tags=tags,
             metadata=metadata,
             tracking_id=tracking_id,
@@ -304,14 +281,14 @@ class AsyncLiveSink:
         response = await self._client.register_resources_async(
             models.RegisterResourcesRequest(items=[item], atomic=True)
         )
-        successful, failures = _registration_results(response)
-        _raise_partial_registration(successful, failures)
-        outcome = _single_success(successful)
+        successful, failures = helpers.registration_results(response)
+        helpers.raise_partial_registration(successful, failures)
+        outcome = helpers.single_success(successful)
         return AsyncResource(
             self._client,
             self._cache,
             tracking_id=outcome.tracking_id,
-            resource_type=_registered_resource_type(outcome, item.type),
+            resource_type=helpers.registered_resource_type(outcome, item.type),
             registration_outcome=outcome,
         )
 
@@ -335,7 +312,7 @@ class AsyncLiveSink:
                 version=version,
                 description=description,
                 license=license,
-                visibility=_visibility(visibility, self.default_visibility),
+                visibility=helpers.visibility(visibility, self.default_visibility),
                 metadata=metadata,
                 bundle_hash=bundle_hash,
                 discovery=discovery,

@@ -32,7 +32,7 @@ from pydantic_core import ErrorDetails
 
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
-from bookshelf._produce.helpers import visibility as _visibility
+from bookshelf._produce import helpers
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
 from bookshelf.publisher.reference import BookshelfReference, is_reference
 
@@ -696,7 +696,7 @@ def resolve_book_visibility(
     """
     if declared is None or declared is INHERIT:
         declared = (resolved.visibility if resolved is not None else None) or default
-    return _visibility(declared, default)
+    return helpers.visibility(declared, default)
 
 
 __all__ = [

@@ -16,9 +16,9 @@ from bookshelf._core.config import UNSET, AuthInput
 from bookshelf._core.errors import BookshelfError
 from bookshelf._core.names import flatten_to_resource_name
 from bookshelf._generated import models
+from bookshelf._produce import helpers
 from bookshelf._produce.books import DraftBook
 from bookshelf._produce.facade import nests_discovery
-from bookshelf._produce.helpers import uuid7
 from bookshelf.facade import Bookshelf
 from bookshelf.publisher.bundle import Bundle
 from bookshelf.publisher.notebook import ExecutedNotebook, execute_python_build
@@ -269,7 +269,7 @@ def _replace_bundle(staging: Path, target: Path) -> None:
     if not target.exists():
         staging.rename(target)
         return
-    backup = target.with_name(f".{target.name}-backup-{uuid7()}")
+    backup = target.with_name(f".{target.name}-backup-{helpers.uuid7()}")
     target.rename(backup)
     try:
         staging.rename(target)

@@ -18,12 +18,9 @@ from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import UNSET, AuthInput
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
+from bookshelf._produce import helpers
 from bookshelf._produce.activities import Activity
 from bookshelf._produce.books import DraftBook
-from bookshelf._produce.helpers import activity_envelope, used_ref, uuid7
-from bookshelf._produce.helpers import resource_type as _resource_type
-from bookshelf._produce.helpers import runner as _runner
-from bookshelf._produce.helpers import visibility as _visibility
 from bookshelf._produce.resources import Resource
 from bookshelf._produce.serialise import SerialisedObject, serialise
 from bookshelf._produce.types import HasTrackingId, RegisterItem, UsedInput
@@ -125,7 +122,7 @@ class RecordingActivity(Activity):
         self.runner = runner_name
         self.config_hash = config_hash
         self.default_visibility = default_visibility
-        self._envelope = activity_envelope(
+        self._envelope = helpers.activity_envelope(
             activity_id=activity_id,
             kind=kind,
             code_ref=code_ref,
@@ -166,10 +163,10 @@ class RecordingActivity(Activity):
     ) -> RecordedResource:
         """Serialise an output once and append its bytes and provenance."""
         self._require_entered()
-        resource_type = _resource_type(type)
-        resource_visibility = _visibility(visibility, self.default_visibility)
+        resource_type = helpers.resource_type(type)
+        resource_visibility = helpers.visibility(visibility, self.default_visibility)
         materialised = serialise(obj, type=resource_type.value)
-        resource_id = tracking_id or uuid7()
+        resource_id = tracking_id or helpers.uuid7()
         self._merge_used(used)
         self._bundle.set_activity(self._bundle_activity())
         self._bundle.add_resource(
@@ -291,12 +288,12 @@ class RecordingActivity(Activity):
         ]
 
     def _prepare_registration(self, entry: RegisterItem) -> _PreparedRegistration:
-        resource_type = _resource_type(entry.type)
-        visibility = _visibility(entry.visibility, self.default_visibility)
+        resource_type = helpers.resource_type(entry.type)
+        visibility = helpers.visibility(entry.visibility, self.default_visibility)
         return _PreparedRegistration(
             entry=entry,
             materialised=serialise(entry.obj, type=resource_type.value),
-            resource_id=entry.tracking_id or uuid7(),
+            resource_id=entry.tracking_id or helpers.uuid7(),
             resource_type=resource_type,
             visibility=visibility,
         )
@@ -378,7 +375,7 @@ class RecordedDraftBook(DraftBook):
         super().__init__(
             client,
             models.BookDetail(
-                book_id=uuid7(),
+                book_id=helpers.uuid7(),
                 version=version,
                 edition=0,
                 status="draft",
@@ -410,7 +407,7 @@ class RecordedDraftBook(DraftBook):
             data_dictionary=data_dictionary,
         )
         return models.BookEntryAttachResponse(
-            entry_id=uuid7(),
+            entry_id=helpers.uuid7(),
             book_id=self.book_id,
             tracking_id=tracking_id,
             name_in_book=name_in_book,
@@ -475,11 +472,11 @@ class RecordingSink:
             self.bundle,
             self._client,
             self._cache,
-            activity_id=activity_id or uuid7(),
+            activity_id=activity_id or helpers.uuid7(),
             kind=kind,
             code_ref=code_ref,
             config=dict(config or {}),
-            runner_name=runner or _runner(),
+            runner_name=runner or helpers.runner(),
             config_hash=config_hash,
             default_visibility=self.default_visibility,
         )
@@ -603,7 +600,7 @@ class RecordingSink:
         if activity is None:
             raise BookshelfError("a recorded build requires an activity before execution documents")
         materialised = serialise(data, type="document")
-        resource_id = uuid7()
+        resource_id = helpers.uuid7()
         used = _recorded_activity_used(self.bundle)
         self.bundle.add_resource(
             data=materialised.data,
@@ -668,7 +665,7 @@ class RecordingBookshelf(Bookshelf):
 
 
 def _bundle_used_ref(value: UsedInput) -> BundleUsedRef:
-    reference = used_ref(value)
+    reference = helpers.used_ref(value)
     if isinstance(reference, models.UsedRefByTrackingId):
         return BundleUsedRef(tracking_id=reference.tracking_id)
     return BundleUsedRef(name=reference.resource_name)
@@ -706,13 +703,13 @@ def _record_pointer(
     used: Sequence[BundleUsedRef] = (),
 ) -> RecordedResource:
     """Append one pointer resource and return its local handle."""
-    resource_type = _resource_type(type)
-    resource_visibility = _visibility(visibility, default_visibility)
+    resource_type = helpers.resource_type(type)
+    resource_visibility = helpers.visibility(visibility, default_visibility)
     resource_hash = hash or synthesise_pointer_hash(
         type_=resource_type.value,
         external_uri=uri,
     )
-    resource_id = tracking_id or uuid7()
+    resource_id = tracking_id or helpers.uuid7()
     bundle.add_pointer(
         external_uri=uri,
         hash_=resource_hash,
