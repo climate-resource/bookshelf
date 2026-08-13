@@ -39,38 +39,39 @@ def nests_discovery(name: str) -> bool:
     return _DISCOVERY_WIRE_NAMES.get(name, name) in _NESTED_DISCOVERY
 
 
-def _discovery_input(fields: Mapping[str, Any] | None) -> models.BookDiscoveryInput | None:
+def _discovery_input(
+    fields: Mapping[str, Any] | None,
+    *,
+    description: str | None = None,
+    license: str | None = None,
+    authors: Sequence[Mapping[str, Any]] | None = None,
+) -> models.BookDiscoveryInput | None:
     """Build the nested discovery object from a mapping keyed by the recipe's own names.
 
-    ``description`` and ``authors`` are baked onto the book too,
-    but the API carries them at the top level, so they travel separately.
+    The API carries ``description``, ``license`` and ``authors`` inside this object too,
+    so a caller that stated them through their own dedicated parameters has them folded in here,
+    winning over a same-named value already present in ``fields``.
     A field left unset stays out of the object entirely,
     which keeps an omission distinct from a declared null.
     """
-    if not fields:
-        return None
     declared = {
         wire: value
-        for name, value in fields.items()
+        for name, value in (fields or {}).items()
         if (wire := _DISCOVERY_WIRE_NAMES.get(name, name)) in _NESTED_DISCOVERY
         and value is not None
     }
+    if description is not None:
+        declared["description"] = description
+    if license is not None:
+        declared["license"] = license
+    if authors:
+        declared["authors"] = people(authors)
     return models.BookDiscoveryInput(**declared) if declared else None
 
 
 def people(values: Sequence[Mapping[str, Any]]) -> list[models.Author]:
     """Validate a list of authors or maintainers, which share one shape."""
     return [models.Author.model_validate(dict(value)) for value in values]
-
-
-def _author_models(
-    authors: Sequence[Mapping[str, Any]] | None,
-) -> list[models.Author] | None:
-    """Wrap the credited people as the API's author objects.
-
-    An empty sequence reads the same as none at all.
-    """
-    return people(authors) if authors else None
 
 
 def _draft_request(
@@ -90,19 +91,18 @@ def _draft_request(
     ``discovery`` carries the values a recipe resolved for this version,
     keyed by the recipe's field names.
     They are baked onto the book, so a later version never rewrites what this one says.
+    ``description``, ``license`` and ``authors`` travel inside the wire ``discovery`` object too,
+    because the request carries no top-level fields for them.
     """
     baked: dict[str, Any] = {}
-    discovery_input = _discovery_input(discovery)
+    discovery_input = _discovery_input(
+        discovery, description=description, license=license, authors=authors
+    )
     if discovery_input is not None:
         baked["discovery"] = discovery_input
-    author_models = _author_models(authors)
-    if author_models is not None:
-        baked["authors"] = author_models
     return models.BookDraftRequest(
         series_name=volume,
         version=version,
-        description=description,
-        license=_as_model(models.License, license),
         visibility=visibility,
         metadata=dict(metadata or {}),
         bundle_hash=_as_model(models.BundleHash, bundle_hash),

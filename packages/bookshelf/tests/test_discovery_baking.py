@@ -30,7 +30,6 @@ BASE_URL = "https://bookshelf.test"
 # Every field the recipe may default, so an inheriting book has something to inherit for each one of them.
 _DEFAULT_DISCOVERY = {
     "title": "PRIMAP-hist",
-    "abstract": "National greenhouse gas emissions.",
     "publisher": "Potsdam Institute for Climate Impact Research",
     "publisher_url": "https://example.invalid/pik",
     "citation": "Guetschow et al. (2024)",
@@ -50,9 +49,7 @@ _DEFAULT_DISCOVERY = {
 # The recipe field names that the API carries inside its nested ``discovery`` object,
 # paired with the name it gives each one.
 _WIRE_DISCOVERY_NAMES = {
-    name: ("source_release_date" if name == "release_date" else name)
-    for name in _DEFAULT_DISCOVERY
-    if name != "description"
+    name: ("source_release_date" if name == "release_date" else name) for name in _DEFAULT_DISCOVERY
 }
 
 # The facts the platform computes per resource and rolls up.
@@ -186,9 +183,9 @@ def test_publishing_a_later_version_does_not_rewrite_an_earlier_one(tmp_path: Pa
     second = _record_and_publish(recipe, tmp_path / "b27", "v2.7", later)
 
     assert first["discovery"]["publisher"] == _DEFAULT_DISCOVERY["publisher"]
-    assert first["license"] == "CC-BY-NC"
+    assert first["discovery"]["license"] == "CC-BY-NC"
     assert second["discovery"]["publisher"] == "Climate Resource"
-    assert second["license"] == "CC-BY"
+    assert second["discovery"]["license"] == "CC-BY"
 
     # Publishing a book states what that book says. It never touches the volume.
     assert _volume_writes(later) == []
@@ -202,10 +199,12 @@ def test_a_version_inherits_every_discovery_field_it_does_not_state(tmp_path: Pa
 
     payload = _record_and_publish(recipe, tmp_path / "bundle", "v2.6")
 
-    assert payload["discovery"] == {
+    expected: dict[str, Any] = {
         wire: _DEFAULT_DISCOVERY[name] for name, wire in _WIRE_DISCOVERY_NAMES.items()
     }
-    assert payload["description"] == _DEFAULT_DISCOVERY["description"]
+    expected["license"] = "CC-BY-NC"
+    expected["authors"] = [{"name": "Ada Lovelace", "email": "ada@example.com"}]
+    assert payload["discovery"] == expected
 
 
 def test_an_override_changes_one_field_and_leaves_the_rest_inherited(tmp_path: Path) -> None:
@@ -214,8 +213,12 @@ def test_an_override_changes_one_field_and_leaves_the_rest_inherited(tmp_path: P
 
     payload = _record_and_publish(recipe, tmp_path / "bundle", "v2.7")
 
-    expected = {wire: _DEFAULT_DISCOVERY[name] for name, wire in _WIRE_DISCOVERY_NAMES.items()}
+    expected: dict[str, Any] = {
+        wire: _DEFAULT_DISCOVERY[name] for name, wire in _WIRE_DISCOVERY_NAMES.items()
+    }
     expected["publisher"] = "Climate Resource"
+    expected["license"] = "CC-BY"
+    expected["authors"] = [{"name": "Jared Lewis", "email": "jared@example.com"}]
     assert payload["discovery"] == expected
 
 
@@ -225,7 +228,7 @@ def test_each_version_carries_the_licence_it_states(tmp_path: Path) -> None:
     older = _record_and_publish(recipe, tmp_path / "b26", "v2.6")
     newer = _record_and_publish(recipe, tmp_path / "b27", "v2.7")
 
-    assert (older["license"], newer["license"]) == ("CC-BY-NC", "CC-BY")
+    assert (older["discovery"]["license"], newer["discovery"]["license"]) == ("CC-BY-NC", "CC-BY")
 
 
 def test_a_licence_declared_on_the_volume_is_rejected(tmp_path: Path) -> None:
@@ -255,7 +258,7 @@ def test_the_authors_a_version_states_reach_the_wire_and_the_bundle(tmp_path: Pa
     payload = _publish(bundle)
 
     stated = [{"name": "Jared Lewis", "email": "jared@example.com"}]
-    assert payload["authors"] == stated
+    assert payload["discovery"]["authors"] == stated
     # Replay reads the people off the bundle, so the two have to agree.
     assert bundle.manifest.book is not None
     assert bundle.manifest.book.authors == stated
@@ -266,7 +269,7 @@ def test_a_version_that_states_no_authors_inherits_the_volumes(tmp_path: Path) -
 
     payload = _record_and_publish(recipe, tmp_path / "bundle", "v2.6")
 
-    assert payload["authors"] == [{"name": "Ada Lovelace", "email": "ada@example.com"}]
+    assert payload["discovery"]["authors"] == [{"name": "Ada Lovelace", "email": "ada@example.com"}]
 
 
 def test_the_computed_fields_are_never_sent(tmp_path: Path) -> None:
@@ -299,10 +302,10 @@ def test_the_volume_only_fields_are_never_sent_on_a_book(tmp_path: Path) -> None
     ("label", "version_body"),
     [
         ("absent", ""),
-        ("declared empty", "    abstract:\n"),
+        ("declared empty", "    description:\n"),
     ],
 )
-def test_a_book_that_states_no_abstract_inherits_the_default(
+def test_a_book_that_states_no_description_inherits_the_default(
     tmp_path: Path, label: str, version_body: str
 ) -> None:
     """An explicit YAML null reads the same as an absent key, and neither clears a default."""
@@ -312,7 +315,7 @@ def test_a_book_that_states_no_abstract_inherits_the_default(
 volume:
   name: primap-hist
 defaults:
-  abstract: National greenhouse gas emissions.
+  description: National greenhouse gas emissions.
 build:
   notebook: build.py
 books:
@@ -323,7 +326,7 @@ books:
 
     payload = _record_and_publish(recipe, tmp_path / "bundle", "v1.0.0")
 
-    assert payload["discovery"]["abstract"] == "National greenhouse gas emissions."
+    assert payload["discovery"]["description"] == "National greenhouse gas emissions."
 
 
 async def test_the_async_draft_sends_the_same_payload(tmp_path: Path) -> None:

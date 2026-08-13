@@ -168,7 +168,7 @@ def test_the_draft_carries_the_recorded_framing_and_the_bundle_hash(tmp_path: Pa
     assert body["series_name"] == "example"
     assert body["version"] == "v1.0.0"
     assert body["visibility"] == "public"
-    assert body["license"] == "MIT"
+    assert body["discovery"]["license"] == "MIT"
     assert body["bundle_hash"] == outcome.bundle_hash
     assert outcome.bundle_hash == compute_book_bundle_hash(bundle.manifest)
 

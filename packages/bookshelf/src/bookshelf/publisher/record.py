@@ -77,6 +77,11 @@ class Build:
         return self.bs.use(name)
 
 
+# These travel through their own dedicated parameters below rather than through this
+# mapping, so they are never duplicated between the two.
+_CARRIED_SEPARATELY = frozenset({"description", "authors"})
+
+
 def _resolved_discovery(resolved: ResolvedBook) -> dict[str, Any]:
     """Read the effective discovery values off an already resolved book.
 
@@ -86,7 +91,9 @@ def _resolved_discovery(resolved: ResolvedBook) -> dict[str, Any]:
     return {
         name: value
         for name in DiscoveryFields.model_fields
-        if nests_discovery(name) and (value := getattr(resolved.discovery, name)) is not None
+        if name not in _CARRIED_SEPARATELY
+        and nests_discovery(name)
+        and (value := getattr(resolved.discovery, name)) is not None
     }
 
 

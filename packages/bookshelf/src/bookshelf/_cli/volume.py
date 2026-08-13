@@ -56,15 +56,24 @@ def _people_from_names(values: list[str]) -> list[dict[str, Any]] | None:
 
 def _emit_volume(volume: models.VolumeResponse, *, json_output: bool) -> None:
     """Emit every field the command can set, so ``--json`` reads back what was sent."""
-    authors = [person.name for person in volume.authors]
-    maintainers = [person.name for person in volume.maintainers]
+    discovery = volume.discovery
+    license_ = discovery.license.root if discovery and discovery.license else None
+    description = discovery.description.root if discovery and discovery.description else None
+    authors = (
+        [person.name for person in discovery.authors] if discovery and discovery.authors else []
+    )
+    maintainers = (
+        [person.name for person in discovery.maintainers]
+        if discovery and discovery.maintainers
+        else []
+    )
     if json_output:
         emit_json(
             {
                 "id": volume.id,
                 "name": volume.name,
-                "license": volume.license,
-                "description": volume.description,
+                "license": license_,
+                "description": description,
                 "authors": authors,
                 "maintainers": maintainers,
                 "metadata": volume.metadata,
@@ -76,10 +85,10 @@ def _emit_volume(volume: models.VolumeResponse, *, json_output: bool) -> None:
     lines = [
         volume.name,
         field("Id", volume.id),
-        field("Licence", volume.license or "-"),
+        field("Licence", license_ or "-"),
     ]
-    if volume.description is not None:
-        lines.append(field("Description", volume.description))
+    if description is not None:
+        lines.append(field("Description", description))
     if authors:
         lines.append(field("Authors", ", ".join(authors)))
     if maintainers:

@@ -74,7 +74,7 @@ def test_draft_book_wraps_the_optional_strings_the_api_takes_as_models() -> None
     request = recorded[0]
     assert (request.method, request.url.path) == ("POST", "/v1/books")
     body = _body(request)
-    assert body["license"] == "CC-BY-4.0"
+    assert body["discovery"]["license"] == "CC-BY-4.0"
     assert body["bundle_hash"] == "a" * 64
     assert "data_dictionary" not in body
 
@@ -126,7 +126,7 @@ def test_draft_book_sends_no_wrapper_for_an_omitted_string() -> None:
         client.draft_book("primap-hist", version="1.0.0")
 
     body = _body(recorded[0])
-    assert body["license"] is None
+    assert "discovery" not in body
     assert body["bundle_hash"] is None
     assert body["visibility"] == "hidden"
 
@@ -158,7 +158,7 @@ def test_register_external_catalogues_the_pointer() -> None:
     assert item["external_uri"] == "https://example.invalid/data.csv"
     assert item["type"] == "tabular"
     assert item["name"] == "raw-data.csv"
-    assert item["tags"] == ["raw"]
+    assert item["discovery"]["tags"] == ["raw"]
     assert item["visibility"] == "hidden"
 
 
@@ -181,7 +181,7 @@ async def test_the_async_producer_surface_matches_the_sync_one() -> None:
             license="CC-BY-4.0",
         )
     assert draft.metadata.series_name == "primap-hist"
-    assert _body(drafted[0])["license"] == "CC-BY-4.0"
+    assert _body(drafted[0])["discovery"]["license"] == "CC-BY-4.0"
 
     registered: list[httpx.Request] = []
     async with _async(registered, 200, REGISTERED_ONE) as client:

@@ -110,7 +110,6 @@ class DiscoveryFields(_Section):
     """
 
     title: str | None = None
-    abstract: str | None = None
     publisher: str | None = None
     publisher_url: str | None = None
     citation: str | None = None

@@ -30,7 +30,7 @@ volume:
 
 defaults:                                  # what every book starts from
   title: PRIMAP-hist
-  abstract: National greenhouse gas emissions.
+  description: National greenhouse gas emissions.
   publisher: Potsdam Institute for Climate Impact Research
   homepage_url: https://www.pik-potsdam.de/paris-reality-check/primap-hist/
   methodology_url: https://essd.copernicus.org/articles/17/3873/2025/
@@ -117,8 +117,7 @@ They sit flat at both levels, and where both set it, the book wins.
 | Field               | Meaning                                                         |
 | ------------------- | --------------------------------------------------------------- |
 | `title`             | The human readable name of the dataset.                         |
-| `abstract`          | A short summary of what the dataset covers.                     |
-| `description`       | A longer note, typically what changed in this book.             |
+| `description`       | A summary of what the dataset covers, or what changed in this book. |
 | `publisher`         | The organisation that published the data.                       |
 | `publisher_url`     | The publisher's homepage.                                       |
 | `authors`           | Who to credit, as a list of name, email, affiliation and orcid. |

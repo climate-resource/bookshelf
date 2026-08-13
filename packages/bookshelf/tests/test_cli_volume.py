@@ -68,9 +68,11 @@ def test_volume_create_posts_the_named_fields(monkeypatch: pytest.MonkeyPatch) -
     assert (recorded[0].method, recorded[0].url.path) == ("POST", "/v1/volumes")
     assert json.loads(recorded[0].content) == {
         "name": "example",
-        "license": "MIT",
-        "description": "Country emissions",
-        "authors": [{"name": "A Person"}],
+        "discovery": {
+            "license": "MIT",
+            "description": "Country emissions",
+            "authors": [{"name": "A Person"}],
+        },
     }
 
 
@@ -79,8 +81,11 @@ def test_volume_json_reads_back_every_field_the_command_can_set(
 ) -> None:
     volume = dict(
         payloads.VOLUME,
-        authors=[{"name": "A Person"}],
-        maintainers=[{"name": "Another Person"}],
+        discovery=dict(
+            payloads.VOLUME["discovery"],
+            authors=[{"name": "A Person"}],
+            maintainers=[{"name": "Another Person"}],
+        ),
         metadata={"source": "upstream"},
     )
     _patch_client(monkeypatch, 201, volume)
@@ -177,7 +182,7 @@ def test_volume_update_patches_only_what_is_given(monkeypatch: pytest.MonkeyPatc
 
     assert result.exit_code == EXIT_OK
     assert (recorded[0].method, recorded[0].url.path) == ("PATCH", "/v1/volumes/example")
-    assert json.loads(recorded[0].content) == {"description": "Now with units"}
+    assert json.loads(recorded[0].content) == {"discovery": {"description": "Now with units"}}
 
 
 def test_volume_update_refuses_an_empty_patch(monkeypatch: pytest.MonkeyPatch) -> None:

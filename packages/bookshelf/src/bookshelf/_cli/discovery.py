@@ -92,7 +92,7 @@ def _volume_row(item: models.VolumeListItem) -> dict[str, Any]:
         "latest_edition": item.latest_edition,
         "resource_types": item.resource_types or [],
         "topics": (discovery.topics if discovery else None) or [],
-        "license": item.license,
+        "license": discovery.license.root if discovery and discovery.license else None,
     }
 
 
@@ -155,7 +155,7 @@ def _show_volume(client: BookshelfClient, parsed: Address, json_output: bool) ->
                 "publisher": (
                     discovery.publisher.root if discovery and discovery.publisher else None
                 ),
-                "license": volume.license,
+                "license": discovery.license.root if discovery and discovery.license else None,
                 "topics": (discovery.topics if discovery else None) or [],
                 "regions": (discovery.spatial_coverage if discovery else None) or [],
                 "versions": [
@@ -180,7 +180,8 @@ def _show_volume(client: BookshelfClient, parsed: Address, json_output: bool) ->
     lines = [f"{volume.name}   {title}".rstrip()]
     if discovery and discovery.publisher:
         lines.append(field("Publisher", discovery.publisher.root))
-    lines.append(field("Licence", volume.license or "-"))
+    license_ = discovery.license.root if discovery and discovery.license else None
+    lines.append(field("Licence", license_ or "-"))
     if discovery and discovery.topics:
         lines.append(field("Topics", ", ".join(discovery.topics)))
     if discovery and discovery.spatial_coverage:

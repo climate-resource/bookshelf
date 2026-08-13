@@ -189,22 +189,28 @@ def test_build_put_presigned_is_absolute_and_registry_free() -> None:
             ApiRequest(method="DELETE", path="/v1/books/book%2Fone"),
         ),
         (
-            ops.build_create_volume(models.VolumeCreate(name="example", license="MIT")),
+            ops.build_create_volume(
+                models.VolumeCreate(
+                    name="example", discovery=models.VolumeDiscoveryInput(license="MIT")
+                )
+            ),
             ApiRequest(
                 method="POST",
                 path="/v1/volumes",
-                json_body={"name": "example", "license": "MIT"},
+                json_body={"name": "example", "discovery": {"license": "MIT"}},
             ),
         ),
         (
             ops.build_update_volume(
                 "example/one",
-                models.VolumeUpdate(description=models.Description3(root="now with units")),
+                models.VolumeUpdate(
+                    discovery=models.VolumeDiscoveryInput(description="now with units")
+                ),
             ),
             ApiRequest(
                 method="PATCH",
                 path="/v1/volumes/example%2Fone",
-                json_body={"description": "now with units"},
+                json_body={"discovery": {"description": "now with units"}},
             ),
         ),
         (

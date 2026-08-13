@@ -92,6 +92,14 @@ def used_ref(value: UsedInput) -> models.UsedRefByTrackingId | models.UsedRefByR
     return models.UsedRefByTrackingId(tracking_id=UUID(str(handle_tracking_id)))
 
 
+def resource_discovery(tags: Sequence[str]) -> models.ResourceDiscoveryInput | None:
+    """Wrap a resource's tags in its discovery object, the only place they now travel.
+
+    An empty sequence carries no discovery fact, so it stays out of the object entirely.
+    """
+    return models.ResourceDiscoveryInput(tags=list(tags)) if tags else None
+
+
 def external_item(
     *,
     type: str | models.ResourceType,
@@ -114,7 +122,7 @@ def external_item(
         hash=hash,
         name=name,
         visibility=visibility,
-        tags=list(tags),
+        discovery=resource_discovery(tags),
         metadata=dict(metadata or {}),
         external_uri=uri,
         dedupe=dedupe,
@@ -208,6 +216,7 @@ __all__ = [
     "raise_partial_registration",
     "registered_resource_type",
     "registration_results",
+    "resource_discovery",
     "resource_type",
     "runner",
     "single_success",

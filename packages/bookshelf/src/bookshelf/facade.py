@@ -46,34 +46,30 @@ _PAGE_SIZE = 100
 _MAX_PAGES = 1000
 
 
-def _volume_fields(
-    description_model: type[models.Description2] | type[models.Description3],
+def _volume_discovery(
     *,
-    description: str | None,
-    metadata: Mapping[str, Any] | None,
-    authors: Sequence[Mapping[str, Any]] | None,
-    maintainers: Sequence[Mapping[str, Any]] | None,
-    discovery: models.DiscoveryProfile | None,
-) -> dict[str, Any]:
-    """Collect the volume fields the caller named, and only those.
+    license: str | None = None,
+    description: str | None = None,
+    authors: Sequence[Mapping[str, Any]] | None = None,
+    maintainers: Sequence[Mapping[str, Any]] | None = None,
+    discovery: models.VolumeDiscoveryInput | None = None,
+) -> models.VolumeDiscoveryInput | None:
+    """Fold a volume's licence, description and credited people into its discovery profile.
 
-    Each field the API accepts replaces what is there,
-    so an omitted one has to stay off the wire rather than arrive as null.
-    Create and update wrap the description in their own generated model,
-    which is why that one arrives as an argument.
+    The API carries all four inside ``discovery`` now, with no top-level fields of their own.
+    A ``discovery`` the caller passed is the starting point,
+    and the dedicated parameters win over a same-named field already on it.
     """
-    fields: dict[str, Any] = {}
+    fields = discovery.model_dump(exclude_none=True) if discovery is not None else {}
+    if license is not None:
+        fields["license"] = license
     if description is not None:
-        fields["description"] = description_model(root=description)
-    if metadata is not None:
-        fields["metadata"] = dict(metadata)
+        fields["description"] = description
     if authors is not None:
         fields["authors"] = _people(authors)
     if maintainers is not None:
         fields["maintainers"] = _people(maintainers)
-    if discovery is not None:
-        fields["discovery"] = discovery
-    return fields
+    return models.VolumeDiscoveryInput(**fields) if fields else None
 
 
 def _volume_create(
@@ -84,21 +80,22 @@ def _volume_create(
     metadata: Mapping[str, Any] | None,
     authors: Sequence[Mapping[str, Any]] | None,
     maintainers: Sequence[Mapping[str, Any]] | None,
-    discovery: models.DiscoveryProfile | None,
+    discovery: models.VolumeDiscoveryInput | None,
 ) -> models.VolumeCreate:
     """Build a create request carrying the name, the licence, and whatever else was named."""
-    return models.VolumeCreate(
-        name=name,
+    fields: dict[str, Any] = {}
+    if metadata is not None:
+        fields["metadata"] = dict(metadata)
+    merged = _volume_discovery(
         license=license,
-        **_volume_fields(
-            models.Description2,
-            description=description,
-            metadata=metadata,
-            authors=authors,
-            maintainers=maintainers,
-            discovery=discovery,
-        ),
+        description=description,
+        authors=authors,
+        maintainers=maintainers,
+        discovery=discovery,
     )
+    if merged is not None:
+        fields["discovery"] = merged
+    return models.VolumeCreate(name=name, **fields)
 
 
 def _volume_update(
@@ -107,30 +104,35 @@ def _volume_update(
     metadata: Mapping[str, Any] | None,
     authors: Sequence[Mapping[str, Any]] | None,
     maintainers: Sequence[Mapping[str, Any]] | None,
-    discovery: models.DiscoveryProfile | None,
+    discovery: models.VolumeDiscoveryInput | None,
 ) -> models.VolumeUpdate:
-    """Build a patch carrying only the fields the caller named."""
-    return models.VolumeUpdate(
-        **_volume_fields(
-            models.Description3,
-            description=description,
-            metadata=metadata,
-            authors=authors,
-            maintainers=maintainers,
-            discovery=discovery,
-        )
+    """Build a patch carrying only the fields the caller named.
+
+    The licence has no parameter here, because it is fixed at creation and this never changes it.
+    """
+    fields: dict[str, Any] = {}
+    if metadata is not None:
+        fields["metadata"] = dict(metadata)
+    merged = _volume_discovery(
+        description=description,
+        authors=authors,
+        maintainers=maintainers,
+        discovery=discovery,
     )
+    if merged is not None:
+        fields["discovery"] = merged
+    return models.VolumeUpdate(**fields)
 
 
 def _book_update(
     *,
-    description: str | None,
     metadata: Mapping[str, Any] | None,
 ) -> models.BookUpdate:
-    """Build a draft patch carrying only the fields the caller named."""
+    """Build a draft patch carrying only the fields the caller named.
+
+    A draft's discovery profile is baked on at creation and cannot be revised here.
+    """
     fields: dict[str, Any] = {}
-    if description is not None:
-        fields["description"] = models.Description1(root=description)
     if metadata is not None:
         fields["metadata"] = dict(metadata)
     return models.BookUpdate(**fields)
@@ -259,7 +261,7 @@ class Bookshelf:
         metadata: Mapping[str, Any] | None = None,
         authors: Sequence[Mapping[str, Any]] | None = None,
         maintainers: Sequence[Mapping[str, Any]] | None = None,
-        discovery: models.DiscoveryProfile | None = None,
+        discovery: models.VolumeDiscoveryInput | None = None,
     ) -> models.VolumeResponse:
         """Create the volume a first publish needs, which drafting a book will not do for you.
 
@@ -286,7 +288,7 @@ class Bookshelf:
         metadata: Mapping[str, Any] | None = None,
         authors: Sequence[Mapping[str, Any]] | None = None,
         maintainers: Sequence[Mapping[str, Any]] | None = None,
-        discovery: models.DiscoveryProfile | None = None,
+        discovery: models.VolumeDiscoveryInput | None = None,
     ) -> models.VolumeResponse:
         """Update a volume's metadata, replacing each field named and leaving the rest alone.
 
@@ -324,18 +326,16 @@ class Bookshelf:
         self,
         book_id: str,
         *,
-        description: str | None = None,
         metadata: Mapping[str, Any] | None = None,
     ) -> models.BookResponse:
-        """Update a draft book's metadata, replacing each field named.
+        """Update a draft book's metadata, replacing what is named.
 
         Only a draft can be updated, so this is a fix before publishing rather than after.
-        A field can be changed but not cleared, because an omitted one stays off the wire.
+        Its discovery profile is baked on at creation and is not revisable here.
         """
         return self._client.update_book(
             book_id,
             _book_update(
-                description=description,
                 metadata=metadata,
             ),
         )
@@ -491,7 +491,7 @@ class AsyncBookshelf:
         metadata: Mapping[str, Any] | None = None,
         authors: Sequence[Mapping[str, Any]] | None = None,
         maintainers: Sequence[Mapping[str, Any]] | None = None,
-        discovery: models.DiscoveryProfile | None = None,
+        discovery: models.VolumeDiscoveryInput | None = None,
     ) -> models.VolumeResponse:
         """Create the volume a first publish needs, which drafting a book will not do for you.
 
@@ -518,7 +518,7 @@ class AsyncBookshelf:
         metadata: Mapping[str, Any] | None = None,
         authors: Sequence[Mapping[str, Any]] | None = None,
         maintainers: Sequence[Mapping[str, Any]] | None = None,
-        discovery: models.DiscoveryProfile | None = None,
+        discovery: models.VolumeDiscoveryInput | None = None,
     ) -> models.VolumeResponse:
         """Update a volume's metadata, replacing each field named and leaving the rest alone.
 
@@ -556,18 +556,16 @@ class AsyncBookshelf:
         self,
         book_id: str,
         *,
-        description: str | None = None,
         metadata: Mapping[str, Any] | None = None,
     ) -> models.BookResponse:
-        """Update a draft book's metadata, replacing each field named.
+        """Update a draft book's metadata, replacing what is named.
 
         Only a draft can be updated, so this is a fix before publishing rather than after.
-        A field can be changed but not cleared, because an omitted one stays off the wire.
+        Its discovery profile is baked on at creation and is not revisable here.
         """
         return await self._client.update_book_async(
             book_id,
             _book_update(
-                description=description,
                 metadata=metadata,
             ),
         )

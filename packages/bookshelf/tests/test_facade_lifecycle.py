@@ -53,9 +53,11 @@ def test_create_volume_sends_the_named_fields_only() -> None:
     assert (request.method, request.url.path) == ("POST", "/v1/volumes")
     assert _body(request) == {
         "name": "example",
-        "license": "MIT",
-        "description": "Country emissions",
-        "authors": [{"name": "A Person"}],
+        "discovery": {
+            "license": "MIT",
+            "description": "Country emissions",
+            "authors": [{"name": "A Person"}],
+        },
     }
 
 
@@ -68,7 +70,7 @@ def test_update_volume_omits_the_fields_the_caller_left_alone() -> None:
 
     request = recorded[0]
     assert (request.method, request.url.path) == ("PATCH", "/v1/volumes/example")
-    assert _body(request) == {"description": "Now with units"}
+    assert _body(request) == {"discovery": {"description": "Now with units"}}
 
 
 def test_delete_volume_reaches_the_api_and_returns_nothing() -> None:
@@ -110,11 +112,11 @@ def test_update_draft_patches_the_named_fields() -> None:
     recorded: list[httpx.Request] = []
 
     with _sync(recorded, 200, payloads.BOOK_RESPONSE) as client:
-        updated = client.update_draft("b1", description="Corrected units")
+        updated = client.update_draft("b1", metadata={"note": "corrected units"})
 
     assert updated.id == "b1"
     assert (recorded[0].method, recorded[0].url.path) == ("PATCH", "/v1/books/b1")
-    assert _body(recorded[0]) == {"description": "Corrected units"}
+    assert _body(recorded[0]) == {"metadata": {"note": "corrected units"}}
 
 
 async def test_async_facade_matches_the_sync_one() -> None:
@@ -122,12 +124,12 @@ async def test_async_facade_matches_the_sync_one() -> None:
     async with _async(created, 201, payloads.VOLUME) as client:
         volume = await client.create_volume("example", license="MIT")
     assert volume.name == "example"
-    assert _body(created[0]) == {"name": "example", "license": "MIT"}
+    assert _body(created[0]) == {"name": "example", "discovery": {"license": "MIT"}}
 
     updated: list[httpx.Request] = []
     async with _async(updated, 200, payloads.VOLUME) as client:
         await client.update_volume("example", description="Now with units")
-    assert _body(updated[0]) == {"description": "Now with units"}
+    assert _body(updated[0]) == {"discovery": {"description": "Now with units"}}
 
     deleted: list[httpx.Request] = []
     async with _async(deleted, 204) as client:

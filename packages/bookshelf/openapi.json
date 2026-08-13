@@ -357,7 +357,7 @@
           "agent-auth"
         ],
         "summary": "Token",
-        "description": "Exchange an assertion (jwt-bearer) or poll the claim grant for a token.\n\n``resource`` is the optional RFC 8707 resource indicator; it is accepted for\nprotocol compatibility but not yet used.",
+        "description": "Exchange an assertion (jwt-bearer) or poll the claim grant for a token.\n\n``resource`` is the optional RFC 8707 resource indicator. It is accepted for\nprotocol compatibility but not yet used.",
         "operationId": "agentTokenExchange",
         "requestBody": {
           "content": {
@@ -409,7 +409,7 @@
           "agent-auth"
         ],
         "summary": "Revoke",
-        "description": "Revoke an access token (RFC 7009; idempotent).",
+        "description": "Revoke an access token (RFC 7009, idempotent).",
         "operationId": "agentTokenRevoke",
         "requestBody": {
           "content": {
@@ -922,7 +922,7 @@
           "books"
         ],
         "summary": "List Books",
-        "description": "List books, scoped to a volume or across all volumes.\n\nSupplying ``volume`` lists that volume's books. Omitting ``volume`` runs a\ncross-volume generation query and REQUIRES at least one of\n``producer_version`` / ``config_hash`` so it stays a targeted lookup rather\nthan an unbounded dump; the same access-control rules apply, so callers only\never see books they are entitled to (public plus their own org's, per the\nexisting visibility rules).\n\nPrivate books only visible with valid authentication and appropriate access.",
+        "description": "List books, scoped to a volume or across all volumes.\n\nSupplying ``volume`` lists that volume's books. Omitting ``volume`` runs a\ncross-volume generation query and REQUIRES at least one of\n``producer_version`` / ``config_hash`` so it stays a targeted lookup rather\nthan an unbounded dump. The same access-control rules apply, so callers only\never see books they are entitled to (public plus their own org's, per the\nexisting visibility rules).\n\nPrivate books only visible with valid authentication and appropriate access.",
         "operationId": "booksListBooks",
         "security": [
           {},
@@ -2540,7 +2540,7 @@
           "explorer"
         ],
         "summary": "Get Chart",
-        "description": "Get a chart by short ID.\n\nPublic and unlisted charts are readable by anyone with the link, including\nanonymous callers. A private chart is returned only to its owner or a member\nof the owner's organisation; everyone else gets a 404 (existence is not\nleaked).",
+        "description": "Get a chart by short ID.\n\nPublic and unlisted charts are readable by anyone with the link, including\nanonymous callers. A private chart is returned only to its owner or a member\nof the owner's organisation. Everyone else gets a 404 (existence is not\nleaked).",
         "operationId": "explorerGetChart",
         "security": [
           {},
@@ -4122,7 +4122,7 @@
           "data"
         ],
         "summary": "Query Resource Data",
-        "description": "Query a resource's tabular data with PostgREST-style filters.\n\nThe output format is negotiated via the ``Accept`` header:\n``application/json`` (default, a JSON array of row objects), ``text/csv``,\nor ``application/parquet``.\n\nColumn filters use a dynamic ``col.op=value`` grammar that cannot be\nenumerated in a static schema because the columns are per-resource, so they\narrive as arbitrary query params alongside the four declared modifiers.\nOperators: ``eq`` (the default when ``.op`` is omitted), ``neq``, ``gt``,\n``gte``, ``lt``, ``lte``, ``in``, ``nin``, ``like``, ``ilike``, ``is``,\n``isnot`` \u2014 e.g. ``?year.gte=2020&region.in=USA,CHN``.\n\nReturns 304 when ``If-None-Match`` matches the computed ETag for published,\nnon-invalidated resources.",
+        "description": "Query a resource's tabular data with PostgREST-style filters.\n\nThe output format is negotiated via the ``Accept`` header:\n``application/json`` (default, a JSON array of row objects), ``text/csv``,\nor ``application/parquet``.\n\nColumn filters use a dynamic ``col.op=value`` grammar that cannot be\nenumerated in a static schema because the columns are per-resource, so they\narrive as arbitrary query params alongside the four declared modifiers.\nOperators: ``eq`` (the default when ``.op`` is omitted), ``neq``, ``gt``,\n``gte``, ``lt``, ``lte``, ``in``, ``nin``, ``like``, ``ilike``, ``is``,\n``isnot``. Example: ``?year.gte=2020&region.in=USA,CHN``.\n\nReturns 304 when ``If-None-Match`` matches the computed ETag for published,\nnon-invalidated resources.",
         "operationId": "dataQueryResourceData",
         "security": [
           {},
@@ -4319,7 +4319,7 @@
           "book-actions"
         ],
         "summary": "Attach Entry",
-        "description": "Attach a resource to a draft book by tracking id.\n\nRe-points a resource owned by another DRAFT book (409 only when the current\nowner is PUBLISHED); asserts WRITE access to the source draft's volume and\nemits a ``BOOK_ATTACH`` audit event on every move.",
+        "description": "Attach a resource to a draft book by tracking id.\n\nRe-points a resource owned by another DRAFT book (409 only when the current\nowner is PUBLISHED). Asserts WRITE access to the source draft's volume and\nemits a ``BOOK_ATTACH`` audit event on every move.",
         "operationId": "bookActionsAttachEntry",
         "security": [
           {
@@ -4760,7 +4760,7 @@
           "registrations"
         ],
         "summary": "Register Resources",
-        "description": "Register a homogeneous list of resources.\n\nWith ``atomic=True`` (default), all items succeed or none do \u2014 any\nper-item failure rolls the whole transaction back and surfaces the\nfailing item's real status (e.g. **409** for a conflict) with a curated\n``Problem`` body carrying ``failed_index``.\n\nWith ``atomic=False``, items are processed independently; failures\nsurface in the per-item ``error`` field while siblings continue.\n\nExternal pointers are detected from ``item.external_uri``; no separate\nendpoint is required.\n\nThe Activity envelope, when supplied, is persisted lazily \u2014 if\n``items`` is empty, no Activity row is written.",
+        "description": "Register a homogeneous list of resources.\n\nWith ``atomic=True`` (default), all items succeed or none do. Any\nper-item failure rolls the whole transaction back and surfaces the\nfailing item's real status (e.g. **409** for a conflict) with a curated\n``Problem`` body carrying ``failed_index``.\n\nWith ``atomic=False``, items are processed independently. Failures\nsurface in the per-item ``error`` field while siblings continue.\n\nExternal pointers are detected from ``item.external_uri``. No separate\nendpoint is required.\n\nThe Activity envelope, when supplied, is persisted lazily, so if\n``items`` is empty, no Activity row is written.",
         "operationId": "registrationsRegisterResources",
         "requestBody": {
           "content": {
@@ -4822,7 +4822,7 @@
           "registrations"
         ],
         "summary": "Register Resources Bulk",
-        "description": "Offline-flush replay with per-item status reporting.\n\nItems are processed independently \u2014 one item failing does not stop the\nothers.  The response status is always 200; callers inspect each\n``BulkItemResult`` for individual outcomes.",
+        "description": "Offline-flush replay with per-item status reporting.\n\nItems are processed independently, so one item failing does not stop the\nothers. The response status is always 200. Callers inspect each\n``BulkItemResult`` for individual outcomes.",
         "operationId": "registrationsRegisterResourcesBulk",
         "requestBody": {
           "content": {
@@ -5222,7 +5222,7 @@
           "type"
         ],
         "title": "AgentIdentityRequest",
-        "description": "Body of ``POST /agent/identity``; dispatches on ``type``."
+        "description": "Body of ``POST /agent/identity``. Dispatches on ``type``."
       },
       "AnonymousRegistrationResponse": {
         "properties": {
@@ -5422,19 +5422,6 @@
             "title": "Version",
             "description": "Semantic version string (e.g., 'v1.0.0')"
           },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 5000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description",
-            "description": "Optional long-form description"
-          },
           "metadata": {
             "additionalProperties": true,
             "type": "object",
@@ -5486,51 +5473,6 @@
             "type": "string",
             "title": "Series Name",
             "description": "Name of the parent series."
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description",
-            "description": "Long-form description."
-          },
-          "license": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "License",
-            "description": "SPDX license identifier for the book."
-          },
-          "citation_doi": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Citation Doi",
-            "description": "Read-only mirror of ``discovery.doi``. Read the discovery profile instead.",
-            "deprecated": true
-          },
-          "authors": {
-            "items": {
-              "$ref": "#/components/schemas/Author"
-            },
-            "type": "array",
-            "title": "Authors",
-            "description": "Authors credited on this release."
           },
           "discovery": {
             "$ref": "#/components/schemas/BookDiscovery",
@@ -5604,6 +5546,79 @@
       },
       "BookDiscovery": {
         "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Concise summary"
+          },
+          "authors": {
+            "items": {
+              "$ref": "#/components/schemas/Author"
+            },
+            "type": "array",
+            "title": "Authors",
+            "description": "Authors and contributors"
+          },
+          "doi": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doi",
+            "description": "DOI for the dataset"
+          },
+          "citation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation",
+            "description": "Citation string for referencing this"
+          },
+          "license": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License",
+            "description": "SPDX licence identifier"
+          },
+          "license_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Url",
+            "description": "Licence text URL"
+          },
           "spatial_coverage": {
             "items": {
               "type": "string"
@@ -5673,19 +5688,6 @@
             "title": "Title",
             "description": "Human-readable display title"
           },
-          "abstract": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 5000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Abstract",
-            "description": "Concise dataset summary"
-          },
           "publisher": {
             "anyOf": [
               {
@@ -5789,45 +5791,6 @@
             ],
             "title": "Source Release Date",
             "description": "Date the upstream source released this data"
-          },
-          "license_url": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "License Url",
-            "description": "Licence text URL"
-          },
-          "doi": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Doi",
-            "description": "DOI for the dataset"
-          },
-          "citation": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Citation",
-            "description": "Citation string for referencing this release"
           },
           "intended_uses": {
             "anyOf": [
@@ -5863,6 +5826,79 @@
       },
       "BookDiscoveryInput": {
         "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Concise summary"
+          },
+          "authors": {
+            "items": {
+              "$ref": "#/components/schemas/Author"
+            },
+            "type": "array",
+            "title": "Authors",
+            "description": "Authors and contributors"
+          },
+          "doi": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doi",
+            "description": "DOI for the dataset"
+          },
+          "citation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation",
+            "description": "Citation string for referencing this"
+          },
+          "license": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License",
+            "description": "SPDX licence identifier"
+          },
+          "license_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Url",
+            "description": "Licence text URL"
+          },
           "title": {
             "anyOf": [
               {
@@ -5875,19 +5911,6 @@
             ],
             "title": "Title",
             "description": "Human-readable display title"
-          },
-          "abstract": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 5000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Abstract",
-            "description": "Concise dataset summary"
           },
           "publisher": {
             "anyOf": [
@@ -5992,45 +6015,6 @@
             ],
             "title": "Source Release Date",
             "description": "Date the upstream source released this data"
-          },
-          "license_url": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "License Url",
-            "description": "Licence text URL"
-          },
-          "doi": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Doi",
-            "description": "DOI for the dataset"
-          },
-          "citation": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Citation",
-            "description": "Citation string for referencing this release"
           },
           "intended_uses": {
             "anyOf": [
@@ -6073,43 +6057,10 @@
             "title": "Version",
             "description": "Semantic version slug."
           },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description",
-            "description": "Optional long-form description."
-          },
-          "license": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 255
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "License",
-            "description": "SPDX license identifier for this book. Defaults to the parent volume's license when omitted."
-          },
           "visibility": {
             "$ref": "#/components/schemas/Visibility",
             "description": "Initial visibility tier; defaults to ``hidden``.",
             "default": "hidden"
-          },
-          "authors": {
-            "items": {
-              "$ref": "#/components/schemas/Author"
-            },
-            "type": "array",
-            "title": "Authors",
-            "description": "Authors credited on this release. Defaults to empty rather than to the volume."
           },
           "discovery": {
             "$ref": "#/components/schemas/BookDiscoveryInput",
@@ -6547,27 +6498,9 @@
             "type": "integer",
             "title": "Edition"
           },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "license": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "License"
+          "discovery": {
+            "$ref": "#/components/schemas/BookDiscovery",
+            "description": "Discovery profile baked onto this release"
           },
           "status": {
             "$ref": "#/components/schemas/BookStatus"
@@ -6644,7 +6577,6 @@
           "owner_org_id",
           "version",
           "edition",
-          "description",
           "status",
           "visibility",
           "private",
@@ -6668,19 +6600,6 @@
       },
       "BookUpdate": {
         "properties": {
-          "description": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 5000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description",
-            "description": "Updated description"
-          },
           "metadata": {
             "anyOf": [
               {
@@ -7127,7 +7046,7 @@
           "private"
         ],
         "title": "ChartVisibility",
-        "description": "Visibility for Data Explorer charts.\n\nDistinct from :class:`Visibility` (resources/books) because explorer charts\nare shared by unguessable ``short_id`` link, so they need an ``unlisted``\ntier rather than ``hidden``:\n\n- ``public`` \u2014 listed in discovery and readable by anyone with the link.\n- ``unlisted`` \u2014 not listed, but still readable by anyone with the link\n  (including anonymous callers).\n- ``private`` \u2014 readable only by the owner and members of the owner's org;\n  everyone else (including anonymous) gets a 404.\n\nDefault is ``public`` to preserve the pre-privacy behaviour of saved charts."
+        "description": "Visibility for Data Explorer charts.\n\nDistinct from :class:`Visibility` (resources/books) because explorer charts\nare shared by unguessable ``short_id`` link, so they need an ``unlisted``\ntier rather than ``hidden``:\n\n- ``public``: listed in discovery and readable by anyone with the link.\n- ``unlisted``: not listed, but still readable by anyone with the link\n  (including anonymous callers).\n- ``private``: readable only by the owner and members of the owner's org.\n  Everyone else (including anonymous) gets a 404.\n\nDefault is ``public`` to preserve the pre-privacy behaviour of saved charts."
       },
       "ClaimBlock": {
         "properties": {
@@ -7622,6 +7541,79 @@
       },
       "DiscoveryProfile": {
         "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Concise summary"
+          },
+          "authors": {
+            "items": {
+              "$ref": "#/components/schemas/Author"
+            },
+            "type": "array",
+            "title": "Authors",
+            "description": "Authors and contributors"
+          },
+          "doi": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doi",
+            "description": "DOI for the dataset"
+          },
+          "citation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation",
+            "description": "Citation string for referencing this"
+          },
+          "license": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License",
+            "description": "SPDX licence identifier"
+          },
+          "license_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Url",
+            "description": "Licence text URL"
+          },
           "spatial_coverage": {
             "items": {
               "type": "string"
@@ -7690,19 +7682,6 @@
             ],
             "title": "Title",
             "description": "Human-readable display title"
-          },
-          "abstract": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 5000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Abstract",
-            "description": "Concise dataset summary"
           },
           "publisher": {
             "anyOf": [
@@ -7808,45 +7787,6 @@
             "title": "Source Release Date",
             "description": "Date the upstream source released this data"
           },
-          "license_url": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "License Url",
-            "description": "Licence text URL"
-          },
-          "doi": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Doi",
-            "description": "DOI for the dataset"
-          },
-          "citation": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Citation",
-            "description": "Citation string for referencing this release"
-          },
           "intended_uses": {
             "anyOf": [
               {
@@ -7920,6 +7860,14 @@
             "type": "array",
             "title": "Keywords",
             "description": "Free-form keywords"
+          },
+          "maintainers": {
+            "items": {
+              "$ref": "#/components/schemas/Author"
+            },
+            "type": "array",
+            "title": "Maintainers",
+            "description": "Who looks after the volume here"
           },
           "update_cadence": {
             "anyOf": [
@@ -8117,7 +8065,7 @@
           "created_at"
         ],
         "title": "EntryListItem",
-        "description": "Book-scoped resource (entry) response for list endpoints.\n\n``type``/``format``/``size_bytes`` are nullable for the same reason as\n:class:`EntryRead` \u2014 managed registrations leave them unset."
+        "description": "Book-scoped resource (entry) response for list endpoints.\n\n``type``/``format``/``size_bytes`` are nullable for the same reason as\n:class:`EntryRead`: managed registrations leave them unset."
       },
       "EntryListResponse": {
         "properties": {
@@ -8265,12 +8213,9 @@
             ],
             "title": "External Uri"
           },
-          "tags": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Tags"
+          "discovery": {
+            "$ref": "#/components/schemas/ResourceDiscovery",
+            "description": "Discovery profile. The facts the resource states itself, its tags among it."
           },
           "visibility": {
             "$ref": "#/components/schemas/Visibility"
@@ -8295,12 +8240,11 @@
           "created_at",
           "tracking_id",
           "external_uri",
-          "tags",
           "visibility",
           "owner_org_id"
         ],
         "title": "EntryRead",
-        "description": "Full book-scoped resource (entry) response.\n\n``type``/``format``/``size_bytes``/``hash``/``content_hash`` are nullable\nbecause the managed registration path (``Bookshelf.register()`` -> attach ->\npublish) never populates them \u2014 the underlying columns are nullable and the\nquery engine infers a missing format from the location suffix."
+        "description": "Full book-scoped resource (entry) response.\n\n``type``/``format``/``size_bytes``/``hash``/``content_hash`` are nullable\nbecause the managed registration path (``Bookshelf.register()`` -> attach ->\npublish) never populates them. The underlying columns are nullable and the\nquery engine infers a missing format from the location suffix."
       },
       "EventKind": {
         "type": "string",
@@ -8915,7 +8859,7 @@
           "storage_path"
         ],
         "title": "IngestUploadCompleteRequest",
-        "description": "Request to complete a content-addressed ingest upload.\n\nSingle-part uploads land directly on the client ``PUT``; for them the\nclient may omit the complete call and ``parts`` is an empty list."
+        "description": "Request to complete a content-addressed ingest upload.\n\nSingle-part uploads land directly on the client ``PUT``. For them the\nclient may omit the complete call and ``parts`` is an empty list."
       },
       "IngestUploadInitiateRequest": {
         "properties": {
@@ -8944,7 +8888,7 @@
           "size_bytes"
         ],
         "title": "IngestUploadInitiateRequest",
-        "description": "Request to initiate a content-addressed ingest upload.\n\nUsed to re-host raw input bytes before any draft book exists. The server\nderives a content-addressed storage key from ``hash``; the caller never\nchooses the path."
+        "description": "Request to initiate a content-addressed ingest upload.\n\nUsed to re-host raw input bytes before any draft book exists. The server\nderives a content-addressed storage key from ``hash``. The caller never\nchooses the path."
       },
       "InvalidateRequest": {
         "properties": {
@@ -9027,7 +8971,7 @@
           "detail"
         ],
         "title": "ItemError",
-        "description": "Typed per-item failure inside a non-atomic registration/bulk envelope.\n\nReplaces the former ``dict[str, Any]`` error fields so code generators emit\na real model instead of an untyped object. Carries the underlying\n``BookshelfError`` status and detail; the top-level HTTP status stays ``200``\nfor non-atomic batches (callers inspect each item)."
+        "description": "Typed per-item failure inside a non-atomic registration/bulk envelope.\n\nReplaces the former ``dict[str, Any]`` error fields so code generators emit\na real model instead of an untyped object. Carries the underlying\n``BookshelfError`` status and detail. The top-level HTTP status stays ``200``\nfor non-atomic batches (callers inspect each item)."
       },
       "LiveResponse": {
         "properties": {
@@ -9102,7 +9046,7 @@
           "error_description"
         ],
         "title": "OAuthError",
-        "description": "OAuth-style error body returned by the agent-auth endpoints.\n\nDistinct from the RFC 7807 problem responses used elsewhere; mirrors the\n``AgentAuthError`` shape (e.g. ``authorization_pending``, ``invalid_request``,\n``unsupported_grant_type``)."
+        "description": "OAuth-style error body returned by the agent-auth endpoints.\n\nDistinct from the RFC 7807 problem responses used elsewhere. Mirrors the\n``AgentAuthError`` shape (e.g. ``authorization_pending``, ``invalid_request``,\n``unsupported_grant_type``)."
       },
       "PreviewResponse": {
         "properties": {
@@ -9251,7 +9195,7 @@
         "additionalProperties": true,
         "type": "object",
         "title": "ProvDocument",
-        "description": "A PROV-JSON document.\n\nPydantic is used for the response schema so OpenAPI advertises the shape;\nthe body is intentionally permissive (extra keys allowed)."
+        "description": "A PROV-JSON document.\n\nPydantic is used for the response schema so OpenAPI advertises the shape.\nThe body is intentionally permissive (extra keys allowed)."
       },
       "PublicStorageResponse": {
         "properties": {
@@ -9389,19 +9333,15 @@
             "description": "Three-tier visibility tier.",
             "default": "hidden"
           },
-          "tags": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Tags",
-            "description": "Free-form tag list."
-          },
           "metadata": {
             "additionalProperties": true,
             "type": "object",
             "title": "Metadata",
             "description": "Arbitrary JSON metadata."
+          },
+          "discovery": {
+            "$ref": "#/components/schemas/ResourceDiscoveryInput",
+            "description": "Typed discovery facts for this resource: who authored it, what it is, how to cite it and under what licence. The resource carries exactly what it is sent and takes nothing from its book, so send every fact the file should serve. An omitted fact and an explicit ``null`` both mean the resource states none."
           },
           "locations": {
             "items": {
@@ -9481,19 +9421,23 @@
             "description": "Three-tier visibility tier.",
             "default": "hidden"
           },
-          "tags": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Tags",
-            "description": "Free-form tag list."
-          },
           "metadata": {
             "additionalProperties": true,
             "type": "object",
             "title": "Metadata",
             "description": "Arbitrary JSON metadata."
+          },
+          "discovery": {
+            "$ref": "#/components/schemas/ResourceDiscoveryInput",
+            "description": "Typed discovery facts for this resource: who authored it, what it is, how to cite it and under what licence. The resource carries exactly what it is sent and takes nothing from its book, so send every fact the file should serve. An omitted fact and an explicit ``null`` both mean the resource states none."
+          },
+          "locations": {
+            "items": {
+              "$ref": "#/components/schemas/LocationInput"
+            },
+            "type": "array",
+            "title": "Locations",
+            "description": "Optional list of ``(shelf, path)`` pointers to attach."
           },
           "external_uri": {
             "anyOf": [
@@ -9506,14 +9450,6 @@
             ],
             "title": "External Uri",
             "description": "External pointer URI. Must be ``https``. When set, the item is registered as an external pointer (J3) and ``locations`` may be omitted."
-          },
-          "locations": {
-            "items": {
-              "$ref": "#/components/schemas/LocationInput"
-            },
-            "type": "array",
-            "title": "Locations",
-            "description": "Optional list of ``(shelf, path)`` pointers to attach."
           },
           "dedupe": {
             "type": "boolean",
@@ -9528,7 +9464,7 @@
           "type"
         ],
         "title": "RegisterResourceItem",
-        "description": "One resource registration in a homogeneous list.\n\nA single item type covers both managed and external-pointer flows.\nWhen ``external_uri`` is set the registration is treated as J3 (external\npointer); otherwise it is a managed (S3-backed) registration."
+        "description": "One resource registration in a homogeneous list.\n\nA single item type covers both managed and external-pointer flows.\nWhen ``external_uri`` is set the registration is treated as J3 (external pointer).\nOtherwise it is a managed (S3-backed) registration."
       },
       "RegisterResourcesItemResult": {
         "properties": {
@@ -9593,7 +9529,7 @@
                 "type": "null"
               }
             ],
-            "description": "Optional Activity envelope. Persisted lazily \u2014 if ``items`` is empty, no Activity row is written."
+            "description": "Optional Activity envelope. Persisted lazily: if ``items`` is empty, no Activity row is written."
           },
           "atomic": {
             "type": "boolean",
@@ -9605,7 +9541,7 @@
         "additionalProperties": false,
         "type": "object",
         "title": "RegisterResourcesRequest",
-        "description": "Body for ``POST /v1/resources/registrations``.\n\nUnions the legacy single + batch shapes: a homogeneous list of items\n(every item is either managed or external, indicated by\n``item.external_uri``), an optional ``Activity`` envelope, and an\n``atomic`` flag.\n\n* ``atomic=True`` (default): strict transaction \u2014 any failure rolls back\n  the whole batch and surfaces 422 with ``failed_index``.\n* ``atomic=False``: per-item processing \u2014 failures are reported in line\n  while siblings continue."
+        "description": "Body for ``POST /v1/resources/registrations``.\n\nUnions the legacy single + batch shapes: a homogeneous list of items\n(every item is either managed or external, indicated by\n``item.external_uri``), an optional ``Activity`` envelope, and an\n``atomic`` flag.\n\n* ``atomic=True`` (default): strict transaction so any failure rolls back\n  the whole batch and surfaces 422 with ``failed_index``.\n* ``atomic=False``: per-item processing, failures are reported in line\n  while siblings continue."
       },
       "RegisterResourcesResponse": {
         "properties": {
@@ -9888,31 +9824,6 @@
             "description": "Visibility tier for the book.",
             "default": "hidden"
           },
-          "license": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 255
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "License",
-            "description": "SPDX licence identifier. Defaults to the volume's licence when omitted."
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description",
-            "description": "Optional long-form description."
-          },
           "discovery": {
             "$ref": "#/components/schemas/BookDiscoveryInput",
             "description": "Discovery profile baked onto this release, the DOI and the citation among it."
@@ -10024,13 +9935,9 @@
             "description": "Three-tier visibility tier.",
             "default": "hidden"
           },
-          "tags": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Tags",
-            "description": "Free-form tag list."
+          "discovery": {
+            "$ref": "#/components/schemas/ResourceDiscoveryInput",
+            "description": "Discovery profile the resource states, its tags among it."
           },
           "metadata": {
             "additionalProperties": true,
@@ -10211,6 +10118,184 @@
         "title": "ResourceCreate",
         "description": "Schema for creating a resource (after upload complete)."
       },
+      "ResourceDiscovery": {
+        "properties": {
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "description": "Free-form tag list"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Concise summary"
+          },
+          "authors": {
+            "items": {
+              "$ref": "#/components/schemas/Author"
+            },
+            "type": "array",
+            "title": "Authors",
+            "description": "Authors and contributors"
+          },
+          "doi": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doi",
+            "description": "DOI for the dataset"
+          },
+          "citation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation",
+            "description": "Citation string for referencing this"
+          },
+          "license": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License",
+            "description": "SPDX licence identifier"
+          },
+          "license_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Url",
+            "description": "Licence text URL"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ResourceDiscovery",
+        "description": "The discovery profile a resource reads back.\n\nThe same shape as the write input, holding what the resource was written with."
+      },
+      "ResourceDiscoveryInput": {
+        "properties": {
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "description": "Free-form tag list"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Concise summary"
+          },
+          "authors": {
+            "items": {
+              "$ref": "#/components/schemas/Author"
+            },
+            "type": "array",
+            "title": "Authors",
+            "description": "Authors and contributors"
+          },
+          "doi": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doi",
+            "description": "DOI for the dataset"
+          },
+          "citation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation",
+            "description": "Citation string for referencing this"
+          },
+          "license": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License",
+            "description": "SPDX licence identifier"
+          },
+          "license_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Url",
+            "description": "Licence text URL"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ResourceDiscoveryInput",
+        "description": "The discovery facts a producer may write to a resource.\n\nEvery field is optional, and a resource carries exactly the ones it states.\nA resource is registered before it belongs to a book,\nso there is no level above for an omitted field to come from.\nA producer that wants a file to carry its series licence states it on the file."
+      },
       "ResourceListResponse": {
         "properties": {
           "items": {
@@ -10313,14 +10398,6 @@
             "$ref": "#/components/schemas/Visibility",
             "description": "Three-tier visibility tier."
           },
-          "tags": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Tags",
-            "description": "Free-form tag list."
-          },
           "metadata": {
             "additionalProperties": true,
             "type": "object",
@@ -10332,13 +10409,17 @@
             "title": "Owner Org Id",
             "description": "WorkOS org that owns the resource."
           },
+          "discovery": {
+            "$ref": "#/components/schemas/ResourceDiscovery",
+            "description": "Discovery profile. The facts the resource states itself, and no others."
+          },
           "locations": {
             "items": {
               "type": "string"
             },
             "type": "array",
             "title": "Locations",
-            "description": "Resolved storage location pointers for the resource. A resource carries at most one \u2014 its managed ``storage_path`` key (an opaque S3 object key; use ``GET /v1/resources/{tracking_id}/download`` to obtain a presigned fetch URL) or its ``external_uri`` (a direct URI). The list is empty when no location has been registered, or a single-element list otherwise."
+            "description": "Resolved storage location pointers for the resource. A resource carries at most one: its managed ``storage_path`` key (an opaque S3 object key; use ``GET /v1/resources/{tracking_id}/download`` to obtain a presigned fetch URL) or its ``external_uri`` (a direct URI). The list is empty when no location has been registered, or a single-element list otherwise."
           },
           "location_url": {
             "anyOf": [
@@ -10350,7 +10431,7 @@
               }
             ],
             "title": "Location Url",
-            "description": "Convenience copy of the first entry of ``locations``, or ``null`` when empty. For managed resources this is an opaque storage key, not a fetchable URL \u2014 use ``GET /v1/resources/{tracking_id}/download`` to obtain a presigned URL."
+            "description": "Convenience copy of the first entry of ``locations``, or ``null`` when empty. For managed resources this is an opaque storage key, not a fetchable URL. Use ``GET /v1/resources/{tracking_id}/download`` to obtain a presigned URL."
           },
           "created_at": {
             "type": "string",
@@ -11123,52 +11204,11 @@
             "title": "Name",
             "description": "Unique volume name (alphanumeric, hyphens, underscores)"
           },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 5000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description",
-            "description": "Optional long-form description"
-          },
-          "license": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "License",
-            "description": "SPDX license identifier, the default a book inherits"
-          },
           "metadata": {
             "additionalProperties": true,
             "type": "object",
             "title": "Metadata",
             "description": "Arbitrary JSON metadata"
-          },
-          "authors": {
-            "items": {
-              "$ref": "#/components/schemas/Author"
-            },
-            "type": "array",
-            "title": "Authors",
-            "description": "List of authors/contributors"
-          },
-          "maintainers": {
-            "items": {
-              "$ref": "#/components/schemas/Author"
-            },
-            "type": "array",
-            "title": "Maintainers",
-            "description": "List of maintainers"
           },
           "discovery": {
             "$ref": "#/components/schemas/VolumeDiscoveryInput",
@@ -11196,28 +11236,6 @@
             "type": "string",
             "title": "Owner Org Id"
           },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "license": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "License"
-          },
           "metadata": {
             "additionalProperties": true,
             "type": "object",
@@ -11226,20 +11244,6 @@
           "discovery": {
             "$ref": "#/components/schemas/DiscoveryProfile",
             "description": "Discovery metadata, composed from the latest published book"
-          },
-          "authors": {
-            "items": {
-              "$ref": "#/components/schemas/Author"
-            },
-            "type": "array",
-            "title": "Authors"
-          },
-          "maintainers": {
-            "items": {
-              "$ref": "#/components/schemas/Author"
-            },
-            "type": "array",
-            "title": "Maintainers"
           },
           "created_at": {
             "type": "string",
@@ -11267,11 +11271,7 @@
           "id",
           "name",
           "owner_org_id",
-          "description",
-          "license",
           "metadata",
-          "authors",
-          "maintainers",
           "created_at",
           "updated_at",
           "versions",
@@ -11282,6 +11282,79 @@
       },
       "VolumeDiscoveryInput": {
         "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Concise summary"
+          },
+          "authors": {
+            "items": {
+              "$ref": "#/components/schemas/Author"
+            },
+            "type": "array",
+            "title": "Authors",
+            "description": "Authors and contributors"
+          },
+          "doi": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doi",
+            "description": "DOI for the dataset"
+          },
+          "citation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation",
+            "description": "Citation string for referencing this"
+          },
+          "license": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License",
+            "description": "SPDX licence identifier"
+          },
+          "license_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Url",
+            "description": "Licence text URL"
+          },
           "deprecated": {
             "type": "boolean",
             "title": "Deprecated",
@@ -11330,6 +11403,14 @@
             "title": "Keywords",
             "description": "Free-form keywords"
           },
+          "maintainers": {
+            "items": {
+              "$ref": "#/components/schemas/Author"
+            },
+            "type": "array",
+            "title": "Maintainers",
+            "description": "Who looks after the volume here"
+          },
           "update_cadence": {
             "anyOf": [
               {
@@ -11347,7 +11428,7 @@
         "additionalProperties": false,
         "type": "object",
         "title": "VolumeDiscoveryInput",
-        "description": "The discovery facts a caller may write to a volume.\n\nA volume is the whole series, so it may only declare what stays true across every release.\nEverything else is a fact about one release and belongs on the book,\nwhich is why sending ``title`` or ``doi`` here is rejected\nrather than quietly accepted and then overwritten by the next publish.\n\n``topics`` and ``keywords`` are the search vocabulary and are deliberately volume-level:\nif they varied per release, filtering on one would give a different answer\ndepending on which edition happened to match."
+        "description": "The discovery facts a caller may write to a volume.\n\nA volume is the whole series, so beyond the facts every level describes\nitself with it may only declare what stays true across every release.\nA fact about one release belongs on the book,\nwhich is why sending ``title`` here is rejected\nrather than quietly accepted and then overwritten by the next publish.\n\n``topics`` and ``keywords`` are the search vocabulary and are deliberately volume-level:\nif they varied per release, filtering on one would give a different answer\ndepending on which edition happened to match."
       },
       "VolumeFacets": {
         "properties": {
@@ -11436,44 +11517,6 @@
             "type": "string",
             "title": "Owner Org Id"
           },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "license": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "License"
-          },
-          "authors": {
-            "items": {
-              "$ref": "#/components/schemas/Author"
-            },
-            "type": "array",
-            "title": "Authors",
-            "description": "List of authors/contributors"
-          },
-          "maintainers": {
-            "items": {
-              "$ref": "#/components/schemas/Author"
-            },
-            "type": "array",
-            "title": "Maintainers",
-            "description": "List of maintainers"
-          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -11546,8 +11589,6 @@
           "id",
           "name",
           "owner_org_id",
-          "description",
-          "license",
           "created_at",
           "updated_at"
         ],
@@ -11609,28 +11650,6 @@
             "type": "string",
             "title": "Owner Org Id"
           },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "license": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "License"
-          },
           "metadata": {
             "additionalProperties": true,
             "type": "object",
@@ -11639,20 +11658,6 @@
           "discovery": {
             "$ref": "#/components/schemas/DiscoveryProfile",
             "description": "Discovery metadata, composed from the latest published book"
-          },
-          "authors": {
-            "items": {
-              "$ref": "#/components/schemas/Author"
-            },
-            "type": "array",
-            "title": "Authors"
-          },
-          "maintainers": {
-            "items": {
-              "$ref": "#/components/schemas/Author"
-            },
-            "type": "array",
-            "title": "Maintainers"
           },
           "created_at": {
             "type": "string",
@@ -11670,11 +11675,7 @@
           "id",
           "name",
           "owner_org_id",
-          "description",
-          "license",
           "metadata",
-          "authors",
-          "maintainers",
           "created_at",
           "updated_at"
         ],
@@ -11712,31 +11713,6 @@
       },
       "VolumeUpdate": {
         "properties": {
-          "description": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 5000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description",
-            "description": "Updated description"
-          },
-          "license": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "License",
-            "description": "Updated SPDX license identifier, the default a book inherits"
-          },
           "metadata": {
             "anyOf": [
               {
@@ -11749,36 +11725,6 @@
             ],
             "title": "Metadata",
             "description": "Updated metadata (replaces existing)"
-          },
-          "authors": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/Author"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Authors",
-            "description": "Updated authors list (replaces existing)"
-          },
-          "maintainers": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/Author"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Maintainers",
-            "description": "Updated maintainers list (replaces existing)"
           },
           "discovery": {
             "anyOf": [
@@ -11995,7 +11941,7 @@
         "description": "Response for upstream/downstream walks."
       },
       "Problem": {
-        "description": "RFC 7807 Problem Details \u2014 the body of every error response.\n\nSee: https://datatracker.ietf.org/doc/html/rfc7807",
+        "description": "RFC 7807 Problem Details, the body of every error response.\n\nSee: https://datatracker.ietf.org/doc/html/rfc7807",
         "example": {
           "detail": "Volume 'ssp' not found",
           "status": 404,

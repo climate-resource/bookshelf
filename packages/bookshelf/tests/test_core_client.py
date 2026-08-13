@@ -74,7 +74,11 @@ def test_volume_lifecycle_round_trips_on_both_shells() -> None:
     handler = _recording_handler(seen, 201, payloads.VOLUME)
 
     with make_client(handler) as client:
-        created = client.create_volume(models.VolumeCreate(name="example", license="MIT"))
+        created = client.create_volume(
+            models.VolumeCreate(
+                name="example", discovery=models.VolumeDiscoveryInput(license="MIT")
+            )
+        )
     assert created.name == "example"
     assert seen == [("POST", "/v1/volumes")]
 
@@ -85,7 +89,8 @@ async def test_volume_lifecycle_round_trips_on_the_async_shell() -> None:
 
     async with make_client(handler) as client:
         updated = await client.update_volume_async(
-            "example", models.VolumeUpdate(description=models.Description3(root="units fixed"))
+            "example",
+            models.VolumeUpdate(discovery=models.VolumeDiscoveryInput(description="units fixed")),
         )
     assert updated.name == "example"
     assert seen == [("PATCH", "/v1/volumes/example")]

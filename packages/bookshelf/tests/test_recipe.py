@@ -58,7 +58,7 @@ volume:
   update_cadence: annual
 defaults:
   title: PRIMAP-hist
-  abstract: National greenhouse gas emissions.
+  description: National greenhouse gas emissions.
   publisher: Potsdam Institute for Climate Impact Research
   homepage_url: https://example.invalid/primap
   methodology_url: https://example.invalid/method
@@ -1027,7 +1027,9 @@ def test_a_recorded_build_takes_its_licence_from_the_resolved_book(tmp_path: Pat
     with _recording(_write_recipe(tmp_path), tmp_path / "bundle"):
         book = setup().book
 
-    assert book.metadata.license == "MIT"
+    assert book.metadata.discovery is not None
+    assert book.metadata.discovery.license is not None
+    assert book.metadata.discovery.license.root == "MIT"
 
 
 def test_a_recorded_build_takes_its_visibility_from_the_recipe(tmp_path: Path) -> None:

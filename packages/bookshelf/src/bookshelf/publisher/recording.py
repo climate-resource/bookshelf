@@ -82,7 +82,7 @@ class RecordedResource(Resource):
                 type=resource_type,
                 hash=hash_,
                 visibility=visibility,
-                tags=list(tags),
+                discovery=helpers.resource_discovery(tags),
                 metadata=dict(metadata or {}),
                 owner_org_id="recording",
                 locations=[] if location is None else [location],
@@ -382,8 +382,7 @@ class RecordedDraftBook(DraftBook):
                 visibility=visibility,
                 created_at=datetime.now(UTC),
                 series_name=volume,
-                description=description,
-                license=license,
+                discovery=models.BookDiscovery(description=description, license=license),
                 metadata=dict(metadata or {}),
             ),
         )
