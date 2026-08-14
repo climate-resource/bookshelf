@@ -82,7 +82,6 @@ def test_problem_and_book_draft_contracts() -> None:
 
 def test_data_dictionary_hangs_only_from_book_entries() -> None:
     book_models = (
-        models.BookCreate,
         models.BookUpdate,
         models.BookDraftRequest,
         models.BookResponse,

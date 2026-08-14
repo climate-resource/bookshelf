@@ -107,19 +107,15 @@ class BodyAgentTokenRevoke(BaseModel):
     token_type_hint: Annotated[str | None, Field(title="Token Type Hint")] = None
 
 
-class BookCreate(BaseModel):
-    version: Annotated[
+class Reason(RootModel[str]):
+    root: Annotated[
         str,
         Field(
-            description="Semantic version string (e.g., 'v1.0.0')",
-            max_length=50,
-            min_length=1,
-            title="Version",
+            description="Why the record moved, recorded on the correction event.",
+            max_length=2000,
+            title="Reason",
         ),
     ]
-    metadata: Annotated[
-        dict[str, Any] | None, Field(description="Arbitrary JSON metadata", title="Metadata")
-    ] = None
 
 
 class Description(RootModel[str]):
@@ -340,6 +336,10 @@ class BookUpdate(BaseModel):
     metadata: Annotated[
         dict[str, Any] | None,
         Field(description="Updated metadata (replaces existing)", title="Metadata"),
+    ] = None
+    discovery: Annotated[
+        BookDiscoveryInput | None,
+        Field(description="Updated discovery profile (replaces existing)"),
     ] = None
 
 
@@ -689,6 +689,7 @@ class EventKind(StrEnum):
     book_invalidate = "book_invalidate"
     book_publish = "book_publish"
     book_attach = "book_attach"
+    book_correct = "book_correct"
 
 
 class ChartHeight(RootModel[int]):
@@ -1092,29 +1093,6 @@ class ResourceDiscovery(BaseModel):
     ] = None
 
 
-class ResourceDiscoveryInput(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    tags: Annotated[list[str] | None, Field(description="Free-form tag list", title="Tags")] = None
-    description: Annotated[
-        Description | None, Field(description="Concise summary", title="Description")
-    ] = None
-    authors: Annotated[
-        list[Author] | None, Field(description="Authors and contributors", title="Authors")
-    ] = None
-    doi: Annotated[Doi | None, Field(description="DOI for the dataset", title="Doi")] = None
-    citation: Annotated[
-        Citation | None, Field(description="Citation string for referencing this", title="Citation")
-    ] = None
-    license: Annotated[
-        License | None, Field(description="SPDX licence identifier", title="License")
-    ] = None
-    license_url: Annotated[
-        LicenseUrl | None, Field(description="Licence text URL", title="License Url")
-    ] = None
-
-
 class ResourceLocationItem(BaseModel):
     id: Annotated[
         UUID, Field(description="Location row id (synthesised: resource id).", title="Id")
@@ -1314,14 +1292,6 @@ class UserResponse(BaseModel):
 
 class UserSessionResponse(BaseModel):
     user: UserResponse
-
-
-class ValidationError(BaseModel):
-    loc: Annotated[list[str | int], Field(title="Location")]
-    msg: Annotated[str, Field(title="Message")]
-    type: Annotated[str, Field(title="Error Type")]
-    input: Annotated[Any | None, Field(title="Input")] = None
-    ctx: Annotated[dict[str, Any] | None, Field(title="Context")] = None
 
 
 class VersionInfo(BaseModel):
@@ -1550,6 +1520,24 @@ class ActivityEnvelope(BaseModel):
     ] = None
 
 
+class BookCorrection(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    discovery: Annotated[
+        BookDiscoveryInput,
+        Field(
+            description="The facts to correct. Only the fields present in the body are written, so a correction of one fact leaves the rest of the profile standing. ``license`` may be restated but not changed: a licence is a legal claim about a specific release, so changing it mints a new edition through publish."
+        ),
+    ]
+    reason: Annotated[
+        Reason | None,
+        Field(
+            description="Why the record moved, recorded on the correction event.", title="Reason"
+        ),
+    ] = None
+
+
 class BookDiscovery(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -1756,7 +1744,6 @@ class BookListItem(BaseModel):
     edition: Annotated[int, Field(title="Edition")]
     status: BookStatus
     visibility: Visibility
-    private: Annotated[bool, Field(title="Private")]
     metadata: Annotated[dict[str, Any], Field(title="Metadata")]
     created_at: Annotated[AwareDatetime, Field(title="Created At")]
     published_at: Annotated[AwareDatetime | None, Field(title="Published At")]
@@ -1784,7 +1771,6 @@ class BookResponse(BaseModel):
     ] = None
     status: BookStatus
     visibility: Visibility
-    private: Annotated[bool, Field(title="Private")]
     metadata: Annotated[dict[str, Any], Field(title="Metadata")]
     hash: Annotated[str | None, Field(title="Hash")]
     created_at: Annotated[AwareDatetime, Field(title="Created At")]
@@ -2092,10 +2078,6 @@ class FacetsResponse(BaseModel):
     total_rows: Annotated[int, Field(title="Total Rows")]
 
 
-class HTTPValidationError(BaseModel):
-    detail: Annotated[list[ValidationError] | None, Field(title="Detail")] = None
-
-
 class IngestUploadCompleteRequest(BaseModel):
     upload_id: Annotated[str, Field(description="Upload ID from initiation", title="Upload Id")]
     storage_path: Annotated[
@@ -2152,7 +2134,7 @@ class RegisterRequest(BaseModel):
         dict[str, Any] | None, Field(description="Arbitrary JSON metadata.", title="Metadata")
     ] = None
     discovery: Annotated[
-        ResourceDiscoveryInput | None,
+        ResourceDiscovery | None,
         Field(
             description="Typed discovery facts for this resource: who authored it, what it is, how to cite it and under what licence. The resource carries exactly what it is sent and takes nothing from its book, so send every fact the file should serve. An omitted fact and an explicit ``null`` both mean the resource states none."
         ),
@@ -2205,7 +2187,7 @@ class RegisterResourceItem(BaseModel):
         dict[str, Any] | None, Field(description="Arbitrary JSON metadata.", title="Metadata")
     ] = None
     discovery: Annotated[
-        ResourceDiscoveryInput | None,
+        ResourceDiscovery | None,
         Field(
             description="Typed discovery facts for this resource: who authored it, what it is, how to cite it and under what licence. The resource carries exactly what it is sent and takes nothing from its book, so send every fact the file should serve. An omitted fact and an explicit ``null`` both mean the resource states none."
         ),
@@ -2381,7 +2363,7 @@ class ReplayResource(BaseModel):
         Visibility.hidden
     )
     discovery: Annotated[
-        ResourceDiscoveryInput | None,
+        ResourceDiscovery | None,
         Field(description="Discovery profile the resource states, its tags among it."),
     ] = None
     metadata: Annotated[
@@ -2475,6 +2457,12 @@ class ResourceCreate(BaseModel):
     ]
     metadata: Annotated[
         dict[str, Any] | None, Field(description="Arbitrary JSON metadata", title="Metadata")
+    ] = None
+    discovery: Annotated[
+        ResourceDiscovery | None,
+        Field(
+            description="Typed discovery facts for this resource: who authored it, what it is, how to cite it and under what licence. The resource carries exactly what it is sent and takes nothing from its book, so send every fact the file should serve. An omitted fact and an explicit ``null`` both mean the resource states none."
+        ),
     ] = None
 
 
@@ -2639,6 +2627,27 @@ class VolumeResponse(BaseModel):
     ] = None
     created_at: Annotated[AwareDatetime, Field(title="Created At")]
     updated_at: Annotated[AwareDatetime, Field(title="Updated At")]
+
+
+class BookCorrectionResponse(BaseModel):
+    book_id: Annotated[UUID, Field(title="Book Id")]
+    corrected_at: Annotated[
+        AwareDatetime,
+        Field(
+            description="When the correction landed, or when the request was served if it changed nothing.",
+            title="Corrected At",
+        ),
+    ]
+    corrected: Annotated[
+        list[str] | None,
+        Field(
+            description="The facts this correction changed. Empty when the book already said what the correction asked for, in which case no event was recorded.",
+            title="Corrected",
+        ),
+    ] = None
+    discovery: Annotated[
+        BookDiscovery, Field(description="The book's discovery profile as it now reads.")
+    ]
 
 
 class BookDetail(BaseModel):
