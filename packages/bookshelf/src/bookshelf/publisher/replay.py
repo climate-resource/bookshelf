@@ -1,16 +1,29 @@
-"""Replay a recorded bundle through public facade primitives."""
+"""Replay a recorded bundle through the platform's one-call replay endpoint.
+
+``POST /v1/bundles/replay`` registers every resource,
+mints the recorded activity's provenance edges,
+drafts the book,
+attaches every entry and publishes it,
+all in one transaction that rolls back as a whole.
+The client's job is therefore to put the managed bytes in place
+and to project the manifest onto the request.
+
+Every resource travels under its bundle-local name.
+The server owns the name to tracking id mapping,
+so nothing is carried between calls
+and the manifest order is the contract:
+an input is always registered before whatever consumes it.
+"""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
-from uuid import UUID
 
 from bookshelf._generated import models
-from bookshelf._produce.books import AsyncDraftBook, DraftBook
-from bookshelf._produce.resources import AsyncResource, Resource
-from bookshelf._produce.types import Used, UsedInput
+from bookshelf._produce.facade import discovery_input
+from bookshelf._produce.serialise import content_type_for
+from bookshelf._produce.uploads import upload_bytes, upload_bytes_async
 from bookshelf.facade import AsyncBookshelf, Bookshelf
 from bookshelf.publisher.bundle import (
     Bundle,
@@ -18,116 +31,95 @@ from bookshelf.publisher.bundle import (
     BundleBook,
     BundleBookEntry,
     BundleResource,
-    BundleUsedRef,
-    compute_book_bundle_hash,
 )
 
 
-def _entry_dictionary(
-    entry: BundleBookEntry,
-) -> list[models.DataDictionaryEntry] | None:
-    """Validate a recorded dictionary while preserving omission versus clearing."""
-    if entry.data_dictionary is None:
-        return None
-    return [models.DataDictionaryEntry.model_validate(item) for item in entry.data_dictionary]
+def _entry(entry: BundleBookEntry) -> models.ReplayEntry:
+    """Project one recorded membership row, preserving omission versus clearing."""
+    dictionary = (
+        None
+        if entry.data_dictionary is None
+        else [models.DataDictionaryEntry.model_validate(item) for item in entry.data_dictionary]
+    )
+    return models.ReplayEntry(name=entry.name, data_dictionary=dictionary)
 
 
-def _draft_kwargs(bundle: Bundle, book: BundleBook) -> dict[str, Any]:
-    """The framing both surfaces send when drafting a recorded book."""
-    return {
-        "version": book.version,
-        "description": book.description,
-        "visibility": book.visibility,
-        "license": book.license,
-        "metadata": book.metadata,
-        "bundle_hash": compute_book_bundle_hash(bundle.manifest),
-        "discovery": book.discovery,
-        "authors": book.authors,
-    }
+def _activity(activity: BundleActivity) -> models.ReplayActivity:
+    """Project the recorded activity, under the id it was recorded with.
 
-
-def _activity_kwargs(activity: BundleActivity) -> dict[str, Any]:
-    """The envelope both surfaces reopen the recorded activity under."""
-    return {
-        "activity_id": activity.activity_id,
-        "kind": activity.kind,
-        "code_ref": activity.code_ref,
-        "config": activity.parameters,
-        "runner": activity.runner,
-        "config_hash": activity.config_hash,
-    }
-
-
-def _pointer_kwargs(resource: BundleResource) -> dict[str, Any]:
-    """The arguments both surfaces register one recorded pointer with.
-
-    :class:`BundleResource` already refuses a pointer with no target,
-    so the check here only narrows the type for a hand-built record.
+    Sending the id again is what lets a repeated replay find the same activity
+    rather than mint duplicate provenance edges.
     """
-    if resource.external_uri is None:
-        raise ValueError(f"pointer {resource.tracking_id} has no external URI")
-    return {
-        "type": resource.type,
-        "uri": resource.external_uri,
-        "hash": resource.hash,
-        "name": resource.name,
-        "visibility": resource.visibility,
-        "tags": resource.tags,
-        "metadata": resource.metadata,
-        "tracking_id": resource.tracking_id,
-        "dedupe": resource.dedupe,
-    }
+    return models.ReplayActivity(
+        activity_id=activity.activity_id,
+        kind=activity.kind,
+        code_ref=activity.code_ref,
+        config_hash=activity.config_hash,
+        parameters=dict(activity.parameters),
+        runner=activity.runner,
+    )
 
 
-def _managed_kwargs(resource: BundleResource) -> dict[str, Any]:
-    """The arguments both surfaces re-register one recorded managed resource with."""
-    return {
-        "type": resource.type,
-        "name": resource.name,
-        "visibility": resource.visibility,
-        "tags": resource.tags,
-        "metadata": resource.metadata,
-        "tracking_id": resource.tracking_id,
-        "format": resource.format,
-        "dedupe": resource.dedupe,
-    }
+def _book(book: BundleBook) -> models.ReplayBook:
+    """Project the recorded framing, folding the editorial fields into discovery."""
+    return models.ReplayBook(
+        volume=book.volume,
+        version=book.version,
+        visibility=models.Visibility(book.visibility),
+        discovery=discovery_input(
+            book.discovery,
+            description=book.description,
+            license=book.license,
+            authors=book.authors,
+        ),
+        metadata=dict(book.metadata),
+        entries=[_entry(entry) for entry in book.entries],
+        published=book.published,
+    )
 
 
-async def draft_bundle_book(bundle: Bundle, bs: AsyncBookshelf) -> AsyncDraftBook:
-    """Draft the bundle's book through an asynchronous Bookshelf client.
+def _resource(resource: BundleResource, storage_path: str | None) -> models.ReplayResource:
+    """Project one recorded resource, addressing it and its inputs by name."""
+    pointer = resource.kind == "pointer"
+    return models.ReplayResource(
+        name=resource.name,
+        hash=resource.hash,
+        type=models.ResourceType(resource.type),
+        kind=models.Kind2(resource.kind),
+        format=resource.format,
+        visibility=models.Visibility(resource.visibility),
+        discovery=models.ResourceDiscovery(tags=list(resource.tags)),
+        metadata=dict(resource.metadata),
+        dedupe=resource.dedupe,
+        size_bytes=None if pointer else resource.size,
+        external_uri=resource.external_uri,
+        storage_path=None if pointer else storage_path,
+        generated=resource.generated,
+        used=list(resource.used),
+    )
 
-    The draft is keyed on the bundle hash,
-    so drafting is how a caller learns whether the edition already exists.
 
-    Args:
-        bundle: Loaded bundle carrying the book framing.
-        bs: Open asynchronous client used for the draft.
-
-    Returns:
-        The existing published book or the draft to replay into.
-
-    Raises:
-        InvalidBundleError: The bundle has no book framing.
-    """
-    book = bundle.require_framing()
-    return await bs.draft_book(book.volume, **_draft_kwargs(bundle, book))
+def _request(bundle: Bundle, storage_paths: Mapping[str, str]) -> models.BundleReplayRequest:
+    """Build the one request a replay sends, in the recorded resource order."""
+    manifest = bundle.manifest
+    return models.BundleReplayRequest(
+        activity=None if manifest.activity is None else _activity(manifest.activity),
+        resources=[
+            _resource(resource, storage_paths.get(resource.name)) for resource in manifest.resources
+        ],
+        book=None if manifest.book is None else _book(manifest.book),
+    )
 
 
-def draft_bundle_book_sync(bundle: Bundle, bs: Bookshelf) -> DraftBook:
-    """Draft the bundle's book through a synchronous Bookshelf client.
-
-    This is the synchronous counterpart to :func:`draft_bundle_book`.
-    """
-    book = bundle.require_framing()
-    return bs.draft_book(book.volume, **_draft_kwargs(bundle, book))
+def _managed(bundle: Bundle) -> list[BundleResource]:
+    """The recorded resources whose bytes the platform hosts."""
+    return [resource for resource in bundle.manifest.resources if resource.kind == "managed"]
 
 
 async def replay_bundle(
     bundle: Path | Bundle,
     bs: AsyncBookshelf,
-    *,
-    draft: AsyncDraftBook | None = None,
-) -> AsyncDraftBook:
+) -> models.BundleReplayResponse:
     """Replay a recorded bundle through an asynchronous Bookshelf client.
 
     Pass a :class:`pathlib.Path` for the usual publish workflow.
@@ -135,177 +127,57 @@ async def replay_bundle(
     Pass an already loaded :class:`Bundle`
     when the caller needs to inspect, validate, or transport the bundle before replay.
 
-    The recorded activity and resource identifiers are sent verbatim.
-    The book's content hash selects an existing published edition or a resumable draft,
-    so repeating a replay is safe.
-    If the manifest marks the book as published, this function publishes the draft.
-    Otherwise it returns the populated draft without publishing it.
+    The managed bytes are uploaded first,
+    then the whole bundle is sent as one request.
+    The server computes the seal from that request,
+    so replaying the same bundle twice converges on one edition
+    and the second run reports ``converged``.
+    If the manifest marks the book as published, the same request publishes it.
 
     Args:
         bundle: Bundle directory or an already loaded bundle.
-        bs: Open asynchronous client used for all replay writes.
-        draft: Draft already resolved by :func:`draft_bundle_book`, so a caller that
-            drafted to decide what to do does not draft a second time.
+        bs: Open asynchronous client used for the upload and the replay.
 
     Returns:
-        The existing published book or the draft populated by this replay.
+        What the replay resolved to, the resulting book among it.
 
     Raises:
-        InvalidBundleError: The bundle has no book framing.
         ValueError: The bundle contains an invalid resource representation.
     """
     recorded = Bundle.read(bundle) if isinstance(bundle, Path) else bundle
-    manifest = recorded.manifest
-    book = recorded.require_framing()
-    resolved = draft if draft is not None else await draft_bundle_book(recorded, bs)
-    if resolved.status == "published":
-        return resolved
-
-    resources: dict[UUID, AsyncResource] = {}
-    generated = [resource for resource in manifest.resources if resource.generated]
-    inputs = [resource for resource in manifest.resources if not resource.generated]
-    in_bundle = frozenset(resource.tracking_id for resource in manifest.resources)
-    for resource in inputs:
-        if resource.kind != "pointer":
-            raise ValueError("managed bundle resources require a recorded activity")
-        resources[resource.tracking_id] = await bs.register_external(**_pointer_kwargs(resource))
-
-    if generated:
-        activity = manifest.activity
-        if activity is None:
-            raise ValueError("generated bundle resources require a recorded activity")
-        async with bs.activity(**_activity_kwargs(activity)) as live_activity:
-            for resource in generated:
-                used = _resource_used(resource, resources, in_bundle)
-                if resource.kind == "pointer":
-                    handle = await live_activity.register_external(
-                        used=used, **_pointer_kwargs(resource)
-                    )
-                else:
-                    handle = await live_activity.register(
-                        recorded.resource_bytes(resource),
-                        used=used,
-                        **_managed_kwargs(resource),
-                    )
-                resources[resource.tracking_id] = handle
-
-    for entry in book.entries:
-        await resolved.attach(
-            resources[entry.tracking_id],
-            name_in_book=entry.name_in_book,
-            data_dictionary=_entry_dictionary(entry),
+    storage_paths = {
+        resource.name: await upload_bytes_async(
+            bs._client,
+            recorded.resource_bytes(resource),
+            hash_=resource.hash,
+            content_type=content_type_for(resource.type),
         )
-    if book.published:
-        await resolved.publish()
-    return resolved
+        for resource in _managed(recorded)
+    }
+    return await bs._client.replay_bundle_async(_request(recorded, storage_paths))
 
 
 def replay_bundle_sync(
     bundle: Path | Bundle,
     bs: Bookshelf,
-    *,
-    draft: DraftBook | None = None,
-) -> DraftBook:
+) -> models.BundleReplayResponse:
     """Replay a recorded bundle through a synchronous Bookshelf client.
 
     This is the synchronous counterpart to :func:`replay_bundle`.
     It accepts the same path or loaded bundle forms,
-    and the same already-resolved draft.
-    It preserves the same identifiers,
-    lineage,
-    draft-resume,
-    and publication behaviour.
+    and it converges the same way.
     """
     recorded = Bundle.read(bundle) if isinstance(bundle, Path) else bundle
-    manifest = recorded.manifest
-    book = recorded.require_framing()
-    resolved = draft if draft is not None else draft_bundle_book_sync(recorded, bs)
-    if resolved.status == "published":
-        return resolved
-
-    resources: dict[UUID, Resource] = {}
-    generated = [resource for resource in manifest.resources if resource.generated]
-    inputs = [resource for resource in manifest.resources if not resource.generated]
-    in_bundle = frozenset(resource.tracking_id for resource in manifest.resources)
-    for resource in inputs:
-        if resource.kind != "pointer":
-            raise ValueError("managed bundle resources require a recorded activity")
-        resources[resource.tracking_id] = bs.register_external(**_pointer_kwargs(resource))
-
-    if generated:
-        activity = manifest.activity
-        if activity is None:
-            raise ValueError("generated bundle resources require a recorded activity")
-        with bs.activity(**_activity_kwargs(activity)) as live_activity:
-            for resource in generated:
-                used = _resource_used(resource, resources, in_bundle)
-                if resource.kind == "pointer":
-                    handle = live_activity.register_external(used=used, **_pointer_kwargs(resource))
-                else:
-                    handle = live_activity.register(
-                        recorded.resource_bytes(resource),
-                        used=used,
-                        **_managed_kwargs(resource),
-                    )
-                resources[resource.tracking_id] = handle
-
-    for entry in book.entries:
-        resolved.attach(
-            resources[entry.tracking_id],
-            name_in_book=entry.name_in_book,
-            data_dictionary=_entry_dictionary(entry),
+    storage_paths = {
+        resource.name: upload_bytes(
+            bs._client,
+            recorded.resource_bytes(resource),
+            hash_=resource.hash,
+            content_type=content_type_for(resource.type),
         )
-    if book.published:
-        resolved.publish()
-    return resolved
+        for resource in _managed(recorded)
+    }
+    return bs._client.replay_bundle(_request(recorded, storage_paths))
 
 
-def _resource_used(
-    resource: BundleResource,
-    registered: Mapping[UUID, Resource | AsyncResource],
-    in_bundle: frozenset[UUID],
-) -> list[UsedInput]:
-    """Resolve one resource's recorded inputs against what replay actually registered.
-
-    A recorded tracking id is a claim about the bundle, not about the deployment.
-    The server may answer a registration with a resource it already holds when the
-    bytes match, so an input is cited by the id that came back rather than the id
-    the bundle asked for.
-
-    A resource citing itself is dropped, which a bundle recorded before inputs were
-    kept per resource will do.
-    An id the bundle does not carry belongs to something registered elsewhere, so it
-    passes through for the server to resolve.
-    """
-    values: list[UsedInput] = []
-    seen: set[tuple[str, str]] = set()
-    for reference in resource.used:
-        value = _used_value(reference)
-        if isinstance(value, UUID):
-            if value == resource.tracking_id:
-                continue
-            handle = registered.get(value)
-            if handle is not None:
-                value = handle.tracking_id
-            elif value in in_bundle:
-                raise ValueError(
-                    f"resource {resource.tracking_id} consumes {value}, "
-                    "which the bundle records after it. "
-                    "Inputs must be registered before whatever consumes them."
-                )
-        key = ("tracking_id", str(value)) if isinstance(value, UUID) else ("name", value.name)
-        if key not in seen:
-            seen.add(key)
-            values.append(value)
-    return values
-
-
-def _used_value(reference: BundleUsedRef) -> Used | UUID:
-    if reference.tracking_id is not None:
-        return reference.tracking_id
-    if reference.name is not None:
-        return Used(name=reference.name)
-    raise ValueError("recorded used reference has no coordinate")
-
-
-__all__ = ["draft_bundle_book", "draft_bundle_book_sync", "replay_bundle", "replay_bundle_sync"]
+__all__ = ["replay_bundle", "replay_bundle_sync"]

@@ -3,10 +3,9 @@
 from dataclasses import dataclass
 from typing import Literal
 
-from bookshelf._produce.books import DraftBook
 from bookshelf.facade import Bookshelf
-from bookshelf.publisher.bundle import Bundle, compute_book_bundle_hash
-from bookshelf.publisher.replay import draft_bundle_book_sync, replay_bundle_sync
+from bookshelf.publisher.bundle import Bundle
+from bookshelf.publisher.replay import replay_bundle_sync
 
 PublishKind = Literal["no-op", "would-publish", "published"]
 """What a publish did: nothing, nothing yet, or a replay through to publication."""
@@ -16,29 +15,32 @@ PublishKind = Literal["no-op", "would-publish", "published"]
 class PublishOutcome:
     """What publishing a bundle resolved to.
 
-    ``resources`` counts what the publish replayed,
-    so it is zero for an edition that already exists.
-    ``bundle_hash`` is the key the edition converges on.
+    ``converged`` says the request matched a book already published under its seal,
+    so the publish was a no-op and the edition is the one that was already there.
+    ``resource_count`` counts what the request carried
+    and ``dedupe_hits`` how many of those resolved to content the deployment already held.
+    Neither says what was written: a converged replay still recognises its resources.
+    ``edition`` is ``None`` for a dry run, which resolves no edition because it sends nothing.
     """
 
     kind: PublishKind
-    edition: int
-    resources: int
-    bundle_hash: str
+    edition: int | None
+    resource_count: int
+    dedupe_hits: int
+    converged: bool
 
 
 def publish_bundle(bundle: Bundle, bs: Bookshelf, *, dry_run: bool = False) -> PublishOutcome:
     """Replay a recorded bundle to publish it, converging on one edition.
 
-    Drafting is the only way to learn whether the edition already exists,
-    and the draft is keyed on the bundle hash,
-    so a dry run adds no edition of its own.
-    The draft this decision rests on is the one the replay resumes.
+    The server settles convergence from the request alone,
+    so a repeated publish is a no-op rather than a rival edition
+    and a dry run is a local report rather than a probe that allocates anything.
 
     Args:
         bundle: Loaded bundle to publish.
-        bs: Open synchronous client used for the draft and the replay.
-        dry_run: Resolve the edition and report the outcome without replaying.
+        bs: Open synchronous client used for the replay.
+        dry_run: Report what would be sent without sending it.
 
     Returns:
         What the publish resolved to.
@@ -47,27 +49,27 @@ def publish_bundle(bundle: Bundle, bs: Bookshelf, *, dry_run: bool = False) -> P
         InvalidBundleError: The bundle has no book framing.
         ValueError: The bundle contains an invalid resource representation.
     """
-    # Ask for the framing before hashing it,
-    # so a resources-only bundle is named as such
-    # rather than reported as a seal that cannot be computed.
+    # Ask for the framing first, so a resources-only bundle is named as such
+    # rather than replayed as a book that publishes nothing.
     bundle.require_framing()
-    bundle_hash = compute_book_bundle_hash(bundle.manifest)
     resources = len(bundle.manifest.resources)
-    drafted = draft_bundle_book_sync(bundle, bs)
-
-    def outcome(kind: PublishKind, book: DraftBook, counted: int) -> PublishOutcome:
+    if dry_run:
         return PublishOutcome(
-            kind=kind,
-            edition=book.metadata.edition,
-            resources=counted,
-            bundle_hash=bundle_hash,
+            kind="would-publish",
+            edition=None,
+            resource_count=resources,
+            dedupe_hits=0,
+            converged=False,
         )
 
-    if drafted.status == "published":
-        return outcome("no-op", drafted, 0)
-    if dry_run:
-        return outcome("would-publish", drafted, resources)
-    return outcome("published", replay_bundle_sync(bundle, bs, draft=drafted), resources)
+    response = replay_bundle_sync(bundle, bs)
+    return PublishOutcome(
+        kind="no-op" if response.converged else "published",
+        edition=None if response.book is None else response.book.edition,
+        resource_count=response.resource_count,
+        dedupe_hits=response.dedupe_hits,
+        converged=response.converged,
+    )
 
 
 __all__ = ["PublishKind", "PublishOutcome", "publish_bundle"]

@@ -22,8 +22,8 @@ from bookshelf.facade import AsyncBookshelf, Bookshelf
 from bookshelf.publisher.bundle import Bundle
 from bookshelf.publisher.recipe import load_record_recipe
 from bookshelf.publisher.record import _ACTIVE_RECORDING, _RecordingContext, setup
-from bookshelf.publisher.replay import draft_bundle_book, draft_bundle_book_sync
-from tests import _core_payloads as payloads
+from bookshelf.publisher.replay import replay_bundle, replay_bundle_sync
+from tests._replay import replay_response
 
 BASE_URL = "https://bookshelf.test"
 
@@ -137,21 +137,21 @@ def _record(recipe_path: Path, root: Path, version: str) -> Bundle:
 
 
 def _transport(recorded: list[httpx.Request]) -> httpx.MockTransport:
-    """Answer the draft route while keeping every request the run made."""
+    """Answer the replay route while keeping every request the run made."""
 
     def handler(request: httpx.Request) -> httpx.Response:
         recorded.append(request)
-        return httpx.Response(201, json=payloads.BOOK_DETAIL)
+        return httpx.Response(200, json=replay_response(resource_count=0))
 
     return httpx.MockTransport(handler)
 
 
 def _publish(bundle: Bundle, recorded: list[httpx.Request] | None = None) -> dict[str, Any]:
-    """Replay a recorded bundle's draft call and return the payload it sent."""
+    """Replay a recorded bundle and return the book framing it sent."""
     seen = recorded if recorded is not None else []
     with Bookshelf(BASE_URL, auth=None, transport=_transport(seen)) as client:
-        draft_bundle_book_sync(bundle, client)
-    return json.loads(seen[-1].content)  # type: ignore[no-any-return]
+        replay_bundle_sync(bundle, client)
+    return json.loads(seen[-1].content)["book"]  # type: ignore[no-any-return]
 
 
 def _record_and_publish(
@@ -293,8 +293,8 @@ def test_the_volume_only_fields_are_never_sent_on_a_book(tmp_path: Path) -> None
     for name in _VOLUME_ONLY_FIELDS:
         assert name not in payload
         assert name not in payload["discovery"]
-    # The volume reaches the draft as the slug it is filed under, and nothing more.
-    assert payload["series_name"] == "primap-hist"
+    # The volume reaches the replay as the slug it is filed under, and nothing more.
+    assert payload["volume"] == "primap-hist"
     assert "name" not in payload
 
 
@@ -329,7 +329,7 @@ books:
     assert payload["discovery"]["description"] == "National greenhouse gas emissions."
 
 
-async def test_the_async_draft_sends_the_same_payload(tmp_path: Path) -> None:
+async def test_the_async_replay_sends_the_same_payload(tmp_path: Path) -> None:
     recipe = _write(tmp_path, _RECIPE)
     bundle = _record(recipe, tmp_path / "bundle", "v2.7")
 
@@ -337,6 +337,6 @@ async def test_the_async_draft_sends_the_same_payload(tmp_path: Path) -> None:
 
     recorded: list[httpx.Request] = []
     async with AsyncBookshelf(BASE_URL, auth=None, async_transport=_transport(recorded)) as client:
-        await draft_bundle_book(bundle, client)
+        await replay_bundle(bundle, client)
 
-    assert json.loads(recorded[-1].content) == synchronous
+    assert json.loads(recorded[-1].content)["book"] == synchronous

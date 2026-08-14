@@ -154,6 +154,25 @@ A failed multipart PUT can leave an unfinished upload because the server has no 
 Registration does not begin after that failure.
 A retry reuses the content addressed upload path and safely resumes the workflow.
 
+## Publishing a recorded bundle
+
+`bookshelf record` runs a build file offline and writes a bundle,
+and `bookshelf publish` replays that bundle to the platform.
+`bookshelf.publisher.replay_bundle` and `replay_bundle_sync` do the same from Python.
+
+A replay uploads the managed bytes,
+then sends the whole bundle to `POST /v1/bundles/replay` as one transactional request.
+The server registers the resources, mints the recorded activity's provenance edges,
+drafts the book, attaches every entry and publishes it,
+and rolls all of it back on a failure anywhere.
+
+Every resource travels under its bundle-local name.
+A resource that a book entry names takes that name inside the book,
+and `used=` lineage cites the name of a resource recorded earlier in the same bundle.
+The server computes the seal from the request,
+so replaying the same bundle again converges on the one edition
+and reports `converged` rather than minting a rival.
+
 ## Generated model core
 
 The committed files under `src/bookshelf/_generated/` are generated from the vendored `openapi.json`.

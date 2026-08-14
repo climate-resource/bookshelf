@@ -78,6 +78,14 @@ ENTRY_ATTACHED: dict[str, Any] = {
     "name_in_book": "by_country",
 }
 
+BUNDLE_REPLAYED: dict[str, Any] = {
+    "book": BOOK_DETAIL,
+    "resources": [{"name": "data", "tracking_id": None, "status": "skipped"}],
+    "dedupe_hits": 1,
+    "resource_count": 1,
+    "converged": True,
+}
+
 DOWNLOAD: dict[str, Any] = {"presigned_url": "https://s3.example/key?sig=abc", "expires_in": 900}
 
 INVALIDATED: dict[str, Any] = {

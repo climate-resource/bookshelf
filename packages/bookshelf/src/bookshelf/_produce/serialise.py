@@ -82,9 +82,9 @@ def _materialise(obj: Any, *, type: str) -> tuple[bytes, str, str | None]:
         # store verbatim regardless of type.
         # The format is unknowable from bytes alone,
         # so it is not claimed.
-        return obj, _content_type_for(type), None
+        return obj, content_type_for(type), None
     if isinstance(obj, Path):
-        return obj.read_bytes(), _content_type_for(type), _format_from_suffix(obj.name)
+        return obj.read_bytes(), content_type_for(type), _format_from_suffix(obj.name)
     if type in _PARQUET_TYPES:
         return _dataframe_to_parquet(obj), _PARQUET_CONTENT_TYPE, "parquet"
     raise TypeError(
@@ -112,7 +112,7 @@ def _format_from_suffix(name: str) -> str | None:
     return None
 
 
-def _content_type_for(type: str) -> str:
+def content_type_for(type: str) -> str:
     """Content type for already-serialised bytes of resource ``type``."""
     return _PARQUET_CONTENT_TYPE if type in _PARQUET_TYPES else _OPAQUE_CONTENT_TYPE
 
@@ -178,4 +178,4 @@ def _is_pandas_frame(obj: Any) -> bool:
     return isinstance(obj, pd.DataFrame)
 
 
-__all__ = ["SerialisedObject", "serialise"]
+__all__ = ["SerialisedObject", "content_type_for", "serialise"]

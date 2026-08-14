@@ -12,10 +12,8 @@ book:
   - email: golden@example.invalid
     name: Golden Fixture
   entries:
-  - name_in_book: emissions
-    tracking_id: 0197a000-0000-7000-8000-00000000b002
-  - name_in_book: summary
-    tracking_id: 0197a000-0000-7000-8000-00000000b003
+  - name: emissions
+  - name: summary
   license: CC-BY-4.0
   metadata: {}
   published: true
@@ -31,7 +29,6 @@ resources:
   metadata: {}
   name: golden-upstream
   tags: []
-  tracking_id: 0197a000-0000-7000-8000-00000000b001
   type: tabular
   used: []
   visibility: public
@@ -41,13 +38,12 @@ resources:
   hash: sha256:ea6c596787f6a204b23bfa40d53aeb0385c09dea0d92c788b559cd4ef11267cf
   kind: managed
   metadata: {}
-  name: golden-emissions
+  name: emissions
   size: 1251
   tags: []
-  tracking_id: 0197a000-0000-7000-8000-00000000b002
   type: timeseries
   used:
-  - tracking_id: 0197a000-0000-7000-8000-00000000b001
+  - golden-upstream
   visibility: public
 - dedupe: true
   format: parquet
@@ -55,15 +51,14 @@ resources:
   hash: sha256:76f2a9c81692ea9816ec55e4c78334fdf976d788b8cf7f47c6a7fa2d46e31876
   kind: managed
   metadata: {}
-  name: golden-summary
+  name: summary
   size: 614
   tags: []
-  tracking_id: 0197a000-0000-7000-8000-00000000b003
   type: tabular
   used:
-  - tracking_id: 0197a000-0000-7000-8000-00000000b001
-  - tracking_id: 0197a000-0000-7000-8000-00000000b002
+  - golden-upstream
+  - emissions
   visibility: public
-schema_version: '2.0'
+schema_version: '3.0'
 writer:
   pyarrow: 23.0.0

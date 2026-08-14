@@ -894,6 +894,14 @@ class BookshelfClient:
             await self._send_async(ops.build_register_resources(request))
         )
 
+    def replay_bundle(self, request: models.BundleReplayRequest) -> models.BundleReplayResponse:
+        return ops.parse_replay_bundle(self._send(ops.build_replay_bundle(request)))
+
+    async def replay_bundle_async(
+        self, request: models.BundleReplayRequest
+    ) -> models.BundleReplayResponse:
+        return ops.parse_replay_bundle(await self._send_async(ops.build_replay_bundle(request)))
+
     def update_book(self, book_id: str, request: models.BookUpdate) -> models.BookResponse:
         return ops.parse_update_book(self._send(ops.build_update_book(book_id, request)))
 

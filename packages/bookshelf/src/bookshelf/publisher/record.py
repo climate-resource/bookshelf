@@ -262,13 +262,15 @@ def _record_executed_documents(
         (executed.ipynb_path, f"{executed.name}.ipynb", notebook_kind),
         (executed.html_path, f"{executed.name}.html", html_kind),
     ]
-    for path, name_in_book, kind in documents:
+    for path, filename, kind in documents:
+        # One name: a replayed resource is registered under the name its book entry takes.
+        name = flatten_to_resource_name(filename)
         resource = context.bookshelf.recording_sink.record_document(
             path.read_bytes(),
-            name=flatten_to_resource_name(f"document-{name_in_book}"),
+            name=name,
             metadata={"kind": kind, "notebook_name": executed.name},
         )
-        context.book.attach(resource, name_in_book=name_in_book, data_dictionary=[])
+        context.book.attach(resource, name_in_book=name, data_dictionary=[])
 
 
 def _replace_bundle(staging: Path, target: Path) -> None:

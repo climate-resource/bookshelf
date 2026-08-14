@@ -39,7 +39,7 @@ def nests_discovery(name: str) -> bool:
     return _DISCOVERY_WIRE_NAMES.get(name, name) in _NESTED_DISCOVERY
 
 
-def _discovery_input(
+def discovery_input(
     fields: Mapping[str, Any] | None,
     *,
     description: str | None = None,
@@ -95,11 +95,11 @@ def _draft_request(
     because the request carries no top-level fields for them.
     """
     baked: dict[str, Any] = {}
-    discovery_input = _discovery_input(
+    baked_discovery = discovery_input(
         discovery, description=description, license=license, authors=authors
     )
-    if discovery_input is not None:
-        baked["discovery"] = discovery_input
+    if baked_discovery is not None:
+        baked["discovery"] = baked_discovery
     return models.BookDraftRequest(
         series_name=volume,
         version=version,

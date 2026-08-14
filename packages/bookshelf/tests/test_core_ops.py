@@ -15,8 +15,8 @@ TRACKING_ID = UUID("0197a000-0000-7000-8000-000000000001")
 
 
 def test_registry_covers_the_used_surface() -> None:
-    assert len(ops.OP_REGISTRY) == 31
-    assert len({(op.method, op.path_template) for op in ops.OP_REGISTRY.values()}) == 31
+    assert len(ops.OP_REGISTRY) == 32
+    assert len({(op.method, op.path_template) for op in ops.OP_REGISTRY.values()}) == 32
 
 
 def test_build_register_resources_dumps_set_fields_only() -> None:
@@ -137,6 +137,26 @@ def test_build_put_presigned_is_absolute_and_registry_free() -> None:
         (
             ops.build_publish_book("book/one"),
             ApiRequest(method="POST", path="/v1/books/book%2Fone/publish"),
+        ),
+        (
+            ops.build_replay_bundle(
+                models.BundleReplayRequest(
+                    resources=[
+                        models.ReplayResource(
+                            name="data",
+                            hash="sha256:" + "0" * 64,
+                            type=models.ResourceType.tabular,
+                        )
+                    ]
+                )
+            ),
+            ApiRequest(
+                method="POST",
+                path="/v1/bundles/replay",
+                json_body={
+                    "resources": [{"name": "data", "hash": "sha256:" + "0" * 64, "type": "tabular"}]
+                },
+            ),
         ),
         (
             ops.build_list_books(
@@ -273,6 +293,7 @@ _PARSE_PAIR_CASES: list[tuple[Any, int, dict[str, Any], type[Any]]] = [
     (ops.parse_draft_book, 201, payloads.BOOK_DETAIL, models.BookDetail),
     (ops.parse_attach_entry, 201, payloads.ENTRY_ATTACHED, models.BookEntryAttachResponse),
     (ops.parse_publish_book, 200, payloads.BOOK_DETAIL, models.BookDetail),
+    (ops.parse_replay_bundle, 200, payloads.BUNDLE_REPLAYED, models.BundleReplayResponse),
     (ops.parse_list_books, 200, payloads.BOOK_LIST, models.BookListResponse),
     (ops.parse_get_book, 200, payloads.BOOK_RESPONSE, models.BookResponse),
     (ops.parse_update_book, 200, payloads.BOOK_RESPONSE, models.BookResponse),
