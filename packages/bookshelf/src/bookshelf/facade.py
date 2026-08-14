@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any, Self
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Self
 from uuid import UUID
 
 import httpx
@@ -41,6 +42,9 @@ from bookshelf._produce.facade import (
 )
 from bookshelf._produce.facade import people as _people
 from bookshelf.cache import ContentCache
+
+if TYPE_CHECKING:
+    from bookshelf.publisher.bundle import Bundle
 
 _PAGE_SIZE = 100
 _MAX_PAGES = 1000
@@ -314,6 +318,20 @@ class Bookshelf:
         """
         self._client.delete_volume(name)
 
+    def replay_bundle(self, bundle: Path | Bundle) -> models.BundleReplayResponse:
+        """Upload a recorded bundle's managed bytes and replay it in one transactional request.
+
+        Args:
+            bundle: Bundle directory or an already loaded bundle.
+
+        Returns:
+            What the replay resolved to, the resulting book among it.
+        """
+        # Imported here because the publisher package imports this module.
+        from bookshelf.publisher.replay import send_bundle
+
+        return send_bundle(self._client, bundle)
+
     def discard_draft(self, book_id: str) -> None:
         """Delete a draft book, so a failed publish leaves no edition behind.
 
@@ -543,6 +561,20 @@ class AsyncBookshelf:
         so the credential that created a volume may not be able to remove it.
         """
         await self._client.delete_volume_async(name)
+
+    async def replay_bundle(self, bundle: Path | Bundle) -> models.BundleReplayResponse:
+        """Upload a recorded bundle's managed bytes and replay it in one transactional request.
+
+        Args:
+            bundle: Bundle directory or an already loaded bundle.
+
+        Returns:
+            What the replay resolved to, the resulting book among it.
+        """
+        # Imported here because the publisher package imports this module.
+        from bookshelf.publisher.replay import send_bundle_async
+
+        return await send_bundle_async(self._client, bundle)
 
     async def discard_draft(self, book_id: str) -> None:
         """Delete a draft book, so a failed publish leaves no edition behind.

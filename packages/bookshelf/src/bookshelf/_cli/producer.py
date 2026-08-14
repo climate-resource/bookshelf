@@ -279,7 +279,7 @@ def publish(
     dry_run: bool = typer.Option(
         False,
         "--dry-run",
-        help="Resolve the edition and report the outcome without publishing.",
+        help="Report what would be sent without sending it. Resolves no edition.",
     ),
     json_output: bool = typer.Option(False, "--json", help="Emit the summary as JSON."),
 ) -> None:

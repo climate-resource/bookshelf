@@ -55,6 +55,33 @@ def test_an_entry_without_its_resource_is_invalid(make_bundle: BundleFactory) ->
         bundle.validate()
 
 
+def test_lineage_naming_an_unrecorded_resource_is_invalid(make_bundle: BundleFactory) -> None:
+    """Replay resolves ``used`` against the same request, so an unrecorded name has no coordinate."""
+    bundle = make_bundle()
+    bundle.manifest.resources[0].used = ["absent"]
+
+    with pytest.raises(InvalidBundleError, match="uses 'absent'"):
+        bundle.validate()
+
+
+def test_lineage_recorded_after_its_consumer_is_invalid(make_bundle: BundleFactory) -> None:
+    """An input registered after what consumes it does not exist yet when the server reads it."""
+    bundle = make_bundle(entries=2)
+    first, second = bundle.manifest.resources[0], bundle.manifest.resources[1]
+    first.used = [second.name]
+
+    with pytest.raises(InvalidBundleError, match="does not record before it"):
+        bundle.validate()
+
+
+def test_lineage_recorded_before_its_consumer_validates(make_bundle: BundleFactory) -> None:
+    bundle = make_bundle(entries=2)
+    first, second = bundle.manifest.resources[0], bundle.manifest.resources[1]
+    second.used = [first.name]
+
+    bundle.validate()
+
+
 def test_managed_bytes_are_re_hashed_against_the_manifest(make_bundle: BundleFactory) -> None:
     """A bundle edited after recording must not publish content no reviewer saw."""
     bundle = make_bundle()

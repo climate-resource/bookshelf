@@ -72,6 +72,30 @@ def test_a_converged_replay_is_a_no_op(tmp_path: Path) -> None:
     assert outcome.dedupe_hits == 1
 
 
+def test_a_converged_replay_that_wrote_something_is_not_a_no_op(tmp_path: Path) -> None:
+    """The server can converge after registering some of what the request carried."""
+    bundle = _bundle(tmp_path / "bundle")
+    recorded: list[httpx.Request] = []
+    answered = replay_response(converged=True, edition=3, statuses={"data": "created"})
+
+    with replay_client(recorded, response=answered) as client:
+        outcome = publish_bundle(bundle, client)
+
+    assert outcome.kind == "published"
+    assert outcome.converged is True
+
+
+def test_a_replay_that_skipped_every_resource_is_a_no_op(tmp_path: Path) -> None:
+    bundle = _bundle(tmp_path / "bundle")
+    recorded: list[httpx.Request] = []
+    answered = replay_response(converged=True, edition=3, statuses={"data": "skipped"})
+
+    with replay_client(recorded, response=answered) as client:
+        outcome = publish_bundle(bundle, client)
+
+    assert outcome.kind == "no-op"
+
+
 def test_a_dry_run_sends_nothing(tmp_path: Path) -> None:
     """Convergence is the server's to settle, so a dry run has nothing to ask it."""
     bundle = _bundle(tmp_path / "bundle")

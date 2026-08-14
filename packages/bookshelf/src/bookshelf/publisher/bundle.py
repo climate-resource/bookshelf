@@ -46,12 +46,8 @@ from bookshelf._generated import models
 
 BUNDLE_SCHEMA_VERSION = "3.0"
 
-# The major this reader models.
-# A newer *minor* is additive and loads
-# because the models ignore unknown fields.
-# Any other major is refused.
-# A v2 bundle keys its resources by tracking id and a v3 bundle keys them by name,
-# and the two cannot be reconciled without inventing names the run never stated.
+# A newer minor loads because the models ignore unknown fields, and any other major is refused:
+# v2 keys resources by tracking id and v3 by name, which no rule maps without inventing names.
 _SUPPORTED_SCHEMA_MAJOR = int(BUNDLE_SCHEMA_VERSION.split(".", 1)[0])
 
 MANIFEST_NAME = "manifest.lock"
@@ -705,6 +701,7 @@ class Bundle:
         - that book is marked for publication
         - the book has at least one entry
         - every entry names a resource recorded in the same manifest
+        - every ``used`` name is recorded earlier in the manifest than what consumes it
         - every managed resource's bytes are present and still hash to the recorded hash,
           which a non-canonical hash cannot satisfy because it names no byte file
 
@@ -723,6 +720,18 @@ class Bundle:
         for entry in framing.entries:
             if entry.name not in recorded:
                 raise InvalidBundleError(f"book entry {entry.name!r} has no resource")
+
+        # Replay resolves lineage against the resources of the same request,
+        # so an input that lands later than its consumer has nothing to resolve to.
+        seen: set[str] = set()
+        for resource in self.manifest.resources:
+            for used in resource.used:
+                if used not in seen:
+                    raise InvalidBundleError(
+                        f"resource {resource.name!r} uses {used!r}, "
+                        "which the manifest does not record before it"
+                    )
+            seen.add(resource.name)
 
         for resource in self.manifest.resources:
             if resource.kind != "managed":

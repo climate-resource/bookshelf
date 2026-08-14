@@ -18,13 +18,20 @@ def replay_response(
     dedupe_hits: int = 0,
     edition: int = 1,
     book: bool = True,
+    statuses: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """One replay response body, framed as the deployment would answer this bundle."""
+    """One replay response body, framed as the deployment would answer this bundle.
+
+    ``statuses`` maps a bundle-local name to what the replay wrote for it.
+    """
     return {
         "book": (
             {**payloads.BOOK_DETAIL, "status": "published", "edition": edition} if book else None
         ),
-        "resources": [],
+        "resources": [
+            {"name": name, "tracking_id": None, "status": status}
+            for name, status in (statuses or {}).items()
+        ],
         "dedupe_hits": dedupe_hits,
         "resource_count": resource_count,
         "converged": converged,

@@ -20,6 +20,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 
+from bookshelf._core.client import BookshelfClient
 from bookshelf._generated import models
 from bookshelf._produce.facade import discovery_input
 from bookshelf._produce.serialise import content_type_for
@@ -116,6 +117,42 @@ def _managed(bundle: Bundle) -> list[BundleResource]:
     return [resource for resource in bundle.manifest.resources if resource.kind == "managed"]
 
 
+def send_bundle(client: BookshelfClient, bundle: Path | Bundle) -> models.BundleReplayResponse:
+    """Upload the managed bytes and send the whole bundle as one request.
+
+    This is the seam the facade drives, so the transport stays behind it.
+    """
+    recorded = Bundle.read(bundle) if isinstance(bundle, Path) else bundle
+    storage_paths = {
+        resource.name: upload_bytes(
+            client,
+            recorded.resource_bytes(resource),
+            hash_=resource.hash,
+            content_type=content_type_for(resource.type),
+        )
+        for resource in _managed(recorded)
+    }
+    return client.replay_bundle(_request(recorded, storage_paths))
+
+
+async def send_bundle_async(
+    client: BookshelfClient,
+    bundle: Path | Bundle,
+) -> models.BundleReplayResponse:
+    """Asynchronous counterpart to :func:`send_bundle`."""
+    recorded = Bundle.read(bundle) if isinstance(bundle, Path) else bundle
+    storage_paths = {
+        resource.name: await upload_bytes_async(
+            client,
+            recorded.resource_bytes(resource),
+            hash_=resource.hash,
+            content_type=content_type_for(resource.type),
+        )
+        for resource in _managed(recorded)
+    }
+    return await client.replay_bundle_async(_request(recorded, storage_paths))
+
+
 async def replay_bundle(
     bundle: Path | Bundle,
     bs: AsyncBookshelf,
@@ -144,17 +181,7 @@ async def replay_bundle(
     Raises:
         ValueError: The bundle contains an invalid resource representation.
     """
-    recorded = Bundle.read(bundle) if isinstance(bundle, Path) else bundle
-    storage_paths = {
-        resource.name: await upload_bytes_async(
-            bs._client,
-            recorded.resource_bytes(resource),
-            hash_=resource.hash,
-            content_type=content_type_for(resource.type),
-        )
-        for resource in _managed(recorded)
-    }
-    return await bs._client.replay_bundle_async(_request(recorded, storage_paths))
+    return await bs.replay_bundle(bundle)
 
 
 def replay_bundle_sync(
@@ -167,17 +194,7 @@ def replay_bundle_sync(
     It accepts the same path or loaded bundle forms,
     and it converges the same way.
     """
-    recorded = Bundle.read(bundle) if isinstance(bundle, Path) else bundle
-    storage_paths = {
-        resource.name: upload_bytes(
-            bs._client,
-            recorded.resource_bytes(resource),
-            hash_=resource.hash,
-            content_type=content_type_for(resource.type),
-        )
-        for resource in _managed(recorded)
-    }
-    return bs._client.replay_bundle(_request(recorded, storage_paths))
+    return bs.replay_bundle(bundle)
 
 
 __all__ = ["replay_bundle", "replay_bundle_sync"]

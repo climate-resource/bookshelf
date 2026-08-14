@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import Literal
 
+from bookshelf._generated import models
 from bookshelf.facade import Bookshelf
 from bookshelf.publisher.bundle import Bundle
 from bookshelf.publisher.replay import replay_bundle_sync
@@ -16,7 +17,9 @@ class PublishOutcome:
     """What publishing a bundle resolved to.
 
     ``converged`` says the request matched a book already published under its seal,
-    so the publish was a no-op and the edition is the one that was already there.
+    so the edition is the one that was already there.
+    A converged replay is only a ``no-op`` when it also wrote nothing,
+    because the server can converge after registering some of what the request carried.
     ``resource_count`` counts what the request carried
     and ``dedupe_hits`` how many of those resolved to content the deployment already held.
     Neither says what was written: a converged replay still recognises its resources.
@@ -63,8 +66,9 @@ def publish_bundle(bundle: Bundle, bs: Bookshelf, *, dry_run: bool = False) -> P
         )
 
     response = replay_bundle_sync(bundle, bs)
+    wrote = any(result.status != models.Status3.skipped for result in response.resources or [])
     return PublishOutcome(
-        kind="no-op" if response.converged else "published",
+        kind="no-op" if response.converged and not wrote else "published",
         edition=None if response.book is None else response.book.edition,
         resource_count=response.resource_count,
         dedupe_hits=response.dedupe_hits,
