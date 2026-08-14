@@ -111,3 +111,39 @@ def test_a_book_that_declares_no_tier_leaves_the_default_alone(tmp_path: Path) -
 
     assert book.metadata.visibility is models.Visibility.org
     assert sink.default_visibility is models.Visibility.org
+
+
+def _record(root: Path, cache_path: Path) -> bytes:
+    """Record one fixed build and return the manifest bytes it wrote."""
+    bundle = Bundle(root)
+    sink = _sink(bundle, cache_path)
+    with sink.activity(code_ref="repo@sha", config={"year": 2026}) as activity:
+        activity.register(b"payload", type="document", name="data")
+    bundle.write()
+    return bundle.manifest_path.read_bytes()
+
+
+def test_recording_the_same_build_twice_produces_identical_manifests(tmp_path: Path) -> None:
+    """The activity id names what the build is, so a re-record is byte for byte the same."""
+    first = _record(tmp_path / "first", tmp_path / "cache")
+    second = _record(tmp_path / "second", tmp_path / "cache")
+
+    assert first == second
+
+
+def test_a_different_config_records_a_different_activity(tmp_path: Path) -> None:
+    bundle = Bundle(tmp_path / "bundle")
+    other = Bundle(tmp_path / "other")
+
+    with _sink(bundle, tmp_path / "cache").activity(
+        code_ref="repo@sha", config={"year": 2026}
+    ) as activity:
+        activity.register(b"payload", type="document", name="data")
+    with _sink(other, tmp_path / "cache").activity(
+        code_ref="repo@sha", config={"year": 2027}
+    ) as activity:
+        activity.register(b"payload", type="document", name="data")
+
+    assert bundle.manifest.activity is not None
+    assert other.manifest.activity is not None
+    assert bundle.manifest.activity.activity_id != other.manifest.activity.activity_id

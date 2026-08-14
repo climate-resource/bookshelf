@@ -22,6 +22,7 @@ from bookshelf._generated import models
 from bookshelf._produce import helpers
 from bookshelf._produce.activities import Activity
 from bookshelf._produce.books import DraftBook
+from bookshelf._produce.provenance import canonical_config_hash, derive_activity_id
 from bookshelf._produce.resources import Resource
 from bookshelf._produce.serialise import SerialisedObject, serialise
 from bookshelf._produce.types import HasTrackingId, RegisterItem, UsedInput
@@ -509,17 +510,25 @@ class RecordingSink:
             from bookshelf._produce.provenance import derive_code_ref
 
             code_ref = derive_code_ref()
+        parameters = dict(config or {})
+        settled_hash = config_hash or canonical_config_hash(parameters)
         return RecordingActivity(
             self.bundle,
             self._client,
             self._cache,
-            activity_id=activity_id or helpers.uuid7(),
+            activity_id=activity_id
+            or derive_activity_id(
+                kind=kind,
+                code_ref=code_ref,
+                config_hash=settled_hash,
+                parameters=parameters,
+            ),
             kind=kind,
             code_ref=code_ref,
-            config=dict(config or {}),
+            config=parameters,
             runner_name=runner or helpers.runner(),
             names=self._names,
-            config_hash=config_hash,
+            config_hash=settled_hash,
             default_visibility=self.default_visibility,
         )
 

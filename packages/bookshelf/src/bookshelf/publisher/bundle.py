@@ -194,6 +194,8 @@ class BundleActivity(BaseModel):
     Replay creates the activity under this exact ``activity_id``.
     A repeated replay therefore finds the activity already present
     and mints no duplicate provenance edges.
+    A recorded id is derived from the activity itself,
+    so re-recording the same build writes the same manifest rather than a rival id.
 
     ``extra="ignore"`` tolerates fields added by a later client.
     """
