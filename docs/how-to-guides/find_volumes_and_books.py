@@ -44,7 +44,8 @@ len(catalogue.items), catalogue.has_more
 
 # %%
 for volume in sorted(catalogue.items, key=lambda item: item.name)[:8]:
-    print(f"{volume.name:32} {volume.latest_version or '-':16} {volume.license}")
+    licence = volume.discovery.license.root if volume.discovery.license else "-"
+    print(f"{volume.name:32} {volume.latest_version or '-':16} {licence}")
 
 # %% [markdown]
 # ## Searching
