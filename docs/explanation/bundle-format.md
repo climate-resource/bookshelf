@@ -215,10 +215,10 @@ Neither enters the seal the server computes.
 
 Each entry in `entries` carries the membership and its own optional column descriptions:
 
-| Field             | Required | Default | Meaning                                                       |
-| ----------------- | -------- | ------- | ------------------------------------------------------------- |
-| `name`            | required |         | a resource recorded in this same manifest                     |
-| `data_dictionary` | optional | absent  | column-level descriptions that apply to this entry            |
+| Field             | Required | Default | Meaning                                            |
+| ----------------- | -------- | ------- | -------------------------------------------------- |
+| `name`            | required |         | a resource recorded in this same manifest          |
+| `data_dictionary` | optional | absent  | column-level descriptions that apply to this entry |
 
 An absent `data_dictionary` leaves the entry's existing dictionary unchanged on replay.
 An empty list explicitly clears it,
@@ -263,9 +263,6 @@ A reader models one major version, and this specification describes major 3.
   because a major change means a field it does model may now mean something else.
   Reading it anyway would silently drop meaning.
 - An **older major** is refused.
-  A major 2 bundle keys its resources by tracking id and a major 3 bundle keys them by name,
-  and no reader can invent the names the run never stated.
-  Re-record the bundle instead.
 - A `schema_version` that is not a string, or whose major part is not an integer, is refused.
 - An absent `schema_version` is read as the current version.
 

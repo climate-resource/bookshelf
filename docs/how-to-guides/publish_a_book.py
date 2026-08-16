@@ -238,17 +238,10 @@ print((bundle_root / "manifest.lock").read_text())
 # ```
 #
 # Replay uploads the managed bytes,
-# then sends the whole bundle in one transactional request.
+# then sends the whole bundle in one request.
 # The server registers the resources, mints the lineage, drafts the book, attaches
 # each entry and publishes it, and rolls all of it back on a failure anywhere.
-# It computes the seal from that request,
-# so two replays of the same bundle converge on one published edition rather than making two,
-# and the second reports `converged`.
-#
-# `replay_bundle` is the awaited form for async workflows.
-# `publish_bundle` publishes a recorded bundle rather than replaying one,
-# and returns a `PublishOutcome` saying what the publish resolved to.
-
+# Two replays of the same bundle are marked as converged.
 # %% [markdown]
 # ## Where to next
 #
