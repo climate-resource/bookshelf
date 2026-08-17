@@ -2,13 +2,45 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import Self
+from collections.abc import Callable, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Protocol, Self
 from uuid import UUID
 
 from bookshelf._core.client import BookshelfClient
 from bookshelf._generated import models
-from bookshelf._produce.types import HasTrackingId
+from bookshelf._produce.types import HasTrackingId, UsedInput
+from bookshelf._produce.visibility import INHERIT, VisibilityInput
+
+if TYPE_CHECKING:
+    from bookshelf._produce.activities import Activity, AsyncActivity
+
+
+DEFAULT_WRITE_TYPE = "tabular"
+"""The resource type :meth:`DraftBook.write` records when the caller states none.
+
+``tabular`` is the generic table, so a frame is never catalogued as something it might not be.
+A producer that wants the platform's timeseries treatment states ``type="timeseries"``.
+"""
+
+
+class HasName(Protocol):
+    """A registered resource handle that knows the name it took."""
+
+    name: str | None
+
+    @property
+    def tracking_id(self) -> Any: ...  # noqa: ANN401
+
+
+def _written_name(resource: HasName) -> str:
+    """Return the name a handle was registered under, refusing one that never took a name."""
+    name: object = getattr(resource, "name", None)
+    if not isinstance(name, str) or not name:
+        raise ValueError(
+            "book.add needs a resource registered under a name, and this handle has none. "
+            "Register it with name= or attach it with book.attach(resource, name_in_book=...)."
+        )
+    return name
 
 
 def _attach_request(
@@ -33,9 +65,68 @@ def _attach_request(
 class DraftBook:
     """Mutable synchronous draft-book handle."""
 
-    def __init__(self, client: BookshelfClient, detail: models.BookDetail) -> None:
+    def __init__(
+        self,
+        client: BookshelfClient,
+        detail: models.BookDetail,
+        *,
+        activity: Callable[[], Activity] | None = None,
+    ) -> None:
         self._client = client
         self.metadata = detail
+        # The activity book.write registers through. A book drafted without one can still
+        # attach resources the caller registered itself, so this stays optional.
+        self._activity = activity
+
+    def _writing_activity(self) -> Activity:
+        if self._activity is None:
+            raise RuntimeError(
+                "book.write needs the activity its sink opens, and this book was drafted "
+                "without one. Register through bs.activity(...) and attach with book.add."
+            )
+        return self._activity()
+
+    def write(
+        self,
+        name: str,
+        obj: object,
+        *,
+        type: str | models.ResourceType = DEFAULT_WRITE_TYPE,
+        used: Sequence[UsedInput] = (),
+        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
+        visibility: VisibilityInput = INHERIT,
+        tags: Sequence[str] = (),
+        metadata: Mapping[str, Any] | None = None,
+        format: str | None = None,
+        dedupe: bool = True,
+    ) -> Any:  # noqa: ANN401
+        """Register one output and attach it under ``name`` in a single call.
+
+        This is sugar over the layered form,
+        and it produces the same bundle as registering inside ``bs.activity(...)``
+        and then calling :meth:`add`.
+        The resource name and the book entry name are one name,
+        because that is what replay addresses the resource by.
+        """
+        resource = self._writing_activity().register(
+            obj,
+            type=type,
+            name=name,
+            used=used,
+            visibility=visibility,
+            tags=tags,
+            metadata=metadata,
+            format=format,
+            dedupe=dedupe,
+        )
+        self.attach(resource, name_in_book=name, data_dictionary=data_dictionary)
+        return resource
+
+    def add(self, *resources: HasName) -> Self:
+        """Attach already registered resources, each under the name it registered as."""
+        for resource in resources:
+            self.attach(resource, name_in_book=_written_name(resource))  # type: ignore[arg-type]
+        return self
 
     @property
     def book_id(self) -> UUID:
@@ -73,9 +164,62 @@ class DraftBook:
 class AsyncDraftBook:
     """Mutable asynchronous draft-book handle."""
 
-    def __init__(self, client: BookshelfClient, detail: models.BookDetail) -> None:
+    def __init__(
+        self,
+        client: BookshelfClient,
+        detail: models.BookDetail,
+        *,
+        activity: Callable[[], AsyncActivity] | None = None,
+    ) -> None:
         self._client = client
         self.metadata = detail
+        self._activity = activity
+
+    def _writing_activity(self) -> AsyncActivity:
+        if self._activity is None:
+            raise RuntimeError(
+                "book.write needs the activity its sink opens, and this book was drafted "
+                "without one. Register through bs.activity(...) and attach with book.add."
+            )
+        return self._activity()
+
+    async def write(
+        self,
+        name: str,
+        obj: object,
+        *,
+        type: str | models.ResourceType = DEFAULT_WRITE_TYPE,
+        used: Sequence[UsedInput] = (),
+        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
+        visibility: VisibilityInput = INHERIT,
+        tags: Sequence[str] = (),
+        metadata: Mapping[str, Any] | None = None,
+        format: str | None = None,
+        dedupe: bool = True,
+    ) -> Any:  # noqa: ANN401
+        """Register one output and attach it under ``name`` in a single call.
+
+        The asynchronous twin of :meth:`DraftBook.write`, with the same bundle result.
+        """
+        resource = await self._writing_activity().register(
+            obj,
+            type=type,
+            name=name,
+            used=used,
+            visibility=visibility,
+            tags=tags,
+            metadata=metadata,
+            format=format,
+            dedupe=dedupe,
+        )
+        await self.attach(resource, name_in_book=name, data_dictionary=data_dictionary)
+        return resource
+
+    async def add(self, *resources: HasName) -> Self:
+        """Attach already registered resources, each under the name it registered as."""
+        for resource in resources:
+            await self.attach(resource, name_in_book=_written_name(resource))  # type: ignore[arg-type]
+        return self
 
     @property
     def book_id(self) -> UUID:
@@ -110,4 +254,4 @@ class AsyncDraftBook:
         return self
 
 
-__all__ = ["AsyncDraftBook", "DraftBook"]
+__all__ = ["DEFAULT_WRITE_TYPE", "AsyncDraftBook", "DraftBook"]

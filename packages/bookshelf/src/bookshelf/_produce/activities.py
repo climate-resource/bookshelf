@@ -63,6 +63,16 @@ class Activity:
         self._entered = False
         self._closed = True
 
+    def _open(self) -> Self:
+        """Make this activity usable outside a ``with`` block, for ``book.write``.
+
+        The sugar has no block of its own to sit in,
+        and it registers through the same activity whether or not the build opened one.
+        """
+        self._entered = True
+        self._closed = False
+        return self
+
     def _require_entered(self) -> None:
         if not self._entered:
             raise RuntimeError("register operations require an open 'with bs.activity(...)' block")
@@ -169,6 +179,7 @@ class Activity:
             tracking_id=outcome.tracking_id,
             resource_type=helpers.registered_resource_type(outcome, item.type),
             registration_outcome=outcome,
+            name=helpers.registered_name(item),
         )
 
     def _resource_from_outcome(
@@ -182,6 +193,7 @@ class Activity:
             tracking_id=outcome.tracking_id,
             resource_type=helpers.registered_resource_type(outcome, item.type),
             registration_outcome=outcome,
+            name=helpers.registered_name(item),
         )
 
     def _resource_from_success(
@@ -295,6 +307,12 @@ class AsyncActivity:
         self._entered = False
         self._closed = True
 
+    def _open(self) -> Self:
+        """Make this activity usable outside an ``async with`` block, for ``book.write``."""
+        self._entered = True
+        self._closed = False
+        return self
+
     def _require_entered(self) -> None:
         if not self._entered:
             raise RuntimeError(
@@ -406,6 +424,7 @@ class AsyncActivity:
             tracking_id=outcome.tracking_id,
             resource_type=helpers.registered_resource_type(outcome, item.type),
             registration_outcome=outcome,
+            name=helpers.registered_name(item),
         )
 
     def _resource_from_outcome(
@@ -419,6 +438,7 @@ class AsyncActivity:
             tracking_id=outcome.tracking_id,
             resource_type=helpers.registered_resource_type(outcome, item.type),
             registration_outcome=outcome,
+            name=helpers.registered_name(item),
         )
 
     def _resource_from_success(

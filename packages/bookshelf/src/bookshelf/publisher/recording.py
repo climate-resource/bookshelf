@@ -7,7 +7,7 @@ Every write lands in the bundle instead of reaching the platform.
 from __future__ import annotations
 
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -396,6 +396,7 @@ class RecordedDraftBook(DraftBook):
         description: str | None,
         metadata: Mapping[str, Any] | None,
         names: dict[UUID, str],
+        activity: Callable[[], Activity] | None = None,
     ) -> None:
         self._bundle = bundle
         self._names = names
@@ -412,6 +413,7 @@ class RecordedDraftBook(DraftBook):
                 discovery=models.BookDiscovery(description=description, license=license),
                 metadata=dict(metadata or {}),
             ),
+            activity=activity,
         )
 
     def attach(
@@ -480,7 +482,7 @@ class RecordingSink:
         self._recipe_dir = recipe_dir
         self._lookup_book = lookup_book
         self._authors = tuple(dict(author) for author in authors)
-        self._activity_started = False
+        self._open_activity: RecordingActivity | None = None
         # A handle carries a tracking id, and the manifest is keyed by name,
         # so this is what lets ``used=[handle]`` and ``attach(handle)`` resolve to a name.
         self._names: dict[UUID, str] = {}
@@ -502,17 +504,26 @@ class RecordingSink:
         activity_id: UUID | None = None,
         config_hash: str | None = None,
     ) -> RecordingActivity:
-        """Open the normal activity surface over the recording adapter."""
-        if self._activity_started:
-            raise BookshelfError("a recorded build supports one activity block")
-        self._activity_started = True
+        """Open the normal activity surface over the recording adapter.
+
+        A recorded bundle carries one activity,
+        because ``POST /v1/bundles/replay`` takes one and names no activity per resource.
+        A second block would therefore record provenance that publishing cannot carry.
+        """
+        if self._open_activity is not None:
+            raise BookshelfError(
+                "a recorded build carries one activity, and this build already opened one. "
+                "The replay endpoint takes a single activity, so a second block would record "
+                "provenance that publishing would drop. Register the rest of the outputs in "
+                "the block that is already open, or through book.write."
+            )
         if code_ref is None:
             from bookshelf._produce.provenance import derive_code_ref
 
             code_ref = derive_code_ref()
         parameters = dict(config or {})
         settled_hash = config_hash or canonical_config_hash(parameters)
-        return RecordingActivity(
+        self._open_activity = RecordingActivity(
             self.bundle,
             self._client,
             self._cache,
@@ -531,6 +542,18 @@ class RecordingSink:
             config_hash=settled_hash,
             default_visibility=self.default_visibility,
         )
+        return self._open_activity
+
+    def writing_activity(self) -> RecordingActivity:
+        """The single activity ``book.write`` registers through.
+
+        The sugar and the layered form share one activity,
+        so a build may mix them and still record the bundle the replay endpoint accepts.
+        """
+        if self._open_activity is None:
+            self.activity()
+        assert self._open_activity is not None
+        return self._open_activity._open()
 
     def draft_book(
         self,
@@ -584,6 +607,7 @@ class RecordingSink:
             description=description,
             metadata=metadata,
             names=self._names,
+            activity=self.writing_activity,
         )
 
     def register_external(

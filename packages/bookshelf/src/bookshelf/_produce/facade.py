@@ -123,6 +123,13 @@ class LiveSink:
         self._client = client
         self._cache = cache
         self.default_visibility = default_visibility
+        self._write_activity: Activity | None = None
+
+    def writing_activity(self) -> Activity:
+        """The activity ``book.write`` registers through, opened on first use."""
+        if self._write_activity is None:
+            self._write_activity = self.activity()
+        return self._write_activity._open()
 
     def activity(
         self,
@@ -184,6 +191,7 @@ class LiveSink:
             tracking_id=outcome.tracking_id,
             resource_type=helpers.registered_resource_type(outcome, item.type),
             registration_outcome=outcome,
+            name=helpers.registered_name(item),
         )
 
     def draft_book(
@@ -213,7 +221,7 @@ class LiveSink:
                 authors=authors,
             )
         )
-        return DraftBook(self._client, detail)
+        return DraftBook(self._client, detail, activity=self.writing_activity)
 
 
 class AsyncLiveSink:
@@ -229,6 +237,13 @@ class AsyncLiveSink:
         self._client = client
         self._cache = cache
         self.default_visibility = default_visibility
+        self._write_activity: AsyncActivity | None = None
+
+    def writing_activity(self) -> AsyncActivity:
+        """The activity ``book.write`` registers through, opened on first use."""
+        if self._write_activity is None:
+            self._write_activity = self.activity()
+        return self._write_activity._open()
 
     def activity(
         self,
@@ -290,6 +305,7 @@ class AsyncLiveSink:
             tracking_id=outcome.tracking_id,
             resource_type=helpers.registered_resource_type(outcome, item.type),
             registration_outcome=outcome,
+            name=helpers.registered_name(item),
         )
 
     async def draft_book(
@@ -319,7 +335,7 @@ class AsyncLiveSink:
                 authors=authors,
             )
         )
-        return AsyncDraftBook(self._client, detail)
+        return AsyncDraftBook(self._client, detail, activity=self.writing_activity)
 
 
 class _ProduceSink[ActivityT, ResourceT, DraftT](Protocol):

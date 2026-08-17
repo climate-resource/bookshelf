@@ -7,6 +7,7 @@ from uuid import uuid4
 import pytest
 
 from bookshelf._core.client import BookshelfClient
+from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf._produce.types import RegisterItem
 from bookshelf.cache import ContentCache
@@ -147,3 +148,70 @@ def test_a_different_config_records_a_different_activity(tmp_path: Path) -> None
     assert bundle.manifest.activity is not None
     assert other.manifest.activity is not None
     assert bundle.manifest.activity.activity_id != other.manifest.activity.activity_id
+
+
+def _book(sink: RecordingSink) -> object:
+    """Draft the one book these sugar tests frame their outputs into."""
+    return sink.draft_book("my-dataset", version="v1.0.0", license="MIT")
+
+
+def test_book_write_records_the_bundle_the_explicit_form_records(tmp_path: Path) -> None:
+    """The sugar is sugar. Its bundle must be byte for byte the layered form's bundle."""
+    sugar = Bundle(tmp_path / "sugar")
+    sugar_sink = _sink(sugar, tmp_path / "cache")
+    sugar_book = _book(sugar_sink)
+    sugar_book.write("data", b"payload", type="document")
+    sugar.write()
+
+    layered = Bundle(tmp_path / "layered")
+    layered_sink = _sink(layered, tmp_path / "cache")
+    layered_book = _book(layered_sink)
+    with layered_sink.activity() as activity:
+        resource = activity.register(b"payload", type="document", name="data")
+    layered_book.add(resource)
+    layered.write()
+
+    assert sugar.manifest_path.read_bytes() == layered.manifest_path.read_bytes()
+
+
+def test_book_write_defaults_to_the_generic_table_type(tmp_path: Path) -> None:
+    """A frame written without a type is catalogued as a table, never as a timeseries."""
+    pd = pytest.importorskip("pandas")
+    bundle = Bundle(tmp_path / "bundle")
+    frame = pd.DataFrame({"region": ["World"], "value": [1.0]})
+
+    _book(_sink(bundle, tmp_path / "cache")).write("data", frame)
+
+    assert [resource.type for resource in bundle.manifest.resources] == ["tabular"]
+
+
+def test_book_write_and_an_explicit_block_share_one_activity(tmp_path: Path) -> None:
+    """Mixing the two forms records one activity, which is all the replay endpoint takes."""
+    bundle = Bundle(tmp_path / "bundle")
+    sink = _sink(bundle, tmp_path / "cache")
+    book = _book(sink)
+
+    with sink.activity(code_ref="repo@sha") as activity:
+        first = activity.register(b"first", type="document", name="first")
+    book.add(first)
+    book.write("second", b"second", type="document")
+
+    assert bundle.manifest.activity is not None
+    assert bundle.manifest.activity.code_ref == "repo@sha"
+    assert sorted(entry.name for entry in bundle.manifest.book.entries) == ["first", "second"]
+
+
+def test_a_second_activity_block_says_the_replay_endpoint_takes_one(tmp_path: Path) -> None:
+    sink = _sink(Bundle(tmp_path / "bundle"), tmp_path / "cache")
+    sink.activity()
+
+    with pytest.raises(BookshelfError, match="one activity"):
+        sink.activity()
+
+
+def test_book_add_refuses_a_handle_that_took_no_name(tmp_path: Path) -> None:
+    sink = _sink(Bundle(tmp_path / "bundle"), tmp_path / "cache")
+    book = _book(sink)
+
+    with pytest.raises(ValueError, match="registered under a name"):
+        book.add(Mock(name="not-a-resource", spec=[]))

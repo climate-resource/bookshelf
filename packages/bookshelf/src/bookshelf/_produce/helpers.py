@@ -208,6 +208,11 @@ def raise_partial_registration(
         raise PartialRegistrationError(successful=successful, failures=failures)
 
 
+def registered_name(item: models.RegisterResourceItem) -> str | None:
+    """Return the bundle-local name an item registers under, unwrapped from its model."""
+    return None if item.name is None else item.name.root
+
+
 __all__ = [
     "INHERIT",
     "MAX_REGISTRATION_BATCH",
@@ -216,6 +221,7 @@ __all__ = [
     "external_item",
     "paired_successes",
     "raise_partial_registration",
+    "registered_name",
     "registered_resource_type",
     "registration_results",
     "resource_discovery",
