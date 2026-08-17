@@ -44,7 +44,7 @@ from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
 from bookshelf._core.names import RESOURCE_NAME_PATTERN
 from bookshelf._generated import models
 
-BUNDLE_SCHEMA_VERSION = "3.0"
+BUNDLE_SCHEMA_VERSION = "3.1"
 
 # A newer minor loads because the models ignore unknown fields, and any other major is refused:
 # v2 keys resources by tracking id and v3 by name, which no rule maps without inventing names.
@@ -270,6 +270,14 @@ class BundleBook(BaseModel):
     description: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     entries: list[BundleBookEntry] = Field(default_factory=list)
+    processing: list[tuple[str, str]] | None = None
+    """The ``(code_ref, config_hash)`` pairs of the runs that generated this book's members.
+
+    This is provenance, and it is not part of the seal.
+    A rebuild whose code changed but whose data did not therefore converges on the existing edition,
+    which is what ADR 0006 settled.
+    ``None`` records that nothing was stated, and ``[]`` records a book no activity generated.
+    """
     published: bool = False
 
 

@@ -74,6 +74,22 @@ def people(values: Sequence[Mapping[str, Any]]) -> list[models.Author]:
     return [models.Author.model_validate(dict(value)) for value in values]
 
 
+ProcessingInput = Sequence[tuple[str, str]]
+"""The ``(code_ref, config_hash)`` pairs of the runs that generated a book's members."""
+
+
+def processing_items(pairs: ProcessingInput | None) -> list[models.ProcessingItem] | None:
+    """Wrap the processing fingerprint in the model its request field takes.
+
+    ``None`` stays ``None``, so an omission never reaches the wire as a claim.
+    An empty sequence becomes ``[]``, which is the book that no activity generated.
+    The platform deduplicates and sorts, so nothing is done to the order here.
+    """
+    if pairs is None:
+        return None
+    return [models.ProcessingItem((code_ref, config_hash)) for code_ref, config_hash in pairs]
+
+
 def _draft_request(
     volume: str,
     *,
@@ -85,6 +101,7 @@ def _draft_request(
     bundle_hash: str | None,
     discovery: Mapping[str, Any] | None = None,
     authors: Sequence[Mapping[str, Any]] | None = None,
+    processing: ProcessingInput | None = None,
 ) -> models.BookDraftRequest:
     """Build the draft request, wrapping each optional string the API takes as a model.
 
@@ -93,6 +110,11 @@ def _draft_request(
     They are baked onto the book, so a later version never rewrites what this one says.
     ``description``, ``license`` and ``authors`` travel inside the wire ``discovery`` object too,
     because the request carries no top-level fields for them.
+
+    ``processing`` is the fingerprint of the runs that generated the book's members.
+    An empty sequence reaches the wire as ``[]``,
+    because the contract reads that as a book with no generating activity,
+    while an omitted ``processing`` says nothing about one either way.
     """
     baked: dict[str, Any] = {}
     baked_discovery = discovery_input(
@@ -106,6 +128,7 @@ def _draft_request(
         visibility=visibility,
         metadata=dict(metadata or {}),
         bundle_hash=_as_model(models.BundleHash, bundle_hash),
+        processing=processing_items(processing),
         **baked,
     )
 
@@ -206,6 +229,7 @@ class LiveSink:
         bundle_hash: str | None = None,
         discovery: Mapping[str, Any] | None = None,
         authors: Sequence[Mapping[str, Any]] | None = None,
+        processing: ProcessingInput | None = None,
     ) -> DraftBook:
         """Create a mutable draft whose membership changes remain intentional calls."""
         detail = self._client.draft_book(
@@ -219,6 +243,7 @@ class LiveSink:
                 bundle_hash=bundle_hash,
                 discovery=discovery,
                 authors=authors,
+                processing=processing,
             )
         )
         return DraftBook(self._client, detail, activity=self.writing_activity)
@@ -320,6 +345,7 @@ class AsyncLiveSink:
         bundle_hash: str | None = None,
         discovery: Mapping[str, Any] | None = None,
         authors: Sequence[Mapping[str, Any]] | None = None,
+        processing: ProcessingInput | None = None,
     ) -> AsyncDraftBook:
         """Create an asynchronous mutable draft book handle."""
         detail = await self._client.draft_book_async(
@@ -333,6 +359,7 @@ class AsyncLiveSink:
                 bundle_hash=bundle_hash,
                 discovery=discovery,
                 authors=authors,
+                processing=processing,
             )
         )
         return AsyncDraftBook(self._client, detail, activity=self.writing_activity)
@@ -382,6 +409,7 @@ class _ProduceSink[ActivityT, ResourceT, DraftT](Protocol):
         bundle_hash: str | None = None,
         discovery: Mapping[str, Any] | None = None,
         authors: Sequence[Mapping[str, Any]] | None = None,
+        processing: ProcessingInput | None = None,
     ) -> DraftT: ...
 
 

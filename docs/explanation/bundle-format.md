@@ -206,12 +206,22 @@ This field is specific to the Bookshelf and is optional.
 | `metadata`        | optional | `{}`     | free-form metadata                                                               |
 | `entries`         | optional | `[]`     | the book's membership                                                            |
 | `published`       | optional | `false`  | whether the book should be published, or left a draft                            |
+| `processing`      | optional | absent   | the `[code_ref, config_hash]` pairs of the runs that generated the book's members |
 
 `discovery` and `authors` hold values the recipe has already resolved,
 so the bundle records what will be published rather than what was declared.
 Replay sends both,
 which is how each book keeps its own copy of what was true when it was published.
 Neither enters the seal the server computes.
+
+`processing` is provenance, and it is not part of the seal.
+It answers "which code produced this", and nothing more.
+A rebuild whose code changed but whose data did not converges on the existing edition,
+which is what [ADR 0006](https://github.com/climate-resource/bookshelf-platform/blob/main/docs/adr/0006-server-owns-edition-code-version-is-provenance.md) settled.
+An absent `processing` states nothing, and `[]` states a book that no activity generated.
+Replay does not send it, because the replay request carries the activity itself
+and the server derives the book's fingerprint from that.
+It is recorded so `bookshelf validate` reads as a complete account of the build.
 
 Each entry in `entries` carries the membership and its own optional column descriptions:
 

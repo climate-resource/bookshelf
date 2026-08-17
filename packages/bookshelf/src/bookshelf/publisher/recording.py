@@ -22,6 +22,7 @@ from bookshelf._generated import models
 from bookshelf._produce import helpers
 from bookshelf._produce.activities import Activity
 from bookshelf._produce.books import DraftBook
+from bookshelf._produce.facade import ProcessingInput
 from bookshelf._produce.provenance import canonical_config_hash, derive_activity_id
 from bookshelf._produce.resources import Resource
 from bookshelf._produce.serialise import SerialisedObject, serialise
@@ -567,6 +568,7 @@ class RecordingSink:
         bundle_hash: str | None = None,
         discovery: Mapping[str, Any] | None = None,
         authors: Sequence[Mapping[str, Any]] | None = None,
+        processing: ProcessingInput | None = None,
     ) -> RecordedDraftBook:
         """Record pre-edition book framing and return its local handle.
 
@@ -576,6 +578,10 @@ class RecordingSink:
         The resolved discovery values are recorded as they arrive,
         so the bundle is a complete record of what publishing will say
         and ``bookshelf validate`` can be read as one.
+
+        ``processing`` is recorded as provenance and is never sent on replay,
+        because the replay request carries the activity itself
+        and the server derives the book's fingerprint from it.
         """
         del bundle_hash
         if license is None:
@@ -595,6 +601,7 @@ class RecordingSink:
                 discovery=dict(discovery) if discovery else None,
                 description=description,
                 metadata=dict(metadata or {}),
+                processing=None if processing is None else [tuple(pair) for pair in processing],
             )
         )
         return RecordedDraftBook(

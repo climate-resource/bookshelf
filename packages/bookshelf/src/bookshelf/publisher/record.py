@@ -235,6 +235,7 @@ def run_record(
             _ACTIVE_RECORDING.reset(token)
             if context.bookshelf is not None:
                 context.bookshelf.close()
+        _record_processing(bundle)
         bundle.write()
         _replace_bundle(Path(staging_dir), target)
     return {
@@ -244,6 +245,21 @@ def run_record(
         "book_entries": len(bundle.manifest.book.entries) if bundle.manifest.book else 0,
         "published": bool(bundle.manifest.book and bundle.manifest.book.published),
     }
+
+
+def _record_processing(bundle: Bundle) -> None:
+    """Stamp the book's processing fingerprint from the activity that generated its members.
+
+    Publishing does not send this, because the replay request carries the activity itself.
+    It is recorded so ``bookshelf validate`` reads as a complete account of the build.
+    A book with no generating activity carries an empty list rather than nothing.
+    """
+    if bundle.manifest.book is None:
+        return
+    activity = bundle.manifest.activity
+    bundle.manifest.book.processing = (
+        [] if activity is None else [(activity.code_ref, activity.config_hash)]
+    )
 
 
 # The kinds stamped on the two evidence documents every recorded book carries.

@@ -194,6 +194,7 @@ _VALIDATE_LABELS = {
     "resources": "Resources",
     "book_entries": "Entries",
     "published": "Publishes",
+    "processing": "Processing",
 }
 
 _PUBLISH_LABELS = {
@@ -269,6 +270,8 @@ def validate(
             "resources": len(loaded.manifest.resources),
             "book_entries": len(framing.entries),
             "published": framing.published,
+            # Provenance, not the seal. A code-only change converges on the existing edition.
+            "processing": [list(pair) for pair in framing.processing or ()],
         }
         _emit_summary(summary, _VALIDATE_LABELS, json_output=json_output)
 

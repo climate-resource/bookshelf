@@ -12,6 +12,7 @@ from bookshelf._generated import models
 from bookshelf._produce.types import RegisterItem
 from bookshelf.cache import ContentCache
 from bookshelf.publisher.bundle import Bundle
+from bookshelf.publisher.record import _record_processing
 from bookshelf.publisher.recording import RecordingActivity, RecordingSink
 
 
@@ -215,3 +216,29 @@ def test_book_add_refuses_a_handle_that_took_no_name(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="registered under a name"):
         book.add(Mock(name="not-a-resource", spec=[]))
+
+
+def test_a_recorded_book_carries_the_fingerprint_of_the_run_that_generated_it(
+    tmp_path: Path,
+) -> None:
+    """``bookshelf validate`` reads as a complete account, so the book states its processing."""
+    bundle = Bundle(tmp_path / "bundle")
+    sink = _sink(bundle, tmp_path / "cache")
+    book = _book(sink)
+    with sink.activity(code_ref="repo@sha", config={"year": 2026}) as activity:
+        book.add(activity.register(b"payload", type="document", name="data"))
+
+    _record_processing(bundle)
+
+    assert bundle.manifest.activity is not None
+    assert bundle.manifest.book.processing == [("repo@sha", bundle.manifest.activity.config_hash)]
+
+
+def test_a_book_no_activity_generated_carries_an_empty_fingerprint(tmp_path: Path) -> None:
+    """``[]`` is a book with no generating activity, which is not the same as saying nothing."""
+    bundle = Bundle(tmp_path / "bundle")
+    _book(_sink(bundle, tmp_path / "cache"))
+
+    _record_processing(bundle)
+
+    assert bundle.manifest.book.processing == []
