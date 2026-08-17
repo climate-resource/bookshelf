@@ -17,10 +17,12 @@ from uuid import UUID
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import UNSET, AuthInput
 from bookshelf._core.errors import BookshelfError
+from bookshelf._core.names import validate_resource_name
 from bookshelf._generated import models
 from bookshelf._produce import helpers
 from bookshelf._produce.activities import Activity
 from bookshelf._produce.books import DraftBook
+from bookshelf._produce.provenance import canonical_config_hash, derive_activity_id
 from bookshelf._produce.resources import Resource
 from bookshelf._produce.serialise import SerialisedObject, serialise
 from bookshelf._produce.types import HasTrackingId, RegisterItem, UsedInput
@@ -31,7 +33,6 @@ from bookshelf.publisher.bundle import (
     Bundle,
     BundleActivity,
     BundleBook,
-    BundleUsedRef,
     resource_filename,
     synthesise_pointer_hash,
 )
@@ -46,6 +47,7 @@ class _PreparedRegistration:
     entry: RegisterItem
     materialised: SerialisedObject
     resource_id: UUID
+    resource_name: str
     resource_type: models.ResourceType
     visibility: models.Visibility
 
@@ -53,10 +55,9 @@ class _PreparedRegistration:
 class RecordedResource(Resource):
     """Local resource handle returned by a recording activity.
 
-    The handle mirrors what a live registration returns,
-    so it carries no name of its own.
-    A resource's name belongs to the bundle manifest,
-    which is what replay reads.
+    It carries the bundle-local ``name`` the manifest recorded it under,
+    because that name is how replay addresses the resource
+    and how a later registration cites it as an input.
     """
 
     def __init__(
@@ -67,6 +68,7 @@ class RecordedResource(Resource):
         resource_type: models.ResourceType,
         hash_: str,
         *,
+        name: str,
         visibility: models.Visibility = models.Visibility.hidden,
         tags: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
@@ -94,6 +96,7 @@ class RecordedResource(Resource):
             resource_type=resource_type,
         )
         self.hash = hash_
+        self.name = name
 
 
 class RecordingActivity(Activity):
@@ -110,12 +113,14 @@ class RecordingActivity(Activity):
         code_ref: str,
         config: Mapping[str, Any],
         runner_name: str,
+        names: dict[UUID, str],
         config_hash: str | None = None,
         default_visibility: models.Visibility = models.Visibility.hidden,
     ) -> None:
         self._bundle = bundle
         self._client = client
         self._cache = cache
+        self._names = names
         self.activity_id = activity_id
         self.kind = kind
         self.code_ref = code_ref
@@ -132,7 +137,7 @@ class RecordingActivity(Activity):
             used=(),
             config_hash=config_hash,
         )
-        self._used: list[BundleUsedRef] = []
+        self._used: list[str] = []
         self._entered = False
         self._closed = False
 
@@ -164,6 +169,7 @@ class RecordingActivity(Activity):
     ) -> RecordedResource:
         """Serialise an output once and append its bytes and provenance."""
         self._require_entered()
+        recorded_name = _recorded_name(name)
         resource_type = helpers.resource_type(type)
         resource_visibility = helpers.visibility(visibility, self.default_visibility)
         materialised = serialise(obj, type=resource_type.value)
@@ -174,8 +180,7 @@ class RecordingActivity(Activity):
             data=materialised.data,
             hash_=materialised.hash,
             type_=resource_type.value,
-            tracking_id=resource_id,
-            name=name,
+            name=recorded_name,
             format_=format or materialised.format,
             visibility=resource_visibility.value,
             tags=list(tags),
@@ -184,12 +189,14 @@ class RecordingActivity(Activity):
             generated=True,
             used=list(self._used),
         )
+        self._names[resource_id] = recorded_name
         return RecordedResource(
             self._client,
             self._cache,
             resource_id,
             resource_type,
             materialised.hash,
+            name=recorded_name,
             visibility=resource_visibility,
             tags=tags,
             metadata=metadata,
@@ -228,7 +235,7 @@ class RecordingActivity(Activity):
             ]
 
         prepared = [self._prepare_registration(entry) for entry in entries]
-        merged_used = _merged_used_refs(self._used, used)
+        merged_used = self._merged_used_names(self._used, used)
 
         previous_count = len(self._bundle.manifest.resources)
         with tempfile.TemporaryDirectory(prefix="bookshelf-record-batch-") as staging_dir:
@@ -243,8 +250,7 @@ class RecordingActivity(Activity):
                     data=item.materialised.data,
                     hash_=item.materialised.hash,
                     type_=item.resource_type.value,
-                    tracking_id=item.resource_id,
-                    name=item.entry.name,
+                    name=item.resource_name,
                     format_=item.entry.format or item.materialised.format,
                     visibility=item.visibility.value,
                     tags=list(item.entry.tags),
@@ -274,6 +280,8 @@ class RecordingActivity(Activity):
             self._bundle.manifest = staged.manifest
             self._used = merged_used
 
+        for item in prepared:
+            self._names[item.resource_id] = item.resource_name
         return [
             RecordedResource(
                 self._client,
@@ -281,6 +289,7 @@ class RecordingActivity(Activity):
                 item.resource_id,
                 item.resource_type,
                 item.materialised.hash,
+                name=item.resource_name,
                 visibility=item.visibility,
                 tags=item.entry.tags,
                 metadata=item.entry.metadata,
@@ -295,6 +304,7 @@ class RecordingActivity(Activity):
             entry=entry,
             materialised=serialise(entry.obj, type=resource_type.value),
             resource_id=entry.tracking_id or helpers.uuid7(),
+            resource_name=_recorded_name(entry.name),
             resource_type=resource_type,
             visibility=visibility,
         )
@@ -321,6 +331,7 @@ class RecordingActivity(Activity):
             self._bundle,
             self._client,
             self._cache,
+            self._names,
             type=type,
             uri=uri,
             hash=hash,
@@ -344,7 +355,20 @@ class RecordingActivity(Activity):
 
         Resources already recorded keep the inputs they were registered with.
         """
-        self._used = _merged_used_refs(self._used, values)
+        self._used = self._merged_used_names(self._used, values)
+
+    def _merged_used_names(
+        self,
+        existing: Sequence[str],
+        values: Sequence[UsedInput],
+    ) -> list[str]:
+        """Return ``existing`` extended with the names ``values`` adds, keeping first-seen order."""
+        merged = list(existing)
+        for value in values:
+            name = _used_name(value, self._names)
+            if name not in merged:
+                merged.append(name)
+        return merged
 
     def _bundle_activity(self) -> BundleActivity:
         return BundleActivity(
@@ -371,8 +395,10 @@ class RecordedDraftBook(DraftBook):
         license: str,
         description: str | None,
         metadata: Mapping[str, Any] | None,
+        names: dict[UUID, str],
     ) -> None:
         self._bundle = bundle
+        self._names = names
         super().__init__(
             client,
             models.BookDetail(
@@ -395,17 +421,29 @@ class RecordedDraftBook(DraftBook):
         name_in_book: str,
         data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
     ) -> models.BookEntryAttachResponse:
-        """Record a book-local name for a resource in this bundle."""
+        """Record the membership of a resource this bundle carries.
+
+        The platform registers a replayed resource under the name its entry takes,
+        so the two are one name and a resource attached under a different one is refused.
+        """
         tracking_id = (
             UUID(str(resource))
             if isinstance(resource, str | UUID)
             else UUID(str(resource.tracking_id))
         )
-        self._bundle.add_book_entry(
-            name_in_book=name_in_book,
-            tracking_id=tracking_id,
-            data_dictionary=data_dictionary,
-        )
+        recorded = self._names.get(tracking_id)
+        if recorded is None:
+            raise ValueError(
+                f"{name_in_book!r} names a resource this bundle does not record. "
+                "A recorded book is made of the resources its own build registered."
+            )
+        if recorded != name_in_book:
+            raise ValueError(
+                f"resource {recorded!r} cannot be attached as {name_in_book!r}. "
+                "A replayed resource is registered under the name its entry takes, "
+                f"so register it as {name_in_book!r}."
+            )
+        self._bundle.add_book_entry(name=name_in_book, data_dictionary=data_dictionary)
         return models.BookEntryAttachResponse(
             entry_id=helpers.uuid7(),
             book_id=self.book_id,
@@ -443,6 +481,10 @@ class RecordingSink:
         self._lookup_book = lookup_book
         self._authors = tuple(dict(author) for author in authors)
         self._activity_started = False
+        # A handle carries a tracking id, and the manifest is keyed by name,
+        # so this is what lets ``used=[handle]`` and ``attach(handle)`` resolve to a name.
+        self._names: dict[UUID, str] = {}
+        self._used_resources: dict[str, ResolvedResource] = {}
         self.default_visibility = default_visibility
         """The tier a registration takes when the build file names none.
 
@@ -468,16 +510,25 @@ class RecordingSink:
             from bookshelf._produce.provenance import derive_code_ref
 
             code_ref = derive_code_ref()
+        parameters = dict(config or {})
+        settled_hash = config_hash or canonical_config_hash(parameters)
         return RecordingActivity(
             self.bundle,
             self._client,
             self._cache,
-            activity_id=activity_id or helpers.uuid7(),
+            activity_id=activity_id
+            or derive_activity_id(
+                kind=kind,
+                code_ref=code_ref,
+                config_hash=settled_hash,
+                parameters=parameters,
+            ),
             kind=kind,
             code_ref=code_ref,
-            config=dict(config or {}),
+            config=parameters,
             runner_name=runner or helpers.runner(),
-            config_hash=config_hash,
+            names=self._names,
+            config_hash=settled_hash,
             default_visibility=self.default_visibility,
         )
 
@@ -532,6 +583,7 @@ class RecordingSink:
             license=license,
             description=description,
             metadata=metadata,
+            names=self._names,
         )
 
     def register_external(
@@ -552,6 +604,7 @@ class RecordingSink:
             self.bundle,
             self._client,
             self._cache,
+            self._names,
             type=type,
             uri=uri,
             hash=hash,
@@ -573,15 +626,21 @@ class RecordingSink:
         """
         if self._resolved is None:
             raise BookshelfError("this recording carries no version, so it declares no resources")
-        return resolve_resource(
-            name,
-            resources=self._resolved.resources,
-            doi=self._resolved.discovery.doi,
-            recipe_dir=self._recipe_dir,
-            cache=self._cache,
-            register_external=self.register_external,
-            lookup_book=self._lookup_book,
-        )
+        # A declared resource is registered under its own name, so resolving it twice
+        # would be one bundle-local name claimed twice rather than a second input.
+        resolved = self._used_resources.get(name)
+        if resolved is None:
+            resolved = resolve_resource(
+                name,
+                resources=self._resolved.resources,
+                doi=self._resolved.discovery.doi,
+                recipe_dir=self._recipe_dir,
+                cache=self._cache,
+                register_external=self.register_external,
+                lookup_book=self._lookup_book,
+            )
+            self._used_resources[name] = resolved
+        return resolved
 
     def record_document(
         self,
@@ -606,7 +665,6 @@ class RecordingSink:
             data=materialised.data,
             hash_=materialised.hash,
             type_="document",
-            tracking_id=resource_id,
             name=name,
             visibility=self.default_visibility.value,
             metadata=dict(metadata),
@@ -614,12 +672,14 @@ class RecordingSink:
             generated=True,
             used=used,
         )
+        self._names[resource_id] = name
         return RecordedResource(
             self._client,
             self._cache,
             resource_id,
             models.ResourceType.document,
             materialised.hash,
+            name=name,
             visibility=self.default_visibility,
             metadata=metadata,
         )
@@ -664,30 +724,42 @@ class RecordingBookshelf(Bookshelf):
         return self.recording_sink.use(name)
 
 
-def _bundle_used_ref(value: UsedInput) -> BundleUsedRef:
+def _recorded_name(name: str | None) -> str:
+    """Return the bundle-local name a registration records under.
+
+    Replay addresses every resource by name, so a recorded one cannot go without.
+    """
+    if name is None:
+        raise ValueError(
+            "a recorded resource needs a name, which replay addresses it by. "
+            "Pass name= to the registration."
+        )
+    return validate_resource_name(name)
+
+
+def _used_name(value: UsedInput, names: Mapping[UUID, str]) -> str:
+    """Resolve one recorded lineage input to the bundle-local name replay cites it by.
+
+    A replay cites its inputs by name against the resources of that same request,
+    so an input the bundle does not record has no coordinate to travel under.
+    """
     reference = helpers.used_ref(value)
-    if isinstance(reference, models.UsedRefByTrackingId):
-        return BundleUsedRef(tracking_id=reference.tracking_id)
-    return BundleUsedRef(name=reference.resource_name)
-
-
-def _merged_used_refs(
-    existing: Sequence[BundleUsedRef],
-    values: Sequence[UsedInput],
-) -> list[BundleUsedRef]:
-    """Return ``existing`` extended with the references ``values`` adds, keeping first-seen order."""
-    merged = list(existing)
-    for value in values:
-        reference = _bundle_used_ref(value)
-        if reference not in merged:
-            merged.append(reference)
-    return merged
+    if isinstance(reference, models.UsedRefByResourceName):
+        return reference.resource_name
+    name = names.get(reference.tracking_id)
+    if name is None:
+        raise ValueError(
+            f"used= cites resource {reference.tracking_id}, which this bundle does not record. "
+            "A replayed resource cites only the inputs the same bundle carries."
+        )
+    return name
 
 
 def _record_pointer(
     bundle: Bundle,
     client: BookshelfClient,
     cache: ContentCache,
+    names: dict[UUID, str],
     *,
     type: str | models.ResourceType,
     uri: str,
@@ -700,9 +772,10 @@ def _record_pointer(
     tracking_id: UUID | None,
     dedupe: bool,
     generated: bool = False,
-    used: Sequence[BundleUsedRef] = (),
+    used: Sequence[str] = (),
 ) -> RecordedResource:
     """Append one pointer resource and return its local handle."""
+    recorded_name = _recorded_name(name)
     resource_type = helpers.resource_type(type)
     resource_visibility = helpers.visibility(visibility, default_visibility)
     resource_hash = hash or synthesise_pointer_hash(
@@ -714,8 +787,7 @@ def _record_pointer(
         external_uri=uri,
         hash_=resource_hash,
         type_=resource_type.value,
-        tracking_id=resource_id,
-        name=name,
+        name=recorded_name,
         visibility=resource_visibility.value,
         tags=list(tags),
         metadata=dict(metadata or {}),
@@ -723,12 +795,14 @@ def _record_pointer(
         generated=generated,
         used=list(used),
     )
+    names[resource_id] = recorded_name
     return RecordedResource(
         client,
         cache,
         resource_id,
         resource_type,
         resource_hash,
+        name=recorded_name,
         visibility=resource_visibility,
         tags=tags,
         metadata=metadata,
@@ -736,9 +810,9 @@ def _record_pointer(
     )
 
 
-def _recorded_activity_used(bundle: Bundle) -> list[BundleUsedRef]:
-    """Return the ordered union of inputs recorded by activity outputs."""
-    values: list[BundleUsedRef] = []
+def _recorded_activity_used(bundle: Bundle) -> list[str]:
+    """Return the ordered union of input names recorded by activity outputs."""
+    values: list[str] = []
     for resource in bundle.manifest.resources:
         if resource.generated:
             for reference in resource.used:

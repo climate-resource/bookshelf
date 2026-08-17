@@ -92,14 +92,14 @@ def used_ref(value: UsedInput) -> models.UsedRefByTrackingId | models.UsedRefByR
     return models.UsedRefByTrackingId(tracking_id=UUID(str(handle_tracking_id)))
 
 
-def resource_discovery(tags: Sequence[str]) -> models.ResourceDiscoveryInput:
+def resource_discovery(tags: Sequence[str]) -> models.ResourceDiscovery:
     """Wrap a resource's tags in its discovery object, the only place they now travel.
 
     An empty sequence still gets an object rather than a null,
     because the field is not nullable on the wire.
     A profile that states nothing and an absent profile mean the same thing to the platform.
     """
-    return models.ResourceDiscoveryInput(tags=list(tags))
+    return models.ResourceDiscovery(tags=list(tags))
 
 
 def external_item(

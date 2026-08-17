@@ -30,15 +30,12 @@ import bookshelf
 #
 # `code_ref` is normally derived from git and `runner` from the hostname,
 # so both are passed explicitly to keep the recorded manifest identical everywhere.
-# The UUIDs are pinned for the same reason.
+# The activity id is pinned for the same reason.
 
 # %%
 CODE_REF = "https://example.invalid/golden@0000000000000000000000000000000000000000"
 RUNNER = "golden"
 ACTIVITY_ID = UUID("0197a000-0000-7000-8000-00000000a001")
-UPSTREAM_ID = UUID("0197a000-0000-7000-8000-00000000b001")
-EMISSIONS_ID = UUID("0197a000-0000-7000-8000-00000000b002")
-SUMMARY_ID = UUID("0197a000-0000-7000-8000-00000000b003")
 
 # %%
 build = bookshelf.setup()
@@ -73,13 +70,11 @@ with build.bs.activity(
         type="tabular",
         uri="https://example.invalid/golden-upstream-v1.0.0.csv",
         name="golden-upstream",
-        tracking_id=UPSTREAM_ID,
     )
     emissions_resource = activity.register(
         emissions,
         type="timeseries",
-        name="golden-emissions",
-        tracking_id=EMISSIONS_ID,
+        name="emissions",
         used=[upstream],
     )
     # Inputs accumulate within a run,
@@ -87,8 +82,7 @@ with build.bs.activity(
     summary_resource = activity.register(
         summary,
         type="tabular",
-        name="golden-summary",
-        tracking_id=SUMMARY_ID,
+        name="summary",
         used=[emissions_resource],
     )
 

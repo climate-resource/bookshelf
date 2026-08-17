@@ -129,14 +129,15 @@ with bs.activity(
             RegisterItem(
                 obj=series(offset),
                 type="timeseries",
-                name=f"demo-sdk-howto-batch-{index}",
+                name=f"batch-{index}",
             )
             for index, offset in enumerate([0.0, 1.5, 3.0])
         ],
     )
 
 # A name is a write-time coordinate, so the read model does not echo it back.
-# The manifest below is where the recorded names are read from.
+# The manifest below is where the recorded names are read from,
+# and a resource keeps that name when it is attached to the book.
 mirrored.tracking_id, [item.tracking_id for item in outputs]
 
 # %% [markdown]

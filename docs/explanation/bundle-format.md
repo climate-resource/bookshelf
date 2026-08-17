@@ -13,7 +13,7 @@ This page specifies what is written to disk.
 It is written so that an implementation in another language can produce and read bundles
 without reading the Python that implements this one.
 
-The format in force is manifest schema version **2.0**.
+The format in force is manifest schema version **3.0**.
 
 ## Bundle directory
 
@@ -82,11 +82,10 @@ Every entry in `resources` has these fields.
 
 | Field          | Required     | Type                        | Default   | Meaning                                                                 |
 | -------------- | ------------ | --------------------------- | --------- | ----------------------------------------------------------------------- |
-| `tracking_id`  | required     | UUID                        |           | the identity of this resource within the bundle                         |
+| `name`         | required     | string                      |           | the bundle-local name this resource is addressed by                     |
 | `hash`         | required     | `sha256:<64 lowercase hex>` |           | the content hash, and the replay idempotency key                        |
 | `type`         | required     | string                      |           | what sort of resource this is, see below                                |
 | `kind`         | optional     | `managed` or `pointer`      | `managed` | which of the two variants this record is                                |
-| `name`         | optional     | string                      | absent    | the bundle-local name lineage refers to this resource by                |
 | `format`       | optional     | string                      | absent    | the declared storage format, absent when it is not known                |
 | `visibility`   | optional     | `hidden`, `org` or `public` | `hidden`  | the tier this resource records as                                       |
 | `tags`         | optional     | list of strings             | `[]`      | free-form labels                                                        |
@@ -95,9 +94,12 @@ Every entry in `resources` has these fields.
 | `size`         | managed only | integer                     | absent    | the byte length of the stored bytes                                     |
 | `external_uri` | pointer only | string                      | absent    | the external target                                                     |
 | `generated`    | optional     | boolean                     | `false`   | whether an activity produced this resource                              |
-| `used`         | optional     | list of references          | `[]`      | what this resource was derived from                                     |
+| `used`         | optional     | list of names               | `[]`      | what this resource was derived from                                     |
 
 `name` is local to the bundle that registers it, and it carries no hierarchy.
+It matches `^[a-z0-9][a-z0-9._-]{0,199}$`, it is unique within the manifest,
+and it is the name the platform registers the resource under.
+A resource that a book entry names takes that name inside the book too.
 
 The `type` values currently in use are:
 
@@ -144,26 +146,20 @@ Lineage is expressed on the resource records, not as a separate graph.
 - `generated: true` marks a resource as an output of the recorded activity.
 - `used` lists what that output was derived from.
 
-Each entry in `used` carries **exactly one** of two coordinates:
+`used` names the resources an output was derived from:
 
 ```yaml
 used:
-  - tracking_id: 0197a000-0000-7000-8000-00000000b001
-  - name: upstream-emissions
+  - upstream-emissions
 ```
 
-An entry with both, or with neither, is invalid.
-
-A recorded reference is resolved again when the bundle is replayed.
-A `tracking_id` is rewritten by the client to the id the server returned for that input,
-because a registration may be answered with a resource the server already holds.
-A `name` is resolved by the server at registration time,
-against the resources registered by that same request and nothing else.
-There is no lookup outside the request,
+Each name must belong to a resource recorded **earlier** in the same `resources` list,
+so an input is always registered before whatever consumes it.
+A name the manifest does not carry is invalid.
+The server resolves each name against the resources of that same replay and nothing else,
 so the same bundle always resolves to the same inputs however often it is replayed.
 
-A recorded reference is therefore the run's claim about its inputs,
-and the minted edge names the resource that claim resolved to.
+Order is therefore part of the format rather than an accident of how the bundle was written.
 
 Inputs accumulate within a run.
 A resource records the inputs known at the moment it was registered,
@@ -204,7 +200,7 @@ This field is specific to the Bookshelf and is optional.
 | `version`         | required |          | the consumer-facing data version                                                 |
 | `visibility`      | optional | `hidden` | the tier of the book                                                             |
 | `license`         | optional | absent   | the SPDX licence                                                                 |
-| `authors`         | optional | `[]`     | the people credited with this version, sent on the draft call                    |
+| `authors`         | optional | `[]`     | the people credited with this version, sent on the replay                        |
 | `discovery`       | optional | absent   | the editorial metadata baked onto this book, keyed by the recipe's field names   |
 | `description`     | optional | absent   | free prose                                                                       |
 | `metadata`        | optional | `{}`     | free-form metadata                                                               |
@@ -213,25 +209,25 @@ This field is specific to the Bookshelf and is optional.
 
 `discovery` and `authors` hold values the recipe has already resolved,
 so the bundle records what will be published rather than what was declared.
-Replay sends both on the draft call,
+Replay sends both,
 which is how each book keeps its own copy of what was true when it was published.
-Neither enters the bundle hash.
+Neither enters the seal the server computes.
 
 Each entry in `entries` carries the membership and its own optional column descriptions:
 
-| Field             | Required | Default | Meaning                                                       |
-| ----------------- | -------- | ------- | ------------------------------------------------------------- |
-| `name_in_book`    | required |         | the stable name the resource takes inside the book            |
-| `tracking_id`     | required |         | a resource recorded in this same manifest                     |
-| `data_dictionary` | optional | absent  | column-level descriptions that apply to this entry            |
+| Field             | Required | Default | Meaning                                            |
+| ----------------- | -------- | ------- | -------------------------------------------------- |
+| `name`            | required |         | a resource recorded in this same manifest          |
+| `data_dictionary` | optional | absent  | column-level descriptions that apply to this entry |
 
 An absent `data_dictionary` leaves the entry's existing dictionary unchanged on replay.
 An empty list explicitly clears it,
 which is the declaration used for notebooks and rendered pages.
 
-An entry must reference a resource recorded in the same manifest,
+An entry must name a resource recorded in the same manifest,
 which is what keeps a bundle self-contained.
-`name_in_book` is unique within a book.
+The entry's name is the resource's name, and it is unique within a book,
+because the platform registers a replayed resource under the name its entry takes.
 A writer enforces both when it appends an entry.
 Validation checks the reference and not the uniqueness,
 so an implementation that reads a hand-edited manifest should check the names itself.
@@ -257,7 +253,7 @@ before anything is published anywhere.
 ## Versioning
 
 `schema_version` is `<major>.<minor>`.
-A reader models one major version, and this specification describes major 2.
+A reader models one major version, and this specification describes major 3.
 
 - A **newer minor** loads.
   Minor changes are additive, and a reader ignores fields it does not model.
@@ -266,7 +262,7 @@ A reader models one major version, and this specification describes major 2.
   A reader must raise rather than interpret it,
   because a major change means a field it does model may now mean something else.
   Reading it anyway would silently drop meaning.
-- An **older major** is migrated on read, and the loaded manifest reports the version it was migrated to.
+- An **older major** is refused.
 - A `schema_version` that is not a string, or whose major part is not an integer, is refused.
 - An absent `schema_version` is read as the current version.
 
@@ -280,7 +276,7 @@ A replayable book contains all the required information to later be streamed to 
 1. The manifest records a `book`.
 2. That book has `published: true`.
 3. That book has at least one entry.
-4. Every entry's `tracking_id` matches a resource recorded in the same manifest.
+4. Every entry's `name` matches a resource recorded in the same manifest.
 5. Every resource with `kind: managed` has a byte file, and those bytes hash to the recorded `hash`.
    A resource whose `hash` is not canonical fails here, because it names no byte file.
 
@@ -306,10 +302,13 @@ and validating it would need the network that the format is designed to avoid.
   and it is the Nth reprocessing of that `(volume, version)` and nothing more.
   An offline consumer must not synthesise an edition or treat `version` as one.
   What identifies a generation of processing is the activity's `code_ref` and `config_hash`.
-- **A derived seal.**
-  Replay keys a draft on a hash computed over the book's licence, visibility and sorted membership.
-  That value is derived from the manifest when it is needed.
-  It is not stored in the bundle.
+- **A seal.**
+  The server computes the seal from the replay request alone,
+  which is what makes two replays of one bundle converge on one edition.
+  The client neither stores nor computes it.
+- **Tracking ids.**
+  The platform owns the mapping from a bundle-local name to the resource it registered,
+  so nothing in a bundle names a row on a server.
 - **Timestamps and machine state.**
   See [Determinism](#determinism).
 - **The volume.**
@@ -345,14 +344,12 @@ book:
     name: Ada Lovelace
   description: A worked example bundle.
   entries:
-  - name_in_book: upstream.csv
-    tracking_id: 0197a000-0000-7000-8000-00000000b001
-  - name_in_book: emissions.parquet
-    data_dictionary:
+  - name: upstream-emissions
+  - data_dictionary:
     - name: region
       role: dimension
       type: string
-    tracking_id: 0197a000-0000-7000-8000-00000000b002
+    name: emissions-co2
   license: CC-BY-4.0
   metadata: {}
   published: true
@@ -365,10 +362,9 @@ resources:
   generated: false
   hash: sha256:c6dd00dc24e5ddcf21081c662e8264bbc0cf7d10986181f961545eaef0e4051c
   kind: pointer
-  name: upstream-emissions
   metadata: {}
+  name: upstream-emissions
   tags: []
-  tracking_id: 0197a000-0000-7000-8000-00000000b001
   type: tabular
   used: []
   visibility: public
@@ -377,16 +373,15 @@ resources:
   generated: true
   hash: sha256:7198966a1a10c93fe40255d2c8e49b750e2cc7d3c9f56e4d06ac7e595e9afaa0
   kind: managed
-  name: emissions-co2
   metadata: {}
+  name: emissions-co2
   size: 1396
   tags: []
-  tracking_id: 0197a000-0000-7000-8000-00000000b002
   type: timeseries
   used:
-  - tracking_id: 0197a000-0000-7000-8000-00000000b001
+  - upstream-emissions
   visibility: public
-schema_version: '2.0'
+schema_version: '3.0'
 writer:
   pyarrow: 23.0.0
 ```
@@ -396,8 +391,9 @@ Reading it back:
 - The pointer carries no bytes and no `size`, so `resources/` holds one file, not two.
 - Its hash was synthesised from its type and URI,
   because the producer did not know the upstream digest.
-- The managed resource cites the pointer by `tracking_id`, which is the lineage edge.
-- The book publishes both under names of its own choosing, and carries no edition.
+- The managed resource cites the pointer by name, which is the lineage edge,
+  and the pointer is recorded before it, which is what makes that citation legal.
+- The book publishes both under the names their resources carry, and carries no edition.
 
 ## For a Python reader
 

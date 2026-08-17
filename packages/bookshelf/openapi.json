@@ -197,14 +197,7 @@
             }
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -239,14 +232,7 @@
             }
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -284,14 +270,7 @@
             "$ref": "#/components/responses/Unauthorized"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         },
         "security": [
@@ -334,14 +313,7 @@
             "$ref": "#/components/responses/Unauthorized"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         },
         "security": [
@@ -391,14 +363,7 @@
             }
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -431,14 +396,7 @@
             }
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -651,14 +609,7 @@
             "$ref": "#/components/responses/Unauthorized"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       },
@@ -705,14 +656,7 @@
             "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -760,14 +704,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       },
@@ -825,14 +762,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       },
@@ -873,14 +803,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -1084,7 +1007,7 @@
           "book-actions"
         ],
         "summary": "Draft Book",
-        "description": "Draft a new book in a series, honoring visibility + license.\n\nA draft created with ``visibility=hidden`` publishes cleanly with hidden\nmembers, unlike the legacy create path that hard-codes ``private=False``.",
+        "description": "Draft a new book in a series, honoring visibility + license.",
         "operationId": "bookActionsDraftBook",
         "security": [
           {
@@ -1174,14 +1097,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       },
@@ -1243,14 +1159,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       },
@@ -1295,81 +1204,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/volumes/{volume_name}/books": {
-      "post": {
-        "tags": [
-          "books"
-        ],
-        "summary": "Create Book",
-        "description": "Create a new draft book.\n\nEdition is auto-assigned based on existing books with same version.\nRequires write permission and access to the volume.",
-        "operationId": "booksCreateBook",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "volume_name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Volume Name"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BookCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BookResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -1441,14 +1276,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       },
@@ -1513,14 +1341,7 @@
             "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -1578,14 +1399,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       },
@@ -1639,14 +1453,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -1710,14 +1517,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -1774,14 +1574,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -1856,14 +1649,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -2044,14 +1830,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -2203,14 +1982,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -2285,14 +2057,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -2404,14 +2169,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -2454,14 +2212,7 @@
             "$ref": "#/components/responses/Unauthorized"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       },
@@ -2522,14 +2273,7 @@
             "$ref": "#/components/responses/Unauthorized"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -2577,14 +2321,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       },
@@ -2642,14 +2379,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       },
@@ -2690,14 +2420,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -2744,14 +2467,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -2779,14 +2495,7 @@
             "description": "Successful Response"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -2847,14 +2556,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -2915,14 +2617,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -2983,14 +2678,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -3054,14 +2742,7 @@
             "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -3112,14 +2793,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -3186,14 +2860,7 @@
             "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -3254,14 +2921,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -3322,14 +2982,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -3390,14 +3043,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -3457,14 +3103,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -3475,7 +3114,7 @@
           "events"
         ],
         "summary": "List Events",
-        "description": "Paginated list of ``RegistrationEvent`` rows with visibility filtering.\n\nCovers resource events and book lifecycle events (publish / invalidate).\nSupplying ``owner_org_id`` scopes the feed to one organisation, which the\nweb UI uses for its \"recent activity in my org\" view.",
+        "description": "Paginated list of ``RegistrationEvent`` rows with visibility filtering.\n\nCovers resource events and book lifecycle events (publish / invalidate / correct).\nSupplying ``owner_org_id`` scopes the feed to one organisation, which the\nweb UI uses for its \"recent activity in my org\" view.",
         "operationId": "eventsListEvents",
         "security": [
           {},
@@ -3584,14 +3223,7 @@
             "$ref": "#/components/responses/Unauthorized"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -3775,14 +3407,7 @@
             "$ref": "#/components/responses/Unauthorized"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -3850,14 +3475,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -3975,14 +3593,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -4031,14 +3642,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -4104,14 +3708,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -4301,14 +3898,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -4319,7 +3909,7 @@
           "book-actions"
         ],
         "summary": "Attach Entry",
-        "description": "Attach a resource to a draft book by tracking id.\n\nRe-points a resource owned by another DRAFT book (409 only when the current\nowner is PUBLISHED). Asserts WRITE access to the source draft's volume and\nemits a ``BOOK_ATTACH`` audit event on every move.",
+        "description": "Attach a resource to a draft book by tracking id.\n\nA resource may sit in several books, so attaching one that already belongs\nto a book adds a placement rather than moving it out of the first. Fails\nwith 409 when the placement's data dictionary disagrees with the ones the\nresource already carries, because coverage is stored once per resource.",
         "operationId": "bookActionsAttachEntry",
         "security": [
           {
@@ -4372,14 +3962,7 @@
             "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       },
@@ -4388,7 +3971,7 @@
           "book-actions"
         ],
         "summary": "List Entries",
-        "description": "List a book's entries (read-only, cursor-paginated).\n\nVisibility-aware like the other v1 book reads: a book the caller cannot\nsee resolves to 404 (never 403), and entries are filtered by the book's\nvisibility tier. Works for drafts and published books alike, so producers\ncan inspect a draft's membership without publishing it.",
+        "description": "List a book's entries (read-only, cursor-paginated).\n\nVisibility-aware like the other v1 book reads: a book the caller cannot\nsee resolves to 404 (never 403), and entries are filtered by the book's\nvisibility tier. Works for drafts and published books alike, so producers\ncan inspect a draft's membership without publishing it.\n\nA page may come back short of `limit`, or empty,\nwhen entries hidden from the caller fall inside the window.\nKeep following `next_cursor` until it is null.",
         "operationId": "bookActionsListEntries",
         "security": [
           {},
@@ -4461,14 +4044,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -4479,7 +4055,7 @@
           "book-actions"
         ],
         "summary": "List Book Events",
-        "description": "List a book's lifecycle events (read-only, cursor-paginated).\n\nVisibility-aware like the other v1 book reads: a book the caller cannot\nsee resolves to 404 (never 403). Returns the book's publish / invalidate\nevents plus the attach events that moved a resource into or out of it.\nAttach events whose cross-referenced sibling book or moved resource the\ncaller cannot see are omitted, so a hidden sibling/resource/user is never\nleaked through a visible book's history.",
+        "description": "List a book's lifecycle events (read-only, cursor-paginated).\n\nVisibility-aware like the other v1 book reads: a book the caller cannot\nsee resolves to 404 (never 403). Returns the book's publish / invalidate /\ncorrect events plus the attach events that moved a resource into or out of it.\nAttach events whose cross-referenced sibling book or moved resource the\ncaller cannot see are omitted, so a hidden sibling/resource/user is never\nleaked through a visible book's history.",
         "operationId": "bookActionsListBookEvents",
         "security": [
           {},
@@ -4552,14 +4128,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -4613,14 +4182,71 @@
             "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Validation Error",
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/books/{book_id}/corrections": {
+      "post": {
+        "tags": [
+          "book-actions"
+        ],
+        "summary": "Correct Book",
+        "description": "Correct an authored fact on a published book.\n\nThis is the one way a published book's descriptive metadata may change.\nA plain ``PATCH`` against a published book is still rejected,\nso nothing reaches a release without a correction event recording that it moved.\n\nThe body names the facts it corrects and nothing else:\na fact left out keeps what the book already says,\nand a fact sent as null is cleared.\nRequires write permission on the owning org, the same gate publish passes.\n\nA correction mints no edition.\nContent, licence and visibility keep the edition path,\nso naming one of those is a 422 pointing at publish rather than a correction in place.\nCorrecting a draft is a 409 pointing at the edit route.",
+        "operationId": "bookActionsCorrectBook",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "book_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Book Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookCorrection"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/BookCorrectionResponse"
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -4671,14 +4297,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -4742,14 +4361,7 @@
             "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -4799,14 +4411,7 @@
             "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         },
         "security": [
@@ -4852,14 +4457,7 @@
             "$ref": "#/components/responses/Forbidden"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         },
         "security": [
@@ -5068,11 +4666,15 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
+          "302": {
+            "description": "Redirect to the resource bytes.",
+            "headers": {
+              "Location": {
+                "description": "Presigned or pointer URL for the resource bytes.",
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                }
               }
             }
           },
@@ -5080,14 +4682,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
       }
@@ -5413,28 +5008,68 @@
         ],
         "title": "Body_agentTokenRevoke"
       },
-      "BookCreate": {
+      "BookCorrection": {
         "properties": {
-          "version": {
-            "type": "string",
-            "maxLength": 50,
-            "minLength": 1,
-            "title": "Version",
-            "description": "Semantic version string (e.g., 'v1.0.0')"
+          "discovery": {
+            "$ref": "#/components/schemas/BookDiscoveryInput",
+            "description": "The facts to correct. Only the fields present in the body are written, so a correction of one fact leaves the rest of the profile standing. ``license`` may be restated but not changed: a licence is a legal claim about a specific release, so changing it mints a new edition through publish."
           },
-          "metadata": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Metadata",
-            "description": "Arbitrary JSON metadata"
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason",
+            "description": "Why the record moved, recorded on the correction event."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "discovery"
+        ],
+        "title": "BookCorrection",
+        "description": "Body for the book correction endpoint.\n\nThe correction names the facts it changes and nothing else.\nA fact left out keeps what the book already says,\nand a fact sent as null is cleared.\n\nContent, licence and visibility keep the edition path,\nso naming one here is a 422 pointing at publish."
+      },
+      "BookCorrectionResponse": {
+        "properties": {
+          "book_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Book Id"
+          },
+          "corrected_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Corrected At",
+            "description": "When the correction landed, or when the request was served if it changed nothing."
+          },
+          "corrected": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Corrected",
+            "description": "The facts this correction changed. Empty when the book already said what the correction asked for, in which case no event was recorded."
+          },
+          "discovery": {
+            "$ref": "#/components/schemas/BookDiscovery",
+            "description": "The book's discovery profile as it now reads."
           }
         },
         "type": "object",
         "required": [
-          "version"
+          "book_id",
+          "corrected_at",
+          "discovery"
         ],
-        "title": "BookCreate",
-        "description": "Schema for creating a new book."
+        "title": "BookCorrectionResponse",
+        "description": "Response for the book correction endpoint."
       },
       "BookDetail": {
         "properties": {
@@ -6360,7 +5995,7 @@
           "already_invalidated"
         ],
         "title": "BookInvalidationImpactResponse",
-        "description": "Side-effect-free preview of the blast radius of invalidating a book.\n\nThe entries are the resources the book pins.\nA resource belongs to at most one book, so invalidating a book never\nreaches into another book's membership."
+        "description": "Side-effect-free preview of the blast radius of invalidating a book.\n\nThe entries are the resources the book pins.\nInvalidating a book retracts only its placements,\nso a shared resource remains a member of its other books."
       },
       "BookListItem": {
         "properties": {
@@ -6386,10 +6021,6 @@
           },
           "visibility": {
             "$ref": "#/components/schemas/Visibility"
-          },
-          "private": {
-            "type": "boolean",
-            "title": "Private"
           },
           "metadata": {
             "additionalProperties": true,
@@ -6427,7 +6058,6 @@
           "edition",
           "status",
           "visibility",
-          "private",
           "metadata",
           "created_at",
           "published_at"
@@ -6508,10 +6138,6 @@
           "visibility": {
             "$ref": "#/components/schemas/Visibility"
           },
-          "private": {
-            "type": "boolean",
-            "title": "Private"
-          },
           "metadata": {
             "additionalProperties": true,
             "type": "object",
@@ -6579,7 +6205,6 @@
           "edition",
           "status",
           "visibility",
-          "private",
           "metadata",
           "hash",
           "created_at",
@@ -6612,6 +6237,17 @@
             ],
             "title": "Metadata",
             "description": "Updated metadata (replaces existing)"
+          },
+          "discovery": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BookDiscoveryInput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Updated discovery profile (replaces existing)"
           }
         },
         "type": "object",
@@ -8260,7 +7896,8 @@
           "alias",
           "book_invalidate",
           "book_publish",
-          "book_attach"
+          "book_attach",
+          "book_correct"
         ],
         "title": "EventKind",
         "description": "Kinds of immutable RegistrationEvent rows in the append-only log."
@@ -8783,19 +8420,6 @@
         ],
         "title": "FrontendLogEvent",
         "description": "A single log event from the frontend."
-      },
-      "HTTPValidationError": {
-        "properties": {
-          "detail": {
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
-            },
-            "type": "array",
-            "title": "Detail"
-          }
-        },
-        "type": "object",
-        "title": "HTTPValidationError"
       },
       "IndexBaselineTransformStep": {
         "properties": {
@@ -9340,7 +8964,7 @@
             "description": "Arbitrary JSON metadata."
           },
           "discovery": {
-            "$ref": "#/components/schemas/ResourceDiscoveryInput",
+            "$ref": "#/components/schemas/ResourceDiscovery",
             "description": "Typed discovery facts for this resource: who authored it, what it is, how to cite it and under what licence. The resource carries exactly what it is sent and takes nothing from its book, so send every fact the file should serve. An omitted fact and an explicit ``null`` both mean the resource states none."
           },
           "locations": {
@@ -9428,7 +9052,7 @@
             "description": "Arbitrary JSON metadata."
           },
           "discovery": {
-            "$ref": "#/components/schemas/ResourceDiscoveryInput",
+            "$ref": "#/components/schemas/ResourceDiscovery",
             "description": "Typed discovery facts for this resource: who authored it, what it is, how to cite it and under what licence. The resource carries exactly what it is sent and takes nothing from its book, so send every fact the file should serve. An omitted fact and an explicit ``null`` both mean the resource states none."
           },
           "locations": {
@@ -9936,7 +9560,7 @@
             "default": "hidden"
           },
           "discovery": {
-            "$ref": "#/components/schemas/ResourceDiscoveryInput",
+            "$ref": "#/components/schemas/ResourceDiscovery",
             "description": "Discovery profile the resource states, its tags among it."
           },
           "metadata": {
@@ -10103,6 +9727,10 @@
             "type": "object",
             "title": "Metadata",
             "description": "Arbitrary JSON metadata"
+          },
+          "discovery": {
+            "$ref": "#/components/schemas/ResourceDiscovery",
+            "description": "Typed discovery facts for this resource: who authored it, what it is, how to cite it and under what licence. The resource carries exactly what it is sent and takes nothing from its book, so send every fact the file should serve. An omitted fact and an explicit ``null`` both mean the resource states none."
           }
         },
         "type": "object",
@@ -10205,96 +9833,7 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ResourceDiscovery",
-        "description": "The discovery profile a resource reads back.\n\nThe same shape as the write input, holding what the resource was written with."
-      },
-      "ResourceDiscoveryInput": {
-        "properties": {
-          "tags": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Tags",
-            "description": "Free-form tag list"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 5000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description",
-            "description": "Concise summary"
-          },
-          "authors": {
-            "items": {
-              "$ref": "#/components/schemas/Author"
-            },
-            "type": "array",
-            "title": "Authors",
-            "description": "Authors and contributors"
-          },
-          "doi": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Doi",
-            "description": "DOI for the dataset"
-          },
-          "citation": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Citation",
-            "description": "Citation string for referencing this"
-          },
-          "license": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 255
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "License",
-            "description": "SPDX licence identifier"
-          },
-          "license_url": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "License Url",
-            "description": "Licence text URL"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "ResourceDiscoveryInput",
-        "description": "The discovery facts a producer may write to a resource.\n\nEvery field is optional, and a resource carries exactly the ones it states.\nA resource is registered before it belongs to a book,\nso there is no level above for an omitted field to come from.\nA producer that wants a file to carry its series licence states it on the file."
+        "description": "The discovery facts a resource carries, written and read in the same shape.\n\nEvery field is optional, and a resource carries exactly the ones it states.\nA resource is registered before it belongs to a book,\nso there is no level above for an omitted field to come from.\nA producer that wants a file to carry its series licence states it on the file."
       },
       "ResourceListResponse": {
         "properties": {
@@ -11121,46 +10660,6 @@
         ],
         "title": "UserSessionResponse",
         "description": "Full session information for the current user."
-      },
-      "ValidationError": {
-        "properties": {
-          "loc": {
-            "items": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "integer"
-                }
-              ]
-            },
-            "type": "array",
-            "title": "Location"
-          },
-          "msg": {
-            "type": "string",
-            "title": "Message"
-          },
-          "type": {
-            "type": "string",
-            "title": "Error Type"
-          },
-          "input": {
-            "title": "Input"
-          },
-          "ctx": {
-            "type": "object",
-            "title": "Context"
-          }
-        },
-        "type": "object",
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
-        "title": "ValidationError"
       },
       "VersionInfo": {
         "properties": {

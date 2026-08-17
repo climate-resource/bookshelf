@@ -2,14 +2,12 @@
 
 import importlib.metadata
 from pathlib import Path
-from uuid import UUID, uuid4
 
 import pytest
 
 from bookshelf._core.errors import BookshelfError
 from bookshelf._core.hashing import canonical_json_bytes
 from bookshelf.publisher.bundle import (
-    BUNDLE_SCHEMA_VERSION,
     Bundle,
     BundleBook,
     InvalidBundleError,
@@ -51,10 +49,37 @@ def test_a_book_with_no_entries_is_invalid(make_bundle: BundleFactory) -> None:
 
 def test_an_entry_without_its_resource_is_invalid(make_bundle: BundleFactory) -> None:
     bundle = make_bundle()
-    bundle.manifest.book.entries[0].tracking_id = uuid4()  # type: ignore[union-attr]
+    bundle.manifest.book.entries[0].name = "absent"  # type: ignore[union-attr]
 
-    with pytest.raises(InvalidBundleError, match="book entry 'entry-0' has no resource"):
+    with pytest.raises(InvalidBundleError, match="book entry 'absent' has no resource"):
         bundle.validate()
+
+
+def test_lineage_naming_an_unrecorded_resource_is_invalid(make_bundle: BundleFactory) -> None:
+    """Replay resolves ``used`` against the same request, so an unrecorded name has no coordinate."""
+    bundle = make_bundle()
+    bundle.manifest.resources[0].used = ["absent"]
+
+    with pytest.raises(InvalidBundleError, match="uses 'absent'"):
+        bundle.validate()
+
+
+def test_lineage_recorded_after_its_consumer_is_invalid(make_bundle: BundleFactory) -> None:
+    """An input registered after what consumes it does not exist yet when the server reads it."""
+    bundle = make_bundle(entries=2)
+    first, second = bundle.manifest.resources[0], bundle.manifest.resources[1]
+    first.used = [second.name]
+
+    with pytest.raises(InvalidBundleError, match="does not record before it"):
+        bundle.validate()
+
+
+def test_lineage_recorded_before_its_consumer_validates(make_bundle: BundleFactory) -> None:
+    bundle = make_bundle(entries=2)
+    first, second = bundle.manifest.resources[0], bundle.manifest.resources[1]
+    second.used = [first.name]
+
+    bundle.validate()
 
 
 def test_managed_bytes_are_re_hashed_against_the_manifest(make_bundle: BundleFactory) -> None:
@@ -68,9 +93,7 @@ def test_managed_bytes_are_re_hashed_against_the_manifest(make_bundle: BundleFac
     with pytest.raises(InvalidBundleError) as raised:
         bundle.validate()
 
-    assert f"resource {resource.tracking_id} has hash {resource.hash}, got sha256:" in str(
-        raised.value
-    )
+    assert f"resource {resource.name!r} has hash {resource.hash}, got sha256:" in str(raised.value)
 
 
 def test_a_managed_resource_with_no_bytes_is_invalid(make_bundle: BundleFactory) -> None:
@@ -96,15 +119,15 @@ def test_a_pointer_is_not_re_hashed(tmp_path: Path) -> None:
     """A pointer has no byte file, so hashing one would fail on a valid bundle."""
     bundle = Bundle(tmp_path / "bundle")
     bundle.set_book(BundleBook(volume="example", version="v1.0.0"))
-    pointer = bundle.add_pointer(
+    bundle.add_pointer(
         external_uri="https://example.invalid/data.csv",
         hash_=synthesise_pointer_hash(
             type_="tabular", external_uri="https://example.invalid/data.csv"
         ),
         type_="tabular",
-        tracking_id=uuid4(),
+        name="entry-0",
     )
-    bundle.add_book_entry(name_in_book="entry-0", tracking_id=pointer.tracking_id)
+    bundle.add_book_entry(name="entry-0")
     bundle.mark_book_published()
 
     bundle.validate()
@@ -153,12 +176,12 @@ def test_read_leaves_a_draft_loadable(make_bundle: BundleFactory) -> None:
     assert loaded.require_framing().published is False
 
 
-def test_tracking_ids_round_trip_as_uuids(make_bundle: BundleFactory) -> None:
+def test_a_resource_name_round_trips(make_bundle: BundleFactory) -> None:
     written = make_bundle()
 
     reloaded = Bundle.read(written.root)
 
-    assert isinstance(reloaded.manifest.resources[0].tracking_id, UUID)
+    assert reloaded.manifest.resources[0].name == "entry-0"
 
 
 def test_an_invalid_bundle_is_a_bookshelf_error(make_bundle: BundleFactory) -> None:
@@ -191,7 +214,7 @@ def _read_manifest_text(tmp_path: Path, text: str) -> Bundle:
 
 def test_a_manifest_with_no_writer_block_loads_with_writer_none(tmp_path: Path) -> None:
     """A bundle written before the header existed must still load."""
-    loaded = _read_manifest_text(tmp_path, "schema_version: '1.0'\nresources: []\n")
+    loaded = _read_manifest_text(tmp_path, "schema_version: '3.0'\nresources: []\n")
 
     assert loaded.manifest.writer is None
 
@@ -200,18 +223,30 @@ def test_an_unknown_key_inside_writer_is_ignored(tmp_path: Path) -> None:
     """The header is additive, so a later client may record more than pyarrow."""
     loaded = _read_manifest_text(
         tmp_path,
-        "schema_version: '1.1'\nresources: []\nwriter:\n  pyarrow: 1.2.3\n  polars: 9.9.9\n",
+        "schema_version: '3.1'\nresources: []\nwriter:\n  pyarrow: 1.2.3\n  polars: 9.9.9\n",
     )
 
     assert loaded.manifest.writer is not None
     assert loaded.manifest.writer.pyarrow == "1.2.3"
 
 
-def test_a_manifest_declaring_an_older_major_is_migrated_up(tmp_path: Path) -> None:
-    """The reader refuses only a newer major, and stamps what it migrated an older one to."""
-    loaded = _read_manifest_text(tmp_path, "schema_version: '1.0'\nresources: []\n")
+def test_a_manifest_declaring_an_older_major_is_refused(tmp_path: Path) -> None:
+    """A v2 bundle keys its resources by tracking id, which this reader cannot name."""
+    with pytest.raises(InvalidBundleError, match="keys its resources by tracking id"):
+        _read_manifest_text(tmp_path, "schema_version: '2.0'\nresources: []\n")
 
-    assert loaded.manifest.schema_version == BUNDLE_SCHEMA_VERSION
+
+def test_a_manifest_declaring_a_newer_major_is_refused(tmp_path: Path) -> None:
+    """Reading it here would drop whatever the new major added meaning to."""
+    with pytest.raises(InvalidBundleError, match="newer major"):
+        _read_manifest_text(tmp_path, "schema_version: '4.0'\nresources: []\n")
+
+
+def test_a_newer_minor_still_loads(tmp_path: Path) -> None:
+    """A minor is additive, so the models drop what they do not know and keep the rest."""
+    loaded = _read_manifest_text(tmp_path, "schema_version: '3.9'\nresources: []\n")
+
+    assert loaded.manifest.schema_version == "3.9"
 
 
 def test_the_synthesised_pointer_hash_matches_the_backend_seed() -> None:
@@ -230,46 +265,3 @@ def test_the_synthesised_pointer_hash_matches_the_backend_seed() -> None:
     assert synthesise_pointer_hash(type_="tabular", external_uri=uri) == (
         "sha256:7cf03fca2d1e24ee4c78e8d6f814e47b60ca5203a001e034bd2c8240e4a90bbe"
     )
-
-
-def test_a_v1_manifest_migrates_its_logical_keys_onto_names(tmp_path: Path) -> None:
-    """A v1 bundle still replays, so its keys are rewritten rather than dropped."""
-    loaded = _read_manifest_text(
-        tmp_path,
-        "schema_version: '1.1'\n"
-        "resources:\n"
-        "- tracking_id: 0197a000-0000-7000-8000-00000000b001\n"
-        "  hash: sha256:" + "a" * 64 + "\n"
-        "  type: tabular\n"
-        "  logical_key: upstream/emissions\n"
-        "- tracking_id: 0197a000-0000-7000-8000-00000000b002\n"
-        "  hash: sha256:" + "b" * 64 + "\n"
-        "  type: timeseries\n"
-        "  logical_key: Document/Build.py.ipynb\n"
-        "  used:\n"
-        "  - logical_key: upstream/emissions\n",
-    )
-
-    assert [resource.name for resource in loaded.manifest.resources] == [
-        "upstream-emissions",
-        "document-build.py.ipynb",
-    ]
-    assert loaded.manifest.resources[1].used[0].name == "upstream-emissions"
-
-
-def test_two_v1_keys_that_collide_on_one_name_are_refused(tmp_path: Path) -> None:
-    """Merging them would join two lineage edges into one, so the read fails instead."""
-    with pytest.raises(ValueError, match="both migrate to"):
-        _read_manifest_text(
-            tmp_path,
-            "schema_version: '1.1'\n"
-            "resources:\n"
-            "- tracking_id: 0197a000-0000-7000-8000-00000000b001\n"
-            "  hash: sha256:" + "a" * 64 + "\n"
-            "  type: tabular\n"
-            "  logical_key: a/b\n"
-            "- tracking_id: 0197a000-0000-7000-8000-00000000b002\n"
-            "  hash: sha256:" + "b" * 64 + "\n"
-            "  type: tabular\n"
-            "  logical_key: a:b\n",
-        )

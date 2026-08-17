@@ -18,11 +18,7 @@ from bookshelf._cli._runtime import (
     EXIT_USAGE,
 )
 from bookshelf._core.client import BookshelfClient
-from bookshelf.publisher.bundle import (
-    Bundle,
-    compute_book_bundle_hash,
-    resource_filename,
-)
+from bookshelf.publisher.bundle import Bundle, resource_filename
 from bookshelf.publisher.publish import PublishOutcome
 from tests import _core_payloads as payloads
 from tests.conftest import BundleFactory
@@ -56,16 +52,12 @@ def _plain(text: str) -> str:
 
 def test_validate_reports_the_bundle_summary(make_bundle: BundleFactory) -> None:
     bundle = make_bundle(entries=2)
-    # Recomputed from what landed on disk, so the reported hash is checked
-    # against an independent value rather than against itself.
-    expected_hash = compute_book_bundle_hash(Bundle.read(bundle.root).manifest)
 
     result = runner.invoke(app, ["validate", str(bundle.root), "--json"])
 
     assert result.exit_code == EXIT_OK
     assert _payload(result.stdout) == {
         "bundle_path": str(bundle.root),
-        "bundle_hash": expected_hash,
         "resources": 2,
         "book_entries": 2,
         "published": True,
@@ -78,7 +70,7 @@ def test_validate_human_output_names_every_field(make_bundle: BundleFactory) -> 
     result = runner.invoke(app, ["validate", str(bundle.root)])
 
     assert result.exit_code == EXIT_OK
-    for label in ("Bundle", "Bundle hash", "Resources", "Entries", "Publishes"):
+    for label in ("Bundle", "Resources", "Entries", "Publishes"):
         assert label in result.stdout
 
 
@@ -609,7 +601,9 @@ def test_publish_renders_the_outcome(
     make_bundle: BundleFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     bundle = make_bundle()
-    outcome = PublishOutcome(kind="published", edition=2, resources=1, bundle_hash="b" * 64)
+    outcome = PublishOutcome(
+        kind="published", edition=2, resource_count=1, dedupe_hits=1, converged=False
+    )
     calls = _patch_publish(monkeypatch, outcome)
 
     result = runner.invoke(app, ["publish", str(bundle.root), "--json"])
@@ -621,7 +615,8 @@ def test_publish_renders_the_outcome(
     assert summary["version"] == "v1.0.0"
     assert summary["edition"] == 2
     assert summary["resources"] == 1
-    assert summary["bundle_hash"] == "b" * 64
+    assert summary["dedupe_hits"] == 1
+    assert summary["converged"] is False
     assert [dry_run for _bundle_arg, dry_run in calls] == [False]
 
 
@@ -630,7 +625,8 @@ def test_publish_renders_a_no_op(
 ) -> None:
     bundle = make_bundle()
     _patch_publish(
-        monkeypatch, PublishOutcome(kind="no-op", edition=3, resources=0, bundle_hash="c" * 64)
+        monkeypatch,
+        PublishOutcome(kind="no-op", edition=3, resource_count=0, dedupe_hits=0, converged=True),
     )
 
     result = runner.invoke(app, ["publish", str(bundle.root), "--json"])
@@ -640,6 +636,7 @@ def test_publish_renders_a_no_op(
     assert summary["outcome"] == "no-op"
     assert summary["edition"] == 3
     assert summary["resources"] == 0
+    assert summary["converged"] is True
 
 
 def test_publish_dry_run_asks_the_publisher_not_to_write(
@@ -648,7 +645,9 @@ def test_publish_dry_run_asks_the_publisher_not_to_write(
     bundle = make_bundle()
     calls = _patch_publish(
         monkeypatch,
-        PublishOutcome(kind="would-publish", edition=1, resources=1, bundle_hash="d" * 64),
+        PublishOutcome(
+            kind="would-publish", edition=None, resource_count=1, dedupe_hits=0, converged=False
+        ),
     )
 
     result = runner.invoke(app, ["publish", str(bundle.root), "--dry-run", "--json"])
@@ -656,7 +655,7 @@ def test_publish_dry_run_asks_the_publisher_not_to_write(
     assert result.exit_code == EXIT_OK
     summary = _payload(result.stdout)
     assert summary["outcome"] == "would-publish"
-    assert summary["edition"] == 1
+    assert summary["edition"] is None
     assert [dry_run for _bundle_arg, dry_run in calls] == [True]
 
 

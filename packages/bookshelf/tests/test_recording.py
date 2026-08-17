@@ -28,6 +28,7 @@ def _activity(bundle: Bundle, cache_path: Path) -> RecordingActivity:
         code_ref="test",
         config={},
         runner_name="pytest",
+        names={},
     )
 
 
@@ -37,14 +38,14 @@ def test_atomic_register_many_commits_the_complete_batch(tmp_path: Path) -> None
     with _activity(bundle, tmp_path / "cache") as activity:
         resources = activity.register_many(
             [
-                RegisterItem(b"first", type="document"),
-                RegisterItem(b"second", type="document"),
+                RegisterItem(b"first", type="document", name="first"),
+                RegisterItem(b"second", type="document", name="second"),
             ],
             atomic=True,
         )
 
-    assert [resource.tracking_id for resource in resources] == [
-        resource.tracking_id for resource in bundle.manifest.resources
+    assert [resource.name for resource in resources] == [  # type: ignore[attr-defined]
+        resource.name for resource in bundle.manifest.resources
     ]
     assert [bundle.resource_bytes(resource) for resource in bundle.manifest.resources] == [
         b"first",
@@ -59,8 +60,8 @@ def test_atomic_register_many_does_not_record_a_partial_batch(tmp_path: Path) ->
     with activity, pytest.raises(TypeError, match="Cannot serialise"):
         activity.register_many(
             [
-                RegisterItem(b"first", type="document"),
-                RegisterItem(object(), type="document"),
+                RegisterItem(b"first", type="document", name="first"),
+                RegisterItem(object(), type="document", name="second"),
             ],
             atomic=True,
         )
@@ -80,19 +81,15 @@ def test_a_later_batch_does_not_rewrite_earlier_lineage(tmp_path: Path) -> None:
     bundle = Bundle(tmp_path / "bundle")
 
     with _activity(bundle, tmp_path / "cache") as activity:
-        raw = activity.register(b"raw", type="tabular")
-        activity.register(b"derived", type="tabular", used=[raw.tracking_id])
-        activity.register_many([RegisterItem(b"notebook", type="document")])
+        raw = activity.register(b"raw", type="tabular", name="raw")
+        activity.register(b"derived", type="tabular", name="derived", used=[raw.tracking_id])
+        activity.register_many([RegisterItem(b"notebook", type="document", name="notebook")])
 
-    recorded = {
-        resource.tracking_id: [reference.tracking_id for reference in resource.used]
-        for resource in bundle.manifest.resources
-    }
-    raw_used, derived_used, document_used = recorded.values()
+    recorded = {resource.name: resource.used for resource in bundle.manifest.resources}
 
-    assert raw_used == [], "the raw input consumed nothing and must not cite itself"
-    assert derived_used == [raw.tracking_id]
-    assert document_used == [raw.tracking_id]
+    assert recorded["raw"] == [], "the raw input consumed nothing and must not cite itself"
+    assert recorded["derived"] == ["raw"]
+    assert recorded["notebook"] == ["raw"]
 
 
 def test_drafting_a_book_reseeds_the_sinks_default_tier(tmp_path: Path) -> None:
@@ -114,3 +111,39 @@ def test_a_book_that_declares_no_tier_leaves_the_default_alone(tmp_path: Path) -
 
     assert book.metadata.visibility is models.Visibility.org
     assert sink.default_visibility is models.Visibility.org
+
+
+def _record(root: Path, cache_path: Path) -> bytes:
+    """Record one fixed build and return the manifest bytes it wrote."""
+    bundle = Bundle(root)
+    sink = _sink(bundle, cache_path)
+    with sink.activity(code_ref="repo@sha", config={"year": 2026}) as activity:
+        activity.register(b"payload", type="document", name="data")
+    bundle.write()
+    return bundle.manifest_path.read_bytes()
+
+
+def test_recording_the_same_build_twice_produces_identical_manifests(tmp_path: Path) -> None:
+    """The activity id names what the build is, so a re-record is byte for byte the same."""
+    first = _record(tmp_path / "first", tmp_path / "cache")
+    second = _record(tmp_path / "second", tmp_path / "cache")
+
+    assert first == second
+
+
+def test_a_different_config_records_a_different_activity(tmp_path: Path) -> None:
+    bundle = Bundle(tmp_path / "bundle")
+    other = Bundle(tmp_path / "other")
+
+    with _sink(bundle, tmp_path / "cache").activity(
+        code_ref="repo@sha", config={"year": 2026}
+    ) as activity:
+        activity.register(b"payload", type="document", name="data")
+    with _sink(other, tmp_path / "cache").activity(
+        code_ref="repo@sha", config={"year": 2027}
+    ) as activity:
+        activity.register(b"payload", type="document", name="data")
+
+    assert bundle.manifest.activity is not None
+    assert other.manifest.activity is not None
+    assert bundle.manifest.activity.activity_id != other.manifest.activity.activity_id

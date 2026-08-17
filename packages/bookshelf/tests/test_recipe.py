@@ -1075,9 +1075,11 @@ def test_recorded_resources_take_the_books_visibility(tmp_path: Path) -> None:
     with _recording(_write_recipe(tmp_path, "visibility: public"), tmp_path / "bundle"):
         bs = setup().bs
         with bs.activity(kind="build", code_ref="test") as activity:
-            activity.register(b"data", type="tabular")
-            activity.register_many([RegisterItem(b"batched", type="tabular")])
-            activity.register_external(type="tabular", uri="https://example.invalid/data.csv")
+            activity.register(b"data", type="tabular", name="data")
+            activity.register_many([RegisterItem(b"batched", type="tabular", name="batched")])
+            activity.register_external(
+                type="tabular", uri="https://example.invalid/data.csv", name="upstream"
+            )
         bs.recording_sink.record_document(b"<html/>", name="document-build.html", metadata={})
         recorded = [r.visibility for r in bs.bundle.manifest.resources]
 
@@ -1089,8 +1091,8 @@ def test_a_recorded_resource_can_be_narrowed_below_the_book(tmp_path: Path) -> N
     with _recording(_write_recipe(tmp_path, "visibility: public"), tmp_path / "bundle"):
         bs = setup().bs
         with bs.activity(kind="build", code_ref="test") as activity:
-            activity.register(b"open", type="tabular")
-            activity.register(b"embargoed", type="tabular", visibility="hidden")
+            activity.register(b"open", type="tabular", name="open")
+            activity.register(b"embargoed", type="tabular", visibility="hidden", name="embargoed")
         recorded = [r.visibility for r in bs.bundle.manifest.resources]
 
     assert recorded == ["public", "hidden"]
@@ -1101,7 +1103,7 @@ def test_a_hidden_book_still_records_hidden_resources(tmp_path: Path) -> None:
     with _recording(_write_recipe(tmp_path), tmp_path / "bundle"):
         bs = setup().bs
         with bs.activity(kind="build", code_ref="test") as activity:
-            activity.register(b"data", type="tabular")
+            activity.register(b"data", type="tabular", name="data")
         recorded = [r.visibility for r in bs.bundle.manifest.resources]
 
     assert recorded == ["hidden"]
@@ -1136,7 +1138,7 @@ def test_the_recorder_hands_the_selected_version_to_the_build(tmp_path: Path) ->
 
         build = bookshelf.setup()
         with build.bs.activity(kind="build", code_ref="test") as activity:
-            activity.register(b"data", type="tabular")
+            activity.register(b"data", type="tabular", name="data")
         """,
     )
 
@@ -1153,7 +1155,7 @@ def test_the_version_never_becomes_a_build_parameter(tmp_path: Path) -> None:
         assert "version" not in globals(), "the version leaked into the build's globals"
         build = bookshelf.setup()
         with build.bs.activity(kind="build", code_ref="test") as activity:
-            activity.register(b"data", type="tabular")
+            activity.register(b"data", type="tabular", name="data")
         """,
     )
 
@@ -1169,7 +1171,7 @@ def test_a_build_parameter_still_reaches_the_build(tmp_path: Path) -> None:
         assert tag == "supplied", tag
         build = bookshelf.setup()
         with build.bs.activity(kind="build", code_ref="test") as activity:
-            activity.register(b"data", type="tabular")
+            activity.register(b"data", type="tabular", name="data")
         """,
         parameters={"tag": "supplied"},
     )

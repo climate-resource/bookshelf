@@ -23,6 +23,7 @@ from uuid import UUID
 import httpx
 
 from bookshelf._core.errors import BookshelfError, NotFoundError
+from bookshelf._core.names import flatten_to_resource_name
 from bookshelf._generated import models
 from bookshelf._produce.types import HasTrackingId
 from bookshelf.cache import ContentCache
@@ -46,6 +47,7 @@ class RegisterExternal(Protocol):
         type: models.ResourceType,
         uri: str,
         hash: str,
+        name: str,
         metadata: Mapping[str, Any] | None,
     ) -> HasTrackingId:
         """Catalogue an external pointer and return its handle."""
@@ -169,6 +171,9 @@ def resolve_resource(
         type=spec.type,
         uri=uri,
         hash=content_hash,
+        # The declared key names the input for the rest of the bundle,
+        # flattened because a recipe may declare it under something the platform would refuse.
+        name=flatten_to_resource_name(name),
         metadata={"doi": doi} if doi is not None else None,
     )
     return ResolvedResource(

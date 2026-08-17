@@ -162,22 +162,20 @@ with bs.activity(
     output = activity.register(
         derived,
         type="timeseries",
-        name="scenario_mean",
-        used=[source],
+        name="scenario-mean",
     )
 
 output.tracking_id
 
 # %% [markdown]
-# `used=` records the inputs this output was derived from.
-# A bare string or UUID is read as a tracking id,
-# a handle like the `BookEntry` above supplies its own,
-# and `Used(name=...)` resolves by the name another resource in the same registration request was given.
+# `name=` is what the resource is addressed by from here on.
+# `used=` records the inputs an output was derived from, by that same name.
 #
-# Replay resolves each reference again against what it actually registered,
-# because the server may answer a registration with a resource it already holds.
-# The recorded reference is this notebook's claim about its inputs,
-# and the published edge names the resource that claim resolved to.
+# A recorded bundle cites only the inputs it carries itself,
+# because a replay resolves every name against the resources of that one request.
+# An input the build registered, a pointer to an upstream file among them,
+# is therefore citable, and a resource the platform already holds is not.
+# Citing one fails while the bundle is recorded rather than as a rejected replay.
 
 # %% [markdown]
 # ## Attaching and marking for publication
@@ -215,7 +213,7 @@ print((bundle_root / "manifest.lock").read_text())
 # Note what is in there.
 #
 # - `config_hash` is derived from the `config` passed to the activity, so an identical run hashes identically.
-# - `used` points at the real tracking id of the RCMIP entry this was derived from.
+# - every resource carries the bundle-local `name` it is addressed by, and `used` cites those names.
 # - `published: true` is what `draft.publish()` set.
 # - `kind: managed` means the platform re-hosts the bytes, which are the file listed above.
 #
@@ -236,18 +234,14 @@ print((bundle_root / "manifest.lock").read_text())
 # from bookshelf.publisher import Bundle, replay_bundle_sync
 #
 # with Bookshelf() as bs:
-#     book = replay_bundle_sync(Bundle.read(bundle_root), bs)
+#     outcome = replay_bundle_sync(Bundle.read(bundle_root), bs)
 # ```
 #
-# Replay keys the draft on the bundle's content hash,
-# attaches each entry, and publishes.
-# Two replays of the same bundle converge on one published edition rather than making two,
-# and a prior partial replay resumes its draft instead of stranding it.
-#
-# `replay_bundle` is the awaited form for async workflows.
-# `publish_bundle` publishes a recorded bundle rather than replaying one,
-# and returns a `PublishOutcome` saying what the publish resolved to.
-
+# Replay uploads the managed bytes,
+# then sends the whole bundle in one request.
+# The server registers the resources, mints the lineage, drafts the book, attaches
+# each entry and publishes it, and rolls all of it back on a failure anywhere.
+# Two replays of the same bundle are marked as converged.
 # %% [markdown]
 # ## Where to next
 #

@@ -5,9 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
+from uuid import UUID, uuid5
 
 from bookshelf._core.errors import BookshelfError
 from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
+
+# Fixed so a derived id is reproducible across processes and releases.
+_ACTIVITY_NAMESPACE = UUID("6f2a1d3e-9c47-5b8a-a1f0-3d7e5c2b4a96")
 
 
 def derive_code_ref() -> str:
@@ -132,4 +136,28 @@ def canonical_config_hash(config: dict[str, Any]) -> str:
     return sha256_hex(canonical_json_bytes(config))
 
 
-__all__ = ["canonical_config_hash", "derive_code_ref"]
+def derive_activity_id(
+    *,
+    kind: str,
+    code_ref: str,
+    config_hash: str,
+    parameters: dict[str, Any],
+) -> UUID:
+    """Return the activity id the same build always mints.
+
+    The id names what the activity is rather than when it ran,
+    so recording a build twice produces one manifest and replaying it finds one activity.
+    ``runner`` is left out because the same build on a laptop and on CI is the same activity.
+    """
+    seed = canonical_json_bytes(
+        {
+            "kind": kind,
+            "code_ref": code_ref,
+            "config_hash": config_hash,
+            "parameters": parameters,
+        }
+    )
+    return uuid5(_ACTIVITY_NAMESPACE, seed.decode())
+
+
+__all__ = ["canonical_config_hash", "derive_activity_id", "derive_code_ref"]

@@ -8,7 +8,7 @@ Use :func:`replay_bundle` with a bundle directory when replay is part of an asyn
     from bookshelf.publisher import replay_bundle
 
     async with AsyncBookshelf() as bs:
-        book = await replay_bundle(Path("bundle"), bs)
+        outcome = await replay_bundle(Path("bundle"), bs)
 
 Load :class:`Bundle` first
 when the caller needs to inspect or validate the manifest before allowing writes::
@@ -22,13 +22,14 @@ when the caller needs to inspect or validate the manifest before allowing writes
     bundle.require_framing()
 
     async with AsyncBookshelf() as bs:
-        book = await replay_bundle(bundle, bs)
+        outcome = await replay_bundle(bundle, bs)
 
 Both Python forms use the same replay implementation.
 A path is loaded into a ``Bundle`` before replay.
-Replaying the same content converges on the same published edition.
-A prior partial replay resumes its draft,
-while a bundle whose recorded book was not marked for publication remains a draft.
+The whole bundle travels in one transactional request,
+so a replay either lands completely or leaves nothing behind.
+Replaying the same content converges on the same published edition,
+and a bundle whose recorded book was not marked for publication stays a draft.
 
 Synchronous applications use :func:`replay_bundle_sync` with :class:`bookshelf.Bookshelf`::
 
@@ -38,7 +39,7 @@ Synchronous applications use :func:`replay_bundle_sync` with :class:`bookshelf.B
     from bookshelf.publisher import replay_bundle_sync
 
     with Bookshelf() as bs:
-        book = replay_bundle_sync(Path("bundle"), bs)
+        outcome = replay_bundle_sync(Path("bundle"), bs)
 
 Use :func:`publish_bundle` to publish a recorded bundle rather than to replay one.
 It returns a :class:`PublishOutcome` saying what the publish resolved to::
@@ -47,11 +48,7 @@ It returns a :class:`PublishOutcome` saying what the publish resolved to::
         outcome = publish_bundle(Bundle.read(Path("bundle")), bs)
 """
 
-from bookshelf.publisher.bundle import (
-    Bundle,
-    BundleManifest,
-    compute_book_bundle_hash,
-)
+from bookshelf.publisher.bundle import Bundle, BundleManifest
 from bookshelf.publisher.publish import PublishOutcome, publish_bundle
 from bookshelf.publisher.recipe import RecordRecipe, load_record_recipe
 from bookshelf.publisher.record import (
@@ -84,7 +81,6 @@ __all__ = [
     "RecordingSink",
     "Build",
     "ResolvedResource",
-    "compute_book_bundle_hash",
     "load_record_recipe",
     "parse_parameters",
     "publish_bundle",

@@ -2,7 +2,6 @@
 
 from pathlib import Path
 from typing import Protocol
-from uuid import uuid4
 
 import pytest
 
@@ -51,13 +50,13 @@ def make_bundle(tmp_path: Path) -> BundleFactory:
         )
         for index in range(entries):
             data = f"payload {index}".encode()
-            resource = bundle.add_resource(
+            bundle.add_resource(
                 data=data,
                 hash_=sha256_hex(data),
                 type_="document",
-                tracking_id=uuid4(),
+                name=f"entry-{index}",
             )
-            bundle.add_book_entry(name_in_book=f"entry-{index}", tracking_id=resource.tracking_id)
+            bundle.add_book_entry(name=f"entry-{index}")
         if published:
             bundle.mark_book_published()
         bundle.write()

@@ -65,13 +65,13 @@ def _documents(manifest: BundleManifest) -> list[BundleResource]:
 def _without_executed_documents(manifest: BundleManifest) -> BundleManifest:
     """Return the manifest with the executed-document resources and entries dropped."""
     filtered = manifest.model_copy(deep=True)
-    excluded = {resource.tracking_id for resource in _documents(filtered)}
+    excluded = {resource.name for resource in _documents(filtered)}
     filtered.resources = [
-        resource for resource in filtered.resources if resource.tracking_id not in excluded
+        resource for resource in filtered.resources if resource.name not in excluded
     ]
     if filtered.book is not None:
         filtered.book.entries = [
-            entry for entry in filtered.book.entries if entry.tracking_id not in excluded
+            entry for entry in filtered.book.entries if entry.name not in excluded
         ]
     return filtered
 
@@ -127,12 +127,10 @@ def test_the_recorded_resource_filenames_match_the_golden(tmp_path: Path) -> Non
 def test_the_executed_notebook_and_its_html_are_attached_to_the_book(tmp_path: Path) -> None:
     """The documents are excluded from the golden, so their absence needs its own assertion."""
     bundle = _record_golden_bundle(tmp_path)
-    excluded = {resource.tracking_id for resource in _documents(bundle.manifest)}
+    excluded = {resource.name for resource in _documents(bundle.manifest)}
 
     names = sorted(
-        entry.name_in_book
-        for entry in bundle.require_framing().entries
-        if entry.tracking_id in excluded
+        entry.name for entry in bundle.require_framing().entries if entry.name in excluded
     )
 
     assert names == ["simple_build.html", "simple_build.ipynb"]

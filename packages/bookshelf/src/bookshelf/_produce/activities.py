@@ -7,7 +7,6 @@ from typing import Any, Self
 from uuid import UUID
 
 from bookshelf._core.client import BookshelfClient
-from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf._produce import helpers
 from bookshelf._produce.resources import AsyncResource, Resource
@@ -19,6 +18,7 @@ from bookshelf._produce.types import (
     RegistrationSuccess,
     UsedInput,
 )
+from bookshelf._produce.uploads import upload_bytes, upload_bytes_async
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
 from bookshelf.cache import ContentCache
 
@@ -194,42 +194,12 @@ class Activity:
     def _materialise(self, entry: RegisterItem) -> models.RegisterResourceItem:
         resource_type = helpers.resource_type(entry.type)
         serialised = serialise(entry.obj, type=resource_type.value)
-        plan = self._client.initiate_ingest_upload(
-            models.IngestUploadInitiateRequest(
-                hash=serialised.hash,
-                size_bytes=len(serialised.data),
-                content_type=serialised.content_type,
-            )
+        storage_path = upload_bytes(
+            self._client,
+            serialised.data,
+            hash_=serialised.hash,
+            content_type=serialised.content_type,
         )
-        if not isinstance(plan, models.UploadAlreadyExistsResponse):
-            multipart = plan.upload_id != "single"
-            completed: list[models.UploadPartComplete] = []
-            for part in plan.parts:
-                content = serialised.data[part.start_byte : part.end_byte]
-                etag = self._client.put_presigned(
-                    part.presigned_url,
-                    content,
-                    content_type=serialised.content_type,
-                )
-                if multipart:
-                    if not etag:
-                        raise BookshelfError(
-                            f"presigned PUT for part {part.part_number} returned no ETag"
-                        )
-                    completed.append(
-                        models.UploadPartComplete(
-                            part_number=part.part_number,
-                            etag=etag.strip('"'),
-                        )
-                    )
-            if multipart:
-                self._client.complete_ingest_upload(
-                    models.IngestUploadCompleteRequest(
-                        upload_id=plan.upload_id,
-                        storage_path=plan.storage_path,
-                        parts=completed,
-                    )
-                )
         return models.RegisterResourceItem(
             tracking_id=entry.tracking_id or helpers.uuid7(),
             type=resource_type,
@@ -239,7 +209,7 @@ class Activity:
             visibility=helpers.visibility(entry.visibility, self.default_visibility),
             discovery=helpers.resource_discovery(entry.tags),
             metadata=dict(entry.metadata or {}),
-            locations=[models.LocationInput(shelf="managed", path=plan.storage_path)],
+            locations=[models.LocationInput(shelf="managed", path=storage_path)],
             dedupe=entry.dedupe,
         )
 
@@ -461,42 +431,12 @@ class AsyncActivity:
     async def _materialise(self, entry: RegisterItem) -> models.RegisterResourceItem:
         resource_type = helpers.resource_type(entry.type)
         serialised = serialise(entry.obj, type=resource_type.value)
-        plan = await self._client.initiate_ingest_upload_async(
-            models.IngestUploadInitiateRequest(
-                hash=serialised.hash,
-                size_bytes=len(serialised.data),
-                content_type=serialised.content_type,
-            )
+        storage_path = await upload_bytes_async(
+            self._client,
+            serialised.data,
+            hash_=serialised.hash,
+            content_type=serialised.content_type,
         )
-        if not isinstance(plan, models.UploadAlreadyExistsResponse):
-            multipart = plan.upload_id != "single"
-            completed: list[models.UploadPartComplete] = []
-            for part in plan.parts:
-                content = serialised.data[part.start_byte : part.end_byte]
-                etag = await self._client.put_presigned_async(
-                    part.presigned_url,
-                    content,
-                    content_type=serialised.content_type,
-                )
-                if multipart:
-                    if not etag:
-                        raise BookshelfError(
-                            f"presigned PUT for part {part.part_number} returned no ETag"
-                        )
-                    completed.append(
-                        models.UploadPartComplete(
-                            part_number=part.part_number,
-                            etag=etag.strip('"'),
-                        )
-                    )
-            if multipart:
-                await self._client.complete_ingest_upload_async(
-                    models.IngestUploadCompleteRequest(
-                        upload_id=plan.upload_id,
-                        storage_path=plan.storage_path,
-                        parts=completed,
-                    )
-                )
         return models.RegisterResourceItem(
             tracking_id=entry.tracking_id or helpers.uuid7(),
             type=resource_type,
@@ -506,7 +446,7 @@ class AsyncActivity:
             visibility=helpers.visibility(entry.visibility, self.default_visibility),
             discovery=helpers.resource_discovery(entry.tags),
             metadata=dict(entry.metadata or {}),
-            locations=[models.LocationInput(shelf="managed", path=plan.storage_path)],
+            locations=[models.LocationInput(shelf="managed", path=storage_path)],
             dedupe=entry.dedupe,
         )
 

@@ -43,7 +43,6 @@ from bookshelf.facade import Bookshelf
 from bookshelf.publisher import (
     Bundle,
     RecordRecipe,
-    compute_book_bundle_hash,
     load_record_recipe,
     parse_parameters,
     publish_bundle,
@@ -192,7 +191,6 @@ _RECORD_LABELS = {
 
 _VALIDATE_LABELS = {
     "bundle_path": "Bundle",
-    "bundle_hash": "Bundle hash",
     "resources": "Resources",
     "book_entries": "Entries",
     "published": "Publishes",
@@ -203,8 +201,9 @@ _PUBLISH_LABELS = {
     "volume": "Volume",
     "version": "Version",
     "edition": "Edition",
-    "bundle_hash": "Bundle hash",
     "resources": "Resources",
+    "dedupe_hits": "Dedupe hits",
+    "converged": "Converged",
 }
 
 
@@ -260,14 +259,13 @@ def validate(
     bundle: Path = typer.Argument(Path("bundle"), help="Bundle directory to validate."),
     json_output: bool = typer.Option(False, "--json", help="Emit the summary as JSON."),
 ) -> None:
-    """Assert a recorded bundle is a replayable published book, and hash it."""
+    """Assert a recorded bundle is a replayable published book."""
     with command_errors():
         with _bundle_errors(bundle):
             loaded = Bundle.read_validated(bundle)
             framing = loaded.require_framing()
         summary = {
             "bundle_path": str(bundle),
-            "bundle_hash": compute_book_bundle_hash(loaded.manifest),
             "resources": len(loaded.manifest.resources),
             "book_entries": len(framing.entries),
             "published": framing.published,
@@ -281,7 +279,7 @@ def publish(
     dry_run: bool = typer.Option(
         False,
         "--dry-run",
-        help="Resolve the edition and report the outcome without publishing.",
+        help="Report what would be sent without sending it. Resolves no edition.",
     ),
     json_output: bool = typer.Option(False, "--json", help="Emit the summary as JSON."),
 ) -> None:
@@ -303,8 +301,9 @@ def publish(
             "volume": framing.volume,
             "version": framing.version,
             "edition": outcome.edition,
-            "bundle_hash": outcome.bundle_hash,
-            "resources": outcome.resources,
+            "resources": outcome.resource_count,
+            "dedupe_hits": outcome.dedupe_hits,
+            "converged": outcome.converged,
         }
         _emit_summary(summary, _PUBLISH_LABELS, json_output=json_output)
 

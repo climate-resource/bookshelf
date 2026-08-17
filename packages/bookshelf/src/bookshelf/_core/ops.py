@@ -176,6 +176,17 @@ PUBLISH_BOOK = _op(
         response_models=(models.BookDetail,),
     )
 )
+REPLAY_BUNDLE = _op(
+    OpSpec(
+        operation_id="bundlesReplayBundle",
+        method="POST",
+        path_template="/v1/bundles/replay",
+        success_statuses=(200,),
+        error_statuses=(400, 401, 403, 404, 409, 422),
+        request_model=models.BundleReplayRequest,
+        response_models=(models.BundleReplayResponse,),
+    )
+)
 LIST_BOOKS = _op(
     OpSpec(
         operation_id="booksListBooks",
@@ -749,6 +760,21 @@ def parse_publish_book(response: ApiResponse) -> models.BookDetail:
     payload = json.loads(response.content)
     _restore_utc_fields(payload, ("created_at", "published_at", "invalidated_at"))
     return models.BookDetail.model_validate(payload)
+
+
+def build_replay_bundle(request: models.BundleReplayRequest) -> ApiRequest:
+    return ApiRequest(
+        method="POST", path=REPLAY_BUNDLE.path_template, json_body=_json_body(request)
+    )
+
+
+def parse_replay_bundle(response: ApiResponse) -> models.BundleReplayResponse:
+    _check(REPLAY_BUNDLE, response)
+    payload = json.loads(response.content)
+    book = payload.get("book")
+    if isinstance(book, dict):
+        _restore_utc_fields(book, ("created_at", "published_at", "invalidated_at"))
+    return models.BundleReplayResponse.model_validate(payload)
 
 
 def build_list_books(
