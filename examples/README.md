@@ -4,9 +4,10 @@ Each directory here is a miniature feedstock: a `bookshelf.yaml` recipe, a stand
 `build.py`, and an `expected/` golden of what recording it produces.
 
 They do double duty.
-They are the reference that [`copier-bookshelf-dataset`](https://github.com/climate-resource/copier-bookshelf-dataset)
-scaffolds new feedstocks from, and they are the regression fixtures that catch an accidental change
-to the bundle format.
+They are the reference that [`copier-bookshelf-dataset`][copier] scaffolds new feedstocks from,
+and they are the regression fixtures that catch an accidental change to the bundle format.
+
+[copier]: https://github.com/climate-resource/copier-bookshelf-dataset
 Every later change to the recipe, the manifest or the seal shows up here as a golden diff, and the
 reviewer's job on such a pull request is to read that diff and confirm each change was meant.
 

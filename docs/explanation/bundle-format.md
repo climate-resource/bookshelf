@@ -217,7 +217,9 @@ Neither enters the seal the server computes.
 `processing` is provenance, and it is not part of the seal.
 It answers "which code produced this", and nothing more.
 A rebuild whose code changed but whose data did not converges on the existing edition,
-which is what [ADR 0006](https://github.com/climate-resource/bookshelf-platform/blob/main/docs/adr/0006-server-owns-edition-code-version-is-provenance.md) settled.
+which is what [ADR 0006][adr-0006] settled.
+
+[adr-0006]: https://github.com/climate-resource/bookshelf-platform/blob/main/docs/adr/0006-server-owns-edition-code-version-is-provenance.md
 An absent `processing` states nothing, and `[]` states a book that no activity generated.
 Replay does not send it, because the replay request carries the activity itself
 and the server derives the book's fingerprint from that.
