@@ -26,7 +26,7 @@ books:
     resources:
       raw:
         type: tabular
-        path: data/v1.csv
+        path: inputs/v1.csv
 
   - version: "v2.0.0"
     license: CC-BY-4.0
@@ -39,4 +39,4 @@ books:
     resources:
       raw:
         type: tabular
-        path: data/v2.csv
+        path: inputs/v2.csv

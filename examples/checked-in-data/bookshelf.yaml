@@ -25,4 +25,4 @@ books:
       # A path resource declares no digest. The recorder computes it when it reads the file.
       raw:
         type: tabular
-        path: data/raw.csv
+        path: inputs/raw.csv

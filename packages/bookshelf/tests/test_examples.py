@@ -50,6 +50,31 @@ def test_every_example_directory_is_covered_by_the_runner() -> None:
         assert name in result.stdout
 
 
+def test_every_file_an_example_declares_is_tracked_by_git() -> None:
+    """A gitignored input records and passes locally, then fails for everyone else.
+
+    The repository ignores any directory named ``data``, which silently swallowed the
+    checked-in inputs once already.
+    """
+    listed = subprocess.run(
+        ["git", "ls-files", "--others", "--ignored", "--exclude-standard", "examples/"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=True,
+    )
+    # Build artefacts are ignored on purpose. Anything else under an example is content.
+    ignored = [
+        line
+        for line in listed.stdout.splitlines()
+        if "__pycache__" not in line and not line.endswith(".pyc")
+    ]
+
+    assert ignored == [], (
+        "these example files are ignored by git and would not reach CI:\n" + "\n".join(ignored)
+    )
+
+
 def test_a_corrupted_golden_makes_the_runner_exit_non_zero(tmp_path: Path) -> None:
     """The gate is the exit status, so it is asserted rather than the log text."""
     golden = EXAMPLES_DIR / "simple" / "expected" / "v1.0.0" / "manifest.lock"
