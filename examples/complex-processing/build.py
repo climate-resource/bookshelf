@@ -2,8 +2,9 @@
 # # A build whose outputs feed each other
 #
 # Each `book.write` hands back the resource it registered,
-# so a later output cites the earlier one by passing that handle to `used=`.
-# The lineage recorded is therefore the processing graph rather than a flat list of inputs.
+# so a later output declares the earlier one by passing that handle to `used=`.
+# A recorded bundle carries one activity, so what lands in the manifest is that activity's
+# accumulated inputs rather than the arguments of one call. The README works through the result.
 
 # %%
 import pandas as pd
@@ -34,7 +35,7 @@ cleaned_resource = book.write("cleaned", cleaned, type="timeseries", used=[raw])
 # %% [markdown]
 # ## Step two: two summaries of the cleaned frame
 #
-# Both cite `cleaned` rather than `raw`, because that is what they were computed from.
+# Both declare `cleaned`, because that is what they were computed from.
 
 # %%
 by_region = cleaned.groupby("region", as_index=False)["value"].sum()
@@ -48,7 +49,7 @@ world_resource = book.write("world", world, type="timeseries", used=[cleaned_res
 # ## Step three: an output that joins two earlier ones
 #
 # `shares` is the regional total as a fraction of the world total,
-# so it cites both of the outputs above and neither of the inputs.
+# so it declares both of the outputs above.
 
 # %%
 world_total = float(world["value"].sum())

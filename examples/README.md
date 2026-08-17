@@ -4,17 +4,26 @@ Each directory here is a miniature feedstock and its expected results.
 
 ## The examples
 
-| Example                                               | What it proves                                                                |
-| ----------------------------------------------------- | ----------------------------------------------------------------------------- |
-| [`simple`](simple/)                                   | The smallest legal recipe. One frame built inline, no inputs, no network.     |
-| [`checked-in-data`](checked-in-data/)                 | A resource addressed by `path:` rather than `uri:`, hashed by the recorder.   |
-| [`multi-version`](multi-version/)                     | One recipe, several upstream versions, selected by `--version`.               |
-| [`complex-processing`](complex-processing/)           | Several outputs and a real `used=` graph across steps.                        |
-| [`defaults-and-overrides`](defaults-and-overrides/)   | A book inheriting from `defaults:`, and overriding some of it.                |
-| [`figures`](figures/)                                 | A png beside the frame it plots, attached as a document with no dictionary.   |
-| [`mixed-visibility`](mixed-visibility/)               | A public book carrying one hidden resource, pinning the precedence rule.      |
-| [`reissue`](reissue/)                                 | Same version, changed processing. Processing is provenance, outside the seal. |
-| [`fetch-from-web`](fetch-from-web/)                   | One upstream url, digest verified and cached. Needs the network.              |
+| Example | What it proves |
+| --- | --- |
+| [`simple`](simple/) | The smallest legal recipe. One frame built inline, no inputs. |
+| [`checked-in-data`](checked-in-data/) | A resource addressed by `path:`, hashed by the recorder. |
+| [`multi-version`](multi-version/) | One recipe, several upstream versions, selected by `--version`. |
+| [`complex-processing`](complex-processing/) | Several outputs and a real `used=` graph across steps. |
+| [`defaults-and-overrides`](defaults-and-overrides/) | Inheriting from `defaults:`, and overriding part of it. |
+| [`figures`](figures/) | A png attached as a document entry, with no data dictionary. |
+| [`mixed-visibility`](mixed-visibility/) | A public book carrying one hidden resource. |
+| [`reissue`](reissue/) | Same version, changed processing, which sits outside the seal. |
+| [`fetch-from-web`](fetch-from-web/) | One upstream url, digest verified and cached. Needs the network. |
+
+Two more are wanted and cannot be written yet, because the SDK has no way to express them.
+
+- A pure catalogue run, recording resources and no book.
+  `bookshelf.setup` under a recording always drafts a book, and a build file that never calls it
+  is refused, so no bookless bundle can be recorded.
+- A book derived from a published book, so the lineage crosses volumes.
+  A `bookshelf://` resource registers nothing, and `used=` cites only what the same bundle records,
+  so the edge is refused when the build is recorded.
 
 ## Running them
 

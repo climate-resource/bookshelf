@@ -2,7 +2,7 @@
 # # The same version, rebuilt with different processing
 #
 # `chunk_size` changes how the totals are accumulated and nothing about the answer.
-# Recording with `-p chunk_size=3` therefore moves the activity's `config_hash`
+# Recording with `-p chunk_size=5` therefore moves the activity's `config_hash`
 # while every output byte stays where it was.
 
 # %%

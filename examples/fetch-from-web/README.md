@@ -11,8 +11,6 @@ The url is pinned to a commit rather than to a branch, so the bytes cannot move 
 `sha256` is what the fetch is checked against, and a download that does not match it is a hard failure
 with no retry.
 
-## Why the golden stays stable
-
 The golden run does not hit the network.
 The declared digest is the cache key, so a hit serves the bytes locally and touches nothing remote.
 

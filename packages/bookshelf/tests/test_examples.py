@@ -12,6 +12,9 @@ from types import ModuleType
 
 import pytest
 
+from bookshelf.publisher.bundle import BundleManifest
+from bookshelf.publisher.record import DOCUMENT_KINDS
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EXAMPLES_DIR = REPO_ROOT / "examples"
 RUNNER = EXAMPLES_DIR / "run_all.py"
@@ -185,13 +188,15 @@ def test_an_example_that_fetches_a_uri_is_skipped_unless_the_network_is_opted_in
         assert f"{name}@-" in full_run.stdout
 
 
-def _recorded_content(manifest: object) -> list[tuple[str, str, str, str]]:
-    """The parts of a recording the seal is over, which is content rather than provenance."""
-    from bookshelf.publisher.record import DOCUMENT_KINDS
+def _recorded_content(manifest: BundleManifest) -> list[tuple[str, str, str, str]]:
+    """The parts of a recording the seal is over, which is content rather than provenance.
 
+    The executed documents are excluded because they embed the parameters the build ran with,
+    so they move whenever the processing does and are provenance in the same way it is.
+    """
     return sorted(
         (resource.name, resource.hash, resource.type, resource.visibility)
-        for resource in manifest.resources  # type: ignore[attr-defined]
+        for resource in manifest.resources
         if resource.metadata.get("kind") not in DOCUMENT_KINDS
     )
 
@@ -225,6 +230,41 @@ def test_changed_processing_leaves_everything_the_seal_covers_identical(tmp_path
     assert [entry.name for entry in first.book.entries] == [
         entry.name for entry in second.book.entries
     ]
+
+
+def test_bookshelf_validate_reports_the_two_reissue_runs_as_differing_only_in_processing(
+    tmp_path: Path,
+) -> None:
+    """``bookshelf validate`` is the surface a producer reads, so the claim is asserted through it."""
+    import re
+
+    from typer.testing import CliRunner
+
+    from bookshelf._cli import app
+    from bookshelf.publisher.record import run_record
+
+    example = EXAMPLES_DIR / "reissue"
+    reported = []
+    for name, parameters in (("default", {}), ("chunked", {"chunk_size": 5})):
+        run_record(
+            build_path=None,
+            recipe_path=example / "bookshelf.yaml",
+            bundle_path=tmp_path / name,
+            version="v1.0.0",
+            parameters=parameters,
+            cwd=example,
+        )
+        result = CliRunner().invoke(app, ["validate", str(tmp_path / name)])
+
+        assert result.exit_code == 0, result.output
+        reported.append(re.sub(r"\x1b\[[0-9;]*m", "", result.stdout))
+
+    processing = [
+        line for output in reported for line in output.splitlines() if "Processing" in line
+    ]
+
+    assert len(processing) == 2
+    assert processing[0] != processing[1]
 
 
 def test_a_bare_record_names_the_versions_the_recipe_declares() -> None:
