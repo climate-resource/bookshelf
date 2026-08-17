@@ -13,6 +13,9 @@ The rule this example pins has three parts.
    `working_set` is narrowed to `hidden` inside a `public` book, which is a deliberate act,
    and the book stays public.
 
+`None` and `INHERIT` both mean the caller said nothing.
+An empty string is invalid input to reject, never a signal to inherit the recipe's value.
+
 `expected/v1.0.0/manifest.lock` is that rule written down:
 the book public, `working_set` hidden, everything else public by inheritance.
 

@@ -4,13 +4,13 @@ Each directory here is a miniature feedstock and its expected results.
 
 ## The examples
 
-| Example | What it proves |
-| --- | --- |
-| [`simple`](simple/) | The smallest legal recipe. One frame built inline, no inputs. |
-| [`checked-in-data`](checked-in-data/) | A resource addressed by `path:`, hashed by the recorder. |
-| [`multi-version`](multi-version/) | One recipe, several upstream versions, selected by `--version`. |
+| Example                               | What it proves                                                              |
+| ------------------------------------- | --------------------------------------------------------------------------- |
+| [`simple`](simple/)                   | The smallest legal recipe. One frame built inline, no inputs, no network.   |
+| [`checked-in-data`](checked-in-data/) | A resource addressed by `path:` rather than `uri:`, hashed by the recorder. |
+| [`multi-version`](multi-version/)     | One recipe, several upstream versions, selected by `--version`.             |
 | [`complex-processing`](complex-processing/) | Several outputs and a real `used=` graph across steps. |
-| [`defaults-and-overrides`](defaults-and-overrides/) | Inheriting from `defaults:`, and overriding part of it. |
+| [`defaults-and-overrides`](defaults-and-overrides/) | Inheriting from `defaults:`, then overriding some. |
 | [`figures`](figures/) | A png attached as a document entry, with no data dictionary. |
 | [`mixed-visibility`](mixed-visibility/) | A public book carrying one hidden resource. |
 | [`reissue`](reissue/) | Same version, changed processing, which sits outside the seal. |

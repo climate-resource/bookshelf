@@ -5,15 +5,18 @@ The ``examples/run_all.py`` script is used to run the examples.
 This is a wrapper of that script so we can test the examples in CI.
 """
 
+import re
 import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
 
 import pytest
+from typer.testing import CliRunner
 
-from bookshelf.publisher.bundle import BundleManifest
-from bookshelf.publisher.record import DOCUMENT_KINDS
+from bookshelf._cli import app
+from bookshelf.publisher.bundle import Bundle, BundleManifest
+from bookshelf.publisher.record import DOCUMENT_KINDS, run_record
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EXAMPLES_DIR = REPO_ROOT / "examples"
@@ -23,6 +26,11 @@ pytestmark = pytest.mark.skipif(
     not RUNNER.is_file(),
     reason="the examples tree is not present in this checkout",
 )
+
+
+def _without_colour(output: str) -> str:
+    """Strip the ANSI codes rich writes, so an assertion reads the text a producer sees."""
+    return re.sub(r"\x1b\[[0-9;]*m", "", output)
 
 
 def _run_all() -> ModuleType:
@@ -201,17 +209,14 @@ def _recorded_content(manifest: BundleManifest) -> list[tuple[str, str, str, str
     )
 
 
-def test_changed_processing_leaves_everything_the_seal_covers_identical(tmp_path: Path) -> None:
-    """Processing is provenance, so a rebuild that only changes it converges on the same edition.
+@pytest.fixture
+def reissued(tmp_path: Path) -> tuple[Path, Path]:
+    """Record the reissue example twice, changing only the build parameter.
 
-    The two runs differ in the build parameter alone,
-    which moves the activity's ``config_hash`` without moving a single output byte.
+    The pair is what both assertions below are about,
+    because a golden holds one recording and this claim is about the difference between two.
     """
-    from bookshelf.publisher.bundle import Bundle
-    from bookshelf.publisher.record import run_record
-
     example = EXAMPLES_DIR / "reissue"
-    recorded = []
     for name, parameters in (("default", {}), ("chunked", {"chunk_size": 5})):
         run_record(
             build_path=None,
@@ -221,8 +226,18 @@ def test_changed_processing_leaves_everything_the_seal_covers_identical(tmp_path
             parameters=parameters,
             cwd=example,
         )
-        recorded.append(Bundle.read(tmp_path / name).manifest)
-    first, second = recorded
+    return tmp_path / "default", tmp_path / "chunked"
+
+
+def test_changed_processing_leaves_everything_the_seal_covers_identical(
+    reissued: tuple[Path, Path],
+) -> None:
+    """Processing is provenance, so a rebuild that only changes it converges on the same edition.
+
+    The two runs differ in the build parameter alone,
+    which moves the activity's ``config_hash`` without moving a single output byte.
+    """
+    first, second = (Bundle.read(path).manifest for path in reissued)
 
     assert first.book is not None and second.book is not None
     assert first.book.processing != second.book.processing
@@ -233,31 +248,15 @@ def test_changed_processing_leaves_everything_the_seal_covers_identical(tmp_path
 
 
 def test_bookshelf_validate_reports_the_two_reissue_runs_as_differing_only_in_processing(
-    tmp_path: Path,
+    reissued: tuple[Path, Path],
 ) -> None:
     """``bookshelf validate`` is the surface a producer reads, so the claim is asserted through it."""
-    import re
-
-    from typer.testing import CliRunner
-
-    from bookshelf._cli import app
-    from bookshelf.publisher.record import run_record
-
-    example = EXAMPLES_DIR / "reissue"
     reported = []
-    for name, parameters in (("default", {}), ("chunked", {"chunk_size": 5})):
-        run_record(
-            build_path=None,
-            recipe_path=example / "bookshelf.yaml",
-            bundle_path=tmp_path / name,
-            version="v1.0.0",
-            parameters=parameters,
-            cwd=example,
-        )
-        result = CliRunner().invoke(app, ["validate", str(tmp_path / name)])
+    for path in reissued:
+        result = CliRunner().invoke(app, ["validate", str(path)])
 
         assert result.exit_code == 0, result.output
-        reported.append(re.sub(r"\x1b\[[0-9;]*m", "", result.stdout))
+        reported.append(_without_colour(result.stdout))
 
     processing = [
         line for output in reported for line in output.splitlines() if "Processing" in line
@@ -269,18 +268,12 @@ def test_bookshelf_validate_reports_the_two_reissue_runs_as_differing_only_in_pr
 
 def test_a_bare_record_names_the_versions_the_recipe_declares() -> None:
     """There is no default version, so picking one would be a guess rather than a default."""
-    import re
-
-    from typer.testing import CliRunner
-
-    from bookshelf._cli import app
-
     recipe = EXAMPLES_DIR / "multi-version" / "bookshelf.yaml"
 
     result = CliRunner().invoke(app, ["record", "--recipe", str(recipe)])
 
     # Diagnostics go to stderr, because the CLI keeps stdout for the payload.
-    reported = re.sub(r"\x1b\[[0-9;]*m", "", result.stderr)
+    reported = _without_colour(result.stderr)
     assert result.exit_code != 0
     assert "v1.0.0" in reported
     assert "v2.0.0" in reported
