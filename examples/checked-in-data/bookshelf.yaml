@@ -22,7 +22,7 @@ books:
       - name: Climate Resource
         email: info@climate-resource.com
     resources:
-      # A path resource declares no digest. The recorder computes it when it reads the file.
+      # The digest for a local file is optional. The recorder computes it when it reads the file.
       raw:
         type: tabular
         path: inputs/raw.csv

@@ -234,28 +234,20 @@ class BundleBook(BaseModel):
 
     Mirrors the producer's
     ``create_draft_book -> attach_entry* -> publish`` arc.
-    ``volume``,
-    ``version``,
-    ``visibility``,
-    and ``license`` frame the draft.
+    ``volume``, ``version``, ``visibility``, and ``license`` frame the draft.
     ``entries`` names the resources the book is made of.
-    ``published`` records whether replay should publish the draft
-    or leave it as a draft.
+    ``published`` records whether replay should publish the draft or leave it as a draft.
     ``authors`` and ``discovery`` carry the editorial framing the recipe resolved for this version,
-    and replay sends both on the draft call
-    so each book keeps its own copy of what was true when it was published.
+    and replay sends both on the draft call so each book keeps its own copy of what was true when it was published.
     Publishing a later version therefore never rewrites what an earlier one says.
 
     ``discovery`` is keyed by the recipe's own field names.
     The API spells one of them differently,
     and that is reconciled where the replay request is built.
 
-    The framing is **pre-edition**
-    and has no ``edition`` field.
-    The server assigns the edition during replay under ADR 0006.
-    It computes the seal from the replay request alone,
-    so two replays of the same bundle converge on one edition
-    without the client hashing anything.
+    The framing is **pre-edition** and has no ``edition`` field,
+    as the server determines the edition depending on the content.
+
     ``extra="ignore"`` tolerates fields added by a later client.
     """
 
@@ -274,9 +266,8 @@ class BundleBook(BaseModel):
     """The ``(code_ref, config_hash)`` pairs of the runs that generated this book's members.
 
     This is provenance, and it is not part of the seal.
-    A rebuild whose code changed but whose data did not therefore converges on the existing edition,
-    which is what ADR 0006 settled.
-    ``None`` records that nothing was stated, and ``[]`` records a book no activity generated.
+    A rebuild whose code changed but whose data did not therefore converges on the existing edition.
+    The default (None)
     """
     published: bool = False
 

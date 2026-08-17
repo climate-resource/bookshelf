@@ -65,15 +65,15 @@ class DraftBook:
     ) -> None:
         self._client = client
         self.metadata = detail
-        # The activity book.write registers through. A book drafted without one can still
-        # attach resources the caller registered itself, so this stays optional.
+        # The activity book.write registers through.
+        # A book drafted without one can still attach resources the caller registered itself, so this stays optional.
         self._activity = activity
 
     def _writing_activity(self) -> Activity:
         if self._activity is None:
             raise RuntimeError(
-                "book.write needs the activity its sink opens, and this book was drafted "
-                "without one. Register through bs.activity(...) and attach with book.add."
+                "book.write needs the activity its sink opens, and this book was drafted without one. "
+                "Register through bs.activity(...) and attach with book.add."
             )
         return self._activity()
 
@@ -169,8 +169,8 @@ class AsyncDraftBook:
     def _writing_activity(self) -> AsyncActivity:
         if self._activity is None:
             raise RuntimeError(
-                "book.write needs the activity its sink opens, and this book was drafted "
-                "without one. Register through bs.activity(...) and attach with book.add."
+                "book.write needs the activity its sink opens, and this book was drafted without one. "
+                "Register through bs.activity(...) and attach with book.add."
             )
         return self._activity()
 

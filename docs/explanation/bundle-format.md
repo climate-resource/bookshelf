@@ -216,11 +216,7 @@ Neither enters the seal the server computes.
 
 `processing` is provenance, and it is not part of the seal.
 It answers "which code produced this", and nothing more.
-A rebuild whose code changed but whose data did not converges on the existing edition,
-which is what [ADR 0006][adr-0006] settled.
-An absent `processing` states nothing, and `[]` states a book that no activity generated.
-Replay does not send it, because the replay request carries the activity itself
-and the server derives the book's fingerprint from that.
+A rebuild whose code changed but whose data did not converges on the existing edition.
 It is recorded so `bookshelf validate` reads as a complete account of the build.
 
 Each entry in `entries` carries the membership and its own optional column descriptions:
@@ -415,5 +411,3 @@ Reading it back:
 and the `Bundle*` models mirror the manifest structure field for field.
 `bookshelf.publisher.recording` writes bundles from a producer run,
 and `bookshelf.publisher.replay` sends one to the platform.
-
-[adr-0006]: https://github.com/climate-resource/bookshelf-platform/blob/main/docs/adr/0006-server-owns-edition-code-version-is-provenance.md

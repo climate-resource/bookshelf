@@ -64,11 +64,7 @@ class Activity:
         self._closed = True
 
     def _open(self) -> Self:
-        """Make this activity usable outside a ``with`` block, for ``book.write``.
-
-        The sugar has no block of its own to sit in,
-        and it registers through the same activity whether or not the build opened one.
-        """
+        """Make this activity usable outside a ``with`` block, for ``book.write``."""
         self._entered = True
         self._closed = False
         return self
@@ -308,7 +304,6 @@ class AsyncActivity:
         self._closed = True
 
     def _open(self) -> Self:
-        """Make this activity usable outside an ``async with`` block, for ``book.write``."""
         self._entered = True
         self._closed = False
         return self

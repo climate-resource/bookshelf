@@ -1,8 +1,5 @@
 # %% [markdown]
-# # The smallest legal feedstock
-#
-# One frame, built inline from literals.
-# The recipe declares no resources, because this build reads nothing.
+# # A simple example with no resources
 
 # %%
 import pandas as pd
@@ -13,9 +10,7 @@ import bookshelf
 bs, book = bookshelf.setup()
 
 # %% [markdown]
-# ## The data
-#
-# Every value is a literal, so the recorded bytes are the same on every machine.
+# ## Static dataframe
 
 # %%
 emissions = pd.DataFrame(

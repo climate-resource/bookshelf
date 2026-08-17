@@ -1,11 +1,8 @@
 # `simple`
 
-The smallest legal recipe.
-It proves that `resources:` may be left out entirely, because a build that constructs its data
-inline reads nothing.
+The smallest recipe.
 
-One frame is built from literals and written with `book.write`, which registers the resource and
-attaches it to the book under the same name.
+This recipe has not `resources:` instead a dataframe is built from literals and written with `book.write`.
 
 Record it on its own with:
 

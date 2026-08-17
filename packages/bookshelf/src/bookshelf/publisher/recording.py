@@ -43,8 +43,7 @@ from bookshelf.publisher.resource import LookupBook, ResolvedResource, resolve_r
 WRITE_ACTIVITY_KIND = "process"
 """The kind the implicit ``book.write`` activity records under.
 
-Fixed rather than defaulted from the sink, because the kind lands in the manifest
-and a value that drifted would move a golden without the data changing.
+Fixed because the kind lands in the manifest.
 """
 
 
@@ -485,8 +484,6 @@ class RecordingSink:
         parameters: Mapping[str, Any] | None = None,
     ) -> None:
         self.bundle = bundle
-        # What 'bookshelf record -p' was invoked with, and the only thing the implicit
-        # activity's config carries, so the same build recorded twice hashes the same.
         self._parameters = dict(parameters or {})
         self._client = client
         self._cache = cache
@@ -502,8 +499,8 @@ class RecordingSink:
         self.default_visibility = default_visibility
         """The tier a registration takes when the build file names none.
 
-        Seeded from the recipe and re-seeded by :meth:`draft_book`, so the book's
-        declared tier is what its resources record as.
+        Seeded from the recipe and re-seeded by :meth:`draft_book`,
+        so the book's declared tier is what its resources record as.
         """
 
     def activity(

@@ -259,7 +259,6 @@ def _record_processing(bundle: Bundle) -> None:
 
     Publishing does not send this, because the replay request carries the activity itself.
     It is recorded so ``bookshelf validate`` reads as a complete account of the build.
-    A book with no generating activity carries an empty list rather than nothing.
     """
     if bundle.manifest.book is None:
         return

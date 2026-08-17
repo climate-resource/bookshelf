@@ -2,8 +2,7 @@
 
 The headline property is that the sugar is only sugar.
 A bundle recorded through ``book.write`` must be the bundle the layered form records,
-because anything else would make the convenient path and the explicit path diverge
-in what they publish.
+because anything else would make the convenient path and the explicit path diverge in what they publish.
 """
 
 import inspect

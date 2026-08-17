@@ -112,10 +112,6 @@ def _draft_request(
     because the request carries no top-level fields for them.
 
     ``processing`` is the fingerprint of the runs that generated the book's members.
-    An empty sequence reaches the wire as ``[]``,
-    because the contract reads that as a book with no generating activity.
-    An omitted one is left off the request entirely,
-    because the field is a plain array and a null would be rejected.
     """
     baked: dict[str, Any] = {}
     baked_discovery = discovery_input(

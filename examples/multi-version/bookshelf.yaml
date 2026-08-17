@@ -13,8 +13,7 @@ defaults:
 build:
   notebook: build.py
 
-# Books do not inherit from each other. Each one restates its resources and its licence in full,
-# so a reader never walks backwards through the file to learn what a version is built from.
+# Books do not inherit from each other (only from defaults)
 books:
   - version: "v1.0.0"
     license: CC-BY-4.0

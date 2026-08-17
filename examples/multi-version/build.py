@@ -2,7 +2,6 @@
 # # One build file, several upstream versions
 #
 # `bookshelf record --version` selects the book to build.
-# The build file names no version, so the recorder and the build can never disagree.
 
 # %%
 import pandas as pd
@@ -10,6 +9,7 @@ import pandas as pd
 import bookshelf
 
 # %%
+# The version comes from the the value passed to `bookshelf record`.
 bs, book = bookshelf.setup()
 
 # %%

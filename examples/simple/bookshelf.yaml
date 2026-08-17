@@ -13,7 +13,6 @@ defaults:
 build:
   notebook: build.py
 
-# No resources. A build that constructs its data inline declares none, and that is legal.
 books:
   - version: "v1.0.0"
     license: CC-BY-4.0

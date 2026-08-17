@@ -1,8 +1,8 @@
 """Drive the example runner from pytest, so a bundle-format regression fails CI.
 
-The examples are the producer-facing story, and ``examples/run_all.py`` is what turns them into a
-gate. These cases call that runner rather than reimplementing it, because two ways to check the
-examples would be one way too many.
+
+The ``examples/run_all.py`` script is used to run the examples.
+This is a wrapper of that script so we can test the examples in CI.
 """
 
 import subprocess

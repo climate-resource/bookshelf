@@ -2,10 +2,8 @@
 
 These assert on the bytes the request would send rather than on the model,
 because the defect they guard against lived between the two.
-``processing`` is a plain array in the contract, not a nullable one,
-so a draft that states nothing must leave the key off rather than send a null.
-The client dumps with ``exclude_unset``, which makes an unconditionally passed
-``None`` reach the wire, and that is a 422 for every caller who never mentioned it.
+The client dumps with ``exclude_unset``, which makes an unconditionally passed ``None`` reach the wire,
+and that is a 422 for every caller who never mentioned it.
 """
 
 from bookshelf._core.ops import build_draft_book
