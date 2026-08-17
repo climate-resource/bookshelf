@@ -156,6 +156,48 @@ def test_an_example_that_fetches_a_uri_is_skipped_unless_the_network_is_opted_in
     )
 
 
+def _recorded_content(manifest: object) -> list[tuple[str, str, str, str]]:
+    """The parts of a recording the seal is over, which is content rather than provenance."""
+    from bookshelf.publisher.record import DOCUMENT_KINDS
+
+    return sorted(
+        (resource.name, resource.hash, resource.type, resource.visibility)
+        for resource in manifest.resources  # type: ignore[attr-defined]
+        if resource.metadata.get("kind") not in DOCUMENT_KINDS
+    )
+
+
+def test_changed_processing_leaves_everything_the_seal_covers_identical(tmp_path: Path) -> None:
+    """Processing is provenance, so a rebuild that only changes it converges on the same edition.
+
+    The two runs differ in the build parameter alone,
+    which moves the activity's ``config_hash`` without moving a single output byte.
+    """
+    from bookshelf.publisher.bundle import Bundle
+    from bookshelf.publisher.record import run_record
+
+    example = EXAMPLES_DIR / "reissue"
+    recorded = []
+    for name, parameters in (("default", {}), ("chunked", {"chunk_size": 5})):
+        run_record(
+            build_path=None,
+            recipe_path=example / "bookshelf.yaml",
+            bundle_path=tmp_path / name,
+            version="v1.0.0",
+            parameters=parameters,
+            cwd=example,
+        )
+        recorded.append(Bundle.read(tmp_path / name).manifest)
+    first, second = recorded
+
+    assert first.book is not None and second.book is not None
+    assert first.book.processing != second.book.processing
+    assert _recorded_content(first) == _recorded_content(second)
+    assert [entry.name for entry in first.book.entries] == [
+        entry.name for entry in second.book.entries
+    ]
+
+
 def test_a_bare_record_names_the_versions_the_recipe_declares() -> None:
     """There is no default version, so picking one would be a guess rather than a default."""
     import re
