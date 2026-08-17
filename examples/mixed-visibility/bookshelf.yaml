@@ -1,0 +1,30 @@
+volume:
+  name: mixed-visibility-example
+  maintainers:
+    - name: Climate Resource
+      email: info@climate-resource.com
+  keywords:
+    - example
+
+defaults:
+  title: A public feedstock holding one embargoed resource
+  publisher: Climate Resource
+  # Where nothing states a tier the book is hidden, so this default is what the book below lifts.
+  visibility: hidden
+
+build:
+  notebook: build.py
+
+books:
+  - version: "v1.0.0"
+    license: CC-BY-4.0
+    # The book's own value wins over the default, and becomes the default its resources take.
+    visibility: public
+    description: A public book whose draft working set is narrowed to hidden on its own.
+    authors:
+      - name: Climate Resource
+        email: info@climate-resource.com
+    resources:
+      raw:
+        type: tabular
+        path: inputs/emissions.csv
