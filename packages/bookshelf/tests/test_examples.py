@@ -43,22 +43,28 @@ def _run(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_the_offline_examples_record_validate_and_match_their_goldens() -> None:
-    result = _run()
+@pytest.fixture(scope="module")
+def full_run() -> subprocess.CompletedProcess[str]:
+    """One bare run of every example, shared by the tests that assert on the whole set."""
+    return _run()
 
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert "0 failed" in result.stdout
+
+def test_the_offline_examples_record_validate_and_match_their_goldens(
+    full_run: subprocess.CompletedProcess[str],
+) -> None:
+    assert full_run.returncode == 0, full_run.stdout + full_run.stderr
+    assert "0 failed" in full_run.stdout
 
 
-def test_every_example_directory_is_covered_by_the_runner() -> None:
+def test_every_example_directory_is_covered_by_the_runner(
+    full_run: subprocess.CompletedProcess[str],
+) -> None:
     """A new example directory that the runner does not discover would be silently untested."""
     directories = {path.parent.name for path in EXAMPLES_DIR.glob("*/bookshelf.yaml")}
 
-    result = _run()
-
     assert directories
     for name in directories:
-        assert name in result.stdout
+        assert name in full_run.stdout
 
 
 def test_every_file_an_example_declares_is_tracked_by_git() -> None:
@@ -85,7 +91,7 @@ def test_every_file_an_example_declares_is_tracked_by_git() -> None:
     )
 
 
-def test_a_corrupted_golden_makes_the_runner_exit_non_zero(tmp_path: Path) -> None:
+def test_a_corrupted_golden_makes_the_runner_exit_non_zero() -> None:
     """The gate is the exit status, so it is asserted rather than the log text."""
     golden = EXAMPLES_DIR / "simple" / "expected" / "v1.0.0" / "manifest.lock"
     original = golden.read_bytes()
@@ -139,12 +145,12 @@ def test_the_network_requirement_is_read_off_the_declared_resources(tmp_path: Pa
     assert _run_all().needs_network(EXAMPLES_DIR / "checked-in-data" / "bookshelf.yaml") is False
 
 
-def test_an_example_that_fetches_a_uri_is_skipped_unless_the_network_is_opted_in() -> None:
+def test_an_example_that_fetches_a_uri_is_skipped_unless_the_network_is_opted_in(
+    full_run: subprocess.CompletedProcess[str],
+) -> None:
     """Every offline example runs, and none is reported skipped while none declares a fetch."""
-    result = _run()
-
-    assert result.returncode == 0
-    assert "0 skipped" in result.stdout
+    assert full_run.returncode == 0
+    assert "0 skipped" in full_run.stdout
     assert all(
         _run_all().needs_network(path) is False for path in EXAMPLES_DIR.glob("*/bookshelf.yaml")
     )
