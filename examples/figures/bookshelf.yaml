@@ -1,0 +1,27 @@
+volume:
+  name: figures-example
+  maintainers:
+    - name: Climate Resource
+      email: info@climate-resource.com
+  keywords:
+    - example
+
+defaults:
+  title: A feedstock that publishes a figure beside its data
+  publisher: Climate Resource
+
+build:
+  notebook: build.py
+
+books:
+  - version: "v1.0.0"
+    license: CC-BY-4.0
+    visibility: public
+    description: One frame and the png that plots it, attached as a document.
+    authors:
+      - name: Climate Resource
+        email: info@climate-resource.com
+    resources:
+      raw:
+        type: tabular
+        path: inputs/emissions.csv
