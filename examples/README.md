@@ -44,7 +44,8 @@ gets one way to refresh a golden.
 `--update-golden` is an alias for the variable and nothing more.
 
 Read the regenerated `manifest.lock` before committing it.
-Upgrading `pyarrow` will result in differences to `writer.pyarrow`, whi
+Upgrading `pyarrow` will result in differences to `writer.pyarrow`,
+which is a dependency moving rather than the bundle format moving.
 
 ## What the runner pins
 

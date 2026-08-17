@@ -563,11 +563,10 @@ class RecordingSink:
         Both land in the manifest, so anything that varied between two runs of one build
         would fail a golden for reasons that have nothing to do with the data.
         """
-        if self._open_activity is None:
-            self.activity(kind=WRITE_ACTIVITY_KIND, config=self._parameters)
-        if self._open_activity is None:  # pragma: no cover - activity() always assigns
-            raise BookshelfError("opening the implicit activity recorded nothing")
-        return self._open_activity._open()
+        activity = self._open_activity or self.activity(
+            kind=WRITE_ACTIVITY_KIND, config=self._parameters
+        )
+        return activity._open()
 
     def draft_book(
         self,

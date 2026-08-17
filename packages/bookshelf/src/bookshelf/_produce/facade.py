@@ -78,15 +78,12 @@ ProcessingInput = Sequence[tuple[str, str]]
 """The ``(code_ref, config_hash)`` pairs of the runs that generated a book's members."""
 
 
-def processing_items(pairs: ProcessingInput | None) -> list[models.ProcessingItem] | None:
+def processing_items(pairs: ProcessingInput) -> list[models.ProcessingItem]:
     """Wrap the processing fingerprint in the model its request field takes.
 
-    ``None`` stays ``None``, so an omission never reaches the wire as a claim.
     An empty sequence becomes ``[]``, which is the book that no activity generated.
     The platform deduplicates and sorts, so nothing is done to the order here.
     """
-    if pairs is None:
-        return None
     return [models.ProcessingItem((code_ref, config_hash)) for code_ref, config_hash in pairs]
 
 
@@ -112,6 +109,7 @@ def _draft_request(
     because the request carries no top-level fields for them.
 
     ``processing`` is the fingerprint of the runs that generated the book's members.
+    It is only baked when stated, so an omission never reaches the wire as a null.
     """
     baked: dict[str, Any] = {}
     baked_discovery = discovery_input(
