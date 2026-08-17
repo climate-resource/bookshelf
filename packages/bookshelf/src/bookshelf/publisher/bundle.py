@@ -267,7 +267,7 @@ class BundleBook(BaseModel):
 
     This is provenance, and it is not part of the seal.
     A rebuild whose code changed but whose data did not therefore converges on the existing edition.
-    The default (None)
+    ``None`` means the recorder stated nothing.
     """
     published: bool = False
 
