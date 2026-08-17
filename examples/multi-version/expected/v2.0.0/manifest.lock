@@ -1,0 +1,69 @@
+activity:
+  activity_id: 00000000-0000-7000-8000-000000000000
+  code_ref: https://example.invalid/examples@0000000000000000000000000000000000000000
+  config_hash: sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+  kind: run
+  parameters: {}
+  runner: examples
+book:
+  authors:
+  - email: info@climate-resource.com
+    name: Climate Resource
+  description: Adds 2023 and revises the 2020 values.
+  discovery:
+    publisher: Climate Resource
+    release_date: '2026-01-15'
+    title: A feedstock that can build more than one upstream version
+  entries:
+  - name: emissions
+  - name: totals
+  license: CC-BY-4.0
+  metadata: {}
+  processing:
+  - - https://example.invalid/examples@0000000000000000000000000000000000000000
+    - sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+  published: true
+  version: v2.0.0
+  visibility: public
+  volume: multi-version-example
+resources:
+- dedupe: true
+  external_uri: data/v2.csv
+  generated: false
+  hash: sha256:69ea323c481067be4af6da8dc67d7ccc924a2e25666d90e5b738168e22d0007b
+  kind: pointer
+  metadata: {}
+  name: raw
+  tags: []
+  type: tabular
+  used: []
+  visibility: public
+- dedupe: true
+  format: parquet
+  generated: true
+  hash: sha256:2798d36c3f876d4fd94f4bc68cb72ae14a4972ed355a959733511fbd76b59044
+  kind: managed
+  metadata: {}
+  name: emissions
+  size: 1251
+  tags: []
+  type: timeseries
+  used:
+  - raw
+  visibility: public
+- dedupe: true
+  format: parquet
+  generated: true
+  hash: sha256:577115f4663e3526beb40576038ab4fa41ae161cc318ce8c827f8ab028bbe575
+  kind: managed
+  metadata: {}
+  name: totals
+  size: 614
+  tags: []
+  type: tabular
+  used:
+  - raw
+  visibility: public
+schema_version: '3.1'
+writer:
+  pyarrow: 23.0.0

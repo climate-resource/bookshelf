@@ -1,0 +1,42 @@
+volume:
+  name: multi-version-example
+  maintainers:
+    - name: Climate Resource
+      email: info@climate-resource.com
+  keywords:
+    - example
+
+defaults:
+  title: A feedstock that can build more than one upstream version
+  publisher: Climate Resource
+
+build:
+  notebook: build.py
+
+# Books do not inherit from each other. Each one restates its resources and its licence in full,
+# so a reader never walks backwards through the file to learn what a version is built from.
+books:
+  - version: "v1.0.0"
+    license: CC-BY-4.0
+    visibility: public
+    description: The first release.
+    authors:
+      - name: Climate Resource
+        email: info@climate-resource.com
+    resources:
+      raw:
+        type: tabular
+        path: data/v1.csv
+
+  - version: "v2.0.0"
+    license: CC-BY-4.0
+    visibility: public
+    description: Adds 2023 and revises the 2020 values.
+    release_date: 2026-01-15
+    authors:
+      - name: Climate Resource
+        email: info@climate-resource.com
+    resources:
+      raw:
+        type: tabular
+        path: data/v2.csv

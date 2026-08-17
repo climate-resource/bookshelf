@@ -1,0 +1,28 @@
+volume:
+  name: checked-in-data-example
+  maintainers:
+    - name: Climate Resource
+      email: info@climate-resource.com
+  keywords:
+    - example
+
+defaults:
+  title: A feedstock whose input lives beside the recipe
+  publisher: Climate Resource
+
+build:
+  notebook: build.py
+
+books:
+  - version: "v1.0.0"
+    license: CC-BY-4.0
+    visibility: public
+    description: One checked-in input, hashed by the recorder, and one frame derived from it.
+    authors:
+      - name: Climate Resource
+        email: info@climate-resource.com
+    resources:
+      # A path resource declares no digest. The recorder computes it when it reads the file.
+      raw:
+        type: tabular
+        path: data/raw.csv

@@ -1,0 +1,42 @@
+activity:
+  activity_id: 00000000-0000-7000-8000-000000000000
+  code_ref: https://example.invalid/examples@0000000000000000000000000000000000000000
+  config_hash: sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+  kind: run
+  parameters: {}
+  runner: examples
+book:
+  authors:
+  - email: info@climate-resource.com
+    name: Climate Resource
+  description: One frame built inline from literals, with no inputs and no network.
+  discovery:
+    publisher: Climate Resource
+    title: The simplest Bookshelf feedstock
+  entries:
+  - name: emissions
+  license: CC-BY-4.0
+  metadata: {}
+  processing:
+  - - https://example.invalid/examples@0000000000000000000000000000000000000000
+    - sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+  published: true
+  version: v1.0.0
+  visibility: public
+  volume: simple-example
+resources:
+- dedupe: true
+  format: parquet
+  generated: true
+  hash: sha256:ea6c596787f6a204b23bfa40d53aeb0385c09dea0d92c788b559cd4ef11267cf
+  kind: managed
+  metadata: {}
+  name: emissions
+  size: 1251
+  tags: []
+  type: timeseries
+  used: []
+  visibility: public
+schema_version: '3.1'
+writer:
+  pyarrow: 23.0.0

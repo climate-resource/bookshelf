@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import shutil
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
@@ -60,6 +60,10 @@ class Build:
 
     bs: Bookshelf | RecordingBookshelf
     book: DraftBook | RecordedDraftBook
+
+    def __iter__(self) -> Iterator[Any]:
+        """Unpack as ``bs, book``, which is how a build file opens."""
+        return iter((self.bs, self.book))
 
     def use(self, name: str) -> ResolvedResource:
         """Fetch, verify, cache and register a resource the recipe declares.

@@ -1,0 +1,68 @@
+activity:
+  activity_id: 00000000-0000-7000-8000-000000000000
+  code_ref: https://example.invalid/examples@0000000000000000000000000000000000000000
+  config_hash: sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+  kind: run
+  parameters: {}
+  runner: examples
+book:
+  authors:
+  - email: info@climate-resource.com
+    name: Climate Resource
+  description: The first release.
+  discovery:
+    publisher: Climate Resource
+    title: A feedstock that can build more than one upstream version
+  entries:
+  - name: emissions
+  - name: totals
+  license: CC-BY-4.0
+  metadata: {}
+  processing:
+  - - https://example.invalid/examples@0000000000000000000000000000000000000000
+    - sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+  published: true
+  version: v1.0.0
+  visibility: public
+  volume: multi-version-example
+resources:
+- dedupe: true
+  external_uri: data/v1.csv
+  generated: false
+  hash: sha256:6e0865cff3c8b4d63a3e01bec62ed82234fcbd8e48f270c06fa9c8c929182746
+  kind: pointer
+  metadata: {}
+  name: raw
+  tags: []
+  type: tabular
+  used: []
+  visibility: public
+- dedupe: true
+  format: parquet
+  generated: true
+  hash: sha256:0d938594c1910fcadd0c12ef2f241eab3ff0968eadb96d730693bdb3b2f4ec3a
+  kind: managed
+  metadata: {}
+  name: emissions
+  size: 1224
+  tags: []
+  type: timeseries
+  used:
+  - raw
+  visibility: public
+- dedupe: true
+  format: parquet
+  generated: true
+  hash: sha256:c9d58c7f697c839ce16e298d758adb2153b7f8b05c6d0f4e8b55fd348336e878
+  kind: managed
+  metadata: {}
+  name: totals
+  size: 614
+  tags: []
+  type: tabular
+  used:
+  - raw
+  visibility: public
+schema_version: '3.1'
+writer:
+  pyarrow: 23.0.0
