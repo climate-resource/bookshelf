@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Protocol, Self
+from typing import TYPE_CHECKING, Any, Self
 from uuid import UUID
 
 from bookshelf._core.client import BookshelfClient
@@ -23,16 +23,7 @@ A producer that wants the platform's timeseries treatment states ``type="timeser
 """
 
 
-class HasName(Protocol):
-    """A registered resource handle that knows the name it took."""
-
-    name: str | None
-
-    @property
-    def tracking_id(self) -> Any: ...  # noqa: ANN401
-
-
-def _written_name(resource: HasName) -> str:
+def _written_name(resource: object) -> str:
     """Return the name a handle was registered under, refusing one that never took a name."""
     name: object = getattr(resource, "name", None)
     if not isinstance(name, str) or not name:
@@ -122,10 +113,10 @@ class DraftBook:
         self.attach(resource, name_in_book=name, data_dictionary=data_dictionary)
         return resource
 
-    def add(self, *resources: HasName) -> Self:
+    def add(self, *resources: HasTrackingId) -> Self:
         """Attach already registered resources, each under the name it registered as."""
         for resource in resources:
-            self.attach(resource, name_in_book=_written_name(resource))  # type: ignore[arg-type]
+            self.attach(resource, name_in_book=_written_name(resource))
         return self
 
     @property
@@ -215,10 +206,10 @@ class AsyncDraftBook:
         await self.attach(resource, name_in_book=name, data_dictionary=data_dictionary)
         return resource
 
-    async def add(self, *resources: HasName) -> Self:
+    async def add(self, *resources: HasTrackingId) -> Self:
         """Attach already registered resources, each under the name it registered as."""
         for resource in resources:
-            await self.attach(resource, name_in_book=_written_name(resource))  # type: ignore[arg-type]
+            await self.attach(resource, name_in_book=_written_name(resource))
         return self
 
     @property

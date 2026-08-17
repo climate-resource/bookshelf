@@ -2,7 +2,7 @@ activity:
   activity_id: 00000000-0000-7000-8000-000000000000
   code_ref: https://example.invalid/examples@0000000000000000000000000000000000000000
   config_hash: sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
-  kind: run
+  kind: process
   parameters: {}
   runner: examples
 book:

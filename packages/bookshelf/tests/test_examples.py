@@ -8,6 +8,7 @@ examples would be one way too many.
 import subprocess
 import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
@@ -19,6 +20,16 @@ pytestmark = pytest.mark.skipif(
     not RUNNER.is_file(),
     reason="the examples tree is not present in this checkout",
 )
+
+
+def _run_all() -> ModuleType:
+    """Import the runner as a module, so its helpers can be unit tested."""
+    sys.path.insert(0, str(EXAMPLES_DIR))
+    try:
+        import run_all
+    finally:
+        sys.path.pop(0)
+    return run_all
 
 
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
@@ -53,8 +64,7 @@ def test_every_example_directory_is_covered_by_the_runner() -> None:
 def test_every_file_an_example_declares_is_tracked_by_git() -> None:
     """A gitignored input records and passes locally, then fails for everyone else.
 
-    The repository ignores any directory named ``data``, which silently swallowed the
-    checked-in inputs once already.
+    The repository ignores any directory named ``data``.
     """
     listed = subprocess.run(
         ["git", "ls-files", "--others", "--ignored", "--exclude-standard", "examples/"],
@@ -79,7 +89,6 @@ def test_a_corrupted_golden_makes_the_runner_exit_non_zero(tmp_path: Path) -> No
     """The gate is the exit status, so it is asserted rather than the log text."""
     golden = EXAMPLES_DIR / "simple" / "expected" / "v1.0.0" / "manifest.lock"
     original = golden.read_bytes()
-    (tmp_path / "backup").write_bytes(original)
     golden.write_bytes(original + b"corrupted\n")
     try:
         result = _run("--example", "simple")
@@ -108,17 +117,37 @@ def test_the_runner_names_its_network_opt_in_and_its_golden_refresh_path() -> No
     assert "UPDATE_BUNDLE_GOLDENS" in result.stdout
 
 
+def test_the_network_requirement_is_read_off_the_declared_resources(tmp_path: Path) -> None:
+    """A ``uri:`` is fetched and a ``path:`` is read from beside the recipe, so the recipe says which."""
+    fetching = tmp_path / "bookshelf.yaml"
+    fetching.write_text(
+        "volume:\n"
+        "  name: fetching-example\n"
+        "build:\n"
+        "  notebook: build.py\n"
+        "books:\n"
+        '  - version: "v1.0.0"\n'
+        "    license: CC-BY-4.0\n"
+        "    resources:\n"
+        "      raw:\n"
+        "        type: tabular\n"
+        "        uri: https://example.invalid/raw.csv\n"
+        f'        sha256: "{"0" * 64}"\n'
+    )
+
+    assert _run_all().needs_network(fetching) is True
+    assert _run_all().needs_network(EXAMPLES_DIR / "checked-in-data" / "bookshelf.yaml") is False
+
+
 def test_an_example_that_fetches_a_uri_is_skipped_unless_the_network_is_opted_in() -> None:
-    """Built now so the skip path is real before a network example lands."""
-    sys.path.insert(0, str(EXAMPLES_DIR))
-    try:
-        import run_all
-    finally:
-        sys.path.pop(0)
+    """Every offline example runs, and none is reported skipped while none declares a fetch."""
+    result = _run()
 
-    offline = EXAMPLES_DIR / "checked-in-data" / "bookshelf.yaml"
-
-    assert run_all.needs_network(offline) is False
+    assert result.returncode == 0
+    assert "0 skipped" in result.stdout
+    assert all(
+        _run_all().needs_network(path) is False for path in EXAMPLES_DIR.glob("*/bookshelf.yaml")
+    )
 
 
 def test_a_bare_record_names_the_versions_the_recipe_declares() -> None:

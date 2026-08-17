@@ -6,7 +6,7 @@ import shutil
 import tempfile
 from collections.abc import Iterator, Mapping, Sequence
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +39,7 @@ class _RecordingContext:
     resolved: ResolvedBook
     bundle: Bundle
     recipe_dir: Path | None = None
+    parameters: dict[str, Any] = field(default_factory=dict)
     bookshelf: RecordingBookshelf | None = None
     book: RecordedDraftBook | None = None
     setup_called: bool = False
@@ -142,6 +143,7 @@ def setup(
             auth=auth,
             resolved=context.resolved,
             recipe_dir=context.recipe_dir,
+            parameters=context.parameters,
         )
         discovery = _resolved_discovery(context.resolved)
         book = context.bookshelf.draft_book(
@@ -222,6 +224,7 @@ def run_record(
             resolved=resolved,
             bundle=bundle,
             recipe_dir=recipe_path.resolve().parent,
+            parameters=dict(parameters or {}),
         )
         token = _ACTIVE_RECORDING.set(context)
         try:

@@ -40,6 +40,13 @@ from bookshelf.publisher.bundle import (
 from bookshelf.publisher.recipe import ResolvedBook, resolve_book_visibility
 from bookshelf.publisher.resource import LookupBook, ResolvedResource, resolve_resource
 
+WRITE_ACTIVITY_KIND = "process"
+"""The kind the implicit ``book.write`` activity records under.
+
+Fixed rather than defaulted from the sink, because the kind lands in the manifest
+and a value that drifted would move a golden without the data changing.
+"""
+
 
 @dataclass(frozen=True, slots=True)
 class _PreparedRegistration:
@@ -475,8 +482,12 @@ class RecordingSink:
         resolved: ResolvedBook | None = None,
         recipe_dir: Path | None = None,
         lookup_book: LookupBook | None = None,
+        parameters: Mapping[str, Any] | None = None,
     ) -> None:
         self.bundle = bundle
+        # What 'bookshelf record -p' was invoked with, and the only thing the implicit
+        # activity's config carries, so the same build recorded twice hashes the same.
+        self._parameters = dict(parameters or {})
         self._client = client
         self._cache = cache
         self._resolved = resolved
@@ -550,10 +561,15 @@ class RecordingSink:
 
         The sugar and the layered form share one activity,
         so a build may mix them and still record the bundle the replay endpoint accepts.
+
+        The implicit activity's ``kind`` and ``config`` are pinned rather than defaulted.
+        Both land in the manifest, so anything that varied between two runs of one build
+        would fail a golden for reasons that have nothing to do with the data.
         """
         if self._open_activity is None:
-            self.activity()
-        assert self._open_activity is not None
+            self.activity(kind=WRITE_ACTIVITY_KIND, config=self._parameters)
+        if self._open_activity is None:  # pragma: no cover - activity() always assigns
+            raise BookshelfError("opening the implicit activity recorded nothing")
         return self._open_activity._open()
 
     def draft_book(
@@ -728,6 +744,7 @@ class RecordingBookshelf(Bookshelf):
         authors: Sequence[Mapping[str, Any]] = (),
         resolved: ResolvedBook | None = None,
         recipe_dir: Path | None = None,
+        parameters: Mapping[str, Any] | None = None,
     ) -> None:
         super().__init__(base_url, auth=auth)
         self.bundle = bundle
@@ -741,6 +758,7 @@ class RecordingBookshelf(Bookshelf):
             authors=authors,
             resolved=resolved,
             recipe_dir=recipe_dir,
+            parameters=parameters,
             # A bookshelf reference is a read, so it goes through the same facade a consumer uses.
             lookup_book=self.book,
         )

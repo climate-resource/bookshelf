@@ -22,11 +22,13 @@ import pytest
 
 from bookshelf import facade
 from bookshelf._consume import resources
+from bookshelf._produce import books
 from bookshelf._produce import facade as produce
 
 CLASS_PAIRS = [
     (facade.Bookshelf, facade.AsyncBookshelf),
     (produce.LiveSink, produce.AsyncLiveSink),
+    (books.DraftBook, books.AsyncDraftBook),
     (resources.Resource, resources.AsyncResource),
     (resources.BookEntry, resources.AsyncBookEntry),
 ]

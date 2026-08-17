@@ -6,8 +6,6 @@ Each directory here is a miniature feedstock: a `bookshelf.yaml` recipe, a stand
 They do double duty.
 They are the reference that [`copier-bookshelf-dataset`][copier] scaffolds new feedstocks from,
 and they are the regression fixtures that catch an accidental change to the bundle format.
-
-[copier]: https://github.com/climate-resource/copier-bookshelf-dataset
 Every later change to the recipe, the manifest or the seal shows up here as a golden diff, and the
 reviewer's job on such a pull request is to read that diff and confirm each change was meant.
 
@@ -67,3 +65,5 @@ The book's `processing` fingerprint is the activity's, so it is pinned the same 
 The two executed-document resources are excluded.
 Their bytes come from nbconvert, whose HTML is not stable across template versions, so a golden over
 them would pin a rendering dependency rather than the bundle format.
+
+[copier]: https://github.com/climate-resource/copier-bookshelf-dataset

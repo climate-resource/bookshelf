@@ -113,8 +113,9 @@ def _draft_request(
 
     ``processing`` is the fingerprint of the runs that generated the book's members.
     An empty sequence reaches the wire as ``[]``,
-    because the contract reads that as a book with no generating activity,
-    while an omitted ``processing`` says nothing about one either way.
+    because the contract reads that as a book with no generating activity.
+    An omitted one is left off the request entirely,
+    because the field is a plain array and a null would be rejected.
     """
     baked: dict[str, Any] = {}
     baked_discovery = discovery_input(
@@ -122,13 +123,14 @@ def _draft_request(
     )
     if baked_discovery is not None:
         baked["discovery"] = baked_discovery
+    if processing is not None:
+        baked["processing"] = processing_items(processing)
     return models.BookDraftRequest(
         series_name=volume,
         version=version,
         visibility=visibility,
         metadata=dict(metadata or {}),
         bundle_hash=_as_model(models.BundleHash, bundle_hash),
-        processing=processing_items(processing),
         **baked,
     )
 

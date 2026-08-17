@@ -13,7 +13,7 @@ This page specifies what is written to disk.
 It is written so that an implementation in another language can produce and read bundles
 without reading the Python that implements this one.
 
-The format in force is manifest schema version **3.0**.
+The format in force is manifest schema version **3.1**.
 
 ## Bundle directory
 
@@ -218,8 +218,6 @@ Neither enters the seal the server computes.
 It answers "which code produced this", and nothing more.
 A rebuild whose code changed but whose data did not converges on the existing edition,
 which is what [ADR 0006][adr-0006] settled.
-
-[adr-0006]: https://github.com/climate-resource/bookshelf-platform/blob/main/docs/adr/0006-server-owns-edition-code-version-is-provenance.md
 An absent `processing` states nothing, and `[]` states a book that no activity generated.
 Replay does not send it, because the replay request carries the activity itself
 and the server derives the book's fingerprint from that.
@@ -364,6 +362,9 @@ book:
     name: emissions-co2
   license: CC-BY-4.0
   metadata: {}
+  processing:
+  - - https://github.com/example/feedstock@1f0c9a2
+    - sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
   published: true
   version: v1.0.0
   visibility: public
@@ -393,7 +394,7 @@ resources:
   used:
   - upstream-emissions
   visibility: public
-schema_version: '3.0'
+schema_version: '3.1'
 writer:
   pyarrow: 23.0.0
 ```
@@ -414,3 +415,5 @@ Reading it back:
 and the `Bundle*` models mirror the manifest structure field for field.
 `bookshelf.publisher.recording` writes bundles from a producer run,
 and `bookshelf.publisher.replay` sends one to the platform.
+
+[adr-0006]: https://github.com/climate-resource/bookshelf-platform/blob/main/docs/adr/0006-server-owns-edition-code-version-is-provenance.md

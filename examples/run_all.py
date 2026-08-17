@@ -18,13 +18,12 @@ repository gets one way to refresh a golden.
 ``--update-golden`` is an alias for it and nothing more.
 """
 
-from __future__ import annotations
-
 import argparse
 import os
 import sys
 import tempfile
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from uuid import UUID
 
@@ -52,13 +51,27 @@ PINNED_RUNNER = "examples"
 PINNED_ACTIVITY_ID = UUID("00000000-0000-7000-8000-000000000000")
 
 
+class Status(StrEnum):
+    """What happened to one book of one example."""
+
+    OK = "OK"
+    UPDATED = "UPDATED"
+    SKIP = "SKIP"
+    FAIL = "FAIL"
+
+    @property
+    def passed(self) -> bool:
+        """Whether this outcome counts as the example having run and been accepted."""
+        return self in {Status.OK, Status.UPDATED}
+
+
 @dataclass(frozen=True, slots=True)
 class Outcome:
     """What happened to one book of one example."""
 
     example: str
     version: str
-    status: str
+    status: Status
     detail: str = ""
 
 
@@ -74,7 +87,7 @@ def needs_network(recipe_path: Path) -> bool:
 
 
 def _documents(manifest: BundleManifest) -> set[str]:
-    """Return the executed-document resource names, keyed by the kind their recorder stamps.
+    """Return the names of the executed-document resources, found by the kind their recorder stamps.
 
     Their bytes come from nbconvert, whose HTML is not stable across template versions,
     so a golden over them would pin a rendering dependency rather than the bundle format.
@@ -144,7 +157,7 @@ def run_example(directory: Path, *, update: bool) -> list[Outcome]:
                 outcomes.append(_run_book(directory, recipe_path, book.version, Path(scratch), update=update))
             except Exception as error:
                 outcomes.append(
-                    Outcome(directory.name, book.version, "FAIL", f"{type(error).__name__}: {error}")
+                    Outcome(directory.name, book.version, Status.FAIL, f"{type(error).__name__}: {error}")
                 )
     return outcomes
 
@@ -186,8 +199,8 @@ def _run_book(
         if message is not None
     ]
     if failures:
-        return Outcome(directory.name, version, "FAIL", "\n".join(failures))
-    return Outcome(directory.name, version, "UPDATED" if update else "OK")
+        return Outcome(directory.name, version, Status.FAIL, "\n".join(failures))
+    return Outcome(directory.name, version, Status.UPDATED if update else Status.OK)
 
 
 def discover() -> list[Path]:
@@ -224,10 +237,10 @@ def main(argv: list[str] | None = None) -> int:
         try:
             skip = not args.network and needs_network(directory / RECIPE_NAME)
         except (InvalidBundleError, ValueError) as error:
-            outcomes.append(Outcome(directory.name, "-", "FAIL", f"unreadable recipe: {error}"))
+            outcomes.append(Outcome(directory.name, "-", Status.FAIL, f"unreadable recipe: {error}"))
             continue
         if skip:
-            outcomes.append(Outcome(directory.name, "-", "SKIP", "needs the network"))
+            outcomes.append(Outcome(directory.name, "-", Status.SKIP, "needs the network"))
             continue
         outcomes.extend(run_example(directory, update=update))
 
@@ -238,11 +251,11 @@ def main(argv: list[str] | None = None) -> int:
             for line in outcome.detail.splitlines():
                 print(f"    {line}")
 
-    failed = [outcome for outcome in outcomes if outcome.status == "FAIL"]
+    failed = [outcome for outcome in outcomes if outcome.status is Status.FAIL]
     print(
         f"\n{len(outcomes)} recorded, "
-        f"{sum(o.status in {'OK', 'UPDATED'} for o in outcomes)} passed, "
-        f"{sum(o.status == 'SKIP' for o in outcomes)} skipped, "
+        f"{sum(o.status.passed for o in outcomes)} passed, "
+        f"{sum(o.status is Status.SKIP for o in outcomes)} skipped, "
         f"{len(failed)} failed"
     )
     return 1 if failed else 0
