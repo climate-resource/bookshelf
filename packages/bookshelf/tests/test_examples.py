@@ -91,6 +91,25 @@ def test_every_file_an_example_declares_is_tracked_by_git() -> None:
     )
 
 
+def test_every_example_carries_a_readme_and_a_golden_for_each_book_it_declares() -> None:
+    """An example with no golden is a sample file, and the set is meant to be a regression gate.
+
+    A fetching example is included, because its golden is served from the cache
+    rather than from the network.
+    """
+    missing = []
+    for recipe in sorted(EXAMPLES_DIR.glob("*/bookshelf.yaml")):
+        example = recipe.parent
+        if not (example / "README.md").is_file():
+            missing.append(f"{example.name}: no README.md")
+        for version in _run_all().load_record_recipe(recipe).versions:
+            golden = example / "expected" / version / "manifest.lock"
+            if not golden.is_file():
+                missing.append(f"{example.name}@{version}: no {golden.name}")
+
+    assert missing == []
+
+
 def test_a_corrupted_golden_makes_the_runner_exit_non_zero() -> None:
     """The gate is the exit status, so it is asserted rather than the log text."""
     golden = EXAMPLES_DIR / "simple" / "expected" / "v1.0.0" / "manifest.lock"
@@ -148,12 +167,22 @@ def test_the_network_requirement_is_read_off_the_declared_resources(tmp_path: Pa
 def test_an_example_that_fetches_a_uri_is_skipped_unless_the_network_is_opted_in(
     full_run: subprocess.CompletedProcess[str],
 ) -> None:
-    """Every offline example runs, and none is reported skipped while none declares a fetch."""
+    """A bare run reports exactly the fetching examples as skipped, and the rest as run.
+
+    The count is derived from the recipes rather than written down,
+    so adding a fetching example does not need this test edited to stay honest.
+    """
+    fetching = {
+        path.parent.name
+        for path in EXAMPLES_DIR.glob("*/bookshelf.yaml")
+        if _run_all().needs_network(path)
+    }
+
+    assert fetching
     assert full_run.returncode == 0
-    assert "0 skipped" in full_run.stdout
-    assert all(
-        _run_all().needs_network(path) is False for path in EXAMPLES_DIR.glob("*/bookshelf.yaml")
-    )
+    assert f"{len(fetching)} skipped" in full_run.stdout
+    for name in fetching:
+        assert f"{name}@-" in full_run.stdout
 
 
 def _recorded_content(manifest: object) -> list[tuple[str, str, str, str]]:

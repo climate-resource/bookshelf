@@ -4,11 +4,17 @@ Each directory here is a miniature feedstock and its expected results.
 
 ## The examples
 
-| Example                               | What it proves                                                              |
-| ------------------------------------- | --------------------------------------------------------------------------- |
-| [`simple`](simple/)                   | The smallest legal recipe. One frame built inline, no inputs, no network.   |
-| [`checked-in-data`](checked-in-data/) | A resource addressed by `path:` rather than `uri:`, hashed by the recorder. |
-| [`multi-version`](multi-version/)     | One recipe, several upstream versions, selected by `--version`.             |
+| Example                                               | What it proves                                                                |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [`simple`](simple/)                                   | The smallest legal recipe. One frame built inline, no inputs, no network.     |
+| [`checked-in-data`](checked-in-data/)                 | A resource addressed by `path:` rather than `uri:`, hashed by the recorder.   |
+| [`multi-version`](multi-version/)                     | One recipe, several upstream versions, selected by `--version`.               |
+| [`complex-processing`](complex-processing/)           | Several outputs and a real `used=` graph across steps.                        |
+| [`defaults-and-overrides`](defaults-and-overrides/)   | A book inheriting from `defaults:`, and overriding some of it.                |
+| [`figures`](figures/)                                 | A png beside the frame it plots, attached as a document with no dictionary.   |
+| [`mixed-visibility`](mixed-visibility/)               | A public book carrying one hidden resource, pinning the precedence rule.      |
+| [`reissue`](reissue/)                                 | Same version, changed processing. Processing is provenance, outside the seal. |
+| [`fetch-from-web`](fetch-from-web/)                   | One upstream url, digest verified and cached. Needs the network.              |
 
 ## Running them
 
