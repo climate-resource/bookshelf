@@ -1,0 +1,50 @@
+volume:
+  name: defaults-and-overrides-example
+  maintainers:
+    - name: Climate Resource
+      email: info@climate-resource.com
+  keywords:
+    - example
+
+# Everything here is what a book starts from. The merge is field by field,
+# so a book that overrides one field keeps the rest of these.
+defaults:
+  title: A feedstock that states its metadata once
+  description: What every book says unless it says otherwise.
+  publisher: Original Publisher
+  homepage_url: https://example.invalid/defaults-and-overrides
+  methodology_url: https://example.invalid/defaults-and-overrides/method
+  authors:
+    - name: Original Author
+      email: original@example.invalid
+  resources:
+    # A resource default is a template. A book that never names the resource does not get it.
+    raw:
+      type: tabular
+
+build:
+  notebook: build.py
+
+books:
+  # Takes the defaults unchanged, and names the resource so the template applies.
+  - version: "v1.0.0"
+    license: CC-BY-4.0
+    visibility: public
+    resources:
+      raw:
+        path: inputs/v1.csv
+
+  # Overrides a subset of the defaults, and leaves homepage_url and methodology_url alone.
+  - version: "v2.0.0"
+    license: CC-BY-4.0
+    visibility: public
+    description: What this book says instead.
+    publisher: Replacement Publisher
+    authors:
+      - name: Replacement Author
+        email: replacement@example.invalid
+    resources:
+      raw:
+        # The default said tabular. This book states the same file is a timeseries.
+        type: timeseries
+        path: inputs/v2.csv
