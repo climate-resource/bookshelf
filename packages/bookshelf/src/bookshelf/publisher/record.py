@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import shutil
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +39,7 @@ class _RecordingContext:
     resolved: ResolvedBook
     bundle: Bundle
     recipe_dir: Path | None = None
+    parameters: dict[str, Any] = field(default_factory=dict)
     bookshelf: RecordingBookshelf | None = None
     book: RecordedDraftBook | None = None
     setup_called: bool = False
@@ -60,6 +61,10 @@ class Build:
 
     bs: Bookshelf | RecordingBookshelf
     book: DraftBook | RecordedDraftBook
+
+    def __iter__(self) -> Iterator[Any]:
+        """Unpack as ``bs, book``, which is how a build file opens."""
+        return iter((self.bs, self.book))
 
     def use(self, name: str) -> ResolvedResource:
         """Fetch, verify, cache and register a resource the recipe declares.
@@ -138,6 +143,7 @@ def setup(
             auth=auth,
             resolved=context.resolved,
             recipe_dir=context.recipe_dir,
+            parameters=context.parameters,
         )
         discovery = _resolved_discovery(context.resolved)
         book = context.bookshelf.draft_book(
@@ -218,6 +224,7 @@ def run_record(
             resolved=resolved,
             bundle=bundle,
             recipe_dir=recipe_path.resolve().parent,
+            parameters=dict(parameters or {}),
         )
         token = _ACTIVE_RECORDING.set(context)
         try:
@@ -235,6 +242,7 @@ def run_record(
             _ACTIVE_RECORDING.reset(token)
             if context.bookshelf is not None:
                 context.bookshelf.close()
+        _record_processing(bundle)
         bundle.write()
         _replace_bundle(Path(staging_dir), target)
     return {
@@ -244,6 +252,20 @@ def run_record(
         "book_entries": len(bundle.manifest.book.entries) if bundle.manifest.book else 0,
         "published": bool(bundle.manifest.book and bundle.manifest.book.published),
     }
+
+
+def _record_processing(bundle: Bundle) -> None:
+    """Stamp the book's processing fingerprint from the activity that generated its members.
+
+    Publishing does not send this, because the replay request carries the activity itself.
+    It is recorded so ``bookshelf validate`` reads as a complete account of the build.
+    """
+    if bundle.manifest.book is None:
+        return
+    activity = bundle.manifest.activity
+    bundle.manifest.book.processing = (
+        [] if activity is None else [(activity.code_ref, activity.config_hash)]
+    )
 
 
 # The kinds stamped on the two evidence documents every recorded book carries.

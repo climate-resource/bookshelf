@@ -7,10 +7,12 @@ from uuid import uuid4
 import pytest
 
 from bookshelf._core.client import BookshelfClient
+from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf._produce.types import RegisterItem
 from bookshelf.cache import ContentCache
 from bookshelf.publisher.bundle import Bundle
+from bookshelf.publisher.record import _record_processing
 from bookshelf.publisher.recording import RecordingActivity, RecordingSink
 
 
@@ -147,3 +149,42 @@ def test_a_different_config_records_a_different_activity(tmp_path: Path) -> None
     assert bundle.manifest.activity is not None
     assert other.manifest.activity is not None
     assert bundle.manifest.activity.activity_id != other.manifest.activity.activity_id
+
+
+def _book(sink: RecordingSink) -> object:
+    """Draft the one book these sugar tests frame their outputs into."""
+    return sink.draft_book("my-dataset", version="v1.0.0", license="MIT")
+
+
+def test_a_second_activity_block_says_the_replay_endpoint_takes_one(tmp_path: Path) -> None:
+    sink = _sink(Bundle(tmp_path / "bundle"), tmp_path / "cache")
+    sink.activity()
+
+    with pytest.raises(BookshelfError, match="one activity"):
+        sink.activity()
+
+
+def test_a_recorded_book_carries_the_fingerprint_of_the_run_that_generated_it(
+    tmp_path: Path,
+) -> None:
+    """``bookshelf validate`` reads as a complete account, so the book states its processing."""
+    bundle = Bundle(tmp_path / "bundle")
+    sink = _sink(bundle, tmp_path / "cache")
+    book = _book(sink)
+    with sink.activity(code_ref="repo@sha", config={"year": 2026}) as activity:
+        book.add(activity.register(b"payload", type="document", name="data"))
+
+    _record_processing(bundle)
+
+    assert bundle.manifest.activity is not None
+    assert bundle.manifest.book.processing == [("repo@sha", bundle.manifest.activity.config_hash)]
+
+
+def test_a_book_no_activity_generated_carries_an_empty_fingerprint(tmp_path: Path) -> None:
+    """``[]`` is a book with no generating activity, which is not the same as saying nothing."""
+    bundle = Bundle(tmp_path / "bundle")
+    _book(_sink(bundle, tmp_path / "cache"))
+
+    _record_processing(bundle)
+
+    assert bundle.manifest.book.processing == []

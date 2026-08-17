@@ -13,7 +13,7 @@ This page specifies what is written to disk.
 It is written so that an implementation in another language can produce and read bundles
 without reading the Python that implements this one.
 
-The format in force is manifest schema version **3.0**.
+The format in force is manifest schema version **3.1**.
 
 ## Bundle directory
 
@@ -206,12 +206,18 @@ This field is specific to the Bookshelf and is optional.
 | `metadata`        | optional | `{}`     | free-form metadata                                                               |
 | `entries`         | optional | `[]`     | the book's membership                                                            |
 | `published`       | optional | `false`  | whether the book should be published, or left a draft                            |
+| `processing`      | optional | absent   | the `[code_ref, config_hash]` pairs of the runs that generated the book's members |
 
 `discovery` and `authors` hold values the recipe has already resolved,
 so the bundle records what will be published rather than what was declared.
 Replay sends both,
 which is how each book keeps its own copy of what was true when it was published.
 Neither enters the seal the server computes.
+
+`processing` is provenance, and it is not part of the seal.
+It answers "which code produced this", and nothing more.
+A rebuild whose code changed but whose data did not converges on the existing edition.
+It is recorded so `bookshelf validate` reads as a complete account of the build.
 
 Each entry in `entries` carries the membership and its own optional column descriptions:
 
@@ -352,6 +358,9 @@ book:
     name: emissions-co2
   license: CC-BY-4.0
   metadata: {}
+  processing:
+  - - https://github.com/example/feedstock@1f0c9a2
+    - sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
   published: true
   version: v1.0.0
   visibility: public
@@ -381,7 +390,7 @@ resources:
   used:
   - upstream-emissions
   visibility: public
-schema_version: '3.0'
+schema_version: '3.1'
 writer:
   pyarrow: 23.0.0
 ```

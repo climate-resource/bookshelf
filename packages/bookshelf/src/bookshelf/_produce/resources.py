@@ -23,6 +23,7 @@ class Resource(ConsumedResource):
         metadata: models.ResourceRead | None = None,
         resource_type: models.ResourceType | None = None,
         registration_outcome: models.RegistrationOutcome | None = None,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             client,
@@ -32,6 +33,8 @@ class Resource(ConsumedResource):
             resource_type=resource_type,
         )
         self.registration_outcome = registration_outcome
+        self.name = name
+        """The name this handle registered under, which is what ``book.add`` attaches it as."""
 
     @property
     def registration_status(self) -> models.Status2 | None:
@@ -53,6 +56,7 @@ class AsyncResource(ConsumedAsyncResource):
         metadata: models.ResourceRead | None = None,
         resource_type: models.ResourceType | None = None,
         registration_outcome: models.RegistrationOutcome | None = None,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             client,
@@ -62,6 +66,8 @@ class AsyncResource(ConsumedAsyncResource):
             resource_type=resource_type,
         )
         self.registration_outcome = registration_outcome
+        self.name = name
+        """The name this handle registered under, which is what ``book.add`` attaches it as."""
 
     @property
     def registration_status(self) -> models.Status2 | None:

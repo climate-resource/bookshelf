@@ -7,7 +7,7 @@ Every write lands in the bundle instead of reaching the platform.
 from __future__ import annotations
 
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -22,6 +22,7 @@ from bookshelf._generated import models
 from bookshelf._produce import helpers
 from bookshelf._produce.activities import Activity
 from bookshelf._produce.books import DraftBook
+from bookshelf._produce.facade import ProcessingInput
 from bookshelf._produce.provenance import canonical_config_hash, derive_activity_id
 from bookshelf._produce.resources import Resource
 from bookshelf._produce.serialise import SerialisedObject, serialise
@@ -38,6 +39,12 @@ from bookshelf.publisher.bundle import (
 )
 from bookshelf.publisher.recipe import ResolvedBook, resolve_book_visibility
 from bookshelf.publisher.resource import LookupBook, ResolvedResource, resolve_resource
+
+WRITE_ACTIVITY_KIND = "process"
+"""The kind the implicit ``book.write`` activity records under.
+
+Fixed because the kind lands in the manifest.
+"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -396,6 +403,7 @@ class RecordedDraftBook(DraftBook):
         description: str | None,
         metadata: Mapping[str, Any] | None,
         names: dict[UUID, str],
+        activity: Callable[[], Activity] | None = None,
     ) -> None:
         self._bundle = bundle
         self._names = names
@@ -412,6 +420,7 @@ class RecordedDraftBook(DraftBook):
                 discovery=models.BookDiscovery(description=description, license=license),
                 metadata=dict(metadata or {}),
             ),
+            activity=activity,
         )
 
     def attach(
@@ -472,15 +481,17 @@ class RecordingSink:
         resolved: ResolvedBook | None = None,
         recipe_dir: Path | None = None,
         lookup_book: LookupBook | None = None,
+        parameters: Mapping[str, Any] | None = None,
     ) -> None:
         self.bundle = bundle
+        self._parameters = dict(parameters or {})
         self._client = client
         self._cache = cache
         self._resolved = resolved
         self._recipe_dir = recipe_dir
         self._lookup_book = lookup_book
         self._authors = tuple(dict(author) for author in authors)
-        self._activity_started = False
+        self._open_activity: RecordingActivity | None = None
         # A handle carries a tracking id, and the manifest is keyed by name,
         # so this is what lets ``used=[handle]`` and ``attach(handle)`` resolve to a name.
         self._names: dict[UUID, str] = {}
@@ -488,8 +499,8 @@ class RecordingSink:
         self.default_visibility = default_visibility
         """The tier a registration takes when the build file names none.
 
-        Seeded from the recipe and re-seeded by :meth:`draft_book`, so the book's
-        declared tier is what its resources record as.
+        Seeded from the recipe and re-seeded by :meth:`draft_book`,
+        so the book's declared tier is what its resources record as.
         """
 
     def activity(
@@ -502,17 +513,26 @@ class RecordingSink:
         activity_id: UUID | None = None,
         config_hash: str | None = None,
     ) -> RecordingActivity:
-        """Open the normal activity surface over the recording adapter."""
-        if self._activity_started:
-            raise BookshelfError("a recorded build supports one activity block")
-        self._activity_started = True
+        """Open the normal activity surface over the recording adapter.
+
+        A recorded bundle carries one activity,
+        because ``POST /v1/bundles/replay`` takes one and names no activity per resource.
+        A second block would therefore record provenance that publishing cannot carry.
+        """
+        if self._open_activity is not None:
+            raise BookshelfError(
+                "a recorded build carries one activity, and this build already opened one. "
+                "The replay endpoint takes a single activity, so a second block would record "
+                "provenance that publishing would drop. Register the rest of the outputs in "
+                "the block that is already open, or through book.write."
+            )
         if code_ref is None:
             from bookshelf._produce.provenance import derive_code_ref
 
             code_ref = derive_code_ref()
         parameters = dict(config or {})
         settled_hash = config_hash or canonical_config_hash(parameters)
-        return RecordingActivity(
+        self._open_activity = RecordingActivity(
             self.bundle,
             self._client,
             self._cache,
@@ -531,6 +551,23 @@ class RecordingSink:
             config_hash=settled_hash,
             default_visibility=self.default_visibility,
         )
+        return self._open_activity
+
+    def writing_activity(self) -> RecordingActivity:
+        """The single activity ``book.write`` registers through.
+
+        The sugar and the layered form share one activity,
+        so a build may mix them and still record the bundle the replay endpoint accepts.
+
+        The implicit activity's ``kind`` and ``config`` are pinned rather than defaulted.
+        Both land in the manifest, so anything that varied between two runs of one build
+        would fail a golden for reasons that have nothing to do with the data.
+        """
+        if self._open_activity is None:
+            self.activity(kind=WRITE_ACTIVITY_KIND, config=self._parameters)
+        if self._open_activity is None:  # pragma: no cover - activity() always assigns
+            raise BookshelfError("opening the implicit activity recorded nothing")
+        return self._open_activity._open()
 
     def draft_book(
         self,
@@ -544,6 +581,7 @@ class RecordingSink:
         bundle_hash: str | None = None,
         discovery: Mapping[str, Any] | None = None,
         authors: Sequence[Mapping[str, Any]] | None = None,
+        processing: ProcessingInput | None = None,
     ) -> RecordedDraftBook:
         """Record pre-edition book framing and return its local handle.
 
@@ -553,6 +591,10 @@ class RecordingSink:
         The resolved discovery values are recorded as they arrive,
         so the bundle is a complete record of what publishing will say
         and ``bookshelf validate`` can be read as one.
+
+        ``processing`` is recorded as provenance and is never sent on replay,
+        because the replay request carries the activity itself
+        and the server derives the book's fingerprint from it.
         """
         del bundle_hash
         if license is None:
@@ -572,6 +614,7 @@ class RecordingSink:
                 discovery=dict(discovery) if discovery else None,
                 description=description,
                 metadata=dict(metadata or {}),
+                processing=None if processing is None else [tuple(pair) for pair in processing],
             )
         )
         return RecordedDraftBook(
@@ -584,6 +627,7 @@ class RecordingSink:
             description=description,
             metadata=metadata,
             names=self._names,
+            activity=self.writing_activity,
         )
 
     def register_external(
@@ -697,6 +741,7 @@ class RecordingBookshelf(Bookshelf):
         authors: Sequence[Mapping[str, Any]] = (),
         resolved: ResolvedBook | None = None,
         recipe_dir: Path | None = None,
+        parameters: Mapping[str, Any] | None = None,
     ) -> None:
         super().__init__(base_url, auth=auth)
         self.bundle = bundle
@@ -710,6 +755,7 @@ class RecordingBookshelf(Bookshelf):
             authors=authors,
             resolved=resolved,
             recipe_dir=recipe_dir,
+            parameters=parameters,
             # A bookshelf reference is a read, so it goes through the same facade a consumer uses.
             lookup_book=self.book,
         )

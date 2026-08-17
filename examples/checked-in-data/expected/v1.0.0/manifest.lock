@@ -1,0 +1,54 @@
+activity:
+  activity_id: 00000000-0000-7000-8000-000000000000
+  code_ref: https://example.invalid/examples@0000000000000000000000000000000000000000
+  config_hash: sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+  kind: process
+  parameters: {}
+  runner: examples
+book:
+  authors:
+  - email: info@climate-resource.com
+    name: Climate Resource
+  description: One checked-in input, hashed by the recorder, and one frame derived from it.
+  discovery:
+    publisher: Climate Resource
+    title: A feedstock whose input lives beside the recipe
+  entries:
+  - name: totals
+  license: CC-BY-4.0
+  metadata: {}
+  processing:
+  - - https://example.invalid/examples@0000000000000000000000000000000000000000
+    - sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+  published: true
+  version: v1.0.0
+  visibility: public
+  volume: checked-in-data-example
+resources:
+- dedupe: true
+  external_uri: inputs/raw.csv
+  generated: false
+  hash: sha256:dd653429e266af82ca3d10bb42996a907417049e86209d684c9a69ce267cf433
+  kind: pointer
+  metadata: {}
+  name: raw
+  tags: []
+  type: tabular
+  used: []
+  visibility: public
+- dedupe: true
+  format: parquet
+  generated: true
+  hash: sha256:bfaf0c63f59256aa305f57cf3053b8707c884022fbec61a1761ac93a52163964
+  kind: managed
+  metadata: {}
+  name: totals
+  size: 637
+  tags: []
+  type: tabular
+  used:
+  - raw
+  visibility: public
+schema_version: '3.1'
+writer:
+  pyarrow: 23.0.0

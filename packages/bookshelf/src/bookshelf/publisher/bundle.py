@@ -44,7 +44,7 @@ from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
 from bookshelf._core.names import RESOURCE_NAME_PATTERN
 from bookshelf._generated import models
 
-BUNDLE_SCHEMA_VERSION = "3.0"
+BUNDLE_SCHEMA_VERSION = "3.1"
 
 # A newer minor loads because the models ignore unknown fields, and any other major is refused:
 # v2 keys resources by tracking id and v3 by name, which no rule maps without inventing names.
@@ -234,28 +234,20 @@ class BundleBook(BaseModel):
 
     Mirrors the producer's
     ``create_draft_book -> attach_entry* -> publish`` arc.
-    ``volume``,
-    ``version``,
-    ``visibility``,
-    and ``license`` frame the draft.
+    ``volume``, ``version``, ``visibility``, and ``license`` frame the draft.
     ``entries`` names the resources the book is made of.
-    ``published`` records whether replay should publish the draft
-    or leave it as a draft.
+    ``published`` records whether replay should publish the draft or leave it as a draft.
     ``authors`` and ``discovery`` carry the editorial framing the recipe resolved for this version,
-    and replay sends both on the draft call
-    so each book keeps its own copy of what was true when it was published.
+    and replay sends both on the draft call so each book keeps its own copy of what was true when it was published.
     Publishing a later version therefore never rewrites what an earlier one says.
 
     ``discovery`` is keyed by the recipe's own field names.
     The API spells one of them differently,
     and that is reconciled where the replay request is built.
 
-    The framing is **pre-edition**
-    and has no ``edition`` field.
-    The server assigns the edition during replay under ADR 0006.
-    It computes the seal from the replay request alone,
-    so two replays of the same bundle converge on one edition
-    without the client hashing anything.
+    The framing is **pre-edition** and has no ``edition`` field,
+    as the server determines the edition depending on the content.
+
     ``extra="ignore"`` tolerates fields added by a later client.
     """
 
@@ -270,6 +262,13 @@ class BundleBook(BaseModel):
     description: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     entries: list[BundleBookEntry] = Field(default_factory=list)
+    processing: list[tuple[str, str]] | None = None
+    """The ``(code_ref, config_hash)`` pairs of the runs that generated this book's members.
+
+    This is provenance, and it is not part of the seal.
+    A rebuild whose code changed but whose data did not therefore converges on the existing edition.
+    The default (None)
+    """
     published: bool = False
 
 

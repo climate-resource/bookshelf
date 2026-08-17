@@ -1,0 +1,23 @@
+volume:
+  name: simple-example
+  maintainers:
+    - name: Climate Resource
+      email: info@climate-resource.com
+  keywords:
+    - example
+
+defaults:
+  title: The simplest Bookshelf feedstock
+  publisher: Climate Resource
+
+build:
+  notebook: build.py
+
+books:
+  - version: "v1.0.0"
+    license: CC-BY-4.0
+    visibility: public
+    description: One frame built inline from literals, with no inputs and no network.
+    authors:
+      - name: Climate Resource
+        email: info@climate-resource.com
