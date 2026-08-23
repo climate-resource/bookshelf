@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
@@ -14,13 +15,28 @@ if TYPE_CHECKING:
     import pyarrow as pa
 
 
+_DATED_YEAR = re.compile(r"^(\d{4})-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}:\d{2})?$")
+
+
+def _year_column(column: object) -> str:
+    """Reduce a dated column such as ``2000-01-01`` or ``2000-01-01 00:00:00`` to its year."""
+    match = _DATED_YEAR.match(str(column))
+    return match.group(1) if match else str(column)
+
+
 def wide_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
-    """Normalize long or wide timeseries data to indexed wide pandas."""
+    """Normalize long or wide timeseries data to indexed wide pandas.
+
+    A stored wide file stamps each year column with a full date,
+    so those are reduced to the bare year first.
+    """
     if {"year", "value"} <= set(frame.columns):
         dimensions = [column for column in frame.columns if column not in {"year", "value"}]
         if not dimensions:
             return frame.set_index("year")["value"].to_frame().T
         return frame.pivot(index=dimensions, columns="year", values="value")
+    frame = frame.copy(deep=False)
+    frame.columns = [_year_column(column) for column in frame.columns]
     dimensions = [column for column in frame.columns if not str(column).isdigit()]
     if dimensions:
         return frame.set_index(dimensions)
@@ -42,6 +58,19 @@ def long_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
     )
     long["year"] = long["year"].astype(int)
     return long
+
+
+def legacy_long_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
+    """Shape tidy timeseries data the way the 0.4 long format files were written.
+
+    The value column is ``values``, the year is a ``YYYY-01-01 00:00:00`` string,
+    and the rows are sorted by every dimension and then the year.
+    """
+    long = long_timeseries(frame)
+    dimensions = [column for column in long.columns if column not in {"year", "value"}]
+    long = long.sort_values([*dimensions, "year"], kind="stable", ignore_index=True)
+    long["year"] = long["year"].astype(str).str.zfill(4) + "-01-01 00:00:00"
+    return long.rename(columns={"value": "values"})
 
 
 def timeseries_frame(response: models.TimeseriesResponse) -> pd.DataFrame:
@@ -83,6 +112,7 @@ def arrow_converter() -> Callable[[pd.DataFrame], pa.Table]:
 
 __all__ = [
     "arrow_converter",
+    "legacy_long_timeseries",
     "long_timeseries",
     "polars_converter",
     "timeseries_frame",

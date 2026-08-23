@@ -26,6 +26,19 @@ from bookshelf.facade import (
 )
 from bookshelf.publisher import replay_bundle, replay_bundle_sync, run_record, setup
 
+_LEGACY_NAMES = frozenset({"BookShelf", "LocalBook"})
+
+
+def __getattr__(name: str) -> object:
+    """Serve the 0.4 ``BookShelf`` and ``LocalBook`` with a warning instead of an AttributeError."""
+    if name in _LEGACY_NAMES:
+        from bookshelf import legacy
+
+        legacy._deprecated(f"bookshelf.{name}", "bookshelf.Bookshelf")
+        return getattr(legacy, name)
+    raise AttributeError(f"module 'bookshelf' has no attribute {name!r}")
+
+
 __all__ = [
     "OPENAPI_VERSION",
     "Activity",

@@ -58,6 +58,7 @@ packages = ["src/bookshelf"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+markers = ["integration: needs a live Bookshelf deployment, selected by BOOKSHELF_URL"]
 
 [tool.ruff]
 target-version = "py312"

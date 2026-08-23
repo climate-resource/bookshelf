@@ -22,6 +22,7 @@ from bookshelf._consume.conversions import (
 )
 from bookshelf._consume.frames import (
     arrow_converter,
+    legacy_long_timeseries,
     long_timeseries,
     polars_converter,
     timeseries_frame,
@@ -164,18 +165,30 @@ class Resource(_ResourceHandle):
         order: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
+        legacy_columns: bool = False,
         **filters: str,
     ) -> pd.DataFrame:
-        """Return tidy pandas timeseries data."""
+        """Return tidy pandas timeseries data.
+
+        ``legacy_columns`` reproduces the 0.4 long format instead:
+        a ``values`` column, a ``year`` column of ``YYYY-01-01 00:00:00`` strings,
+        and rows sorted by the dimensions and then the year.
+        """
+        long = self._long(select=select, order=order, limit=limit, offset=offset, filters=filters)
+        return legacy_long_timeseries(long) if legacy_columns else long
+
+    def _long(
+        self,
+        *,
+        select: str | None,
+        order: str | None,
+        limit: int | None,
+        offset: int | None,
+        filters: Mapping[str, str],
+    ) -> pd.DataFrame:
         require_timeseries_support(self.type)
         return long_timeseries(
-            self._frame(
-                select=select,
-                order=order,
-                limit=limit,
-                offset=offset,
-                filters=filters,
-            )
+            self._frame(select=select, order=order, limit=limit, offset=offset, filters=filters)
         )
 
     def as_polars(
@@ -232,13 +245,7 @@ class Resource(_ResourceHandle):
         """Return timeseries data as an scmdata ScmRun."""
         run = scmrun_class()
         return run(
-            self.as_long_df(
-                select=select,
-                order=order,
-                limit=limit,
-                offset=offset,
-                **filters,
-            )
+            self._long(select=select, order=order, limit=limit, offset=offset, filters=filters)
         )
 
     def fetch(self) -> bytes:
@@ -489,17 +496,33 @@ class AsyncResource(_ResourceHandle):
         order: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
+        legacy_columns: bool = False,
         **filters: str,
     ) -> pd.DataFrame:
-        """Return tidy pandas timeseries data."""
+        """Return tidy pandas timeseries data.
+
+        ``legacy_columns`` reproduces the 0.4 long format instead:
+        a ``values`` column, a ``year`` column of ``YYYY-01-01 00:00:00`` strings,
+        and rows sorted by the dimensions and then the year.
+        """
+        long = await self._long(
+            select=select, order=order, limit=limit, offset=offset, filters=filters
+        )
+        return legacy_long_timeseries(long) if legacy_columns else long
+
+    async def _long(
+        self,
+        *,
+        select: str | None,
+        order: str | None,
+        limit: int | None,
+        offset: int | None,
+        filters: Mapping[str, str],
+    ) -> pd.DataFrame:
         require_timeseries_support(await self._get_type())
         return long_timeseries(
             await self._frame(
-                select=select,
-                order=order,
-                limit=limit,
-                offset=offset,
-                filters=filters,
+                select=select, order=order, limit=limit, offset=offset, filters=filters
             )
         )
 
@@ -557,12 +580,8 @@ class AsyncResource(_ResourceHandle):
         """Return timeseries data as an scmdata ScmRun."""
         run = scmrun_class()
         return run(
-            await self.as_long_df(
-                select=select,
-                order=order,
-                limit=limit,
-                offset=offset,
-                **filters,
+            await self._long(
+                select=select, order=order, limit=limit, offset=offset, filters=filters
             )
         )
 
