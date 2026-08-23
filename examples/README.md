@@ -2,6 +2,10 @@
 
 Each directory here is a miniature feedstock and its expected results.
 
+Most are a `bookshelf.yaml` recipe with a build file, which is what `bookshelf record` drives.
+One is a plain `record.py` script that records for itself, for a pipeline that publishing is only a
+small part of.
+
 ## The examples
 
 | Example                               | What it proves                                                              |
@@ -9,6 +13,22 @@ Each directory here is a miniature feedstock and its expected results.
 | [`simple`](simple/)                   | The smallest legal recipe. One frame built inline, no inputs, no network.   |
 | [`checked-in-data`](checked-in-data/) | A resource addressed by `path:` rather than `uri:`, hashed by the recorder. |
 | [`multi-version`](multi-version/)     | One recipe, several upstream versions, selected by `--version`.             |
+| [`complex-processing`](complex-processing/) | Several outputs and a real `used=` graph across steps. |
+| [`defaults-and-overrides`](defaults-and-overrides/) | Inheriting from `defaults:`, then overriding some. |
+| [`figures`](figures/) | A png attached as a document entry, with no data dictionary. |
+| [`mixed-visibility`](mixed-visibility/) | A public book carrying one hidden resource. |
+| [`reissue`](reissue/) | Same version, changed processing, which sits outside the seal. |
+| [`fetch-from-web`](fetch-from-web/) | One upstream url, digest verified and cached. Needs the network. |
+| [`low-level-api`](low-level-api/) | A plain script that records for itself, with no recipe and no recorder. |
+
+Two more are wanted and cannot be written yet, because the SDK has no way to express them.
+
+- A pure catalogue run, recording resources and no book.
+  `bookshelf.setup` under a recording always drafts a book, and a build file that never calls it
+  is refused, so no bookless bundle can be recorded.
+- A book derived from a published book, so the lineage crosses volumes.
+  A `bookshelf://` resource registers nothing, and `used=` cites only what the same bundle records,
+  so the edge is refused when the build is recorded.
 
 ## Running them
 

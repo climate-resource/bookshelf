@@ -20,10 +20,13 @@ repository gets one way to refresh a golden.
 
 import argparse
 import os
+import subprocess
 import sys
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
+from functools import partial
 from pathlib import Path
 from uuid import UUID
 
@@ -38,6 +41,7 @@ from bookshelf.publisher.record import DOCUMENT_KINDS, run_record
 
 EXAMPLES_DIR = Path(__file__).parent
 RECIPE_NAME = "bookshelf.yaml"
+SCRIPT_NAME = "record.py"
 GOLDEN_DIRNAME = "expected"
 MANIFEST_GOLDEN = "manifest.lock"
 RESOURCES_GOLDEN = "resources.txt"
@@ -86,7 +90,7 @@ def needs_network(recipe_path: Path) -> bool:
     return any(resource.uri is not None for book in recipe.books for resource in book.resources.values())
 
 
-def _documents(manifest: BundleManifest) -> set[str]:
+def documents(manifest: BundleManifest) -> set[str]:
     """Return the names of the executed-document resources, found by the kind their recorder stamps.
 
     Their bytes come from nbconvert, whose HTML is not stable across template versions,
@@ -97,14 +101,13 @@ def _documents(manifest: BundleManifest) -> set[str]:
     }
 
 
-def normalised(manifest: BundleManifest) -> BundleManifest:
-    """Return the manifest with the machine-varying values pinned and the documents dropped."""
+def normalised(manifest: BundleManifest, excluded: set[str]) -> BundleManifest:
+    """Return the manifest with the machine-varying values pinned and the excluded resources dropped."""
     pinned = manifest.model_copy(deep=True)
     if pinned.activity is not None:
         pinned.activity.code_ref = PINNED_CODE_REF
         pinned.activity.runner = PINNED_RUNNER
         pinned.activity.activity_id = PINNED_ACTIVITY_ID
-    excluded = _documents(pinned)
     pinned.resources = [resource for resource in pinned.resources if resource.name not in excluded]
     if pinned.book is not None:
         pinned.book.entries = [entry for entry in pinned.book.entries if entry.name not in excluded]
@@ -146,48 +149,68 @@ def _compare(actual: bytes, golden: Path, *, update: bool) -> str | None:
     return None
 
 
+def _record_script(directory: Path, bundle_path: Path) -> None:
+    """Run a script example the way a user would, so it owns its own command line."""
+    completed = subprocess.run(  # noqa: S603
+        [sys.executable, str(directory / SCRIPT_NAME), "--bundle", str(bundle_path)],
+        capture_output=True,
+        text=True,
+        cwd=directory,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError((completed.stderr or completed.stdout).strip())
+
+
 def run_example(directory: Path, *, update: bool) -> list[Outcome]:
-    """Record, validate and compare every book one example declares."""
+    """Record, validate and compare every book one example declares.
+
+    A recipe example is recorded once per declared version.
+    A script example is recorded once, and its version is read back off the bundle,
+    because the script is the only place that states one.
+    """
     recipe_path = directory / RECIPE_NAME
-    recipe = load_record_recipe(recipe_path)
+    runs: list[tuple[str, Callable[..., object]]]
+    if recipe_path.is_file():
+        recipe = load_record_recipe(recipe_path)
+        runs = [
+            (
+                book.version,
+                partial(
+                    run_record, build_path=None, recipe_path=recipe_path, version=book.version, cwd=directory
+                ),
+            )
+            for book in recipe.books
+        ]
+    else:
+        runs = [("-", partial(_record_script, directory))]
+
     outcomes: list[Outcome] = []
-    for book in recipe.books:
+    for version, record in runs:
         with tempfile.TemporaryDirectory(prefix="bookshelf-example-") as scratch:
+            bundle_path = Path(scratch) / "bundle"
             try:
-                outcomes.append(_run_book(directory, recipe_path, book.version, Path(scratch), update=update))
+                record(bundle_path=bundle_path)
+                outcomes.append(_compare_bundle(directory, bundle_path, Path(scratch), update=update))
             except Exception as error:
                 outcomes.append(
-                    Outcome(directory.name, book.version, Status.FAIL, f"{type(error).__name__}: {error}")
+                    Outcome(directory.name, version, Status.FAIL, f"{type(error).__name__}: {error}")
                 )
     return outcomes
 
 
-def _run_book(
-    directory: Path,
-    recipe_path: Path,
-    version: str,
-    scratch: Path,
-    *,
-    update: bool,
-) -> Outcome:
-    """Record one book and compare it against its golden."""
-    bundle_path = scratch / "bundle"
-    run_record(
-        build_path=None,
-        recipe_path=recipe_path,
-        bundle_path=bundle_path,
-        version=version,
-        cwd=directory,
-    )
+def _compare_bundle(directory: Path, bundle_path: Path, scratch: Path, *, update: bool) -> Outcome:
+    """Validate a recorded bundle and compare it against the golden for its version."""
     bundle = Bundle.read(bundle_path)
     bundle.validate()
     # A bookless bundle is a catalogue run, and framing is what a book adds.
     if bundle.manifest.book is not None:
         bundle.require_framing()
+    version = bundle.manifest.book.version if bundle.manifest.book is not None else "-"
 
     golden_dir = directory / GOLDEN_DIRNAME / version
-    excluded = _documents(bundle.manifest)
-    comparable = Bundle(scratch / "normalised", manifest=normalised(bundle.manifest))
+    excluded = documents(bundle.manifest)
+    comparable = Bundle(scratch / "normalised", manifest=normalised(bundle.manifest, excluded))
     comparable.write()
 
     failures = [
@@ -204,8 +227,14 @@ def _run_book(
 
 
 def discover() -> list[Path]:
-    """Every example directory, in name order."""
-    return sorted(path.parent for path in EXAMPLES_DIR.glob(f"*/{RECIPE_NAME}"))
+    """Every example directory, in name order.
+
+    An example is either a recipe the recorder drives or a script that records for itself,
+    so both entrypoints are looked for.
+    """
+    found = {path.parent for path in EXAMPLES_DIR.glob(f"*/{RECIPE_NAME}")}
+    found |= {path.parent for path in EXAMPLES_DIR.glob(f"*/{SCRIPT_NAME}")}
+    return sorted(found)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -234,8 +263,9 @@ def main(argv: list[str] | None = None) -> int:
     for directory in discover():
         if args.example is not None and directory.name not in args.example:
             continue
+        recipe_path = directory / RECIPE_NAME
         try:
-            skip = not args.network and needs_network(directory / RECIPE_NAME)
+            skip = not args.network and recipe_path.is_file() and needs_network(recipe_path)
         except (InvalidBundleError, ValueError) as error:
             outcomes.append(Outcome(directory.name, "-", Status.FAIL, f"unreadable recipe: {error}"))
             continue

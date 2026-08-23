@@ -1,0 +1,30 @@
+volume:
+  name: fetch-from-web-example
+  maintainers:
+    - name: Climate Resource
+      email: info@climate-resource.com
+  keywords:
+    - example
+
+defaults:
+  title: A feedstock whose input is fetched from upstream
+  publisher: Climate Resource
+
+build:
+  notebook: build.py
+
+books:
+  - version: "v1.0.0"
+    license: CC-BY-4.0
+    visibility: public
+    description: One upstream url, verified against its declared digest and cached.
+    authors:
+      - name: Climate Resource
+        email: info@climate-resource.com
+    resources:
+      # The url is pinned to a commit rather than to a branch, so the bytes cannot move under it.
+      # The sha256 is what the fetch is checked against, and the cache is keyed by it.
+      raw:
+        type: tabular
+        uri: https://raw.githubusercontent.com/datasets/co2-ppm/146bdc608e1078d3e28e7a5d4755fdc316ffed2d/data/co2-annmean-gl.csv
+        sha256: 8a5e1d4ca2da50c203bf9d6a392b3ef04ec756ff0256fd07532c383affe79e9c

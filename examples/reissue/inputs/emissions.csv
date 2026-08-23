@@ -1,0 +1,13 @@
+region,variable,unit,year,value
+World,Emissions|CO2,Mt CO2 / yr,2020,36.7
+World,Emissions|CO2,Mt CO2 / yr,2030,29.5
+World,Emissions|CO2,Mt CO2 / yr,2050,21.4
+R5ASIA,Emissions|CO2,Mt CO2 / yr,2020,17.2
+R5ASIA,Emissions|CO2,Mt CO2 / yr,2030,13.6
+R5ASIA,Emissions|CO2,Mt CO2 / yr,2050,9.8
+R5LAM,Emissions|CO2,Mt CO2 / yr,2020,4.1
+R5LAM,Emissions|CO2,Mt CO2 / yr,2030,3.2
+R5LAM,Emissions|CO2,Mt CO2 / yr,2050,2.3
+R5OECD,Emissions|CO2,Mt CO2 / yr,2020,11.4
+R5OECD,Emissions|CO2,Mt CO2 / yr,2030,8.9
+R5OECD,Emissions|CO2,Mt CO2 / yr,2050,5.6

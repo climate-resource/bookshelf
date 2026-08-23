@@ -1,0 +1,27 @@
+volume:
+  name: complex-processing-example
+  maintainers:
+    - name: Climate Resource
+      email: info@climate-resource.com
+  keywords:
+    - example
+
+defaults:
+  title: A feedstock whose outputs build on each other
+  publisher: Climate Resource
+
+build:
+  notebook: build.py
+
+books:
+  - version: "v1.0.0"
+    license: CC-BY-4.0
+    visibility: public
+    description: Four outputs and a lineage graph where the later ones cite the earlier ones.
+    authors:
+      - name: Climate Resource
+        email: info@climate-resource.com
+    resources:
+      raw:
+        type: tabular
+        path: inputs/emissions.csv

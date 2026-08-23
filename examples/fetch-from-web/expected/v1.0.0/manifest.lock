@@ -1,0 +1,68 @@
+activity:
+  activity_id: 00000000-0000-7000-8000-000000000000
+  code_ref: https://example.invalid/examples@0000000000000000000000000000000000000000
+  config_hash: sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+  kind: process
+  parameters: {}
+  runner: examples
+book:
+  authors:
+  - email: info@climate-resource.com
+    name: Climate Resource
+  description: One upstream url, verified against its declared digest and cached.
+  discovery:
+    publisher: Climate Resource
+    title: A feedstock whose input is fetched from upstream
+  entries:
+  - name: annual_mean
+  - name: decadal_mean
+  license: CC-BY-4.0
+  metadata: {}
+  processing:
+  - - https://example.invalid/examples@0000000000000000000000000000000000000000
+    - sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+  published: true
+  version: v1.0.0
+  visibility: public
+  volume: fetch-from-web-example
+resources:
+- dedupe: true
+  external_uri: https://raw.githubusercontent.com/datasets/co2-ppm/146bdc608e1078d3e28e7a5d4755fdc316ffed2d/data/co2-annmean-gl.csv
+  generated: false
+  hash: sha256:8a5e1d4ca2da50c203bf9d6a392b3ef04ec756ff0256fd07532c383affe79e9c
+  kind: pointer
+  metadata: {}
+  name: raw
+  tags: []
+  type: tabular
+  used: []
+  visibility: public
+- dedupe: true
+  format: parquet
+  generated: true
+  hash: sha256:d0c29c739d46bde0ef87c056fcff5602890a766361380c5dc9030531a1bfb9a5
+  kind: managed
+  metadata: {}
+  name: annual_mean
+  size: 1693
+  tags: []
+  type: timeseries
+  used:
+  - raw
+  visibility: public
+- dedupe: true
+  format: parquet
+  generated: true
+  hash: sha256:7308232e7138c0ad8eea1dfc93afa80408cfe10a1c5c9e567306b29ce050ffb6
+  kind: managed
+  metadata: {}
+  name: decadal_mean
+  size: 686
+  tags: []
+  type: tabular
+  used:
+  - raw
+  visibility: public
+schema_version: '3.1'
+writer:
+  pyarrow: 23.0.0
