@@ -26,8 +26,11 @@ def _is_digest(name: str) -> bool:
 
 
 def default_cache_dir() -> Path:
-    """Return the cache directory: ``$BOOKSHELF_CACHE_DIR``, or the platform default."""
-    override = os.environ.get("BOOKSHELF_CACHE_DIR")
+    """Return the cache directory: ``$BOOKSHELF_CACHE_DIR``, or the platform default.
+
+    ``$BOOKSHELF_CACHE_LOCATION`` is the 0.4 name for the same setting and is honoured as a fallback.
+    """
+    override = os.environ.get("BOOKSHELF_CACHE_DIR") or os.environ.get("BOOKSHELF_CACHE_LOCATION")
     if override:
         return Path(override)
     return Path(user_cache_dir("bookshelf", "climateresource")) / "content"

@@ -20,6 +20,7 @@ and an explicit ``auth=None`` stays unauthenticated.
 
 import enum
 import os
+import warnings
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -75,7 +76,14 @@ def resolve_base_url(base_url: str | None) -> str:
     The argument wins, then ``$BOOKSHELF_URL`` (canonical),
     then ``$BOOKSHELF_API_URL`` (accepted alias), then production.
     The result never carries a trailing slash.
+    ``$BOOKSHELF_REMOTE`` named the 0.4 S3 bucket and has no effect here, so setting it warns.
     """
+    if os.environ.get("BOOKSHELF_REMOTE"):
+        warnings.warn(
+            "BOOKSHELF_REMOTE is ignored: bookshelf 1.x reads from the platform API, "
+            "set BOOKSHELF_URL to choose a deployment",
+            stacklevel=2,
+        )
     return (
         base_url
         or os.environ.get("BOOKSHELF_URL")
