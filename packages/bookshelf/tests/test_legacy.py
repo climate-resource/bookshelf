@@ -29,7 +29,7 @@ WIDE = pd.DataFrame(
         "unit": ["Mt CO2/yr", "Mt CH4/yr", "Mt CO2/yr"],
         "variable": ["Emissions|CO2", "Emissions|CH4", "Emissions|CO2"],
         "2000-01-01": [1.0, 2.0, 3.0],
-        "2001-01-01": [1.5, 2.5, 3.5],
+        "2001-01-01 00:00:00": [1.5, 2.5, 3.5],
     }
 )
 
@@ -224,8 +224,10 @@ def test_the_legacy_shape_suffix_is_stripped_from_a_resource_name(tmp_path: Path
 
 
 def test_get_long_format_data_matches_the_legacy_writer(tmp_path: Path) -> None:
-    """The 0.4 writer sorted by every dimension then year, named the value ``values``,
-    and left the year as a date-stamped string."""
+    """The 0.4 writer sorted by every dimension then year.
+
+    It named the value ``values`` and left the year as a date-stamped string.
+    """
     shelf = _shelf(_platform([("v2.6", 5)]), tmp_path)
 
     with pytest.warns(DeprecationWarning, match="get_long_format_data"):

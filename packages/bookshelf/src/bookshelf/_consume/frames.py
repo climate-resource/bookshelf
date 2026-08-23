@@ -15,11 +15,11 @@ if TYPE_CHECKING:
     import pyarrow as pa
 
 
-_DATED_YEAR = re.compile(r"^(\d{4})-\d{2}-\d{2}$")
+_DATED_YEAR = re.compile(r"^(\d{4})-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}:\d{2})?$")
 
 
 def _year_column(column: object) -> str:
-    """Reduce a dated column name such as ``2000-01-01`` to its year, leaving others alone."""
+    """Reduce a dated column such as ``2000-01-01`` or ``2000-01-01 00:00:00`` to its year."""
     match = _DATED_YEAR.match(str(column))
     return match.group(1) if match else str(column)
 

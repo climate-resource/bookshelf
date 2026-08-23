@@ -144,6 +144,7 @@ class BookShelf:
 
     def list_books(self) -> list[str]:
         """Not supported in 0.4 either."""
+        _deprecated("BookShelf.list_books()", "Bookshelf.search_volumes()")
         raise NotImplementedError
 
 
@@ -158,6 +159,7 @@ class LocalBook:
 
     def long_version(self) -> str:
         """Return the ``{version}_e{edition:03}`` identifier, for example ``v1.0.1_e002``."""
+        _deprecated("LocalBook.long_version()", "Book.metadata")
         return f"{self.version}_e{self.edition:03}"
 
     def metadata(self) -> dict[str, Any]:
