@@ -1,5 +1,7 @@
 """Public facade for the Bookshelf SDK."""
 
+import warnings
+
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import OPENAPI_VERSION, models
 from bookshelf.cache import ContentCache
@@ -25,6 +27,24 @@ from bookshelf.facade import (
     Used,
 )
 from bookshelf.publisher import replay_bundle, replay_bundle_sync, run_record, setup
+
+_LEGACY_NAMES = frozenset({"BookShelf", "LocalBook"})
+
+
+def __getattr__(name: str) -> object:
+    """Serve the 0.4 ``BookShelf`` and ``LocalBook`` with a warning instead of an AttributeError."""
+    if name in _LEGACY_NAMES:
+        from bookshelf import legacy
+
+        warnings.warn(
+            f"bookshelf.{name} is the 0.4 API and will be removed in bookshelf 2.0, "
+            "use bookshelf.Bookshelf instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return getattr(legacy, name)
+    raise AttributeError(f"module 'bookshelf' has no attribute {name!r}")
+
 
 __all__ = [
     "OPENAPI_VERSION",
