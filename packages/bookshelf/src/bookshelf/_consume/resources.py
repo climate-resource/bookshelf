@@ -174,16 +174,21 @@ class Resource(_ResourceHandle):
         a ``values`` column, a ``year`` column of ``YYYY-01-01 00:00:00`` strings,
         and rows sorted by the dimensions and then the year.
         """
+        long = self._long(select=select, order=order, limit=limit, offset=offset, filters=filters)
+        return legacy_long_timeseries(long) if legacy_columns else long
+
+    def _long(
+        self,
+        *,
+        select: str | None,
+        order: str | None,
+        limit: int | None,
+        offset: int | None,
+        filters: Mapping[str, str],
+    ) -> pd.DataFrame:
         require_timeseries_support(self.type)
-        shape = legacy_long_timeseries if legacy_columns else long_timeseries
-        return shape(
-            self._frame(
-                select=select,
-                order=order,
-                limit=limit,
-                offset=offset,
-                filters=filters,
-            )
+        return long_timeseries(
+            self._frame(select=select, order=order, limit=limit, offset=offset, filters=filters)
         )
 
     def as_polars(
@@ -239,17 +244,8 @@ class Resource(_ResourceHandle):
     ) -> ScmRun:
         """Return timeseries data as an scmdata ScmRun."""
         run = scmrun_class()
-        require_timeseries_support(self.type)
         return run(
-            long_timeseries(
-                self._frame(
-                    select=select,
-                    order=order,
-                    limit=limit,
-                    offset=offset,
-                    filters=filters,
-                )
-            )
+            self._long(select=select, order=order, limit=limit, offset=offset, filters=filters)
         )
 
     def fetch(self) -> bytes:
@@ -509,15 +505,24 @@ class AsyncResource(_ResourceHandle):
         a ``values`` column, a ``year`` column of ``YYYY-01-01 00:00:00`` strings,
         and rows sorted by the dimensions and then the year.
         """
+        long = await self._long(
+            select=select, order=order, limit=limit, offset=offset, filters=filters
+        )
+        return legacy_long_timeseries(long) if legacy_columns else long
+
+    async def _long(
+        self,
+        *,
+        select: str | None,
+        order: str | None,
+        limit: int | None,
+        offset: int | None,
+        filters: Mapping[str, str],
+    ) -> pd.DataFrame:
         require_timeseries_support(await self._get_type())
-        shape = legacy_long_timeseries if legacy_columns else long_timeseries
-        return shape(
+        return long_timeseries(
             await self._frame(
-                select=select,
-                order=order,
-                limit=limit,
-                offset=offset,
-                filters=filters,
+                select=select, order=order, limit=limit, offset=offset, filters=filters
             )
         )
 
@@ -574,16 +579,9 @@ class AsyncResource(_ResourceHandle):
     ) -> ScmRun:
         """Return timeseries data as an scmdata ScmRun."""
         run = scmrun_class()
-        require_timeseries_support(await self._get_type())
         return run(
-            long_timeseries(
-                await self._frame(
-                    select=select,
-                    order=order,
-                    limit=limit,
-                    offset=offset,
-                    filters=filters,
-                )
+            await self._long(
+                select=select, order=order, limit=limit, offset=offset, filters=filters
             )
         )
 

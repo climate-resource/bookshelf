@@ -75,10 +75,11 @@ def _platform(
     def handler(request: httpx.Request) -> httpx.Response:
         path = request.url.path
         if path == "/v1/books":
-            wanted = dict(httpx.QueryParams(request.url.query)).get("version")
-            chosen = [(v, e) for v, e in versions if wanted is None or v == wanted]
-            if dict(httpx.QueryParams(request.url.query)).get("volume") != "primap-hist":
+            params = request.url.params
+            if params.get("volume") != "primap-hist":
                 return httpx.Response(404, json={"detail": "no such volume"})
+            wanted = params.get("version")
+            chosen = [(v, e) for v, e in versions if wanted is None or v == wanted]
             return httpx.Response(200, json=_books(chosen))
         if re.fullmatch(r"/v1/books/[^/]+/entries", path):
             return httpx.Response(200, json=_entries(*entries))
@@ -95,16 +96,16 @@ def _platform(
 
 def _shelf(transport: httpx.MockTransport, tmp_path: Path) -> legacy.BookShelf:
     with pytest.warns(DeprecationWarning, match="bookshelf.BookShelf is deprecated"):
-        shelf = legacy.BookShelf(tmp_path / "cache")
+        shelf = legacy.BookShelf()
     shelf._bookshelf = Bookshelf(BASE_URL, auth=None, transport=transport)
     shelf._bookshelf._cache = ContentCache(tmp_path / "cache")
     return shelf
 
 
 def test_the_package_serves_the_legacy_names_with_a_warning() -> None:
-    with pytest.warns(DeprecationWarning, match="bookshelf.BookShelf is the 0.4 API"):
+    with pytest.warns(DeprecationWarning, match="bookshelf.BookShelf is deprecated"):
         assert bookshelf.BookShelf is legacy.BookShelf
-    with pytest.warns(DeprecationWarning, match="bookshelf.LocalBook is the 0.4 API"):
+    with pytest.warns(DeprecationWarning, match="bookshelf.LocalBook is deprecated"):
         assert bookshelf.LocalBook is legacy.LocalBook
     with pytest.raises(AttributeError, match="no attribute 'Nope'"):
         bookshelf.Nope  # noqa: B018

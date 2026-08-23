@@ -32,24 +32,16 @@ class UnknownBook(ValueError):
 class UnknownVersion(ValueError):
     """An unknown version is requested."""
 
-    def __init__(self, name: str, version: str | None):
+    def __init__(self, name: str, version: str | None, edition: int | None = None):
         self.name = name
         self.version = version
-        super().__init__()
-
-    def __str__(self) -> str:
-        return f"Could not find {self.name}@{self.version}"
+        self.edition = edition
+        suffix = "" if edition is None else f" ed.{edition}"
+        super().__init__(f"Could not find {name}@{version}{suffix}")
 
 
 class UnknownEdition(UnknownVersion):
     """An unknown edition is requested."""
-
-    def __init__(self, name: str, version: str, edition: int):
-        super().__init__(name, version)
-        self.edition = edition
-
-    def __str__(self) -> str:
-        return f"Could not find {self.name}@{self.version} ed.{self.edition}"
 
 
 def _deprecated(old: str, new: str) -> None:
@@ -191,11 +183,12 @@ class LocalBook:
         }
 
     def _entry(self, timeseries_name: str) -> BookEntry:
-        candidates = [timeseries_name]
-        for suffix in _SHAPE_SUFFIXES:
-            if timeseries_name.endswith(suffix):
-                candidates.append(timeseries_name.removesuffix(suffix))
-        for candidate in candidates:
+        stripped = (
+            timeseries_name.removesuffix(suffix)
+            for suffix in _SHAPE_SUFFIXES
+            if timeseries_name.endswith(suffix)
+        )
+        for candidate in (timeseries_name, *stripped):
             if candidate in self._book.entry_names:
                 return self._book[candidate]
         raise ValueError(f"Unknown timeseries '{timeseries_name}'")

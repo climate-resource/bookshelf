@@ -35,7 +35,8 @@ def wide_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
         if not dimensions:
             return frame.set_index("year")["value"].to_frame().T
         return frame.pivot(index=dimensions, columns="year", values="value")
-    frame = frame.rename(columns=_year_column)
+    frame = frame.copy(deep=False)
+    frame.columns = [_year_column(column) for column in frame.columns]
     dimensions = [column for column in frame.columns if not str(column).isdigit()]
     if dimensions:
         return frame.set_index(dimensions)
@@ -67,8 +68,8 @@ def legacy_long_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
     """
     long = long_timeseries(frame)
     dimensions = [column for column in long.columns if column not in {"year", "value"}]
-    long = long.sort_values([*dimensions, "year"], kind="stable").reset_index(drop=True)
-    long["year"] = long["year"].map(lambda year: f"{year:04d}-01-01 00:00:00")
+    long = long.sort_values([*dimensions, "year"], kind="stable", ignore_index=True)
+    long["year"] = long["year"].astype(str).str.zfill(4) + "-01-01 00:00:00"
     return long.rename(columns={"value": "values"})
 
 

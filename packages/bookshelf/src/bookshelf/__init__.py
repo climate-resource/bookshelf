@@ -1,7 +1,5 @@
 """Public facade for the Bookshelf SDK."""
 
-import warnings
-
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import OPENAPI_VERSION, models
 from bookshelf.cache import ContentCache
@@ -36,12 +34,7 @@ def __getattr__(name: str) -> object:
     if name in _LEGACY_NAMES:
         from bookshelf import legacy
 
-        warnings.warn(
-            f"bookshelf.{name} is the 0.4 API and will be removed in bookshelf 2.0, "
-            "use bookshelf.Bookshelf instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+        legacy._deprecated(f"bookshelf.{name}", "bookshelf.Bookshelf")
         return getattr(legacy, name)
     raise AttributeError(f"module 'bookshelf' has no attribute {name!r}")
 
