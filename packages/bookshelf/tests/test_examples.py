@@ -5,6 +5,7 @@ The ``examples/run_all.py`` script is used to run the examples.
 This is a wrapper of that script so we can test the examples in CI.
 """
 
+import json
 import re
 import subprocess
 import sys
@@ -16,7 +17,7 @@ from typer.testing import CliRunner
 
 from bookshelf._cli import app
 from bookshelf.publisher.bundle import Bundle, BundleManifest
-from bookshelf.publisher.record import DOCUMENT_KINDS, run_record
+from bookshelf.publisher.record import run_record
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EXAMPLES_DIR = REPO_ROOT / "examples"
@@ -72,8 +73,10 @@ def test_every_example_directory_is_covered_by_the_runner(
 ) -> None:
     """A new example directory that the runner does not discover would be silently untested."""
     directories = {path.parent.name for path in EXAMPLES_DIR.glob("*/bookshelf.yaml")}
+    directories |= {path.parent.name for path in EXAMPLES_DIR.glob("*/record.py")}
 
     assert directories
+    assert {path.name for path in _run_all().discover()} == directories
     for name in directories:
         assert name in full_run.stdout
 
@@ -109,10 +112,15 @@ def test_every_example_carries_a_readme_and_a_golden_for_each_book_it_declares()
     rather than from the network.
     """
     missing = []
-    for recipe in sorted(EXAMPLES_DIR.glob("*/bookshelf.yaml")):
-        example = recipe.parent
+    for example in _run_all().discover():
         if not (example / "README.md").is_file():
             missing.append(f"{example.name}: no README.md")
+        recipe = example / "bookshelf.yaml"
+        # A script example states its version in the script, so the golden is looked for by directory.
+        if not recipe.is_file():
+            if not list(example.glob("expected/*/manifest.lock")):
+                missing.append(f"{example.name}: no manifest.lock")
+            continue
         for version in _run_all().load_record_recipe(recipe).versions:
             golden = example / "expected" / version / "manifest.lock"
             if not golden.is_file():
@@ -202,10 +210,11 @@ def _recorded_content(manifest: BundleManifest) -> list[tuple[str, str, str, str
     The executed documents are excluded because they embed the parameters the build ran with,
     so they move whenever the processing does and are provenance in the same way it is.
     """
+    excluded = _run_all().documents(manifest)
     return sorted(
         (resource.name, resource.hash, resource.type, resource.visibility)
         for resource in manifest.resources
-        if resource.metadata.get("kind") not in DOCUMENT_KINDS
+        if resource.name not in excluded
     )
 
 
@@ -251,16 +260,12 @@ def test_bookshelf_validate_reports_the_two_reissue_runs_as_differing_only_in_pr
     reissued: tuple[Path, Path],
 ) -> None:
     """``bookshelf validate`` is the surface a producer reads, so the claim is asserted through it."""
-    reported = []
+    processing = []
     for path in reissued:
-        result = CliRunner().invoke(app, ["validate", str(path)])
+        result = CliRunner().invoke(app, ["validate", str(path), "--json"])
 
         assert result.exit_code == 0, result.output
-        reported.append(_without_colour(result.stdout))
-
-    processing = [
-        line for output in reported for line in output.splitlines() if "Processing" in line
-    ]
+        processing.append(json.loads(result.stdout)["processing"])
 
     assert len(processing) == 2
     assert processing[0] != processing[1]

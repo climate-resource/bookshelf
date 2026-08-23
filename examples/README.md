@@ -2,6 +2,10 @@
 
 Each directory here is a miniature feedstock and its expected results.
 
+Most are a `bookshelf.yaml` recipe with a build file, which is what `bookshelf record` drives.
+One is a plain `record.py` script that records for itself, for a pipeline that publishing is only a
+small part of.
+
 ## The examples
 
 | Example                               | What it proves                                                              |
@@ -15,6 +19,7 @@ Each directory here is a miniature feedstock and its expected results.
 | [`mixed-visibility`](mixed-visibility/) | A public book carrying one hidden resource. |
 | [`reissue`](reissue/) | Same version, changed processing, which sits outside the seal. |
 | [`fetch-from-web`](fetch-from-web/) | One upstream url, digest verified and cached. Needs the network. |
+| [`low-level-api`](low-level-api/) | A plain script that records for itself, with no recipe and no recorder. |
 
 Two more are wanted and cannot be written yet, because the SDK has no way to express them.
 
