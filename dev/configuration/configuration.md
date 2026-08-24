@@ -1,29 +1,25 @@
 # Configuration
 
-## Environment Variables
+Constructor arguments take precedence over ambient configuration.
+The SDK recognises these environment variables:
 
-Environment variables are used to control some aspects of the model.
-The default values for these environment variables are generally suitable,
-but if you require updating these values we recommend the use of a `.env` file
-to make the changes easier to reproduce in future.
+- `BOOKSHELF_URL` selects the API deployment.
+  `BOOKSHELF_API_URL` is accepted as an alias.
+- `BOOKSHELF_TOKEN` supplies a static bearer token.
+- `BOOKSHELF_CLIENT_ID` and `BOOKSHELF_CLIENT_SECRET`
+  enable OAuth client credentials.
+  `BOOKSHELF_TOKEN_URL` must name the token endpoint.
+- `BOOKSHELF_WORKOS_CLIENT_ID` configures interactive user login.
+- `BOOKSHELF_WORKOS_BASE_URL` overrides the WorkOS API base URL.
 
-### `BOOKSHELF_REMOTE`
+When authentication is omitted,
+the SDK resolves a static environment token first,
+then client credentials,
+then stored `bookshelf auth login` credentials.
+Public reads remain available without authentication.
 
-The URL for the remote bookshelf
-
-This defaults to a Climate Resource specific URL,
-but can be used to point to an alternative bookshelf.
-For example a staging/testing bookshelf for prereleased Books.
-
-### `BOOKSHELF_CACHE_LOCATION`
-
-Local directory used to cache any Books fetched from a remote bookshelf.
-This cache can be cleared using the `bookshelf clear` command.
-
-### `BOOKSHELF_DOWNLOAD_CACHE_LOCATION`
-
-Override the default download location for any raw data downloads
-
-### `BOOKSHELF_NOTEBOOK_DIRECTORY`
-
-Search location for the notebooks used to generate books
+The default API URL is the production Bookshelf deployment.
+Pass `base_url=` to `Bookshelf`,
+`AsyncBookshelf`,
+or `BookshelfClient`
+when a particular deployment must be explicit.

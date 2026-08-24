@@ -1,3 +1,0 @@
-# bookshelf.schema
-
-::: bookshelf.schema

@@ -1,13 +1,15 @@
 # bookshelf
 
-| Sub-package                                      | Description                                                                     |
-| ------------------------------------------------ | ------------------------------------------------------------------------------- |
-| [book][bookshelf.book]                           | A Book represents a single versioned dataset.                                   |
-| [constants][bookshelf.constants]                 | Constants                                                                       |
-| [dataset_structure][bookshelf.dataset_structure] | Functionality for interacting with and visualising the structure of a dataset.  |
-| [errors][bookshelf.errors]                       | Custom exceptions                                                               |
-| [schema][bookshelf.schema]                       | Schema                                                                          |
-| [shelf][bookshelf.shelf]                         | A BookShelf is a collection of Books that can be queried and fetched as needed. |
-| [utils][bookshelf.utils]                         | Bookshelf utilities                                                             |
+| Sub-package                        | Description                                                     |
+| ---------------------------------- | --------------------------------------------------------------- |
+| [_cli][bookshelf._cli]             | ``bookshelf`` command line interface.                           |
+| [_consume][bookshelf._consume]     | Private modules supporting the public consume facade.           |
+| [_core][bookshelf._core]           | Transport core for the Bookshelf SDK.                           |
+| [_generated][bookshelf._generated] | bookshelf._generated                                            |
+| [_produce][bookshelf._produce]     | Producer-side facade implementation.                            |
+| [cache][bookshelf.cache]           | Content addressed local cache for downloaded resources.         |
+| [facade][bookshelf.facade]         | Thin public facades for consuming and producing Bookshelf data. |
+| [legacy][bookshelf.legacy]         | The 0.4 consumer API, kept alive on top of the platform facade. |
+| [publisher][bookshelf.publisher]   | Public record, replay and publish surface.                      |
 
 ::: bookshelf
