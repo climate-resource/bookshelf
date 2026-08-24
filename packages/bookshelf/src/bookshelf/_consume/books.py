@@ -1,5 +1,6 @@
 """Published Book handles shared by synchronous and asynchronous consumers."""
 
+from collections.abc import Iterator
 from uuid import UUID
 
 from bookshelf._consume.presentation import summary_table
@@ -27,6 +28,10 @@ class _BookBase:
     def entry_names(self) -> tuple[str, ...]:
         """The entries this book indexes, in the order the platform lists them."""
         return tuple(self._entries)
+
+    def __iter__(self) -> Iterator[str]:
+        """Iterate over entry names in the order the platform lists them."""
+        return iter(self._entries)
 
     def _repr_html_(self) -> str:
         entries = ", ".join(sorted(self._entries)) or "none"
