@@ -1,16 +1,38 @@
 # Getting started
 
-There are a few different ways to install and use `Bookshelf`.
-We provide these by use case below.
-As a short summary, if you:
+Create a `Bookshelf` facade
+and address a published book by volume and version.
+Omitting `edition=` resolves the latest published edition.
 
-- just want to use data stored on the bookshelf,
-  and nothing else, go to [for data consumers][for-data-consumers]
-- want to publish a new book to the bookshelf,
-  go to [for data curators][for-data-curators]
-- want to develop/modify the bookshelf packages,
-  go to [installation for developers][for-developers]
+```python
+from bookshelf import Bookshelf
 
-## By use case
+with Bookshelf() as bs:
+    entry = bs.book("rcmip-emissions", "v5.1.0")["magicc"]
+    frame = entry.as_df(year_min=2020, year_max=2100)
+```
 
----8<--- "README.md:getting-started"
+Use `AsyncBookshelf` for awaited I/O:
+
+```python
+from bookshelf import AsyncBookshelf
+
+async with AsyncBookshelf() as bs:
+    book = await bs.book("rcmip-emissions", "v5.1.0", edition=1)
+    frame = await book["magicc"].as_df()
+```
+
+Publishing capabilities are part of the same SDK.
+Install the `publish` extra when notebook execution is required:
+
+```bash
+uv add "bookshelf[publish]"
+```
+
+The [how-to guides](how-to-guides/index.md) go further on both sides.
+Each one is a notebook executed against a live deployment when these docs are built,
+so its output is real.
+
+See the repository's
+[package README](https://github.com/climate-resource/bookshelf/tree/main/packages/bookshelf#readme)
+for authentication and code generation.

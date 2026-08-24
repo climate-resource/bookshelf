@@ -1,0 +1,56 @@
+activity:
+  activity_id: 00000000-0000-7000-8000-000000000000
+  code_ref: https://example.invalid/examples@0000000000000000000000000000000000000000
+  config_hash: sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+  kind: process
+  parameters: {}
+  runner: examples
+book:
+  authors:
+  - email: replacement@example.invalid
+    name: Replacement Author
+  description: What this book says instead.
+  discovery:
+    homepage_url: https://example.invalid/defaults-and-overrides
+    methodology_url: https://example.invalid/defaults-and-overrides/method
+    publisher: Replacement Publisher
+    title: A feedstock that states its metadata once
+  entries:
+  - name: emissions
+  license: CC-BY-4.0
+  metadata: {}
+  processing:
+  - - https://example.invalid/examples@0000000000000000000000000000000000000000
+    - sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+  published: true
+  version: v2.0.0
+  visibility: public
+  volume: defaults-and-overrides-example
+resources:
+- dedupe: true
+  external_uri: inputs/v2.csv
+  generated: false
+  hash: sha256:73db501873c785863eefc820d9e33440f6a1ed8dfa8072f5d0fbc8a6e2caa1cf
+  kind: pointer
+  metadata: {}
+  name: raw
+  tags: []
+  type: timeseries
+  used: []
+  visibility: public
+- dedupe: true
+  format: parquet
+  generated: true
+  hash: sha256:22599f4923232323a4576d1055217d8d5a0a4fc7b53fba2dc21e994b0235abce
+  kind: managed
+  metadata: {}
+  name: emissions
+  size: 1243
+  tags: []
+  type: timeseries
+  used:
+  - raw
+  visibility: public
+schema_version: '3.1'
+writer:
+  pyarrow: 23.0.0

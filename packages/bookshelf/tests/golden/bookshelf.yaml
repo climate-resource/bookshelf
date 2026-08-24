@@ -1,0 +1,13 @@
+volume:
+  name: golden-example
+
+build:
+  notebook: simple_build.py
+
+books:
+  - version: "v1.0.0"
+    license: CC-BY-4.0
+    visibility: public
+    authors:
+      - name: "Golden Fixture"
+        email: golden@example.invalid

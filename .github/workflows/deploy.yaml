@@ -28,9 +28,8 @@ jobs:
       - name: Build wheels and sdist
         run: |
           uv build --package bookshelf -o dist
-          uv build --package bookshelf-producer -o dist
       - name: Verify installable
-        run: uv pip install dist/bookshelf-*.whl dist/bookshelf_producer-*.whl
+        run: uv pip install dist/bookshelf-*.whl
       - name: Publish to PyPI
         run: |
           uv publish

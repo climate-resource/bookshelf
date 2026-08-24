@@ -1,0 +1,86 @@
+activity:
+  activity_id: 00000000-0000-7000-8000-000000000000
+  code_ref: https://example.invalid/examples@0000000000000000000000000000000000000000
+  config_hash: sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+  kind: process
+  parameters: {}
+  runner: examples
+book:
+  authors:
+  - email: info@climate-resource.com
+    name: Climate Resource
+  description: One frame and the png that plots it, attached as a document.
+  discovery:
+    publisher: Climate Resource
+    title: A feedstock that publishes a figure beside its data
+  entries:
+  - data_dictionary:
+    - allowed_na: false
+      controlled_vocabulary: null
+      description: The region the total covers.
+      name: region
+      required: true
+      role: dimension
+      title: null
+      type: string
+      unit: null
+    - allowed_na: false
+      controlled_vocabulary: null
+      description: Summed emissions.
+      name: value
+      required: true
+      role: measure
+      title: null
+      type: string
+      unit: Mt CO2 / yr
+    name: by_region
+  - name: by_region_figure
+  license: CC-BY-4.0
+  metadata: {}
+  processing:
+  - - https://example.invalid/examples@0000000000000000000000000000000000000000
+    - sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+  published: true
+  version: v1.0.0
+  visibility: public
+  volume: figures-example
+resources:
+- dedupe: true
+  external_uri: inputs/emissions.csv
+  generated: false
+  hash: sha256:0fd5036a68c2b9a3c7a67581f5dc1accfa9e4667b9932ef018486a2452873f9f
+  kind: pointer
+  metadata: {}
+  name: raw
+  tags: []
+  type: tabular
+  used: []
+  visibility: public
+- dedupe: true
+  format: parquet
+  generated: true
+  hash: sha256:e77e41ded09ad93dc961e04fd6d093d929dffa8147346f61fa14f25c7c7aa532
+  kind: managed
+  metadata: {}
+  name: by_region
+  size: 655
+  tags: []
+  type: tabular
+  used:
+  - raw
+  visibility: public
+- dedupe: true
+  generated: true
+  hash: sha256:c39b5609469a826ffd2cf202752c0de4924b354ed77047e61c8e66bb5a750714
+  kind: managed
+  metadata: {}
+  name: by_region_figure
+  size: 86593
+  tags: []
+  type: document
+  used:
+  - raw
+  visibility: public
+schema_version: '3.1'
+writer:
+  pyarrow: 23.0.0

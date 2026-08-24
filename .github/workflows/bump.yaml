@@ -48,12 +48,11 @@ jobs:
           BASE_VERSION=$(uv version --short)
           echo "Bumping from version $BASE_VERSION"
 
-          # Bump root project, then mirror the resulting version to each
-          # workspace package so they stay in lock-step.
+          # Bump the root project,
+          # then mirror the version to the SDK so they stay in lock-step.
           uv version --frozen --bump "$BUMP_RULE"
           NEW_VERSION=$(uv version --short)
           uv version --frozen --package bookshelf "$NEW_VERSION"
-          uv version --frozen --package bookshelf-producer "$NEW_VERSION"
 
           echo "Bumping to version $NEW_VERSION"
 
@@ -80,7 +79,6 @@ jobs:
           uv version --frozen --bump patch --bump alpha
           NEW_VERSION=$(uv version --short)
           uv version --frozen --package bookshelf "$NEW_VERSION"
-          uv version --frozen --package bookshelf-producer "$NEW_VERSION"
           uv lock
 
           echo "Bumping version $BASE_VERSION > $NEW_VERSION"

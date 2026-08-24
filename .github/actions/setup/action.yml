@@ -13,4 +13,3 @@ runs:
       shell: bash
       run: |
         uv sync --all-extras --dev --locked
-        uv sync --all-extras --dev --locked --package bookshelf-producer

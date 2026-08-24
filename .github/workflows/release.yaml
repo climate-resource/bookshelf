@@ -25,7 +25,6 @@ jobs:
       - name: Build package for PyPI
         run: |
           uv build --package bookshelf -o dist
-          uv build --package bookshelf-producer -o dist
       - name: Generate Release Notes
         run: |
           echo "" >> ".github/release_template.md"
@@ -45,5 +44,3 @@ jobs:
           files: |
             dist/bookshelf-${{ env.PROJECT_VERSION }}-py3-none-any.whl
             dist/bookshelf-${{ env.PROJECT_VERSION }}.tar.gz
-            dist/bookshelf_producer-${{ env.PROJECT_VERSION }}-py3-none-any.whl
-            dist/bookshelf_producer-${{ env.PROJECT_VERSION }}.tar.gz

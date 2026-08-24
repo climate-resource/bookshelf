@@ -1,0 +1,54 @@
+activity:
+  activity_id: 00000000-0000-7000-8000-000000000000
+  code_ref: https://example.invalid/examples@0000000000000000000000000000000000000000
+  config_hash: sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+  kind: process
+  parameters: {}
+  runner: examples
+book:
+  authors:
+  - email: info@climate-resource.com
+    name: Climate Resource
+  description: One version, recorded twice, with the processing changed between the runs.
+  discovery:
+    publisher: Climate Resource
+    title: A feedstock rebuilt with changed processing and unchanged data
+  entries:
+  - name: totals
+  license: CC-BY-4.0
+  metadata: {}
+  processing:
+  - - https://example.invalid/examples@0000000000000000000000000000000000000000
+    - sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+  published: true
+  version: v1.0.0
+  visibility: public
+  volume: reissue-example
+resources:
+- dedupe: true
+  external_uri: inputs/emissions.csv
+  generated: false
+  hash: sha256:0fd5036a68c2b9a3c7a67581f5dc1accfa9e4667b9932ef018486a2452873f9f
+  kind: pointer
+  metadata: {}
+  name: raw
+  tags: []
+  type: tabular
+  used: []
+  visibility: public
+- dedupe: true
+  format: parquet
+  generated: true
+  hash: sha256:e77e41ded09ad93dc961e04fd6d093d929dffa8147346f61fa14f25c7c7aa532
+  kind: managed
+  metadata: {}
+  name: totals
+  size: 655
+  tags: []
+  type: tabular
+  used:
+  - raw
+  visibility: public
+schema_version: '3.1'
+writer:
+  pyarrow: 23.0.0

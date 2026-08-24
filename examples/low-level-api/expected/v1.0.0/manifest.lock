@@ -1,0 +1,54 @@
+activity:
+  activity_id: 00000000-0000-7000-8000-000000000000
+  code_ref: https://example.invalid/examples@0000000000000000000000000000000000000000
+  config_hash: sha256:a40670ce9d3b3f108b8e1a5b722f3fe7d7a5c45291f8bff5b57eb9433d06f352
+  kind: process
+  parameters:
+    flag: ok
+  runner: examples
+book:
+  authors:
+  - email: info@climate-resource.com
+    name: Climate Resource
+  description: Quality-controlled station temperatures and their anomalies.
+  discovery:
+    publisher: Climate Resource
+    title: Station observations recorded from a script
+  entries:
+  - name: annual-means
+  - name: anomalies
+  license: CC-BY-4.0
+  metadata: {}
+  published: true
+  version: v1.0.0
+  visibility: public
+  volume: low-level-api-example
+resources:
+- dedupe: true
+  format: parquet
+  generated: true
+  hash: sha256:754ac3d00f117b264693e79616579e56e99e67eed35d537884cb0acf727d07bc
+  kind: managed
+  metadata: {}
+  name: annual-means
+  size: 883
+  tags: []
+  type: timeseries
+  used: []
+  visibility: public
+- dedupe: true
+  format: parquet
+  generated: true
+  hash: sha256:324197fa7655d8824a189442bfe87856f29ad1863641e98ca31f63b7fb67625e
+  kind: managed
+  metadata: {}
+  name: anomalies
+  size: 875
+  tags: []
+  type: timeseries
+  used:
+  - annual-means
+  visibility: public
+schema_version: '3.1'
+writer:
+  pyarrow: 23.0.0

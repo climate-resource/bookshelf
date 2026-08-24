@@ -30,43 +30,31 @@ help:  ## print short description of each target
 
 .PHONY: checks
 checks:  ## run all the linting checks of the codebase
-	@echo "=== pre-commit ==="; uv run pre-commit run --all-files || echo "--- pre-commit failed ---" >&2; \
-		echo "=== mypy ==="; MYPYPATH=stubs uv run mypy src || echo "--- mypy failed ---" >&2; \
-		echo "======"
+	uv run pre-commit run --all-files
+	(cd packages/bookshelf && uv run --locked --all-extras mypy src)
 
 .PHONY: ruff-fixes
 ruff-fixes:  ## fix the code using ruff
     # format before and after checking so that the formatted stuff is checked and
     # the fixed stuff is formatted
-	uvx ruff@0.6.9 format
-	uvx ruff@0.6.9 check --fix
-	uvx ruff@0.6.9 format
+	uv run ruff format
+	uv run ruff check --fix
+	uv run ruff format
 
-.PHONY: test-producer
-test-producer:  ## run the tests for the producer package
-	uv run --package bookshelf_producer \
-		pytest packages/bookshelf-producer \
-		-r a -v --doctest-modules --cov=packages/bookshelf-producer/src
-
-.PHONY: test-core
-test-core:  ## run the tests for the core package
-	uv run  --package bookshelf \
+.PHONY: test-sdk
+test-sdk:  ## run the tests for the SDK package
+	uv run --package bookshelf --locked --all-extras \
 		pytest packages/bookshelf \
-		-r a -v --doctest-modules --cov=packages/bookshelf/src
+		-r a -v
+
+.PHONY: test-golden-update
+test-golden-update:  ## rewrite the bundle goldens after an intended format change
+	UPDATE_BUNDLE_GOLDENS=1 uv run --package bookshelf --locked --all-extras --python 3.13 \
+		pytest packages/bookshelf/tests/test_bundle_golden.py \
+		-r a -v
 
 .PHONY: test
-test: test-core test-producer  ## run the tests
-
-
-# Note on code coverage and testing:
-# You must specify cov=src as otherwise funny things happen when doctests are
-# involved.
-# If you want to debug what is going on with coverage, we have found
-# that adding COVERAGE_DEBUG=trace to the front of the below command
-# can be very helpful as it shows you if coverage is tracking the coverage
-# of all of the expected files or not.
-# We are sure that the coverage maintainers would appreciate a PR that improves
-# the coverage handling when there are doctests and a `src` layout like ours.
+test: test-sdk  ## run the tests
 
 .PHONY: docs
 docs:  ## build the docs
@@ -88,7 +76,10 @@ changelog-draft:  ## compile a draft of the next changelog
 licence-check:  ## Check that licences of the dependencies are suitable
 	# Will likely fail on Windows, but Makefiles are in general not Windows
 	# compatible so we're not too worried
-	uv export --without=tests --without=docs --without=dev > $(TEMP_FILE)
+	uv export --no-group dev --no-emit-workspace > $(TEMP_FILE)
+	# liccheck needs pip and pkg_resources in its own environment, so the dev group
+	# carries both. setuptools is pinned below 81 because later versions dropped
+	# pkg_resources, which liccheck still imports.
 	uv run liccheck -r $(TEMP_FILE) -R licence-check.txt
 	rm -f $(TEMP_FILE)
 

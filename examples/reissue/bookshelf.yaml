@@ -1,0 +1,27 @@
+volume:
+  name: reissue-example
+  maintainers:
+    - name: Climate Resource
+      email: info@climate-resource.com
+  keywords:
+    - example
+
+defaults:
+  title: A feedstock rebuilt with changed processing and unchanged data
+  publisher: Climate Resource
+
+build:
+  notebook: build.py
+
+books:
+  - version: "v1.0.0"
+    license: CC-BY-4.0
+    visibility: public
+    description: One version, recorded twice, with the processing changed between the runs.
+    authors:
+      - name: Climate Resource
+        email: info@climate-resource.com
+    resources:
+      raw:
+        type: tabular
+        path: inputs/emissions.csv

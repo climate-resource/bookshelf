@@ -1,0 +1,67 @@
+activity:
+  activity_id: 0197a000-0000-7000-8000-00000000a001
+  code_ref: https://example.invalid/golden@0000000000000000000000000000000000000000
+  config_hash: sha256:b3d658fe2ee5b086a71cca2fb2d3b838d5bc74bad6a7521bc567b9f70453f5cf
+  kind: run
+  parameters:
+    source: golden-upstream
+    statistic: regional-sum
+  runner: golden
+book:
+  authors:
+  - email: golden@example.invalid
+    name: Golden Fixture
+  entries:
+  - name: emissions
+  - name: summary
+  license: CC-BY-4.0
+  metadata: {}
+  processing:
+  - - https://example.invalid/golden@0000000000000000000000000000000000000000
+    - sha256:b3d658fe2ee5b086a71cca2fb2d3b838d5bc74bad6a7521bc567b9f70453f5cf
+  published: true
+  version: v1.0.0
+  visibility: public
+  volume: golden-example
+resources:
+- dedupe: true
+  external_uri: https://example.invalid/golden-upstream-v1.0.0.csv
+  generated: true
+  hash: sha256:c2be0622db25f74a9f65bf289df60a46a99f60d1e46aa869fdbe2ad316b4a372
+  kind: pointer
+  metadata: {}
+  name: golden-upstream
+  tags: []
+  type: tabular
+  used: []
+  visibility: public
+- dedupe: true
+  format: parquet
+  generated: true
+  hash: sha256:ea6c596787f6a204b23bfa40d53aeb0385c09dea0d92c788b559cd4ef11267cf
+  kind: managed
+  metadata: {}
+  name: emissions
+  size: 1251
+  tags: []
+  type: timeseries
+  used:
+  - golden-upstream
+  visibility: public
+- dedupe: true
+  format: parquet
+  generated: true
+  hash: sha256:76f2a9c81692ea9816ec55e4c78334fdf976d788b8cf7f47c6a7fa2d46e31876
+  kind: managed
+  metadata: {}
+  name: summary
+  size: 614
+  tags: []
+  type: tabular
+  used:
+  - golden-upstream
+  - emissions
+  visibility: public
+schema_version: '3.1'
+writer:
+  pyarrow: 23.0.0
