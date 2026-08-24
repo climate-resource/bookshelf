@@ -40,6 +40,11 @@ from bookshelf._core.credentials import CredentialKind
 from bookshelf._core.errors import AuthConfigurationError
 
 PRODUCTION_API_URL = "https://api.climateresource.com.au/bookshelf"
+STAGING_API_URL = "https://bookshelf-staging.ovh.climateresource.com.au"
+
+# Staging is the only deployment serving data today.
+# The 1.0.0 release moves this to PRODUCTION_API_URL.
+DEFAULT_API_URL = STAGING_API_URL
 
 _SPENT_CREDENTIAL_MESSAGE = (
     "The stored Bookshelf login could not be refreshed, "
@@ -88,7 +93,7 @@ def resolve_base_url(base_url: str | None) -> str:
         base_url
         or os.environ.get("BOOKSHELF_URL")
         or os.environ.get("BOOKSHELF_API_URL")
-        or PRODUCTION_API_URL
+        or DEFAULT_API_URL
     ).rstrip("/")
 
 
@@ -219,7 +224,9 @@ def _rotation_sink(
 
 
 __all__ = [
+    "DEFAULT_API_URL",
     "PRODUCTION_API_URL",
+    "STAGING_API_URL",
     "UNSET",
     "AuthInput",
     "CredentialSource",

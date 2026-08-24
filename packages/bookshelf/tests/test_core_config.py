@@ -59,8 +59,8 @@ def test_base_url_env_beats_default(monkeypatch: pytest.MonkeyPatch) -> None:
     assert config.resolve_base_url(None) == "https://env.test"
 
 
-def test_base_url_defaults_to_production() -> None:
-    assert config.resolve_base_url(None) == "https://api.climateresource.com.au/bookshelf"
+def test_base_url_defaults_to_staging() -> None:
+    assert config.resolve_base_url(None) == config.STAGING_API_URL
 
 
 def test_bare_string_coerces_to_static_token() -> None:
