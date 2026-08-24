@@ -1,3 +1,0 @@
-# bookshelf.errors
-
-::: bookshelf.errors

@@ -1,0 +1,3 @@
+# bookshelf.cache
+
+::: bookshelf.cache
