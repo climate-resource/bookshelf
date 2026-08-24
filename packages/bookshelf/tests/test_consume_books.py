@@ -25,11 +25,11 @@ def _metadata() -> models.BookListItem:
     )
 
 
-def _entry(name: str, value: int) -> models.BookEntryItem:
+def _entry(name: str, uuid_seed: int) -> models.BookEntryItem:
     return models.BookEntryItem(
-        entry_id=UUID(int=value),
+        entry_id=UUID(int=uuid_seed),
         name_in_book=name,
-        tracking_id=UUID(int=value + 10),
+        tracking_id=UUID(int=uuid_seed + 10),
         visibility=models.Visibility.public,
     )
 
