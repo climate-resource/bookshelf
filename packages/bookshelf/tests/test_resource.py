@@ -238,6 +238,72 @@ def test_a_path_resource_resolves_and_computes_its_digest(tmp_path: Path) -> Non
     assert raw.hash == f"sha256:{_SHA256}"
 
 
+def test_a_path_resource_records_its_bytes_rather_than_a_pointer(tmp_path: Path) -> None:
+    """A repository path is no address the platform can fetch from, so the bytes travel.
+
+    A pointer at ``data/raw.csv`` is what publishing rejects,
+    because the platform would have to dereference it against its own filesystem.
+    """
+    recipe = _write_recipe(tmp_path, _PATH_VERSION)
+    _write_data(tmp_path)
+    bundle_path = tmp_path / "bundle"
+
+    with _recording(recipe, bundle_path):
+        build = setup()
+        build.use("raw")
+        recorded = _written_resource(build.bs, bundle_path, "raw")
+
+    assert recorded.kind == "managed"
+    assert recorded.external_uri is None
+    assert recorded.generated is False
+    assert (bundle_path / "resources").exists()
+
+
+def test_a_checked_in_input_records_where_it_is_committed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The bytes are re-hosted, so the link back to the repository is what is left."""
+    sha = "b9aa2996d890d16691d9978ec4f1772f5e51b0f1"
+    monkeypatch.setattr(
+        "bookshelf.publisher.recording.derive_code_ref",
+        lambda: f"git@github.com:climate-resource/feedstock.git@{sha}",
+    )
+    recipe = _write_recipe(tmp_path, _PATH_VERSION)
+    _write_data(tmp_path)
+    bundle_path = tmp_path / "bundle"
+
+    with _recording(recipe, bundle_path):
+        build = setup()
+        build.use("raw")
+        recorded = _written_resource(build.bs, bundle_path, "raw")
+
+    assert recorded.metadata["source_url"] == (
+        f"https://github.com/climate-resource/feedstock/blob/{sha}/data/raw.csv"
+    )
+
+
+def test_a_checked_in_input_without_a_derivable_commit_still_records(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A checkout git cannot read is a missing link, not a failed build."""
+
+    def _refuse() -> str:
+        raise BookshelfError("no repository here")
+
+    monkeypatch.setattr("bookshelf.publisher.recording.derive_code_ref", _refuse)
+    recipe = _write_recipe(tmp_path, _PATH_VERSION)
+    _write_data(tmp_path)
+    bundle_path = tmp_path / "bundle"
+
+    with _recording(recipe, bundle_path):
+        build = setup()
+        raw = build.use("raw")
+        recorded = _written_resource(build.bs, bundle_path, "raw")
+
+    assert raw.hash == f"sha256:{_SHA256}"
+    assert "source_url" not in recorded.metadata
+
+
 def test_a_path_resource_is_recipe_relative(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -429,6 +495,12 @@ def _written_pointers(bs: RecordingBookshelf, bundle_path: Path) -> list[BundleR
     return [r for r in Bundle.read(bundle_path).manifest.resources if r.kind == "pointer"]
 
 
+def _written_resource(bs: RecordingBookshelf, bundle_path: Path, name: str) -> BundleResource:
+    """Write the bundle and read one resource back, so the assertion is on the manifest on disk."""
+    bs.bundle.write()
+    return next(r for r in Bundle.read(bundle_path).manifest.resources if r.name == name)
+
+
 def test_a_version_doi_lands_on_the_recorded_pointer(tmp_path: Path, server: _Server) -> None:
     bundle_path = tmp_path / "bundle"
     with _recording(_write_recipe(tmp_path, _URI_VERSION), bundle_path):
@@ -450,10 +522,9 @@ def test_a_version_without_a_doi_records_no_doi_key(tmp_path: Path) -> None:
     with _recording(recipe, bundle_path):
         build = setup()
         build.use("raw")
-        pointer = _written_pointers(build.bs, bundle_path)[0]
+        recorded = _written_resource(build.bs, bundle_path, "raw")
 
-    assert "doi" not in pointer.metadata
-    assert pointer.external_uri == "data/raw.csv"
+    assert "doi" not in recorded.metadata
 
 
 def test_the_handle_is_usable_as_lineage(tmp_path: Path, server: _Server) -> None:

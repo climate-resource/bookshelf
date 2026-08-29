@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import quote, urlsplit, urlunsplit
 from uuid import UUID, uuid5
 
 from bookshelf._core.errors import BookshelfError
@@ -136,6 +137,52 @@ def canonical_config_hash(config: dict[str, Any]) -> str:
     return sha256_hex(canonical_json_bytes(config))
 
 
+# ``<remote>@<sha>[+dirty]``, where the remote may itself hold an ``@`` in the scp form.
+_CODE_REF = re.compile(r"^(?P<remote>.+)@(?P<sha>[0-9a-f]{40})(?P<dirty>\+dirty)?$")
+_SCP_REMOTE = re.compile(r"^[^/@]+@(?P<host>[^:/]+):(?P<path>.+)$")
+
+# The path segment a forge puts between the repository and the revision.
+_FORGE_BLOB_SEGMENT = {"github.com": "blob", "gitlab.com": "-/blob"}
+
+
+def source_url(code_ref: str, relative_path: str) -> str | None:
+    """Return the web address of a checked-in file at the revision ``code_ref`` names.
+
+    A checked-in input is re-hosted by the platform,
+    so this link is what still ties the stored bytes back to the repository they came from.
+
+    Returns ``None`` rather than raising whenever no honest link can be built:
+    a dirty tree, because the revision does not name the bytes that were read,
+    an unrecognised forge, or a remote this cannot parse.
+    The link is a convenience, so failing to derive one must never fail a build.
+    """
+    match = _CODE_REF.match(code_ref)
+    if match is None or match.group("dirty"):
+        return None
+    host, path = _remote_parts(match.group("remote"))
+    if host is None or path is None:
+        return None
+    segment = _FORGE_BLOB_SEGMENT.get(host.lower())
+    if segment is None:
+        return None
+    quoted = quote(relative_path.strip("/"))
+    return f"https://{host}/{path}/{segment}/{match.group('sha')}/{quoted}"
+
+
+def _remote_parts(remote: str) -> tuple[str | None, str | None]:
+    """Split a git remote into its host and its ``owner/repo`` path."""
+    scp = _SCP_REMOTE.match(remote)
+    if scp is not None:
+        host, path = scp.group("host"), scp.group("path")
+    else:
+        parsed = urlsplit(remote)
+        if not parsed.hostname:
+            return None, None
+        host, path = parsed.hostname, parsed.path
+    path = path.strip("/").removesuffix(".git")
+    return (host, path) if host and path else (None, None)
+
+
 def derive_activity_id(
     *,
     kind: str,
@@ -160,4 +207,4 @@ def derive_activity_id(
     return uuid5(_ACTIVITY_NAMESPACE, seed.decode())
 
 
-__all__ = ["canonical_config_hash", "derive_activity_id", "derive_code_ref"]
+__all__ = ["canonical_config_hash", "derive_activity_id", "derive_code_ref", "source_url"]

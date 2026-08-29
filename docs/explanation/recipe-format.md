@@ -161,6 +161,9 @@ They sit flat at both levels, and where both set it, the book wins.
   `uri:` is remote and carries the `sha256` the fetch is checked against.
   `path:` is a file beside the recipe, and its digest is computed when it is read.
   This is asked of the merged resource, so a default and a book may each hold half of it.
+  A `uri:` resource is catalogued as a pointer, because the platform can fetch it again.
+  A `path:` resource is re-hosted, because a repository path is no address the platform can resolve.
+  Its `source_url` metadata links to the commit the file was read at, where the checkout names one.
 - **A `bookshelf://` uri states no `sha256`.**
   The platform holds the resource already, so the digest comes from it.
   Stating one is rejected rather than checked, because a recipe cannot know it in advance.

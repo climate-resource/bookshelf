@@ -109,6 +109,10 @@ def normalised(manifest: BundleManifest, excluded: set[str]) -> BundleManifest:
         pinned.activity.runner = PINNED_RUNNER
         pinned.activity.activity_id = PINNED_ACTIVITY_ID
     pinned.resources = [resource for resource in pinned.resources if resource.name not in excluded]
+    for resource in pinned.resources:
+        # A checked-in input links to the commit it was read at, and a dirty tree records no
+        # link at all, so whether one is here tracks the checkout rather than the bundle format.
+        resource.metadata.pop("source_url", None)
     if pinned.book is not None:
         pinned.book.entries = [entry for entry in pinned.book.entries if entry.name not in excluded]
         # The fingerprint is the activity's, and the activity's is pinned above.

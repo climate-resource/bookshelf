@@ -23,7 +23,12 @@ from bookshelf._produce import helpers
 from bookshelf._produce.activities import Activity
 from bookshelf._produce.books import DraftBook
 from bookshelf._produce.facade import ProcessingInput
-from bookshelf._produce.provenance import canonical_config_hash, derive_activity_id
+from bookshelf._produce.provenance import (
+    canonical_config_hash,
+    derive_activity_id,
+    derive_code_ref,
+    source_url,
+)
 from bookshelf._produce.resources import Resource
 from bookshelf._produce.serialise import SerialisedObject, serialise
 from bookshelf._produce.types import HasTrackingId, RegisterItem, UsedInput
@@ -496,6 +501,8 @@ class RecordingSink:
         # so this is what lets ``used=[handle]`` and ``attach(handle)`` resolve to a name.
         self._names: dict[UUID, str] = {}
         self._used_resources: dict[str, ResolvedResource] = {}
+        self._code_ref: str | None = None
+        self._code_ref_derived = False
         self.default_visibility = default_visibility
         """The tier a registration takes when the build file names none.
 
@@ -527,8 +534,6 @@ class RecordingSink:
                 "the block that is already open, or through book.write."
             )
         if code_ref is None:
-            from bookshelf._produce.provenance import derive_code_ref
-
             code_ref = derive_code_ref()
         parameters = dict(config or {})
         settled_hash = config_hash or canonical_config_hash(parameters)
@@ -660,6 +665,60 @@ class RecordingSink:
             dedupe=dedupe,
         )
 
+    def register_file(
+        self,
+        *,
+        type: str | models.ResourceType,
+        path: Path,
+        relative_path: str,
+        hash: str,
+        name: str | None = None,
+        visibility: VisibilityInput = INHERIT,
+        tags: Sequence[str] = (),
+        metadata: Mapping[str, Any] | None = None,
+        tracking_id: UUID | None = None,
+        dedupe: bool = True,
+    ) -> RecordedResource:
+        """Record a checked-in file as managed bytes, linked back to where it is committed."""
+        source = self._source_url(relative_path)
+        merged = dict(metadata or {})
+        if source is not None:
+            merged.setdefault("source_url", source)
+        return _record_file(
+            self.bundle,
+            self._client,
+            self._cache,
+            self._names,
+            type=type,
+            path=path,
+            hash=hash,
+            name=name,
+            visibility=visibility,
+            default_visibility=self.default_visibility,
+            tags=tags,
+            metadata=merged,
+            tracking_id=tracking_id,
+            dedupe=dedupe,
+        )
+
+    def _source_url(self, relative_path: str) -> str | None:
+        """The committed address of a checked-in file, when the checkout can name one."""
+        if not self._code_ref_derived:
+            self._code_ref = self._derive_code_ref()
+            self._code_ref_derived = True
+        if self._code_ref is None:
+            return None
+        return source_url(self._code_ref, relative_path)
+
+    def _derive_code_ref(self) -> str | None:
+        # A link is a convenience, so a checkout that cannot name a revision still records.
+        if self._open_activity is not None:
+            return self._open_activity.code_ref
+        try:
+            return derive_code_ref()
+        except BookshelfError:
+            return None
+
     def use(self, name: str) -> ResolvedResource:
         """Resolve the named resource of the recorded version.
 
@@ -680,6 +739,7 @@ class RecordingSink:
                 recipe_dir=self._recipe_dir,
                 cache=self._cache,
                 register_external=self.register_external,
+                register_file=self.register_file,
                 lookup_book=self._lookup_book,
             )
             self._used_resources[name] = resolved
@@ -852,6 +912,54 @@ def _record_pointer(
         tags=tags,
         metadata=metadata,
         location=uri,
+    )
+
+
+def _record_file(
+    bundle: Bundle,
+    client: BookshelfClient,
+    cache: ContentCache,
+    names: dict[UUID, str],
+    *,
+    type: str | models.ResourceType,
+    path: Path,
+    hash: str,
+    name: str | None,
+    visibility: VisibilityInput,
+    default_visibility: models.Visibility,
+    tags: Sequence[str],
+    metadata: Mapping[str, Any] | None,
+    tracking_id: UUID | None,
+    dedupe: bool,
+) -> RecordedResource:
+    """Append one checked-in file as a managed resource, bytes and all."""
+    recorded_name = _recorded_name(name)
+    resource_type = helpers.resource_type(type)
+    resource_visibility = helpers.visibility(visibility, default_visibility)
+    resource_id = tracking_id or helpers.uuid7()
+    bundle.add_resource(
+        data=path.read_bytes(),
+        hash_=hash,
+        type_=resource_type.value,
+        name=recorded_name,
+        visibility=resource_visibility.value,
+        tags=list(tags),
+        metadata=dict(metadata or {}),
+        dedupe=dedupe,
+        # An input is read by the activity rather than produced by it.
+        generated=False,
+    )
+    names[resource_id] = recorded_name
+    return RecordedResource(
+        client,
+        cache,
+        resource_id,
+        resource_type,
+        hash,
+        name=recorded_name,
+        visibility=resource_visibility,
+        tags=tags,
+        metadata=metadata,
     )
 
 
