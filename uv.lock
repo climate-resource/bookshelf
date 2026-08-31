@@ -14,7 +14,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-08-17T03:05:24.380651687Z"
+exclude-newer = "2026-08-24T01:42:23.937055324Z"
 exclude-newer-span = "P7D"
 
 [manifest]
@@ -161,7 +161,7 @@ wheels = [
 
 [[package]]
 name = "bookshelf"
-version = "1.0.0b1"
+version = "1.0.0b2"
 source = { editable = "packages/bookshelf" }
 dependencies = [
     { name = "gitpython" },
@@ -247,7 +247,7 @@ dev = [
 
 [[package]]
 name = "bookshelf-root"
-version = "1.0.0b1"
+version = "1.0.0b2"
 source = { virtual = "." }
 dependencies = [
     { name = "bookshelf", extra = ["dataframes", "scmrun"] },
