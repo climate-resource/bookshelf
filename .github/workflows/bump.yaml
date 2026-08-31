@@ -39,6 +39,8 @@ jobs:
       - uses: ./.github/actions/setup
 
       - name: Create bump and changelog
+        env:
+          UPDATE_CHANGELOG: ${{ github.event.inputs.update_changelog }}
         run: |
           git config --global user.name "$GITHUB_ACTOR"
           git config --global user.email "$CI_COMMIT_EMAIL"
@@ -56,10 +58,13 @@ jobs:
 
           echo "Bumping to version $NEW_VERSION"
 
-          # Build CHANGELOG
-          [[ "${{ github.event.inputs.update_changelog }}" == "true" ]] \
-            && uv run towncrier build --yes --version v$NEW_VERSION \
-            || echo "Skipping changelog update"
+          # Build CHANGELOG. A pre-release never consumes the fragments, whatever the
+          # input says, because they describe the release they are leading up to.
+          if [[ "${UPDATE_CHANGELOG}" == "true" && ! "$NEW_VERSION" =~ ([abrc]+) ]]; then
+            uv run towncrier build --yes --version v$NEW_VERSION
+          else
+            echo "Skipping changelog update"
+          fi
 
           uv lock
 
