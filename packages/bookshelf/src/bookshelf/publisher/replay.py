@@ -89,7 +89,7 @@ def _resource(resource: BundleResource, storage_path: str | None) -> models.Repl
         kind=models.Kind2(resource.kind),
         format=resource.format,
         visibility=models.Visibility(resource.visibility),
-        discovery=models.ResourceDiscovery(tags=list(resource.tags)),
+        discovery=resource.discovery,
         metadata=dict(resource.metadata),
         dedupe=resource.dedupe,
         size_bytes=None if pointer else resource.size,

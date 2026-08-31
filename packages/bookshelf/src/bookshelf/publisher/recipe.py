@@ -99,6 +99,11 @@ class PersonSpec(_Section):
     orcid: str | None = Field(default=None, min_length=1)
 
 
+def credited(people: Collection[PersonSpec] | None) -> list[dict[str, Any]]:
+    """Render declared people as the mappings every producer surface takes them as."""
+    return [person.model_dump(exclude_none=True) for person in people or ()]
+
+
 class DiscoveryFields(_Section):
     """The catalogue metadata ``defaults:`` may state and any book may override.
 
@@ -134,6 +139,9 @@ class VolumeSection(_Section):
     ``keywords`` is the search vocabulary,
     which is why it is declared once for the volume rather than per book.
     Letting it vary would make a filter return a different volume depending on which edition matched.
+
+    ``maintainers`` are whoever runs the feedstock, which is a contact rather than a credit.
+    Who made the data is a book's ``authors``, and repackaging somebody else's data is not authorship.
 
     Neither a licence nor catalogue metadata is declared here.
     Each book states its own licence, because a relicensed version is common
@@ -177,6 +185,16 @@ class _ResourceFields(_Section):
     platform already states the type. Where it is stated the resolved resource is checked
     against it.
 
+    The remaining fields are the catalogue metadata the platform holds per resource,
+    spelled exactly as a book spells them.
+    A resource states its own and inherits none of the book's,
+    because a book assembled from other people's data credits them on the thing they made
+    rather than on the book as a whole.
+    A resource that states nothing therefore carries nothing,
+    which is at least honest about what is known.
+    Stating a field once under ``defaults:`` still shares it across every book that names
+    the resource.
+
     The rules here are structural, and nothing in this module fetches anything.
     Each stated field is checked on its own, and every field is optional.
     """
@@ -185,6 +203,13 @@ class _ResourceFields(_Section):
     uri: str | None = Field(default=None, min_length=1)
     path: Path | None = None
     sha256: str | None = None
+    tags: list[str] | None = None
+    description: str | None = None
+    authors: list[PersonSpec] | None = None
+    doi: str | None = None
+    citation: str | None = None
+    license: str | None = None
+    license_url: str | None = None
 
     @field_validator("type", mode="before")
     @classmethod
@@ -222,6 +247,13 @@ class _ResourceFields(_Section):
         if value is not None and _SHA256_RE.match(value) is None:
             raise ValueError(f"sha256 must be 64 hex characters, got {value!r}")
         return None if value is None else value.lower()
+
+
+# The catalogue fields a resource declares, being those it shares with the wire model.
+# Deriving the set means a field added to either side joins the rules below without another edit.
+_DISCOVERY_FIELDS = tuple(
+    name for name in models.ResourceDiscovery.model_fields if name in _ResourceFields.model_fields
+)
 
 
 class ResourceDefaults(_ResourceFields):
@@ -267,6 +299,13 @@ class ResourceSpec(_ResourceFields):
                 raise ValueError(
                     "a bookshelf resource takes its digest from the platform, so it states no "
                     "sha256. Remove sha256, or name something to fetch with an http uri instead"
+                )
+            stated = [name for name in _DISCOVERY_FIELDS if getattr(self, name) is not None]
+            if stated:
+                raise ValueError(
+                    "a bookshelf resource takes its catalogue metadata from the platform, "
+                    f"so it states none of its own. Remove {', '.join(stated)}, "
+                    "or name something to fetch with an http uri instead"
                 )
             return self
         if self.uri is not None and self.sha256 is None:
@@ -367,9 +406,7 @@ class ResolvedBook(BaseModel):
     @property
     def authors(self) -> tuple[dict[str, Any], ...]:
         """The people credited with this book, as the producer surfaces take them."""
-        return tuple(
-            author.model_dump(exclude_none=True) for author in self.discovery.authors or ()
-        )
+        return tuple(credited(self.discovery.authors))
 
 
 class RecordRecipe(BaseModel):

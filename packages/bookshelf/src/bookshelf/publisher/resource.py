@@ -14,10 +14,10 @@ This is what makes a book that is built from another book cite the original rath
 """
 
 import hashlib
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, TypedDict, Unpack
 from uuid import UUID
 
 import httpx
@@ -27,11 +27,40 @@ from bookshelf._core.names import flatten_to_resource_name
 from bookshelf._generated import models
 from bookshelf._produce.types import HasTrackingId
 from bookshelf.cache import ContentCache
-from bookshelf.publisher.recipe import ResourceSpec
+from bookshelf.publisher.recipe import ResourceSpec, credited
 from bookshelf.publisher.reference import BookshelfReference
 
 DOWNLOAD_TIMEOUT = 600.0
 _CHUNK_BYTES = 1 << 20
+
+
+class Catalogue(TypedDict):
+    """The catalogue metadata a declared resource registers with.
+
+    It is one keyword block rather than seven parameters,
+    so a field added to a recipe reaches the wire without another signature to edit.
+    """
+
+    tags: Sequence[str]
+    description: str | None
+    authors: Sequence[Mapping[str, Any]] | None
+    doi: str | None
+    citation: str | None
+    license: str | None
+    license_url: str | None
+
+
+def _catalogue(spec: ResourceSpec) -> Catalogue:
+    """Read what a resource declares for itself, filling in nothing from the book."""
+    return Catalogue(
+        tags=list(spec.tags or ()),
+        description=spec.description,
+        authors=None if spec.authors is None else credited(spec.authors),
+        doi=spec.doi,
+        citation=spec.citation,
+        license=spec.license,
+        license_url=spec.license_url,
+    )
 
 
 class RegisterExternal(Protocol):
@@ -49,6 +78,7 @@ class RegisterExternal(Protocol):
         hash: str,
         name: str,
         metadata: Mapping[str, Any] | None,
+        **catalogue: Unpack[Catalogue],
     ) -> HasTrackingId:
         """Catalogue an external pointer and return its handle."""
         ...
@@ -69,6 +99,7 @@ class RegisterFile(Protocol):
         hash: str,
         name: str,
         metadata: Mapping[str, Any] | None,
+        **catalogue: Unpack[Catalogue],
     ) -> HasTrackingId:
         """Catalogue the bytes of a checked-in file and return its handle."""
         ...
@@ -162,6 +193,8 @@ def resolve_resource(
     Nothing is registered for it, because the platform already holds it,
     and the pointer returned is the published resource itself.
 
+    Whatever catalogue metadata the resource declares is registered with it.
+
     Raises :class:`~bookshelf._core.errors.BookshelfError` naming the declared resources
     when the version does not declare ``name``.
     """
@@ -178,6 +211,7 @@ def resolve_resource(
             f"resource {name!r} states no type. "
             "Add type, or name a bookshelf resource, whose type the platform states"
         )
+    catalogue = _catalogue(spec)
     if spec.path is not None:
         path, content_hash = _checked_in(name, relative=spec.path, recipe_dir=recipe_dir)
         pointer = register_file(
@@ -186,6 +220,7 @@ def resolve_resource(
             hash=content_hash,
             name=flatten_to_resource_name(name),
             metadata={"doi": doi} if doi is not None else None,
+            **catalogue,
         )
         return ResolvedResource(
             name=name,
@@ -209,6 +244,7 @@ def resolve_resource(
         # flattened because a recipe may declare it under something the platform would refuse.
         name=flatten_to_resource_name(name),
         metadata={"doi": doi} if doi is not None else None,
+        **catalogue,
     )
     return ResolvedResource(
         name=name,
@@ -354,6 +390,7 @@ __all__ = [
     "PublishedBook",
     "PublishedEntry",
     "ResolvedResource",
+    "Catalogue",
     "RegisterFile",
     "resolve_resource",
 ]

@@ -62,6 +62,6 @@ resources:
   - golden-upstream
   - emissions
   visibility: public
-schema_version: '3.1'
+schema_version: '3.2'
 writer:
   pyarrow: 23.0.0

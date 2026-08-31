@@ -102,8 +102,12 @@ def volume_create(
     name: str = typer.Argument(help="Volume name, in alphanumerics, hyphens and underscores."),
     licence: str = typer.Option(..., "--licence", help="SPDX licence identifier."),
     description: str | None = typer.Option(None, "--description", help="Long-form description."),
-    author: list[str] = typer.Option([], "--author", help="Author name. Repeatable."),
-    maintainer: list[str] = typer.Option([], "--maintainer", help="Maintainer name. Repeatable."),
+    author: list[str] = typer.Option(
+        [], "--author", help="Name of somebody who made the data. Repeatable."
+    ),
+    maintainer: list[str] = typer.Option(
+        [], "--maintainer", help="Name of somebody who maintains the feedstock. Repeatable."
+    ),
     metadata: Path | None = typer.Option(
         None, "--metadata", help="JSON file holding arbitrary volume metadata."
     ),
@@ -133,8 +137,12 @@ def volume_create(
 def volume_update(
     name: str = typer.Argument(help="Volume to update."),
     description: str | None = typer.Option(None, "--description", help="Long-form description."),
-    author: list[str] = typer.Option([], "--author", help="Author name. Repeatable."),
-    maintainer: list[str] = typer.Option([], "--maintainer", help="Maintainer name. Repeatable."),
+    author: list[str] = typer.Option(
+        [], "--author", help="Name of somebody who made the data. Repeatable."
+    ),
+    maintainer: list[str] = typer.Option(
+        [], "--maintainer", help="Name of somebody who maintains the feedstock. Repeatable."
+    ),
     metadata: Path | None = typer.Option(
         None, "--metadata", help="JSON file holding arbitrary volume metadata."
     ),

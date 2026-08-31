@@ -15,6 +15,7 @@ from bookshelf._produce.activities import Activity, AsyncActivity
 from bookshelf._produce.books import AsyncDraftBook, DraftBook
 from bookshelf._produce.provenance import derive_code_ref
 from bookshelf._produce.resources import AsyncResource, Resource
+from bookshelf._produce.types import AuthorInput
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
 from bookshelf.cache import ContentCache
 
@@ -69,9 +70,8 @@ def discovery_input(
     return models.BookDiscoveryInput(**declared) if declared else None
 
 
-def people(values: Sequence[Mapping[str, Any]]) -> list[models.Author]:
-    """Validate a list of authors or maintainers, which share one shape."""
-    return [models.Author.model_validate(dict(value)) for value in values]
+people = helpers.people
+"""Validate a list of authors or maintainers, which share one shape."""
 
 
 ProcessingInput = Sequence[tuple[str, str]]
@@ -182,6 +182,12 @@ class LiveSink:
         name: str | None = None,
         visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
+        description: str | None = None,
+        authors: Sequence[AuthorInput] | None = None,
+        doi: str | None = None,
+        citation: str | None = None,
+        license: str | None = None,
+        license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
         dedupe: bool = True,
@@ -193,7 +199,15 @@ class LiveSink:
             hash=hash,
             name=name,
             visibility=helpers.visibility(visibility, self.default_visibility),
-            tags=tags,
+            discovery=helpers.resource_discovery(
+                tags,
+                description=description,
+                authors=authors,
+                doi=doi,
+                citation=citation,
+                license=license,
+                license_url=license_url,
+            ),
             metadata=metadata,
             tracking_id=tracking_id,
             dedupe=dedupe,
@@ -298,6 +312,12 @@ class AsyncLiveSink:
         name: str | None = None,
         visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
+        description: str | None = None,
+        authors: Sequence[AuthorInput] | None = None,
+        doi: str | None = None,
+        citation: str | None = None,
+        license: str | None = None,
+        license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
         dedupe: bool = True,
@@ -309,7 +329,15 @@ class AsyncLiveSink:
             hash=hash,
             name=name,
             visibility=helpers.visibility(visibility, self.default_visibility),
-            tags=tags,
+            discovery=helpers.resource_discovery(
+                tags,
+                description=description,
+                authors=authors,
+                doi=doi,
+                citation=citation,
+                license=license,
+                license_url=license_url,
+            ),
             metadata=metadata,
             tracking_id=tracking_id,
             dedupe=dedupe,
@@ -388,6 +416,12 @@ class _ProduceSink[ActivityT, ResourceT, DraftT](Protocol):
         name: str | None = None,
         visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
+        description: str | None = None,
+        authors: Sequence[AuthorInput] | None = None,
+        doi: str | None = None,
+        citation: str | None = None,
+        license: str | None = None,
+        license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
         dedupe: bool = True,

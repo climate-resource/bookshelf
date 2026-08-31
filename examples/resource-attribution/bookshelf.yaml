@@ -1,0 +1,40 @@
+volume:
+  name: resource-attribution-example
+  maintainers:
+    - name: Climate Resource
+      email: info@climate-resource.com
+  keywords:
+    - example
+
+defaults:
+  title: A feedstock whose inputs and outputs have different authors
+  publisher: Climate Resource
+
+build:
+  notebook: build.py
+
+books:
+  - version: "v1.0.0"
+    license: CC-BY-4.0
+    visibility: public
+    description: One workbook from an upstream team, and one timeseries derived from it.
+    # The bulk of the data is the upstream team's, so the book credits them.
+    # Climate Resource runs the feedstock, which is what volume.maintainers records.
+    authors:
+      - name: Upstream Modelling Team
+        affiliation: An institute that is not us
+    resources:
+      # The input is somebody else's work, so it is credited to them under the terms they published it under.
+      upstream:
+        type: tabular
+        path: inputs/upstream.csv
+        description: Regional CO2 emissions as the upstream team published them.
+        authors:
+          - name: Upstream Modelling Team
+            affiliation: An institute that is not us
+        license: CC-BY-SA-4.0
+        license_url: https://creativecommons.org/licenses/by-sa/4.0/
+        doi: 10.5281/zenodo.0000000
+        citation: Upstream Modelling Team (2024). Regional CO2 emissions.
+        tags:
+          - upstream
