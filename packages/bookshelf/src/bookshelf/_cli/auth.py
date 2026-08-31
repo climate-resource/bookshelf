@@ -383,6 +383,8 @@ def auth_whoami(
         source, stored = config.resolve_ambient_credential(base)
         if source in (CredentialSource.ENV_TOKEN, CredentialSource.CLIENT_CREDENTIALS):
             stored = credentials.load_credentials(base)
+        if stored is None:
+            _note_records_without_secrets(base)
         shadows: dict[str, str] | None = None
         if source is not CredentialSource.STORED_LOGIN and stored is not None:
             shadows = {
@@ -525,6 +527,13 @@ def auth_logout(
             base = resolve_base_url(api_url)
             records = [record for record in records if record.api_url == base]
             if not records:
+                if any(
+                    deployment == base
+                    for deployment, _ in credentials.records_without_stored_secret()
+                ):
+                    credentials.clear_credentials(base)
+                    note(f"Cleared credentials for {base}")
+                    return
                 note(f"Not logged in to {base}.")
                 return
 
@@ -556,6 +565,19 @@ def auth_logout(
             )
 
 
+def _note_records_without_secrets(api_url: str | None = None) -> None:
+    """Explain any identity the file indexes but cannot serve, so it does not read as absent."""
+    for deployment, kind in credentials.records_without_stored_secret():
+        if api_url is not None and deployment != api_url:
+            continue
+        note(
+            f"The stored {kind} identity for {deployment} has no secret in the credentials file. "
+            "It was most likely left in the OS keychain, which is no longer read by default. "
+            "Run 'bookshelf auth login' to store it in the file, "
+            "or set BOOKSHELF_USE_KEYCHAIN=1 to read the keychain again."
+        )
+
+
 @auth_app.command("list")
 def auth_list(
     json_output: bool = typer.Option(False, "--json", help="Emit one JSON object per identity."),
@@ -564,13 +586,7 @@ def auth_list(
     with command_errors():
         records = credentials.list_credentials()
         active = credentials.active_kinds()
-        for stranded in credentials.keychain_only_records():
-            note(
-                f"{stranded} has a login whose secret is in the OS keychain, "
-                "which is no longer read by default. "
-                "Run 'bookshelf auth login' to store it in the credentials file, "
-                "or set BOOKSHELF_USE_KEYCHAIN=1 to keep using the keychain."
-            )
+        _note_records_without_secrets()
         if not records:
             note("No stored identities. Run 'bookshelf auth login' to add one.")
             return

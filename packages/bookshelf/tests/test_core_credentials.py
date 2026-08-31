@@ -455,14 +455,54 @@ def test_logout_still_clears_the_keychain_when_it_is_off(
     assert spy_keyring.store == {}
 
 
-def test_a_keychain_only_login_is_reported_as_stranded(
+def test_a_record_the_file_cannot_serve_is_reported(
     isolated_store: Path, spy_keyring: _SpyKeyring, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A record written under the old default must be nameable, so the CLI can explain it."""
     monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", "1")
     credentials.save_credentials("at", api_url="https://api.test")
-    assert credentials.keychain_only_records() == []
+    assert credentials.records_without_stored_secret() == []
 
     monkeypatch.delenv("BOOKSHELF_USE_KEYCHAIN", raising=False)
     assert credentials.load_credentials() is None
-    assert credentials.keychain_only_records() == ["https://api.test"]
+    assert credentials.records_without_stored_secret() == [
+        ("https://api.test", credentials.CredentialKind.USER)
+    ]
+
+
+def test_a_stranded_record_names_its_kind(
+    isolated_store: Path, spy_keyring: _SpyKeyring, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two kinds on one deployment must be told apart, because the remedy differs."""
+    monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", "1")
+    for kind in credentials.CredentialKind:
+        credentials.save_record(
+            credentials.StoredCredentials(
+                access_token="at",
+                token_type="bearer",
+                expires_at=None,
+                api_url="https://api.test",
+                refresh_token=None,
+                kind=kind,
+            )
+        )
+
+    monkeypatch.delenv("BOOKSHELF_USE_KEYCHAIN", raising=False)
+    assert sorted(credentials.records_without_stored_secret()) == [
+        ("https://api.test", credentials.CredentialKind.AGENT),
+        ("https://api.test", credentials.CredentialKind.USER),
+    ]
+
+
+@pytest.mark.parametrize(
+    "api_url", ["https://api.test", "https://api.test/pipe|in|path", "https://api.test/"]
+)
+def test_a_record_key_splits_back_into_its_parts(api_url: str) -> None:
+    kind = credentials.CredentialKind.AGENT
+    key = credentials.record_key(api_url, kind)
+    assert credentials.record_key_parts(key) == (credentials.normalise_api_url(api_url), kind)
+
+
+@pytest.mark.parametrize("key", ["https://api.test", "https://api.test|nonsense", "", "|"])
+def test_a_key_that_is_not_a_record_key_splits_to_nothing(key: str) -> None:
+    assert credentials.record_key_parts(key) is None

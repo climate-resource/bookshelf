@@ -45,6 +45,7 @@ def isolated_credentials(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
         "BOOKSHELF_CLIENT_SECRET",
         "BOOKSHELF_TOKEN_URL",
         "BOOKSHELF_WORKOS_CLIENT_ID",
+        "BOOKSHELF_USE_KEYCHAIN",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -285,3 +286,58 @@ def test_switch_to_unknown_identity_names_list_command() -> None:
 
     assert result.exit_code == 2
     assert "bookshelf auth list" in result.stderr
+
+
+def _store_a_keychain_only_record(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Log in with the keychain on, then turn it off, as an upgrade does."""
+    monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", "1")
+    credentials.save_credentials("at", api_url=API_URL, refresh_token="rt")
+    monkeypatch.delenv("BOOKSHELF_USE_KEYCHAIN", raising=False)
+    assert credentials.load_credentials(API_URL) is None
+
+
+def test_logout_clears_a_secret_left_in_the_keychain(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The record no longer loads, so logout has to clear it without one to work from."""
+    _store_a_keychain_only_record(monkeypatch)
+
+    result = runner.invoke(app, ["auth", "logout"])
+
+    assert result.exit_code == 0
+    assert "Cleared credentials" in result.output
+    monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", "1")
+    assert credentials.load_credentials(API_URL) is None
+
+
+def test_logout_without_any_record_still_reports_not_logged_in() -> None:
+    result = runner.invoke(app, ["auth", "logout"])
+
+    assert result.exit_code == 0
+    assert "Not logged in" in result.output
+
+
+def test_whoami_explains_a_record_it_cannot_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    _store_a_keychain_only_record(monkeypatch)
+
+    result = runner.invoke(app, ["auth", "whoami", "--offline"])
+
+    assert result.exit_code == 0
+    assert "no secret in the credentials file" in result.output
+    assert "BOOKSHELF_USE_KEYCHAIN=1" in result.output
+
+
+def test_list_explains_a_record_it_cannot_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    _store_a_keychain_only_record(monkeypatch)
+
+    result = runner.invoke(app, ["auth", "list"])
+
+    assert result.exit_code == 0
+    assert "no secret in the credentials file" in result.output
+
+
+def test_whoami_stays_quiet_when_the_file_holds_the_secret() -> None:
+    credentials.save_credentials("at", api_url=API_URL)
+
+    result = runner.invoke(app, ["auth", "whoami", "--offline"])
+
+    assert result.exit_code == 0
+    assert "no secret in the credentials file" not in result.output

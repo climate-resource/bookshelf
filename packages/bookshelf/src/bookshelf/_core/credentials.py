@@ -13,15 +13,10 @@ Secrets have two possible homes:
    (``"<key>:access_token"`` and friends).
    On read the keychain value takes precedence over the file copy.
 
-The file is the default because the keychain cannot keep its promise for a library like this one.
-macOS binds a keychain item's access control list to the designated requirement
-of the process that reads it.
-An SDK installed from PyPI runs under whatever interpreter the user has,
-and every common one (uv, Homebrew, pyenv) is ad-hoc signed with no stable identity,
-so the list pins to a code hash that changes on the next interpreter upgrade.
-The result is an unlock prompt on every command that "always allow" cannot silence.
-The keychain is worth turning on where the interpreter is properly signed,
-or on a platform whose backend is a real secret service.
+The file is the default because macOS keys a keychain item's access control list to the
+code signature of the reading process, and the interpreters this SDK runs under are ad-hoc
+signed, so the list never holds and the unlock prompt never stops.
+``docs/configuration.md`` carries the reasoning in full.
 
 When no keychain backend is available every keychain call degrades silently to the file-only path.
 """
@@ -112,6 +107,13 @@ def normalise_api_url(api_url: str) -> str:
 def record_key(api_url: str, kind: CredentialKind) -> str:
     """Return the store key for one deployment plus identity kind."""
     return f"{normalise_api_url(api_url)}|{kind}"
+
+
+def record_key_parts(key: str) -> tuple[str, CredentialKind] | None:
+    """Split a store key back into its deployment and kind, or ``None`` if it is not one."""
+    api_url, separator, raw_kind = key.rpartition("|")
+    kind = _parse_kind(raw_kind) if separator else None
+    return None if kind is None else (api_url, kind)
 
 
 def credentials_path() -> Path:
@@ -269,19 +271,23 @@ def load_credentials(api_url: str | None = None) -> StoredCredentials | None:
     return _record_to_credentials(key, record)
 
 
-def keychain_only_records() -> list[str]:
-    """Return the deployment URLs whose secrets are readable only from the keychain.
+def records_without_stored_secret() -> list[tuple[str, CredentialKind]]:
+    """Return the identities the file indexes but cannot serve, newest spelling first.
 
-    A record written before the file became the default keeps its index entry
-    but holds no secret of its own,
-    so it reads as a missing login until the user logs in again.
+    A record written while the keychain held the secrets keeps its index entry
+    but no token of its own,
+    so it reads as a missing login rather than as one waiting to be moved.
+    Whether the keychain still holds the token cannot be checked without a prompt,
+    which is the prompt this store exists to avoid,
+    so the caller has to phrase its advice as the possibility it is.
     """
     if keychain_enabled():
         return []
     stranded = []
     for key, record in _read_store().get("records", {}).items():
-        if isinstance(record, dict) and not record.get("access_token"):
-            stranded.append(key.rsplit("|", 1)[0])
+        parts = record_key_parts(key)
+        if parts is not None and isinstance(record, dict) and not record.get("access_token"):
+            stranded.append(parts)
     return stranded
 
 
@@ -462,11 +468,12 @@ __all__ = [
     "clear_credentials",
     "credentials_path",
     "keychain_enabled",
-    "keychain_only_records",
     "list_credentials",
     "load_credentials",
     "normalise_api_url",
     "record_key",
+    "record_key_parts",
+    "records_without_stored_secret",
     "save_credentials",
     "save_record",
     "set_active",
