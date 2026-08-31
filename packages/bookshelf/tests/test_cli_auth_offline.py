@@ -45,6 +45,7 @@ def isolated_credentials(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
         "BOOKSHELF_CLIENT_SECRET",
         "BOOKSHELF_TOKEN_URL",
         "BOOKSHELF_WORKOS_CLIENT_ID",
+        "BOOKSHELF_USE_KEYCHAIN",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -285,3 +286,47 @@ def test_switch_to_unknown_identity_names_list_command() -> None:
 
     assert result.exit_code == 2
     assert "bookshelf auth list" in result.stderr
+
+
+def _store_a_keychain_only_record(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Log in with the keychain on, then turn it off, as an upgrade does."""
+    monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", "1")
+    credentials.save_credentials("at", api_url=API_URL, refresh_token="rt")
+    monkeypatch.delenv("BOOKSHELF_USE_KEYCHAIN", raising=False)
+    assert credentials.load_credentials(API_URL) is None
+
+
+def test_logout_clears_a_secret_left_in_the_keychain(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The record no longer loads, so logout has to clear it without one to work from."""
+    _store_a_keychain_only_record(monkeypatch)
+
+    result = runner.invoke(app, ["auth", "logout"])
+
+    assert result.exit_code == 0
+    assert "Cleared credentials" in result.output
+    monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", "1")
+    assert credentials.load_credentials(API_URL) is None
+
+
+def test_logout_all_reports_a_record_it_could_not_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    """--all clears a stranded record, so it has to say so rather than pass in silence."""
+    _store_a_keychain_only_record(monkeypatch)
+
+    result = runner.invoke(app, ["auth", "logout", "--all"])
+
+    assert result.exit_code == 0
+    assert f"Cleared credentials for {API_URL}" in result.output
+
+
+def test_a_re_login_takes_the_secret_out_of_the_keychain(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The advice says logging in moves the secret, so it has to leave no copy behind."""
+    _store_a_keychain_only_record(monkeypatch)
+
+    credentials.save_credentials("fresh", api_url=API_URL, refresh_token="fresh-rt")
+
+    assert credentials.records_needing_migration() == []
+    monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", "1")
+    reloaded = credentials.load_credentials(API_URL)
+    assert reloaded is not None
+    assert reloaded.access_token == "fresh"
+    assert reloaded.refresh_token == "fresh-rt"

@@ -6,12 +6,17 @@ One record per deployment is active, and one deployment is the default.
 
 Secrets have two possible homes:
 
-1. **OS keychain** (primary, hardened store) under service name ``"bookshelf"``
-   with one username per record secret (``"<key>:access_token"`` and friends).
+1. **JSON file** (the default) at the ``platformdirs`` user-config path
+   ``bookshelf/credentials.json``, readable only by the current user.
+2. **OS keychain** (opt in with ``$BOOKSHELF_USE_KEYCHAIN``) under service name
+   ``"bookshelf"``, with one username per record secret
+   (``"<key>:access_token"`` and friends).
    On read the keychain value takes precedence over the file copy.
-2. **JSON file** (secondary, compatibility store) at the ``platformdirs``
-   user-config path ``bookshelf/credentials.json``.
-   This file is only readable by the current user.
+
+The file is the default because macOS keys a keychain item's access control list to the code
+signature of the reading process.
+The interpreters this SDK runs under are ad-hoc signed, so the list never holds,
+and the unlock prompt never stops.
 
 When no keychain backend is available every keychain call degrades silently to the file-only path.
 """
@@ -109,6 +114,16 @@ def credentials_path() -> Path:
     return Path(user_config_dir("bookshelf")) / "credentials.json"
 
 
+def keychain_enabled() -> bool:
+    """Report whether ``$BOOKSHELF_USE_KEYCHAIN`` opts in to the OS keychain."""
+    return os.environ.get("BOOKSHELF_USE_KEYCHAIN", "").strip().lower() not in (
+        "",
+        "0",
+        "false",
+        "no",
+    )
+
+
 def _keychain_call(operation: str, *args: str) -> str | None:
     """Invoke a keyring operation, swallowing every backend failure.
 
@@ -126,15 +141,20 @@ def _keychain_call(operation: str, *args: str) -> str | None:
 
 def _keychain_set(username: str, value: str) -> bool:
     """Store one secret and confirm it can be read back."""
+    if not keychain_enabled():
+        return False
     _keychain_call("set_password", username, value)
     return _keychain_get(username) == value
 
 
 def _keychain_get(username: str) -> str | None:
+    if not keychain_enabled():
+        return None
     return _keychain_call("get_password", username)
 
 
 def _keychain_delete(username: str) -> None:
+    """Delete whether or not the keychain is opted in to, so a logout reaches every secret."""
     _keychain_call("delete_password", username)
 
 
@@ -244,6 +264,29 @@ def load_credentials(api_url: str | None = None) -> StoredCredentials | None:
     return _record_to_credentials(key, record)
 
 
+def records_needing_migration(api_url: str | None = None) -> list[tuple[str, CredentialKind]]:
+    """Return the identities the file indexes but holds no token for, narrowed by ``api_url``.
+
+    A record written while the keychain held the secrets reads as a missing login,
+    rather than as one waiting to be moved.
+    Nothing needs moving while the keychain is switched on, so the list is then empty.
+    """
+    if keychain_enabled():
+        return []
+    target = normalise_api_url(api_url) if api_url is not None else None
+    stranded = []
+    for record in _read_store().get("records", {}).values():
+        if not isinstance(record, dict) or record.get("access_token"):
+            continue
+        deployment = record.get("api_url")
+        kind = _parse_kind(record.get("kind", CredentialKind.USER))
+        if not isinstance(deployment, str) or kind is None:
+            continue
+        if target is None or deployment == target:
+            stranded.append((deployment, kind))
+    return stranded
+
+
 def list_credentials() -> list[StoredCredentials]:
     """Return every stored credential record."""
     store = _read_store()
@@ -319,18 +362,21 @@ def save_record(record: StoredCredentials) -> None:
         "refresh_token": record.refresh_token,
         "identity_assertion": record.identity_assertion,
     }
-    # A secret reaches the file only when the keychain could not take it.
-    # The record itself always stays in the file,
-    # because it is the index that names the keychain entries.
+    store = _read_store()
+    previous = store.get("records", {}).get(key)
+    if not isinstance(previous, dict):
+        previous = {}
+    # A secret reaches the file only when the keychain could not take it,
+    # and only a keychain-homed record can still be shadowed by a copy worth deleting.
+    keychain_homed = bool(previous) and not previous.get("access_token")
     for field in _SECRET_FIELDS:
         value = secrets[field]
-        if value is None:
-            _keychain_delete(f"{key}:{field}")
-        elif _keychain_set(f"{key}:{field}", value):
+        if value is not None and _keychain_set(f"{key}:{field}", value):
             secrets[field] = None
+        elif keychain_homed and not previous.get(field):
+            _keychain_delete(f"{key}:{field}")
 
     assertion_expiry = record.assertion_expires_at
-    store = _read_store()
     store["records"][key] = {
         "access_token": secrets["access_token"],
         "token_type": record.token_type,
@@ -420,10 +466,12 @@ __all__ = [
     "active_kinds",
     "clear_credentials",
     "credentials_path",
+    "keychain_enabled",
     "list_credentials",
     "load_credentials",
     "normalise_api_url",
     "record_key",
+    "records_needing_migration",
     "save_credentials",
     "save_record",
     "set_active",

@@ -520,13 +520,18 @@ def auth_logout(
 ) -> None:
     """Revoke and clear stored credentials. Local state is cleared even when revocation fails."""
     with command_errors():
-        records = credentials.list_credentials()
-        if not all_deployments:
-            base = resolve_base_url(api_url)
-            records = [record for record in records if record.api_url == base]
-            if not records:
-                note(f"Not logged in to {base}.")
-                return
+        base = None if all_deployments else resolve_base_url(api_url)
+        records = [
+            record
+            for record in credentials.list_credentials()
+            if base is None or record.api_url == base
+        ]
+        # A record the file cannot serve still has to be cleared, so it counts here too.
+        cleared = {record.api_url for record in records}
+        cleared.update(d for d, _ in credentials.records_needing_migration(base))
+        if not cleared:
+            note("Not logged in." if base is None else f"Not logged in to {base}.")
+            return
 
         failed: list[str] = []
         for record in records:
@@ -541,11 +546,8 @@ def auth_logout(
             except errors.BookshelfError:
                 failed.append(record.api_url)
 
-        if all_deployments:
-            credentials.clear_credentials()
-        else:
-            credentials.clear_credentials(records[0].api_url)
-        for deployment in sorted({record.api_url for record in records}):
+        credentials.clear_credentials(base)
+        for deployment in sorted(cleared):
             note(f"Cleared credentials for {deployment}")
 
         if failed:

@@ -3,6 +3,7 @@
 import json
 import os
 import stat
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from bookshelf._core import credentials
 # Captured before the autouse fixture swaps the helpers out, for the degrade test.
 _REAL_KEYCHAIN_SET = credentials._keychain_set
 _REAL_KEYCHAIN_GET = credentials._keychain_get
+_REAL_KEYCHAIN_DELETE = credentials._keychain_delete
 
 
 @pytest.fixture(autouse=True)
@@ -269,8 +271,6 @@ def test_absent_backend_falls_back_to_the_file_copy(
         def get_password(self, *args: object) -> str:
             raise RuntimeError("no keychain backend")
 
-    import sys
-
     monkeypatch.setattr(credentials, "_keychain_set", _REAL_KEYCHAIN_SET)
     monkeypatch.setattr(credentials, "_keychain_get", _REAL_KEYCHAIN_GET)
     monkeypatch.setitem(sys.modules, "keyring", BrokenKeyring())
@@ -303,8 +303,6 @@ def test_backend_that_cannot_serve_a_write_falls_back_to_the_file_copy(
         def get_password(self, *args: object) -> str | None:
             return None
 
-    import sys
-
     monkeypatch.setattr(credentials, "_keychain_set", _REAL_KEYCHAIN_SET)
     monkeypatch.setattr(credentials, "_keychain_get", _REAL_KEYCHAIN_GET)
     monkeypatch.setitem(sys.modules, "keyring", LyingKeyring())
@@ -335,8 +333,6 @@ def test_keychain_failure_degrades_to_file(
         def get_password(self, *args: object) -> str:
             raise RuntimeError("no keychain backend")
 
-    import sys
-
     monkeypatch.setattr(credentials, "_keychain_set", _REAL_KEYCHAIN_SET)
     monkeypatch.setattr(credentials, "_keychain_get", _REAL_KEYCHAIN_GET)
     monkeypatch.setitem(sys.modules, "keyring", BrokenKeyring())
@@ -344,3 +340,174 @@ def test_keychain_failure_degrades_to_file(
     loaded = credentials.load_credentials()
     assert loaded is not None
     assert loaded.access_token == "tok"
+
+
+class _SpyKeyring:
+    """A keyring backend that records every call it is asked to make."""
+
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+        self.store: dict[str, str] = {}
+
+    def get_password(self, service: str, username: str) -> str | None:
+        self.calls.append("get_password")
+        return self.store.get(username)
+
+    def set_password(self, service: str, username: str, value: str) -> None:
+        self.calls.append("set_password")
+        self.store[username] = value
+
+    def delete_password(self, service: str, username: str) -> None:
+        self.calls.append("delete_password")
+        self.store.pop(username, None)
+
+
+@pytest.fixture
+def spy_keyring(monkeypatch: pytest.MonkeyPatch) -> _SpyKeyring:
+    """Restore the real keychain helpers over a recording backend."""
+    spy = _SpyKeyring()
+    monkeypatch.setattr(credentials, "_keychain_set", _REAL_KEYCHAIN_SET)
+    monkeypatch.setattr(credentials, "_keychain_get", _REAL_KEYCHAIN_GET)
+    monkeypatch.setattr(credentials, "_keychain_delete", _REAL_KEYCHAIN_DELETE)
+    monkeypatch.setitem(sys.modules, "keyring", spy)
+    return spy
+
+
+@pytest.mark.parametrize("value", ["1", "true", "yes", "anything"])
+def test_use_keychain_flag_is_read_from_the_environment(
+    value: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", value)
+    assert credentials.keychain_enabled()
+
+
+@pytest.mark.parametrize("value", [None, "", "0", "false", "no", "  "])
+def test_use_keychain_flag_stays_off_when_unset_or_falsey(
+    value: str | None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if value is None:
+        monkeypatch.delenv("BOOKSHELF_USE_KEYCHAIN", raising=False)
+    else:
+        monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", value)
+    assert not credentials.keychain_enabled()
+
+
+def test_secrets_stay_in_the_file_by_default(
+    isolated_store: Path, spy_keyring: _SpyKeyring, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """By default the secrets round-trip through the file, untouched by the keychain."""
+    monkeypatch.delenv("BOOKSHELF_USE_KEYCHAIN", raising=False)
+
+    credentials.save_credentials(
+        "at",
+        api_url="https://api.test",
+        refresh_token="rt",
+        identity_assertion="ia",
+    )
+    loaded = credentials.load_credentials()
+
+    assert loaded is not None
+    assert (loaded.access_token, loaded.refresh_token, loaded.identity_assertion) == (
+        "at",
+        "rt",
+        "ia",
+    )
+    record = json.loads(isolated_store.read_text())["records"]["https://api.test|user"]
+    assert record["access_token"] == "at"
+    assert "get_password" not in spy_keyring.calls
+    assert "set_password" not in spy_keyring.calls
+
+
+def test_opting_in_moves_the_secrets_to_the_keychain(
+    isolated_store: Path, spy_keyring: _SpyKeyring, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", "1")
+
+    credentials.save_credentials("at", api_url="https://api.test", refresh_token="rt")
+
+    record = json.loads(isolated_store.read_text())["records"]["https://api.test|user"]
+    assert record["access_token"] is None
+    assert spy_keyring.store["https://api.test|user:access_token"] == "at"
+    loaded = credentials.load_credentials()
+    assert loaded is not None
+    assert loaded.access_token == "at"
+
+
+def test_logout_still_clears_the_keychain_when_it_is_off(
+    isolated_store: Path, spy_keyring: _SpyKeyring, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A secret an earlier run left in the keychain must not survive a logout."""
+    monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", "1")
+    credentials.save_credentials("at", api_url="https://api.test")
+    assert spy_keyring.store
+
+    monkeypatch.delenv("BOOKSHELF_USE_KEYCHAIN", raising=False)
+    credentials.clear_credentials()
+
+    assert spy_keyring.store == {}
+
+
+def test_a_record_the_file_cannot_serve_names_its_deployment_and_kind(
+    isolated_store: Path, spy_keyring: _SpyKeyring, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two kinds on one deployment must be told apart, because the remedy differs."""
+    monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", "1")
+    for kind in credentials.CredentialKind:
+        credentials.save_record(
+            credentials.StoredCredentials(
+                access_token="at",
+                token_type="bearer",
+                expires_at=None,
+                api_url="https://api.test",
+                refresh_token=None,
+                kind=kind,
+            )
+        )
+    assert credentials.records_needing_migration() == []
+
+    monkeypatch.delenv("BOOKSHELF_USE_KEYCHAIN", raising=False)
+    assert credentials.load_credentials() is None
+    assert sorted(credentials.records_needing_migration()) == [
+        ("https://api.test", credentials.CredentialKind.AGENT),
+        ("https://api.test", credentials.CredentialKind.USER),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("api_url", "expected"), [("https://api.test", 2), ("https://other.test", 0)]
+)
+def test_migration_records_narrow_to_one_deployment(
+    api_url: str,
+    expected: int,
+    isolated_store: Path,
+    spy_keyring: _SpyKeyring,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", "1")
+    for kind in credentials.CredentialKind:
+        credentials.save_record(
+            credentials.StoredCredentials(
+                access_token="at",
+                token_type="bearer",
+                expires_at=None,
+                api_url="https://api.test",
+                refresh_token=None,
+                kind=kind,
+            )
+        )
+
+    monkeypatch.delenv("BOOKSHELF_USE_KEYCHAIN", raising=False)
+    assert len(credentials.records_needing_migration(api_url)) == expected
+
+
+def test_a_rotation_leaves_the_keychain_alone(
+    isolated_store: Path, spy_keyring: _SpyKeyring, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A secret the file already holds was never in the keychain, so saving must not reach for it."""
+    monkeypatch.delenv("BOOKSHELF_USE_KEYCHAIN", raising=False)
+    credentials.save_credentials("at", api_url="https://api.test", refresh_token="rt")
+    spy_keyring.calls.clear()
+
+    credentials.save_credentials("next", api_url="https://api.test", refresh_token="next-rt")
+
+    assert spy_keyring.calls == []
