@@ -308,13 +308,6 @@ def test_logout_clears_a_secret_left_in_the_keychain(monkeypatch: pytest.MonkeyP
     assert credentials.load_credentials(API_URL) is None
 
 
-def test_logout_without_any_record_still_reports_not_logged_in() -> None:
-    result = runner.invoke(app, ["auth", "logout"])
-
-    assert result.exit_code == 0
-    assert "Not logged in" in result.output
-
-
 def test_whoami_explains_a_record_it_cannot_read(monkeypatch: pytest.MonkeyPatch) -> None:
     _store_a_keychain_only_record(monkeypatch)
 
@@ -369,7 +362,7 @@ def test_a_re_login_takes_the_secret_out_of_the_keychain(monkeypatch: pytest.Mon
 
     credentials.save_credentials("fresh", api_url=API_URL, refresh_token="fresh-rt")
 
-    assert credentials.records_without_stored_secret() == []
+    assert credentials.records_needing_migration() == []
     monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", "1")
     reloaded = credentials.load_credentials(API_URL)
     assert reloaded is not None

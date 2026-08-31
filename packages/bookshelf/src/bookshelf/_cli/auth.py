@@ -523,20 +523,18 @@ def auth_logout(
 ) -> None:
     """Revoke and clear stored credentials. Local state is cleared even when revocation fails."""
     with command_errors():
-        records = credentials.list_credentials()
-        if not all_deployments:
-            base = resolve_base_url(api_url)
-            records = [record for record in records if record.api_url == base]
-            if not records:
-                if any(
-                    deployment == base
-                    for deployment, _ in credentials.records_without_stored_secret()
-                ):
-                    credentials.clear_credentials(base)
-                    note(f"Cleared credentials for {base}")
-                    return
-                note(f"Not logged in to {base}.")
-                return
+        base = None if all_deployments else resolve_base_url(api_url)
+        records = [
+            record
+            for record in credentials.list_credentials()
+            if base is None or record.api_url == base
+        ]
+        # A record the file cannot serve still has to be cleared, so it counts here too.
+        cleared = {record.api_url for record in records}
+        cleared.update(d for d, _ in credentials.records_needing_migration(base))
+        if not cleared:
+            note("Not logged in." if base is None else f"Not logged in to {base}.")
+            return
 
         failed: list[str] = []
         for record in records:
@@ -551,15 +549,7 @@ def auth_logout(
             except errors.BookshelfError:
                 failed.append(record.api_url)
 
-        target = None if all_deployments else records[0].api_url
-        # Named before the clear, because afterwards there is no record left to name.
-        cleared = {record.api_url for record in records}
-        cleared.update(
-            deployment
-            for deployment, _ in credentials.records_without_stored_secret()
-            if target is None or deployment == target
-        )
-        credentials.clear_credentials(target)
+        credentials.clear_credentials(base)
         for deployment in sorted(cleared):
             note(f"Cleared credentials for {deployment}")
 
@@ -573,9 +563,7 @@ def auth_logout(
 
 def _note_records_without_secrets(api_url: str | None = None) -> None:
     """Explain any identity the file indexes but cannot serve, so it does not read as absent."""
-    for deployment, kind in credentials.records_without_stored_secret():
-        if api_url is not None and deployment != api_url:
-            continue
+    for deployment, kind in credentials.records_needing_migration(api_url):
         note(
             f"The stored {kind} identity for {deployment} has no secret in the credentials file. "
             "It was most likely left in the OS keychain, which is no longer read by default. "

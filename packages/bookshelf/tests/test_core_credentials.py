@@ -271,8 +271,6 @@ def test_absent_backend_falls_back_to_the_file_copy(
         def get_password(self, *args: object) -> str:
             raise RuntimeError("no keychain backend")
 
-    import sys
-
     monkeypatch.setattr(credentials, "_keychain_set", _REAL_KEYCHAIN_SET)
     monkeypatch.setattr(credentials, "_keychain_get", _REAL_KEYCHAIN_GET)
     monkeypatch.setitem(sys.modules, "keyring", BrokenKeyring())
@@ -305,8 +303,6 @@ def test_backend_that_cannot_serve_a_write_falls_back_to_the_file_copy(
         def get_password(self, *args: object) -> str | None:
             return None
 
-    import sys
-
     monkeypatch.setattr(credentials, "_keychain_set", _REAL_KEYCHAIN_SET)
     monkeypatch.setattr(credentials, "_keychain_get", _REAL_KEYCHAIN_GET)
     monkeypatch.setitem(sys.modules, "keyring", LyingKeyring())
@@ -336,8 +332,6 @@ def test_keychain_failure_degrades_to_file(
 
         def get_password(self, *args: object) -> str:
             raise RuntimeError("no keychain backend")
-
-    import sys
 
     monkeypatch.setattr(credentials, "_keychain_set", _REAL_KEYCHAIN_SET)
     monkeypatch.setattr(credentials, "_keychain_get", _REAL_KEYCHAIN_GET)
@@ -387,16 +381,14 @@ def test_use_keychain_flag_is_read_from_the_environment(
     assert credentials.keychain_enabled()
 
 
-@pytest.mark.parametrize("value", ["", "0", "false", "no", "  "])
-def test_use_keychain_flag_stays_off_for_falsey_values(
-    value: str, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("value", [None, "", "0", "false", "no", "  "])
+def test_use_keychain_flag_stays_off_when_unset_or_falsey(
+    value: str | None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", value)
-    assert not credentials.keychain_enabled()
-
-
-def test_the_keychain_is_off_unless_asked_for(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("BOOKSHELF_USE_KEYCHAIN", raising=False)
+    if value is None:
+        monkeypatch.delenv("BOOKSHELF_USE_KEYCHAIN", raising=False)
+    else:
+        monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", value)
     assert not credentials.keychain_enabled()
 
 
@@ -455,22 +447,7 @@ def test_logout_still_clears_the_keychain_when_it_is_off(
     assert spy_keyring.store == {}
 
 
-def test_a_record_the_file_cannot_serve_is_reported(
-    isolated_store: Path, spy_keyring: _SpyKeyring, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A record written under the old default must be nameable, so the CLI can explain it."""
-    monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", "1")
-    credentials.save_credentials("at", api_url="https://api.test")
-    assert credentials.records_without_stored_secret() == []
-
-    monkeypatch.delenv("BOOKSHELF_USE_KEYCHAIN", raising=False)
-    assert credentials.load_credentials() is None
-    assert credentials.records_without_stored_secret() == [
-        ("https://api.test", credentials.CredentialKind.USER)
-    ]
-
-
-def test_a_stranded_record_names_its_kind(
+def test_a_record_the_file_cannot_serve_names_its_deployment_and_kind(
     isolated_store: Path, spy_keyring: _SpyKeyring, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Two kinds on one deployment must be told apart, because the remedy differs."""
@@ -486,23 +463,51 @@ def test_a_stranded_record_names_its_kind(
                 kind=kind,
             )
         )
+    assert credentials.records_needing_migration() == []
 
     monkeypatch.delenv("BOOKSHELF_USE_KEYCHAIN", raising=False)
-    assert sorted(credentials.records_without_stored_secret()) == [
+    assert credentials.load_credentials() is None
+    assert sorted(credentials.records_needing_migration()) == [
         ("https://api.test", credentials.CredentialKind.AGENT),
         ("https://api.test", credentials.CredentialKind.USER),
     ]
 
 
 @pytest.mark.parametrize(
-    "api_url", ["https://api.test", "https://api.test/pipe|in|path", "https://api.test/"]
+    ("api_url", "expected"), [("https://api.test", 2), ("https://other.test", 0)]
 )
-def test_a_record_key_splits_back_into_its_parts(api_url: str) -> None:
-    kind = credentials.CredentialKind.AGENT
-    key = credentials.record_key(api_url, kind)
-    assert credentials.record_key_parts(key) == (credentials.normalise_api_url(api_url), kind)
+def test_migration_records_narrow_to_one_deployment(
+    api_url: str,
+    expected: int,
+    isolated_store: Path,
+    spy_keyring: _SpyKeyring,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", "1")
+    for kind in credentials.CredentialKind:
+        credentials.save_record(
+            credentials.StoredCredentials(
+                access_token="at",
+                token_type="bearer",
+                expires_at=None,
+                api_url="https://api.test",
+                refresh_token=None,
+                kind=kind,
+            )
+        )
+
+    monkeypatch.delenv("BOOKSHELF_USE_KEYCHAIN", raising=False)
+    assert len(credentials.records_needing_migration(api_url)) == expected
 
 
-@pytest.mark.parametrize("key", ["https://api.test", "https://api.test|nonsense", "", "|"])
-def test_a_key_that_is_not_a_record_key_splits_to_nothing(key: str) -> None:
-    assert credentials.record_key_parts(key) is None
+def test_a_rotation_leaves_the_keychain_alone(
+    isolated_store: Path, spy_keyring: _SpyKeyring, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A secret the file already holds was never in the keychain, so saving must not reach for it."""
+    monkeypatch.delenv("BOOKSHELF_USE_KEYCHAIN", raising=False)
+    credentials.save_credentials("at", api_url="https://api.test", refresh_token="rt")
+    spy_keyring.calls.clear()
+
+    credentials.save_credentials("next", api_url="https://api.test", refresh_token="next-rt")
+
+    assert spy_keyring.calls == []

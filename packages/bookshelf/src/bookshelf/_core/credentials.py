@@ -109,13 +109,6 @@ def record_key(api_url: str, kind: CredentialKind) -> str:
     return f"{normalise_api_url(api_url)}|{kind}"
 
 
-def record_key_parts(key: str) -> tuple[str, CredentialKind] | None:
-    """Split a store key back into its deployment and kind, or ``None`` if it is not one."""
-    api_url, separator, raw_kind = key.rpartition("|")
-    kind = _parse_kind(raw_kind) if separator else None
-    return None if kind is None else (api_url, kind)
-
-
 def credentials_path() -> Path:
     """Return the path of the credentials file."""
     return Path(user_config_dir("bookshelf")) / "credentials.json"
@@ -136,12 +129,7 @@ def _keychain_call(operation: str, *args: str) -> str | None:
 
     A missing or broken keychain backend must never break login, load, or logout,
     so the caller falls back to the file copy.
-
-    Reads and writes are skipped unless the keychain is opted in to, but deletes are not.
-    A logout has to clear secrets an earlier run left in the keychain.
     """
-    if not keychain_enabled() and operation != "delete_password":
-        return None
     try:
         import keyring
 
@@ -153,15 +141,20 @@ def _keychain_call(operation: str, *args: str) -> str | None:
 
 def _keychain_set(username: str, value: str) -> bool:
     """Store one secret and confirm it can be read back."""
+    if not keychain_enabled():
+        return False
     _keychain_call("set_password", username, value)
     return _keychain_get(username) == value
 
 
 def _keychain_get(username: str) -> str | None:
+    if not keychain_enabled():
+        return None
     return _keychain_call("get_password", username)
 
 
 def _keychain_delete(username: str) -> None:
+    """Delete unconditionally, because a logout has to reach a secret an earlier run left behind."""
     _keychain_call("delete_password", username)
 
 
@@ -271,19 +264,26 @@ def load_credentials(api_url: str | None = None) -> StoredCredentials | None:
     return _record_to_credentials(key, record)
 
 
-def records_without_stored_secret() -> list[tuple[str, CredentialKind]]:
-    """Return the identities the file indexes but holds no token for, none while the keychain is on.
+def records_needing_migration(api_url: str | None = None) -> list[tuple[str, CredentialKind]]:
+    """Return the identities the file indexes but holds no token for, narrowed to one deployment.
 
     A record written while the keychain held the secrets reads as a missing login,
     rather than as one waiting to be moved.
+    Nothing needs moving while the keychain is switched on, so the list is then empty.
     """
     if keychain_enabled():
         return []
+    target = normalise_api_url(api_url) if api_url is not None else None
     stranded = []
-    for key, record in _read_store().get("records", {}).items():
-        parts = record_key_parts(key)
-        if parts is not None and isinstance(record, dict) and not record.get("access_token"):
-            stranded.append(parts)
+    for record in _read_store().get("records", {}).values():
+        if not isinstance(record, dict) or record.get("access_token"):
+            continue
+        deployment = record.get("api_url")
+        kind = _parse_kind(record.get("kind", CredentialKind.USER))
+        if not isinstance(deployment, str) or kind is None:
+            continue
+        if target is None or deployment == target:
+            stranded.append((deployment, kind))
     return stranded
 
 
@@ -362,20 +362,24 @@ def save_record(record: StoredCredentials) -> None:
         "refresh_token": record.refresh_token,
         "identity_assertion": record.identity_assertion,
     }
+    store = _read_store()
+    previous = store.get("records", {}).get(key)
+    if not isinstance(previous, dict):
+        previous = {}
     # A secret reaches the file only when the keychain could not take it.
     # The record itself always stays in the file,
     # because it is the index that names the keychain entries.
-    # Whatever the keychain did not take is dropped from it,
-    # so the two homes can never disagree about one secret.
+    # A record the file holds no access token for kept its secrets in the keychain,
+    # so its fields are the only ones a copy can still be shadowing.
+    keychain_homed = bool(previous) and not previous.get("access_token")
     for field in _SECRET_FIELDS:
         value = secrets[field]
         if value is not None and _keychain_set(f"{key}:{field}", value):
             secrets[field] = None
-        else:
+        elif keychain_homed and not previous.get(field):
             _keychain_delete(f"{key}:{field}")
 
     assertion_expiry = record.assertion_expires_at
-    store = _read_store()
     store["records"][key] = {
         "access_token": secrets["access_token"],
         "token_type": record.token_type,
@@ -470,8 +474,7 @@ __all__ = [
     "load_credentials",
     "normalise_api_url",
     "record_key",
-    "record_key_parts",
-    "records_without_stored_secret",
+    "records_needing_migration",
     "save_credentials",
     "save_record",
     "set_active",
