@@ -341,3 +341,37 @@ def test_whoami_stays_quiet_when_the_file_holds_the_secret() -> None:
 
     assert result.exit_code == 0
     assert "no secret in the credentials file" not in result.output
+
+
+def test_logout_all_reports_a_record_it_could_not_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    """--all clears a stranded record, so it has to say so rather than pass in silence."""
+    _store_a_keychain_only_record(monkeypatch)
+
+    result = runner.invoke(app, ["auth", "logout", "--all"])
+
+    assert result.exit_code == 0
+    assert f"Cleared credentials for {API_URL}" in result.output
+
+
+def test_token_explains_a_record_it_cannot_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    """auth token is the machine path most likely to meet a migrated record."""
+    _store_a_keychain_only_record(monkeypatch)
+
+    result = runner.invoke(app, ["auth", "token"])
+
+    assert result.exit_code != 0
+    assert "no secret in the credentials file" in result.output
+
+
+def test_a_re_login_takes_the_secret_out_of_the_keychain(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The advice says logging in moves the secret, so it has to leave no copy behind."""
+    _store_a_keychain_only_record(monkeypatch)
+
+    credentials.save_credentials("fresh", api_url=API_URL, refresh_token="fresh-rt")
+
+    assert credentials.records_without_stored_secret() == []
+    monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", "1")
+    reloaded = credentials.load_credentials(API_URL)
+    assert reloaded is not None
+    assert reloaded.access_token == "fresh"
+    assert reloaded.refresh_token == "fresh-rt"

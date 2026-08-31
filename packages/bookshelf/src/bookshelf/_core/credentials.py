@@ -13,10 +13,10 @@ Secrets have two possible homes:
    (``"<key>:access_token"`` and friends).
    On read the keychain value takes precedence over the file copy.
 
-The file is the default because macOS keys a keychain item's access control list to the
-code signature of the reading process, and the interpreters this SDK runs under are ad-hoc
-signed, so the list never holds and the unlock prompt never stops.
-``docs/configuration.md`` carries the reasoning in full.
+The file is the default because macOS keys a keychain item's access control list to the code
+signature of the reading process.
+The interpreters this SDK runs under are ad-hoc signed, so the list never holds,
+and the unlock prompt never stops.
 
 When no keychain backend is available every keychain call degrades silently to the file-only path.
 """
@@ -272,14 +272,10 @@ def load_credentials(api_url: str | None = None) -> StoredCredentials | None:
 
 
 def records_without_stored_secret() -> list[tuple[str, CredentialKind]]:
-    """Return the identities the file indexes but cannot serve, newest spelling first.
+    """Return the identities the file indexes but holds no token for, none while the keychain is on.
 
-    A record written while the keychain held the secrets keeps its index entry
-    but no token of its own,
-    so it reads as a missing login rather than as one waiting to be moved.
-    Whether the keychain still holds the token cannot be checked without a prompt,
-    which is the prompt this store exists to avoid,
-    so the caller has to phrase its advice as the possibility it is.
+    A record written while the keychain held the secrets reads as a missing login,
+    rather than as one waiting to be moved.
     """
     if keychain_enabled():
         return []
@@ -369,12 +365,14 @@ def save_record(record: StoredCredentials) -> None:
     # A secret reaches the file only when the keychain could not take it.
     # The record itself always stays in the file,
     # because it is the index that names the keychain entries.
+    # Whatever the keychain did not take is dropped from it,
+    # so the two homes can never disagree about one secret.
     for field in _SECRET_FIELDS:
         value = secrets[field]
-        if value is None:
-            _keychain_delete(f"{key}:{field}")
-        elif _keychain_set(f"{key}:{field}", value):
+        if value is not None and _keychain_set(f"{key}:{field}", value):
             secrets[field] = None
+        else:
+            _keychain_delete(f"{key}:{field}")
 
     assertion_expiry = record.assertion_expires_at
     store = _read_store()

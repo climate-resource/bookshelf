@@ -337,6 +337,7 @@ def auth_token(
             )
             return
         if stored is None:
+            _note_records_without_secrets(base)
             raise CliError(
                 f"no stored credential for {base}. {_LOGIN_REMEDY}",
                 exit_code=EXIT_AUTH_REQUIRED,
@@ -550,11 +551,16 @@ def auth_logout(
             except errors.BookshelfError:
                 failed.append(record.api_url)
 
-        if all_deployments:
-            credentials.clear_credentials()
-        else:
-            credentials.clear_credentials(records[0].api_url)
-        for deployment in sorted({record.api_url for record in records}):
+        target = None if all_deployments else records[0].api_url
+        # Named before the clear, because afterwards there is no record left to name.
+        cleared = {record.api_url for record in records}
+        cleared.update(
+            deployment
+            for deployment, _ in credentials.records_without_stored_secret()
+            if target is None or deployment == target
+        )
+        credentials.clear_credentials(target)
+        for deployment in sorted(cleared):
             note(f"Cleared credentials for {deployment}")
 
         if failed:
