@@ -11,15 +11,17 @@ The SDK recognises these environment variables:
   `BOOKSHELF_TOKEN_URL` must name the token endpoint.
 - `BOOKSHELF_WORKOS_CLIENT_ID` configures interactive user login.
 - `BOOKSHELF_WORKOS_BASE_URL` overrides the WorkOS API base URL.
+- `BOOKSHELF_USE_KEYCHAIN` stores credentials in the OS keychain instead of the file.
 
-When authentication is omitted,
-the SDK resolves a static environment token first,
-then client credentials,
-then stored `bookshelf auth login` credentials.
-Public reads remain available without authentication.
+## Where credentials are stored
+
+`bookshelf auth login` writes its record to a `0600` file under the user config directory.
+
+Set `BOOKSHELF_USE_KEYCHAIN=1` to put the secrets in the OS keychain instead,
+leaving the file as the index that names them.
+Switching the variable on or off does not move secrets already stored.
+Run `bookshelf auth login` again to write them to their new home.
 
 The default API URL is the production Bookshelf deployment.
-Pass `base_url=` to `Bookshelf`,
-`AsyncBookshelf`,
-or `BookshelfClient`
+Pass `base_url=` to `Bookshelf`, `AsyncBookshelf`, or `BookshelfClient`
 when a particular deployment must be explicit.
