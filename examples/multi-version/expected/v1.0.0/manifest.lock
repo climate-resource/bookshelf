@@ -27,12 +27,13 @@ book:
   volume: multi-version-example
 resources:
 - dedupe: true
-  external_uri: inputs/v1.csv
+  format: csv
   generated: false
   hash: sha256:6e0865cff3c8b4d63a3e01bec62ed82234fcbd8e48f270c06fa9c8c929182746
-  kind: pointer
+  kind: managed
   metadata: {}
   name: raw
+  size: 117
   tags: []
   type: tabular
   used: []

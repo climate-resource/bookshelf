@@ -84,7 +84,7 @@ def _materialise(obj: Any, *, type: str) -> tuple[bytes, str, str | None]:
         # so it is not claimed.
         return obj, content_type_for(type), None
     if isinstance(obj, Path):
-        return obj.read_bytes(), content_type_for(type), _format_from_suffix(obj.name)
+        return obj.read_bytes(), content_type_for(type), format_from_suffix(obj.name)
     if type in _PARQUET_TYPES:
         return _dataframe_to_parquet(obj), _PARQUET_CONTENT_TYPE, "parquet"
     raise TypeError(
@@ -94,7 +94,7 @@ def _materialise(obj: Any, *, type: str) -> tuple[bytes, str, str | None]:
     )
 
 
-def _format_from_suffix(name: str) -> str | None:
+def format_from_suffix(name: str) -> str | None:
     """Infer a declared storage format from a filename suffix, or None.
 
     Managed uploads land at content-addressed keys with no suffix.
@@ -178,4 +178,4 @@ def _is_pandas_frame(obj: Any) -> bool:
     return isinstance(obj, pd.DataFrame)
 
 
-__all__ = ["SerialisedObject", "content_type_for", "serialise"]
+__all__ = ["SerialisedObject", "content_type_for", "format_from_suffix", "serialise"]

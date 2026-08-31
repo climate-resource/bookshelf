@@ -11,12 +11,16 @@ import git
 import pytest
 
 from bookshelf._core.errors import BookshelfError
-from bookshelf._produce.provenance import _sanitise_remote_url, derive_code_ref
+from bookshelf._produce.provenance import _sanitise_remote_url, derive_code_ref, source_url
+
+# A globally configured core.hooksPath applies to a throwaway repository too,
+# so hooks are switched off to keep these independent of the machine they run on.
+_NO_HOOKS = ("-c", "core.hooksPath=/dev/null")
 
 
 def _git(cwd: Path, *args: str) -> None:
     """Run one git command in ``cwd``, failing the test on a non-zero exit."""
-    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
+    subprocess.run(["git", *_NO_HOOKS, *args], cwd=cwd, check=True, capture_output=True)
 
 
 def _repo_with_a_commit(path: Path, origin: str = "https://example.com/thing") -> None:
@@ -217,7 +221,7 @@ def test_a_bare_repository_is_reported_as_such(
 
     bare = tmp_path / "bare.git"
     subprocess.run(
-        ["git", "clone", "--bare", str(source), str(bare)],
+        ["git", *_NO_HOOKS, "clone", "--bare", str(source), str(bare)],
         check=True,
         capture_output=True,
     )
@@ -237,3 +241,54 @@ def test_a_subdirectory_resolves_the_containing_repository(
     monkeypatch.chdir(nested)
 
     assert derive_code_ref().startswith("https://example.com/thing@")
+
+
+_SHA = "b9aa2996d890d16691d9978ec4f1772f5e51b0f1"
+
+
+@pytest.mark.parametrize(
+    ("remote", "expected"),
+    [
+        (
+            "git@github.com:climate-resource/feedstock.git",
+            f"https://github.com/climate-resource/feedstock/blob/{_SHA}/inputs/raw.csv",
+        ),
+        (
+            "https://github.com/climate-resource/feedstock.git",
+            f"https://github.com/climate-resource/feedstock/blob/{_SHA}/inputs/raw.csv",
+        ),
+        (
+            "https://github.com/climate-resource/feedstock",
+            f"https://github.com/climate-resource/feedstock/blob/{_SHA}/inputs/raw.csv",
+        ),
+        (
+            "ssh://git@gitlab.com/group/proj.git",
+            f"https://gitlab.com/group/proj/-/blob/{_SHA}/inputs/raw.csv",
+        ),
+    ],
+)
+def test_a_checked_in_file_links_to_the_commit_it_was_read_at(remote: str, expected: str) -> None:
+    """Every remote form a clone may carry resolves to the same web address."""
+    assert source_url(f"{remote}@{_SHA}", "inputs/raw.csv") == expected
+
+
+@pytest.mark.parametrize(
+    "code_ref",
+    [
+        # A dirty tree means the revision does not name the bytes that were read.
+        f"git@github.com:org/repo.git@{_SHA}+dirty",
+        # A forge whose URL layout this does not know.
+        f"git@git.example.com:org/repo.git@{_SHA}",
+        "https://github.com/org/repo.git@not-a-sha",
+        "nonsense",
+    ],
+)
+def test_no_honest_link_is_no_link(code_ref: str) -> None:
+    """A link is a convenience, so anything it cannot state truthfully it omits."""
+    assert source_url(code_ref, "inputs/raw.csv") is None
+
+
+def test_a_path_with_a_space_is_escaped() -> None:
+    assert source_url(f"git@github.com:o/r.git@{_SHA}", "inputs/two words.csv").endswith(
+        "/inputs/two%20words.csv"
+    )

@@ -23,9 +23,14 @@ from bookshelf._produce import helpers
 from bookshelf._produce.activities import Activity
 from bookshelf._produce.books import DraftBook
 from bookshelf._produce.facade import ProcessingInput
-from bookshelf._produce.provenance import canonical_config_hash, derive_activity_id
+from bookshelf._produce.provenance import (
+    canonical_config_hash,
+    committed_source_url,
+    derive_activity_id,
+    derive_code_ref,
+)
 from bookshelf._produce.resources import Resource
-from bookshelf._produce.serialise import SerialisedObject, serialise
+from bookshelf._produce.serialise import SerialisedObject, format_from_suffix, serialise
 from bookshelf._produce.types import HasTrackingId, RegisterItem, UsedInput
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
 from bookshelf.cache import ContentCache
@@ -527,8 +532,6 @@ class RecordingSink:
                 "the block that is already open, or through book.write."
             )
         if code_ref is None:
-            from bookshelf._produce.provenance import derive_code_ref
-
             code_ref = derive_code_ref()
         parameters = dict(config or {})
         settled_hash = config_hash or canonical_config_hash(parameters)
@@ -660,6 +663,41 @@ class RecordingSink:
             dedupe=dedupe,
         )
 
+    def register_file(
+        self,
+        *,
+        type: str | models.ResourceType,
+        path: Path,
+        hash: str,
+        name: str | None = None,
+        visibility: VisibilityInput = INHERIT,
+        tags: Sequence[str] = (),
+        metadata: Mapping[str, Any] | None = None,
+        tracking_id: UUID | None = None,
+        dedupe: bool = True,
+    ) -> RecordedResource:
+        """Record a checked-in file as managed bytes, linked back to where it is committed."""
+        source = committed_source_url(path)
+        merged = dict(metadata or {})
+        if source is not None:
+            merged.setdefault("source_url", source)
+        return _record_file(
+            self.bundle,
+            self._client,
+            self._cache,
+            self._names,
+            type=type,
+            path=path,
+            hash=hash,
+            name=name,
+            visibility=visibility,
+            default_visibility=self.default_visibility,
+            tags=tags,
+            metadata=merged,
+            tracking_id=tracking_id,
+            dedupe=dedupe,
+        )
+
     def use(self, name: str) -> ResolvedResource:
         """Resolve the named resource of the recorded version.
 
@@ -680,6 +718,7 @@ class RecordingSink:
                 recipe_dir=self._recipe_dir,
                 cache=self._cache,
                 register_external=self.register_external,
+                register_file=self.register_file,
                 lookup_book=self._lookup_book,
             )
             self._used_resources[name] = resolved
@@ -800,6 +839,57 @@ def _used_name(value: UsedInput, names: Mapping[UUID, str]) -> str:
     return name
 
 
+@dataclass(frozen=True, slots=True)
+class _SettledResource:
+    """What both recorders settle before either writes anything to the bundle."""
+
+    name: str
+    type: models.ResourceType
+    visibility: models.Visibility
+    id: UUID
+
+    def handle(
+        self,
+        client: BookshelfClient,
+        cache: ContentCache,
+        names: dict[UUID, str],
+        *,
+        hash_: str,
+        tags: Sequence[str],
+        metadata: Mapping[str, Any] | None,
+        location: str | None = None,
+    ) -> RecordedResource:
+        """Index the recorded name and return the handle a build file holds."""
+        names[self.id] = self.name
+        return RecordedResource(
+            client,
+            cache,
+            self.id,
+            self.type,
+            hash_,
+            name=self.name,
+            visibility=self.visibility,
+            tags=tags,
+            metadata=metadata,
+            location=location,
+        )
+
+
+def _settle(
+    name: str | None,
+    type: str | models.ResourceType,
+    visibility: VisibilityInput,
+    default_visibility: models.Visibility,
+    tracking_id: UUID | None,
+) -> _SettledResource:
+    return _SettledResource(
+        name=_recorded_name(name),
+        type=helpers.resource_type(type),
+        visibility=helpers.visibility(visibility, default_visibility),
+        id=tracking_id or helpers.uuid7(),
+    )
+
+
 def _record_pointer(
     bundle: Bundle,
     client: BookshelfClient,
@@ -820,39 +910,62 @@ def _record_pointer(
     used: Sequence[str] = (),
 ) -> RecordedResource:
     """Append one pointer resource and return its local handle."""
-    recorded_name = _recorded_name(name)
-    resource_type = helpers.resource_type(type)
-    resource_visibility = helpers.visibility(visibility, default_visibility)
+    settled = _settle(name, type, visibility, default_visibility, tracking_id)
     resource_hash = hash or synthesise_pointer_hash(
-        type_=resource_type.value,
+        type_=settled.type.value,
         external_uri=uri,
     )
-    resource_id = tracking_id or helpers.uuid7()
     bundle.add_pointer(
         external_uri=uri,
         hash_=resource_hash,
-        type_=resource_type.value,
-        name=recorded_name,
-        visibility=resource_visibility.value,
+        type_=settled.type.value,
+        name=settled.name,
+        visibility=settled.visibility.value,
         tags=list(tags),
         metadata=dict(metadata or {}),
         dedupe=dedupe,
         generated=generated,
         used=list(used),
     )
-    names[resource_id] = recorded_name
-    return RecordedResource(
-        client,
-        cache,
-        resource_id,
-        resource_type,
-        resource_hash,
-        name=recorded_name,
-        visibility=resource_visibility,
-        tags=tags,
-        metadata=metadata,
-        location=uri,
+    return settled.handle(
+        client, cache, names, hash_=resource_hash, tags=tags, metadata=metadata, location=uri
     )
+
+
+def _record_file(
+    bundle: Bundle,
+    client: BookshelfClient,
+    cache: ContentCache,
+    names: dict[UUID, str],
+    *,
+    type: str | models.ResourceType,
+    path: Path,
+    hash: str,
+    name: str | None,
+    visibility: VisibilityInput,
+    default_visibility: models.Visibility,
+    tags: Sequence[str],
+    metadata: Mapping[str, Any] | None,
+    tracking_id: UUID | None,
+    dedupe: bool,
+) -> RecordedResource:
+    """Append one checked-in file as a managed resource, bytes and all."""
+    settled = _settle(name, type, visibility, default_visibility, tracking_id)
+    bundle.add_resource(
+        data=path.read_bytes(),
+        hash_=hash,
+        type_=settled.type.value,
+        name=settled.name,
+        # A re-hosted file lands at a key with no suffix, so the format travels with it.
+        format_=format_from_suffix(path.name),
+        visibility=settled.visibility.value,
+        tags=list(tags),
+        metadata=dict(metadata or {}),
+        dedupe=dedupe,
+        # An input is read by the activity rather than produced by it.
+        generated=False,
+    )
+    return settled.handle(client, cache, names, hash_=hash, tags=tags, metadata=metadata)
 
 
 def _recorded_activity_used(bundle: Bundle) -> list[str]:

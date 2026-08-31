@@ -28,12 +28,13 @@ book:
   volume: defaults-and-overrides-example
 resources:
 - dedupe: true
-  external_uri: inputs/v2.csv
+  format: csv
   generated: false
   hash: sha256:73db501873c785863eefc820d9e33440f6a1ed8dfa8072f5d0fbc8a6e2caa1cf
-  kind: pointer
+  kind: managed
   metadata: {}
   name: raw
+  size: 158
   tags: []
   type: timeseries
   used: []

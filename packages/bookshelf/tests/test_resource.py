@@ -1,6 +1,7 @@
 """Tests for resolving declared resources: fetch, verify, cache and register."""
 
 import hashlib
+import subprocess
 import textwrap
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -82,6 +83,16 @@ def _write_data(tmp_path: Path) -> Path:
     data.parent.mkdir(parents=True, exist_ok=True)
     data.write_bytes(_PAYLOAD)
     return data
+
+
+# A globally configured core.hooksPath applies to a throwaway repository too,
+# so hooks are switched off to keep these independent of the machine they run on.
+_NO_HOOKS = ("-c", "core.hooksPath=/dev/null")
+
+
+def _git(cwd: Path, *args: str) -> None:
+    """Run one git command in ``cwd``, failing the test on a non-zero exit."""
+    subprocess.run(["git", *_NO_HOOKS, *args], cwd=cwd, check=True, capture_output=True)
 
 
 @contextmanager
@@ -236,6 +247,139 @@ def test_a_path_resource_resolves_and_computes_its_digest(tmp_path: Path) -> Non
 
     assert raw.path == data.resolve()
     assert raw.hash == f"sha256:{_SHA256}"
+
+
+def test_a_path_resource_records_its_bytes_rather_than_a_pointer(tmp_path: Path) -> None:
+    """A repository path is no address the platform can fetch from, so the bytes travel.
+
+    A pointer at ``data/raw.csv`` is what publishing rejects,
+    because the platform would have to dereference it against its own filesystem.
+    """
+    recipe = _write_recipe(tmp_path, _PATH_VERSION)
+    _write_data(tmp_path)
+    bundle_path = tmp_path / "bundle"
+
+    with _recording(recipe, bundle_path):
+        build = setup()
+        build.use("raw")
+        recorded = _written_resource(build.bs, bundle_path, "raw")
+
+    assert recorded.kind == "managed"
+    assert recorded.external_uri is None
+    assert recorded.generated is False
+    # A re-hosted file lands at a key with no suffix, so the format has to travel with it.
+    assert recorded.format == "csv"
+    assert (bundle_path / "resources").exists()
+
+
+def _repo_with_the_recipe_in_a_subdirectory(root: Path) -> Path:
+    """Commit a feedstock whose recipe sits below the repository root, and return its directory."""
+    subprocess.run(["git", *_NO_HOOKS, "init", "-q", str(root)], check=True, capture_output=True)
+    _git(root, "remote", "add", "origin", "git@github.com:climate-resource/feedstock.git")
+    recipe_dir = root / "pipeline"
+    (recipe_dir / "data").mkdir(parents=True)
+    (recipe_dir / "bookshelf.yaml").write_text(
+        _RECIPE.format(version_body=textwrap.indent(_PATH_VERSION, "    ")), encoding="utf-8"
+    )
+    (recipe_dir / "data" / "raw.csv").write_bytes(_PAYLOAD)
+    _git(root, "add", "-A")
+    _git(
+        root, "-c", "user.name=T", "-c", "user.email=t@example.invalid", "commit", "-q", "-m", "in"
+    )
+    return recipe_dir
+
+
+def test_a_checked_in_input_links_to_where_it_is_committed(tmp_path: Path) -> None:
+    """The link is repository-root relative, so a recipe in a subdirectory still resolves.
+
+    Joining the recipe-relative path onto the repository root is what produced a 404.
+    """
+    root = tmp_path / "feedstock"
+    recipe_dir = _repo_with_the_recipe_in_a_subdirectory(root)
+    bundle_path = tmp_path / "bundle"
+
+    with _recording(recipe_dir / "bookshelf.yaml", bundle_path):
+        build = setup()
+        build.use("raw")
+        recorded = _written_resource(build.bs, bundle_path, "raw")
+
+    sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True
+    ).stdout.strip()
+    assert recorded.metadata["source_url"] == (
+        f"https://github.com/climate-resource/feedstock/blob/{sha}/pipeline/data/raw.csv"
+    )
+
+
+def test_an_unrelated_edit_does_not_cost_the_link(tmp_path: Path) -> None:
+    """The committed bytes are what the link claims, so the rest of the clone does not matter.
+
+    A working clone almost always carries some unrelated change,
+    so a repository-wide cleanliness test would drop the link nearly every time.
+    """
+    root = tmp_path / "feedstock"
+    recipe_dir = _repo_with_the_recipe_in_a_subdirectory(root)
+    (root / "unrelated.txt").write_text("not committed", encoding="utf-8")
+    (recipe_dir / "bookshelf.yaml").write_text(
+        (recipe_dir / "bookshelf.yaml").read_text(encoding="utf-8") + "\n# edited\n",
+        encoding="utf-8",
+    )
+    bundle_path = tmp_path / "bundle"
+
+    with _recording(recipe_dir / "bookshelf.yaml", bundle_path):
+        build = setup()
+        build.use("raw")
+        recorded = _written_resource(build.bs, bundle_path, "raw")
+
+    assert recorded.metadata["source_url"].endswith("/pipeline/data/raw.csv")
+
+
+def test_a_checked_in_input_that_moved_from_the_commit_records_no_link(tmp_path: Path) -> None:
+    """The bytes that were read are not the committed ones, so the link would misdescribe them."""
+    root = tmp_path / "feedstock"
+    recipe_dir = _repo_with_the_recipe_in_a_subdirectory(root)
+    (recipe_dir / "data" / "raw.csv").write_bytes(_PAYLOAD + b"co2,2024,2.0\n")
+    bundle_path = tmp_path / "bundle"
+
+    with _recording(recipe_dir / "bookshelf.yaml", bundle_path):
+        build = setup()
+        build.use("raw")
+        recorded = _written_resource(build.bs, bundle_path, "raw")
+
+    assert "source_url" not in recorded.metadata
+
+
+def test_a_checked_in_input_that_git_does_not_track_records_no_link(tmp_path: Path) -> None:
+    """An untracked file is absent from the revision, so a link to it would not resolve."""
+    root = tmp_path / "feedstock"
+    recipe_dir = _repo_with_the_recipe_in_a_subdirectory(root)
+    _git(root, "rm", "--cached", "-q", "pipeline/data/raw.csv")
+    _git(
+        root, "-c", "user.name=T", "-c", "user.email=t@example.invalid", "commit", "-q", "-m", "out"
+    )
+    bundle_path = tmp_path / "bundle"
+
+    with _recording(recipe_dir / "bookshelf.yaml", bundle_path):
+        build = setup()
+        build.use("raw")
+        recorded = _written_resource(build.bs, bundle_path, "raw")
+
+    assert "source_url" not in recorded.metadata
+
+
+def test_a_checked_in_input_outside_a_repository_still_records(tmp_path: Path) -> None:
+    """A checkout git cannot read is a missing link, not a failed build."""
+    recipe = _write_recipe(tmp_path, _PATH_VERSION)
+    _write_data(tmp_path)
+    bundle_path = tmp_path / "bundle"
+
+    with _recording(recipe, bundle_path):
+        build = setup()
+        raw = build.use("raw")
+        recorded = _written_resource(build.bs, bundle_path, "raw")
+
+    assert raw.hash == f"sha256:{_SHA256}"
+    assert "source_url" not in recorded.metadata
 
 
 def test_a_path_resource_is_recipe_relative(
@@ -429,6 +573,12 @@ def _written_pointers(bs: RecordingBookshelf, bundle_path: Path) -> list[BundleR
     return [r for r in Bundle.read(bundle_path).manifest.resources if r.kind == "pointer"]
 
 
+def _written_resource(bs: RecordingBookshelf, bundle_path: Path, name: str) -> BundleResource:
+    """Write the bundle and read one resource back, so the assertion is on the manifest on disk."""
+    bs.bundle.write()
+    return next(r for r in Bundle.read(bundle_path).manifest.resources if r.name == name)
+
+
 def test_a_version_doi_lands_on_the_recorded_pointer(tmp_path: Path, server: _Server) -> None:
     bundle_path = tmp_path / "bundle"
     with _recording(_write_recipe(tmp_path, _URI_VERSION), bundle_path):
@@ -450,10 +600,9 @@ def test_a_version_without_a_doi_records_no_doi_key(tmp_path: Path) -> None:
     with _recording(recipe, bundle_path):
         build = setup()
         build.use("raw")
-        pointer = _written_pointers(build.bs, bundle_path)[0]
+        recorded = _written_resource(build.bs, bundle_path, "raw")
 
-    assert "doi" not in pointer.metadata
-    assert pointer.external_uri == "data/raw.csv"
+    assert "doi" not in recorded.metadata
 
 
 def test_the_handle_is_usable_as_lineage(tmp_path: Path, server: _Server) -> None:

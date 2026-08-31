@@ -54,6 +54,26 @@ class RegisterExternal(Protocol):
         ...
 
 
+class RegisterFile(Protocol):
+    """The registration a checked-in file makes.
+
+    A checked-in file has no address the platform could fetch it from,
+    so its bytes are re-hosted rather than pointed at.
+    """
+
+    def __call__(
+        self,
+        *,
+        type: models.ResourceType,
+        path: Path,
+        hash: str,
+        name: str,
+        metadata: Mapping[str, Any] | None,
+    ) -> HasTrackingId:
+        """Catalogue the bytes of a checked-in file and return its handle."""
+        ...
+
+
 class PublishedEntry(Protocol):
     """One entry of a published book, as a reference resolves to it."""
 
@@ -127,13 +147,16 @@ def resolve_resource(
     recipe_dir: Path | None,
     cache: ContentCache,
     register_external: RegisterExternal,
+    register_file: RegisterFile,
     lookup_book: LookupBook | None = None,
 ) -> ResolvedResource:
     """Resolve one declared resource into local bytes and a pointer.
 
-    A ``uri`` resource is fetched through ``cache`` and verified against its declared digest.
-    A ``path`` resource is read from beside the recipe and its digest is computed.
-    Both are then catalogued with ``register_external``.
+    A ``uri`` resource is fetched through ``cache``, verified against its declared digest,
+    and catalogued as a pointer with ``register_external``.
+    A ``path`` resource is read from beside the recipe, its digest is computed, and its bytes
+    are re-hosted through ``register_file``, because a repository path is not an address
+    the platform can resolve.
 
     A ``bookshelf://`` resource is looked up with ``lookup_book`` instead.
     Nothing is registered for it, because the platform already holds it,
@@ -156,11 +179,22 @@ def resolve_resource(
             "Add type, or name a bookshelf resource, whose type the platform states"
         )
     if spec.path is not None:
-        # A checked-in file has no remote location, so the pointer records where it sits
-        # in the feedstock rather than a URI the platform could resolve.
-        uri = spec.path.as_posix()
         path, content_hash = _checked_in(name, relative=spec.path, recipe_dir=recipe_dir)
-    elif spec.uri is not None and spec.sha256 is not None:
+        pointer = register_file(
+            type=spec.type,
+            path=path,
+            hash=content_hash,
+            name=flatten_to_resource_name(name),
+            metadata={"doi": doi} if doi is not None else None,
+        )
+        return ResolvedResource(
+            name=name,
+            path=path,
+            hash=content_hash,
+            pointer=pointer,
+            tracking_id=pointer.tracking_id,
+        )
+    if spec.uri is not None and spec.sha256 is not None:
         uri = spec.uri
         path, content_hash = _fetched(name, uri=spec.uri, sha256=spec.sha256, cache=cache)
     else:
@@ -320,5 +354,6 @@ __all__ = [
     "PublishedBook",
     "PublishedEntry",
     "ResolvedResource",
+    "RegisterFile",
     "resolve_resource",
 ]

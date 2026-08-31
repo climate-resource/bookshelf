@@ -29,12 +29,13 @@ book:
   volume: complex-processing-example
 resources:
 - dedupe: true
-  external_uri: inputs/emissions.csv
+  format: csv
   generated: false
   hash: sha256:0fd5036a68c2b9a3c7a67581f5dc1accfa9e4667b9932ef018486a2452873f9f
-  kind: pointer
+  kind: managed
   metadata: {}
   name: raw
+  size: 536
   tags: []
   type: tabular
   used: []
