@@ -337,7 +337,7 @@ def auth_token(
             )
             return
         if stored is None:
-            _note_records_without_secrets(base)
+            _note_records_needing_migration(base)
             raise CliError(
                 f"no stored credential for {base}. {_LOGIN_REMEDY}",
                 exit_code=EXIT_AUTH_REQUIRED,
@@ -385,7 +385,7 @@ def auth_whoami(
         if source in (CredentialSource.ENV_TOKEN, CredentialSource.CLIENT_CREDENTIALS):
             stored = credentials.load_credentials(base)
         if stored is None:
-            _note_records_without_secrets(base)
+            _note_records_needing_migration(base)
         shadows: dict[str, str] | None = None
         if source is not CredentialSource.STORED_LOGIN and stored is not None:
             shadows = {
@@ -561,7 +561,7 @@ def auth_logout(
             )
 
 
-def _note_records_without_secrets(api_url: str | None = None) -> None:
+def _note_records_needing_migration(api_url: str | None = None) -> None:
     """Explain any identity the file indexes but cannot serve, so it does not read as absent."""
     for deployment, kind in credentials.records_needing_migration(api_url):
         note(
@@ -580,7 +580,7 @@ def auth_list(
     with command_errors():
         records = credentials.list_credentials()
         active = credentials.active_kinds()
-        _note_records_without_secrets()
+        _note_records_needing_migration()
         if not records:
             note("No stored identities. Run 'bookshelf auth login' to add one.")
             return

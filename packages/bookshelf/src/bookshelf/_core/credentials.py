@@ -154,7 +154,7 @@ def _keychain_get(username: str) -> str | None:
 
 
 def _keychain_delete(username: str) -> None:
-    """Delete unconditionally, because a logout has to reach a secret an earlier run left behind."""
+    """Delete whether or not the keychain is opted in to, so a logout reaches every secret."""
     _keychain_call("delete_password", username)
 
 
@@ -265,7 +265,7 @@ def load_credentials(api_url: str | None = None) -> StoredCredentials | None:
 
 
 def records_needing_migration(api_url: str | None = None) -> list[tuple[str, CredentialKind]]:
-    """Return the identities the file indexes but holds no token for, narrowed to one deployment.
+    """Return the identities the file indexes but holds no token for, narrowed by ``api_url``.
 
     A record written while the keychain held the secrets reads as a missing login,
     rather than as one waiting to be moved.
@@ -366,11 +366,8 @@ def save_record(record: StoredCredentials) -> None:
     previous = store.get("records", {}).get(key)
     if not isinstance(previous, dict):
         previous = {}
-    # A secret reaches the file only when the keychain could not take it.
-    # The record itself always stays in the file,
-    # because it is the index that names the keychain entries.
-    # A record the file holds no access token for kept its secrets in the keychain,
-    # so its fields are the only ones a copy can still be shadowing.
+    # A secret reaches the file only when the keychain could not take it,
+    # and only a keychain-homed record can still be shadowed by a copy worth deleting.
     keychain_homed = bool(previous) and not previous.get("access_token")
     for field in _SECRET_FIELDS:
         value = secrets[field]
