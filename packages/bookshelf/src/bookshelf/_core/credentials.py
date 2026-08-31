@@ -6,12 +6,22 @@ One record per deployment is active, and one deployment is the default.
 
 Secrets have two possible homes:
 
-1. **OS keychain** (primary, hardened store) under service name ``"bookshelf"``
-   with one username per record secret (``"<key>:access_token"`` and friends).
+1. **JSON file** (the default) at the ``platformdirs`` user-config path
+   ``bookshelf/credentials.json``, readable only by the current user.
+2. **OS keychain** (opt in with ``$BOOKSHELF_USE_KEYCHAIN``) under service name
+   ``"bookshelf"``, with one username per record secret
+   (``"<key>:access_token"`` and friends).
    On read the keychain value takes precedence over the file copy.
-2. **JSON file** (secondary, compatibility store) at the ``platformdirs``
-   user-config path ``bookshelf/credentials.json``.
-   This file is only readable by the current user.
+
+The file is the default because the keychain cannot keep its promise for a library like this one.
+macOS binds a keychain item's access control list to the designated requirement
+of the process that reads it.
+An SDK installed from PyPI runs under whatever interpreter the user has,
+and every common one (uv, Homebrew, pyenv) is ad-hoc signed with no stable identity,
+so the list pins to a code hash that changes on the next interpreter upgrade.
+The result is an unlock prompt on every command that "always allow" cannot silence.
+The keychain is worth turning on where the interpreter is properly signed,
+or on a platform whose backend is a real secret service.
 
 When no keychain backend is available every keychain call degrades silently to the file-only path.
 """
@@ -109,12 +119,27 @@ def credentials_path() -> Path:
     return Path(user_config_dir("bookshelf")) / "credentials.json"
 
 
+def keychain_enabled() -> bool:
+    """Report whether ``$BOOKSHELF_USE_KEYCHAIN`` opts in to the OS keychain."""
+    return os.environ.get("BOOKSHELF_USE_KEYCHAIN", "").strip().lower() not in (
+        "",
+        "0",
+        "false",
+        "no",
+    )
+
+
 def _keychain_call(operation: str, *args: str) -> str | None:
     """Invoke a keyring operation, swallowing every backend failure.
 
     A missing or broken keychain backend must never break login, load, or logout,
     so the caller falls back to the file copy.
+
+    Reads and writes are skipped unless the keychain is opted in to, but deletes are not.
+    A logout has to clear secrets an earlier run left in the keychain.
     """
+    if not keychain_enabled() and operation != "delete_password":
+        return None
     try:
         import keyring
 
@@ -242,6 +267,22 @@ def load_credentials(api_url: str | None = None) -> StoredCredentials | None:
     if not isinstance(record, dict):
         return None
     return _record_to_credentials(key, record)
+
+
+def keychain_only_records() -> list[str]:
+    """Return the deployment URLs whose secrets are readable only from the keychain.
+
+    A record written before the file became the default keeps its index entry
+    but holds no secret of its own,
+    so it reads as a missing login until the user logs in again.
+    """
+    if keychain_enabled():
+        return []
+    stranded = []
+    for key, record in _read_store().get("records", {}).items():
+        if isinstance(record, dict) and not record.get("access_token"):
+            stranded.append(key.rsplit("|", 1)[0])
+    return stranded
 
 
 def list_credentials() -> list[StoredCredentials]:
@@ -420,6 +461,8 @@ __all__ = [
     "active_kinds",
     "clear_credentials",
     "credentials_path",
+    "keychain_enabled",
+    "keychain_only_records",
     "list_credentials",
     "load_credentials",
     "normalise_api_url",

@@ -564,6 +564,13 @@ def auth_list(
     with command_errors():
         records = credentials.list_credentials()
         active = credentials.active_kinds()
+        for stranded in credentials.keychain_only_records():
+            note(
+                f"{stranded} has a login whose secret is in the OS keychain, "
+                "which is no longer read by default. "
+                "Run 'bookshelf auth login' to store it in the credentials file, "
+                "or set BOOKSHELF_USE_KEYCHAIN=1 to keep using the keychain."
+            )
         if not records:
             note("No stored identities. Run 'bookshelf auth login' to add one.")
             return
