@@ -203,7 +203,6 @@ def resolve_resource(
         raise BookshelfError(
             f"the version declares no resource {name!r}. {_available_resources(resources)}"
         )
-    catalogue = _catalogue(spec)
     reference = spec.reference
     if reference is not None:
         return _referenced(name, reference=reference, declared=spec.type, lookup_book=lookup_book)
@@ -212,6 +211,7 @@ def resolve_resource(
             f"resource {name!r} states no type. "
             "Add type, or name a bookshelf resource, whose type the platform states"
         )
+    catalogue = _catalogue(spec)
     if spec.path is not None:
         path, content_hash = _checked_in(name, relative=spec.path, recipe_dir=recipe_dir)
         pointer = register_file(

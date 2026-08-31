@@ -27,9 +27,6 @@ from bookshelf._produce.visibility import resolve as resolve_visibility
 
 MAX_REGISTRATION_BATCH = 1000
 
-DISCOVERY_FIELDS = tuple(models.ResourceDiscovery.model_fields)
-"""The catalogue metadata a resource carries, read off the wire model so the two cannot drift."""
-
 
 def uuid7() -> UUID:
     """Mint RFC 9562 UUIDv7 bits from milliseconds and random values.
@@ -256,7 +253,6 @@ def registered_name(item: models.RegisterResourceItem) -> str | None:
 
 
 __all__ = [
-    "DISCOVERY_FIELDS",
     "INHERIT",
     "MAX_REGISTRATION_BATCH",
     "VisibilityInput",
