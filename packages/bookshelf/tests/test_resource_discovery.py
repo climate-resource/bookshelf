@@ -248,8 +248,9 @@ def test_replay_sends_every_recorded_discovery_field(tmp_path: Path) -> None:
         replay_bundle_sync(bundle, client)
 
     sent = {resource["name"]: resource for resource in replayed(recorded)["resources"]}
-    assert sent["raw"]["discovery"]["authors"] == [
-        {"name": "Upstream Modelling Team", "affiliation": "Not us"}
+    credited = sent["raw"]["discovery"]["authors"]
+    assert [(author["name"], author["affiliation"]) for author in credited] == [
+        ("Upstream Modelling Team", "Not us")
     ]
     assert sent["raw"]["discovery"]["license"] == "CC-BY-SA-4.0"
     assert sent["raw"]["discovery"]["doi"] == "10.5281/zenodo.1"
@@ -257,8 +258,8 @@ def test_replay_sends_every_recorded_discovery_field(tmp_path: Path) -> None:
     assert sent["totals"]["discovery"]["description"] == "What we made from it."
 
 
-def test_a_live_registration_puts_the_fields_on_the_wire(tmp_path: Path) -> None:
-    """The recording path is not the only one, so the live sink states them too."""
+def test_a_direct_registration_puts_the_fields_on_the_wire(tmp_path: Path) -> None:
+    """A registration made outside `bs.use` states the fields through the same seam."""
     bundle = Bundle(tmp_path / "bundle")
     sink = RecordingSink(bundle, Mock(spec=BookshelfClient), ContentCache(tmp_path / "cache"))
     sink.draft_book("my-dataset", version="v1.0.0", license="CC-BY-4.0")

@@ -70,9 +70,8 @@ def discovery_input(
     return models.BookDiscoveryInput(**declared) if declared else None
 
 
-def people(values: Sequence[Mapping[str, Any]]) -> list[models.Author]:
-    """Validate a list of authors or maintainers, which share one shape."""
-    return [models.Author.model_validate(dict(value)) for value in values]
+people = helpers.people
+"""Validate a list of authors or maintainers, which share one shape."""
 
 
 ProcessingInput = Sequence[tuple[str, str]]

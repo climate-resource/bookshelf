@@ -37,7 +37,7 @@ from typing import Annotated, Any, Literal
 from uuid import UUID
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, RootModel, StringConstraints, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from bookshelf._core.errors import BookshelfError
 from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
@@ -77,11 +77,6 @@ class InvalidBundleError(BookshelfError):
     A caller therefore either holds a bundle that keeps its contract
     or holds an error explaining why it does not.
     """
-
-
-def _unwrapped(value: RootModel[str] | None) -> str | None:
-    """Unwrap a constrained wire scalar back to the plain string a manifest records."""
-    return None if value is None else value.root
 
 
 def _sha256_hex(hash_: str) -> str:
@@ -185,6 +180,13 @@ class BundleResource(BaseModel):
     external_uri: str | None = None  # the pointer target, ``None`` for a managed resource
     generated: bool = False
     used: list[ResourceName] = Field(default_factory=list)
+
+    @property
+    def discovery(self) -> models.ResourceDiscovery:
+        """The catalogue metadata this record holds, nested as the wire carries it."""
+        return models.ResourceDiscovery(
+            **self.model_dump(include=set(models.ResourceDiscovery.model_fields))
+        )
 
     @model_validator(mode="after")
     def _a_pointer_records_its_target(self) -> BundleResource:
@@ -669,7 +671,6 @@ class Bundle:
                     "which this bundle does not record before it. "
                     "Inputs must be registered before whatever consumes them."
                 )
-        stated = discovery or models.ResourceDiscovery()
         record = BundleResource(
             name=name,
             hash=hash_,
@@ -677,13 +678,9 @@ class Bundle:
             kind=kind,
             format=format_,
             visibility=visibility,
-            tags=list(stated.tags or []),
-            description=_unwrapped(stated.description),
-            authors=stated.authors,
-            doi=_unwrapped(stated.doi),
-            citation=_unwrapped(stated.citation),
-            license=_unwrapped(stated.license),
-            license_url=_unwrapped(stated.license_url),
+            # The wire model unwraps its own constrained scalars, and an unset field
+            # falls through to the record's default rather than arriving as a null.
+            **(discovery or models.ResourceDiscovery()).model_dump(exclude_none=True),
             metadata=dict(metadata or {}),
             dedupe=dedupe,
             size=size,

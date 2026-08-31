@@ -62,6 +62,7 @@ class _PreparedRegistration:
     resource_name: str
     resource_type: models.ResourceType
     visibility: models.Visibility
+    discovery: models.ResourceDiscovery
 
 
 class RecordedResource(Resource):
@@ -286,7 +287,7 @@ class RecordingActivity(Activity):
                     name=item.resource_name,
                     format_=item.entry.format or item.materialised.format,
                     visibility=item.visibility.value,
-                    discovery=helpers.item_discovery(item.entry),
+                    discovery=item.discovery,
                     metadata=dict(item.entry.metadata or {}),
                     dedupe=item.entry.dedupe,
                     generated=True,
@@ -324,7 +325,7 @@ class RecordingActivity(Activity):
                 item.materialised.hash,
                 name=item.resource_name,
                 visibility=item.visibility,
-                discovery=helpers.item_discovery(item.entry),
+                discovery=item.discovery,
                 metadata=item.entry.metadata,
             )
             for item in prepared
@@ -340,6 +341,7 @@ class RecordingActivity(Activity):
             resource_name=_recorded_name(entry.name),
             resource_type=resource_type,
             visibility=visibility,
+            discovery=helpers.item_discovery(entry),
         )
 
     def register_external(

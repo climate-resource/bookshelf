@@ -81,11 +81,6 @@ _MOVED_KEYS = (
 )
 
 
-# The catalogue metadata a resource states for itself, in the order a recipe reads it.
-# A ``bookshelf://`` resource states none, because the platform already holds them.
-_DISCOVERY_FIELDS = ("tags", "description", "authors", "doi", "citation", "license", "license_url")
-
-
 class _Section(BaseModel):
     """Base for every recipe section: unknown keys are rejected, and the result is immutable."""
 
@@ -102,6 +97,11 @@ class PersonSpec(_Section):
     email: str | None = Field(default=None, min_length=1)
     affiliation: str | None = Field(default=None, min_length=1)
     orcid: str | None = Field(default=None, min_length=1)
+
+
+def credited(people: Collection[PersonSpec] | None) -> list[dict[str, Any]]:
+    """Render declared people as the mappings every producer surface takes them as."""
+    return [person.model_dump(exclude_none=True) for person in people or ()]
 
 
 class DiscoveryFields(_Section):
@@ -244,6 +244,13 @@ class _ResourceFields(_Section):
         if value is not None and _SHA256_RE.match(value) is None:
             raise ValueError(f"sha256 must be 64 hex characters, got {value!r}")
         return None if value is None else value.lower()
+
+
+# The catalogue fields a resource declares, being those it shares with the wire model.
+# Deriving the set means a field added to either side joins the rules below without another edit.
+_DISCOVERY_FIELDS = tuple(
+    name for name in models.ResourceDiscovery.model_fields if name in _ResourceFields.model_fields
+)
 
 
 class ResourceDefaults(_ResourceFields):
@@ -396,9 +403,7 @@ class ResolvedBook(BaseModel):
     @property
     def authors(self) -> tuple[dict[str, Any], ...]:
         """The people credited with this book, as the producer surfaces take them."""
-        return tuple(
-            author.model_dump(exclude_none=True) for author in self.discovery.authors or ()
-        )
+        return tuple(credited(self.discovery.authors))
 
 
 class RecordRecipe(BaseModel):

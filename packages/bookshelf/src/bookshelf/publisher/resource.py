@@ -17,7 +17,7 @@ import hashlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, TypedDict, Unpack
 from uuid import UUID
 
 import httpx
@@ -27,11 +27,40 @@ from bookshelf._core.names import flatten_to_resource_name
 from bookshelf._generated import models
 from bookshelf._produce.types import HasTrackingId
 from bookshelf.cache import ContentCache
-from bookshelf.publisher.recipe import ResourceSpec
+from bookshelf.publisher.recipe import ResourceSpec, credited
 from bookshelf.publisher.reference import BookshelfReference
 
 DOWNLOAD_TIMEOUT = 600.0
 _CHUNK_BYTES = 1 << 20
+
+
+class Catalogue(TypedDict):
+    """The catalogue metadata a declared resource registers with.
+
+    It is one keyword block rather than seven parameters,
+    so a field added to a recipe reaches the wire without another signature to edit.
+    """
+
+    tags: Sequence[str]
+    description: str | None
+    authors: Sequence[Mapping[str, Any]] | None
+    doi: str | None
+    citation: str | None
+    license: str | None
+    license_url: str | None
+
+
+def _catalogue(spec: ResourceSpec) -> Catalogue:
+    """Read what a resource declares for itself, filling in nothing from the book."""
+    return Catalogue(
+        tags=list(spec.tags or ()),
+        description=spec.description,
+        authors=None if spec.authors is None else credited(spec.authors),
+        doi=spec.doi,
+        citation=spec.citation,
+        license=spec.license,
+        license_url=spec.license_url,
+    )
 
 
 class RegisterExternal(Protocol):
@@ -48,14 +77,8 @@ class RegisterExternal(Protocol):
         uri: str,
         hash: str,
         name: str,
-        tags: Sequence[str],
-        description: str | None,
-        authors: Sequence[Mapping[str, Any]] | None,
-        doi: str | None,
-        citation: str | None,
-        license: str | None,
-        license_url: str | None,
         metadata: Mapping[str, Any] | None,
+        **catalogue: Unpack[Catalogue],
     ) -> HasTrackingId:
         """Catalogue an external pointer and return its handle."""
         ...
@@ -75,14 +98,8 @@ class RegisterFile(Protocol):
         path: Path,
         hash: str,
         name: str,
-        tags: Sequence[str],
-        description: str | None,
-        authors: Sequence[Mapping[str, Any]] | None,
-        doi: str | None,
-        citation: str | None,
-        license: str | None,
-        license_url: str | None,
         metadata: Mapping[str, Any] | None,
+        **catalogue: Unpack[Catalogue],
     ) -> HasTrackingId:
         """Catalogue the bytes of a checked-in file and return its handle."""
         ...
@@ -186,6 +203,7 @@ def resolve_resource(
         raise BookshelfError(
             f"the version declares no resource {name!r}. {_available_resources(resources)}"
         )
+    catalogue = _catalogue(spec)
     reference = spec.reference
     if reference is not None:
         return _referenced(name, reference=reference, declared=spec.type, lookup_book=lookup_book)
@@ -201,14 +219,8 @@ def resolve_resource(
             path=path,
             hash=content_hash,
             name=flatten_to_resource_name(name),
-            tags=list(spec.tags or ()),
-            description=spec.description,
-            authors=_declared_authors(spec),
-            doi=spec.doi,
-            citation=spec.citation,
-            license=spec.license,
-            license_url=spec.license_url,
             metadata={"doi": doi} if doi is not None else None,
+            **catalogue,
         )
         return ResolvedResource(
             name=name,
@@ -231,14 +243,8 @@ def resolve_resource(
         # The declared key names the input for the rest of the bundle,
         # flattened because a recipe may declare it under something the platform would refuse.
         name=flatten_to_resource_name(name),
-        tags=list(spec.tags or ()),
-        description=spec.description,
-        authors=_declared_authors(spec),
-        doi=spec.doi,
-        citation=spec.citation,
-        license=spec.license,
-        license_url=spec.license_url,
         metadata={"doi": doi} if doi is not None else None,
+        **catalogue,
     )
     return ResolvedResource(
         name=name,
@@ -247,13 +253,6 @@ def resolve_resource(
         pointer=pointer,
         tracking_id=pointer.tracking_id,
     )
-
-
-def _declared_authors(spec: ResourceSpec) -> list[dict[str, Any]] | None:
-    """Read the people a resource credits, as a registration takes them."""
-    if spec.authors is None:
-        return None
-    return [author.model_dump(exclude_none=True) for author in spec.authors]
 
 
 def _referenced(
@@ -391,6 +390,7 @@ __all__ = [
     "PublishedBook",
     "PublishedEntry",
     "ResolvedResource",
+    "Catalogue",
     "RegisterFile",
     "resolve_resource",
 ]

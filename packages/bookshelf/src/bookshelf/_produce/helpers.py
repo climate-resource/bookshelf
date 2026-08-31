@@ -27,6 +27,9 @@ from bookshelf._produce.visibility import resolve as resolve_visibility
 
 MAX_REGISTRATION_BATCH = 1000
 
+DISCOVERY_FIELDS = tuple(models.ResourceDiscovery.model_fields)
+"""The catalogue metadata a resource carries, read off the wire model so the two cannot drift."""
+
 
 def uuid7() -> UUID:
     """Mint RFC 9562 UUIDv7 bits from milliseconds and random values.
@@ -115,7 +118,7 @@ def resource_discovery(
     return models.ResourceDiscovery(
         tags=list(tags),
         description=description,
-        authors=None if authors is None else [author_input(author) for author in authors],
+        authors=None if authors is None else people(authors),
         doi=doi,
         citation=citation,
         license=license,
@@ -123,9 +126,9 @@ def resource_discovery(
     )
 
 
-def author_input(value: AuthorInput) -> models.Author:
-    """Normalise one credited person, however a caller spelled them."""
-    return value if isinstance(value, models.Author) else models.Author(**dict(value))
+def people(values: Sequence[AuthorInput]) -> list[models.Author]:
+    """Validate a list of authors or maintainers, which share one shape."""
+    return [models.Author.model_validate(value) for value in values]
 
 
 def item_discovery(entry: RegisterItem) -> models.ResourceDiscovery:
@@ -253,14 +256,15 @@ def registered_name(item: models.RegisterResourceItem) -> str | None:
 
 
 __all__ = [
+    "DISCOVERY_FIELDS",
     "INHERIT",
     "MAX_REGISTRATION_BATCH",
     "VisibilityInput",
     "activity_envelope",
-    "author_input",
     "external_item",
     "item_discovery",
     "paired_successes",
+    "people",
     "raise_partial_registration",
     "registered_name",
     "registered_resource_type",
