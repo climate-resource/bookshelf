@@ -1,8 +1,9 @@
 # %% [markdown]
 # # A feedstock whose inputs and outputs are by different people
 #
-# The book credits Climate Resource, because Climate Resource assembled it.
-# Neither resource inherits that.
+# The book credits the upstream team, because the data is theirs.
+# Climate Resource assembled it and appears under `volume.maintainers`.
+# Neither resource inherits the book's credit.
 # `upstream` credits the team that published it, and `totals` credits whoever derived it,
 # which here is us.
 

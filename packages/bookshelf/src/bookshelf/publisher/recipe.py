@@ -140,6 +140,9 @@ class VolumeSection(_Section):
     which is why it is declared once for the volume rather than per book.
     Letting it vary would make a filter return a different volume depending on which edition matched.
 
+    ``maintainers`` are whoever runs the feedstock, which is a contact rather than a credit.
+    Who made the data is a book's ``authors``, and repackaging somebody else's data is not authorship.
+
     Neither a licence nor catalogue metadata is declared here.
     Each book states its own licence, because a relicensed version is common
     and a default here would let one be published under the wrong terms without anyone writing it down.

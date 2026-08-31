@@ -109,60 +109,66 @@ Nothing in the recipe describes the data itself.
 are computed per resource by the platform and rolled up.
 `edition`, `tracking_id` and the storage path are assigned by the server.
 
+### Authors and maintainers
+
+`volume.maintainers` are the people who run and maintain the feedstock.
+They are not necessarily responsible for the production of the datasets.
+
+`authors` credit whoever did the work of producing the data.
+So a feedstock that reproduces somebody else's data names them as the authors,
+and whoever runs the feedstock stays in `maintainers`.
+
 ### The discovery fields
 
 Every field below is optional, and every one may be set under `defaults:`, on a book, or on both.
 They sit flat at both levels, and where both set it, the book wins.
 
-| Field               | Meaning                                                         |
-| ------------------- | --------------------------------------------------------------- |
-| `title`             | The human readable name of the dataset.                         |
+| Field               | Meaning                                                             |
+| ------------------- | ------------------------------------------------------------------- |
+| `title`             | The human readable name of the dataset.                             |
 | `description`       | A summary of what the dataset covers, or what changed in this book. |
-| `publisher`         | The organisation that published the data.                       |
-| `publisher_url`     | The publisher's homepage.                                       |
-| `authors`           | Who to credit, as a list of name, email, affiliation and orcid. |
-| `citation`          | The citation to use, as the publisher states it.                |
-| `doi`               | The upstream DOI for this book.                                 |
-| `release_date`      | The date upstream published it.                                 |
-| `release_url`       | The page for this particular release.                           |
-| `homepage_url`      | The dataset's landing page.                                     |
-| `documentation_url` | Where the dataset is documented.                                |
-| `methodology_url`   | The paper or note describing how it was produced.               |
-| `repository_url`    | The code that produces the dataset upstream.                    |
-| `license_url`       | The full licence text.                                          |
-| `intended_uses`     | What the data is suitable for.                                  |
-| `limitations`       | What it is not suitable for, and known caveats.                 |
+| `publisher`         | The organisation that published the data.                           |
+| `publisher_url`     | The publisher's homepage.                                           |
+| `authors`           | Who made the data, as a list of name, email, affiliation and orcid. |
+| `citation`          | The citation to use, as the publisher states it.                    |
+| `doi`               | The upstream DOI for this book.                                     |
+| `release_date`      | The date upstream published it.                                     |
+| `release_url`       | The page for this particular release.                               |
+| `homepage_url`      | The dataset's landing page.                                         |
+| `documentation_url` | Where the dataset is documented.                                    |
+| `methodology_url`   | The paper or note describing how it was produced.                   |
+| `repository_url`    | The code that produces the dataset upstream.                        |
+| `license_url`       | The full licence text.                                              |
+| `intended_uses`     | What the data is suitable for.                                      |
+| `limitations`       | What it is not suitable for, and known caveats.                     |
 
-### A resource's own discovery fields
+### A resource's discovery fields
 
-A book's `authors` credit whoever assembled the book.
-That is not the same claim as who made any one resource inside it,
-and for a feedstock built on somebody else's data it is not even the same people.
+A book's `authors` are a claim about the book's data as a whole.
+A book may still hold resources made by different people:
+an input somebody else published, beside an output derived from it here.
 
-So a resource carries its own catalogue metadata, under `resources:`, spelled exactly as a book spells it.
+A resource carries its own catalogue metadata, under `resources:`.
 
-| Field         | Meaning                                                         |
-| ------------- | --------------------------------------------------------------- |
-| `tags`        | Free-form tags for this resource.                               |
-| `description` | What this resource holds.                                       |
-| `authors`     | Who to credit for this resource, in the same shape a book takes. |
-| `citation`    | The citation to use for this resource.                          |
-| `doi`         | The DOI for this resource.                                      |
-| `license`     | The terms this resource is under.                               |
-| `license_url` | The full licence text for those terms.                          |
+| Field         | Meaning                                                 |
+| ------------- | ------------------------------------------------------- |
+| `tags`        | Free-form tags for this resource.                       |
+| `description` | What this resource holds.                               |
+| `authors`     | Who made this resource, in the same shape a book takes. |
+| `citation`    | The citation to use for this resource.                  |
+| `doi`         | The DOI for this resource.                              |
+| `license`     | The terms this resource is under.                       |
+| `license_url` | The full licence text for those terms.                  |
 
-None of it is inherited from the book.
-A resource that states nothing carries nothing, which is at least honest about what is known.
-Inheriting instead would let a resource silently claim the book's authors
-whenever nobody thought about it, which is the failure the field exists to fix.
+Stating a field under `defaults:` still shares it across every book that names the resource.
 
-Stating a field under `defaults:` still shares it across every book that names the resource,
-so a fact that does not move between books is written once.
-
-An output has the same fields, passed to `book.write` rather than declared here,
+A resource a build reads states these fields in the recipe, under `resources:`.
+A resource a build writes passes the same fields to `book.write`,
 because the recipe never names what a build writes.
+The field names are the same either way.
 The [`resource-attribution`](https://github.com/climate-resource/bookshelf/tree/main/examples/resource-attribution)
-example shows both ends.
+example declares one of each: an input credited to the team that published it,
+and an output credited to whoever derived it.
 
 ## The rules
 
@@ -209,8 +215,8 @@ example shows both ends.
   A `bookshelf://` resource may leave it out, because the platform already states it.
   Where it is stated it is checked, and a resource of another type is an error.
 - **A resource inherits no discovery field from its book.**
-  A book's authors credit whoever assembled the book, which is a different claim from who made
-  one resource in it. An undeclared field on a resource stays undeclared.
+  A book's authors are a claim about the book's data as a whole, not about any one resource in it.
+  An undeclared field on a resource stays undeclared.
 - **Unknown keys are an error at every level**, so a typo is never silently dropped.
 - **Books are ordered by the recipe**, in the order the list states them.
   Each resolved book carries its position, so nothing has to parse a version string to sort.

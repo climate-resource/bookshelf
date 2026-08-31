@@ -90,7 +90,7 @@ Every entry in `resources` has these fields.
 | `visibility`   | optional     | `hidden`, `org` or `public` | `hidden`  | the tier this resource records as                                       |
 | `tags`         | optional     | list of strings             | `[]`      | free-form labels                                                        |
 | `description`  | optional     | string                      | absent    | what this resource holds                                                |
-| `authors`      | optional     | list of author mappings     | absent    | who to credit for this resource                                         |
+| `authors`      | optional     | list of author mappings     | absent    | who made this resource                                                  |
 | `doi`          | optional     | string                      | absent    | the DOI for this resource                                               |
 | `citation`     | optional     | string                      | absent    | the citation to use for this resource                                   |
 | `license`      | optional     | string                      | absent    | the terms this resource is under                                        |
@@ -101,10 +101,6 @@ Every entry in `resources` has these fields.
 | `external_uri` | pointer only | string                      | absent    | the external target                                                     |
 | `generated`    | optional     | boolean                     | `false`   | whether an activity produced this resource                              |
 | `used`         | optional     | list of names               | `[]`      | what this resource was derived from                                     |
-
-`tags` through `license_url` are the catalogue metadata the resource itself carries.
-They are the resource's own and are never filled in from the book,
-so a book assembled from other people's data credits them on the thing they made.
 
 `name` is local to the bundle that registers it, and it carries no hierarchy.
 It matches `^[a-z0-9][a-z0-9._-]{0,199}$`, it is unique within the manifest,
@@ -210,7 +206,7 @@ This field is specific to the Bookshelf and is optional.
 | `version`         | required |          | the consumer-facing data version                                                 |
 | `visibility`      | optional | `hidden` | the tier of the book                                                             |
 | `license`         | optional | absent   | the SPDX licence                                                                 |
-| `authors`         | optional | `[]`     | the people credited with this version, sent on the replay                        |
+| `authors`         | optional | `[]`     | who made this version's data, sent on the replay                                 |
 | `discovery`       | optional | absent   | the editorial metadata baked onto this book, keyed by the recipe's field names   |
 | `description`     | optional | absent   | free prose                                                                       |
 | `metadata`        | optional | `{}`     | free-form metadata                                                               |

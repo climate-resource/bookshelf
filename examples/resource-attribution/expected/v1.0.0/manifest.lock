@@ -7,8 +7,8 @@ activity:
   runner: examples
 book:
   authors:
-  - email: info@climate-resource.com
-    name: Climate Resource
+  - affiliation: An institute that is not us
+    name: Upstream Modelling Team
   description: One workbook from an upstream team, and one timeseries derived from it.
   discovery:
     publisher: Climate Resource

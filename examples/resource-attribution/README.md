@@ -2,18 +2,18 @@
 
 A book whose resources are not all by the same people.
 
-The book credits Climate Resource, because Climate Resource assembled it.
-That claim does not describe either resource inside it.
+The recipe format is very flexible in how authorship can be declared to handle various real-world use-cases.
+The preference is to explicitly declare the authors on the resources they created.
+This helps build a better citation graph.
+
+This book credits the upstream team as authors, because the data is theirs.
+Climate Resource assembled the book and appears under `volume.maintainers`, which is a contact rather than a credit.
+That book-level claim still does not describe either resource inside it.
 `upstream` is somebody else's workbook, published under their terms, and `totals` is derived from it here.
 
-A resource states its own catalogue metadata and inherits none of the book's,
-so a field nobody wrote stays unset.
-The two ends of the produce path spell the fields identically:
+- A declared input states its authorshop under `resources:` in the recipe.
+- A produced output defines it under `books:` and passes that information to `book.write`.
 
-- A declared input states them under `resources:` in the recipe.
-- A produced output passes them to `book.write`.
-
-`license` is the case that makes the point.
 The input keeps the upstream `CC-BY-SA-4.0`, while the book and its derived output go out under `CC-BY-4.0`.
 
 ```bash

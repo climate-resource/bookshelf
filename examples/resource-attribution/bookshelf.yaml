@@ -18,12 +18,13 @@ books:
     license: CC-BY-4.0
     visibility: public
     description: One workbook from an upstream team, and one timeseries derived from it.
+    # The bulk of the data is the upstream team's, so the book credits them.
+    # Climate Resource runs the feedstock, which is what volume.maintainers records.
     authors:
-      - name: Climate Resource
-        email: info@climate-resource.com
+      - name: Upstream Modelling Team
+        affiliation: An institute that is not us
     resources:
-      # The input is somebody else's work, so it is credited to them
-      # under the terms they published it under.
+      # The input is somebody else's work, so it is credited to them under the terms they published it under.
       upstream:
         type: tabular
         path: inputs/upstream.csv
