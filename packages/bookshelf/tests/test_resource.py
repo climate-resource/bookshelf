@@ -306,6 +306,29 @@ def test_a_checked_in_input_links_to_where_it_is_committed(tmp_path: Path) -> No
     )
 
 
+def test_an_unrelated_edit_does_not_cost_the_link(tmp_path: Path) -> None:
+    """The committed bytes are what the link claims, so the rest of the clone does not matter.
+
+    A working clone almost always carries some unrelated change,
+    so a repository-wide cleanliness test would drop the link nearly every time.
+    """
+    root = tmp_path / "feedstock"
+    recipe_dir = _repo_with_the_recipe_in_a_subdirectory(root)
+    (root / "unrelated.txt").write_text("not committed", encoding="utf-8")
+    (recipe_dir / "bookshelf.yaml").write_text(
+        (recipe_dir / "bookshelf.yaml").read_text(encoding="utf-8") + "\n# edited\n",
+        encoding="utf-8",
+    )
+    bundle_path = tmp_path / "bundle"
+
+    with _recording(recipe_dir / "bookshelf.yaml", bundle_path):
+        build = setup()
+        build.use("raw")
+        recorded = _written_resource(build.bs, bundle_path, "raw")
+
+    assert recorded.metadata["source_url"].endswith("/pipeline/data/raw.csv")
+
+
 def test_a_checked_in_input_that_git_does_not_track_records_no_link(tmp_path: Path) -> None:
     """An untracked file is absent from the revision, so a link to it would not resolve."""
     root = tmp_path / "feedstock"

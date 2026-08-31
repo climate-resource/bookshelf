@@ -175,9 +175,13 @@ def committed_source_url(path: Path) -> str | None:
     The repository containing the file is what is read, not the working directory,
     so a recipe in a subdirectory links to the file where it actually lives.
 
+    What is checked is this one file rather than the state of the whole clone.
+    A link is honest when the committed bytes are the bytes that were read,
+    and an unrelated edit elsewhere in the repository does not change that.
+
     Returns ``None`` rather than raising whenever no honest link can be built:
-    a dirty tree, a file git does not track, a repository without an origin or a commit,
-    or an unrecognised forge.
+    a file git does not track, one whose working copy has moved away from the commit,
+    a repository without an origin or a commit, or an unrecognised forge.
     The link is a convenience, so failing to derive one must never fail a build.
     """
     try:
@@ -190,14 +194,16 @@ def committed_source_url(path: Path) -> str | None:
             return None
         if "origin" not in {remote.name for remote in repo.remotes}:
             return None
-        if not repo.head.is_valid() or repo.is_dirty(untracked_files=True):
+        if not repo.head.is_valid():
             return None
         relative = path.resolve().relative_to(Path(repo.working_tree_dir).resolve())
         # A file git does not track is absent from the revision, so a link would 404.
-        repo.head.commit.tree / relative.as_posix()
+        committed = repo.head.commit.tree / relative.as_posix()
+        if committed.hexsha != repo.git.hash_object(str(path.resolve())):
+            return None
+        code_ref = f"{_sanitise_remote_url(repo.remotes.origin.url)}@{repo.head.commit.hexsha}"
     except (git.GitError, KeyError, OSError, ValueError):
         return None
-    code_ref = f"{_sanitise_remote_url(repo.remotes.origin.url)}@{repo.head.commit.hexsha}"
     return source_url(code_ref, relative.as_posix())
 
 
