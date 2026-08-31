@@ -163,7 +163,10 @@ They sit flat at both levels, and where both set it, the book wins.
   This is asked of the merged resource, so a default and a book may each hold half of it.
   A `uri:` resource is catalogued as a pointer, because the platform can fetch it again.
   A `path:` resource is re-hosted, because a repository path is no address the platform can resolve.
-  Its `source_url` metadata links to the commit the file was read at, where the checkout names one.
+  Its `source_url` metadata links to the commit the file was read at.
+  That metadata is optional.
+  It is omitted when the file is uncommitted or has moved away from the commit,
+  and when the repository states no origin, holds no commit, or sits on an unrecognised forge.
 - **A `bookshelf://` uri states no `sha256`.**
   The platform holds the resource already, so the digest comes from it.
   Stating one is rejected rather than checked, because a recipe cannot know it in advance.

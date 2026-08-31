@@ -13,10 +13,14 @@ import pytest
 from bookshelf._core.errors import BookshelfError
 from bookshelf._produce.provenance import _sanitise_remote_url, derive_code_ref, source_url
 
+# A globally configured core.hooksPath applies to a throwaway repository too,
+# so hooks are switched off to keep these independent of the machine they run on.
+_NO_HOOKS = ("-c", "core.hooksPath=/dev/null")
+
 
 def _git(cwd: Path, *args: str) -> None:
     """Run one git command in ``cwd``, failing the test on a non-zero exit."""
-    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
+    subprocess.run(["git", *_NO_HOOKS, *args], cwd=cwd, check=True, capture_output=True)
 
 
 def _repo_with_a_commit(path: Path, origin: str = "https://example.com/thing") -> None:
@@ -217,7 +221,7 @@ def test_a_bare_repository_is_reported_as_such(
 
     bare = tmp_path / "bare.git"
     subprocess.run(
-        ["git", "clone", "--bare", str(source), str(bare)],
+        ["git", *_NO_HOOKS, "clone", "--bare", str(source), str(bare)],
         check=True,
         capture_output=True,
     )

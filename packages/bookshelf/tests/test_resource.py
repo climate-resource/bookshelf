@@ -85,9 +85,14 @@ def _write_data(tmp_path: Path) -> Path:
     return data
 
 
+# A globally configured core.hooksPath applies to a throwaway repository too,
+# so hooks are switched off to keep these independent of the machine they run on.
+_NO_HOOKS = ("-c", "core.hooksPath=/dev/null")
+
+
 def _git(cwd: Path, *args: str) -> None:
     """Run one git command in ``cwd``, failing the test on a non-zero exit."""
-    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
+    subprocess.run(["git", *_NO_HOOKS, *args], cwd=cwd, check=True, capture_output=True)
 
 
 @contextmanager
@@ -269,7 +274,7 @@ def test_a_path_resource_records_its_bytes_rather_than_a_pointer(tmp_path: Path)
 
 def _repo_with_the_recipe_in_a_subdirectory(root: Path) -> Path:
     """Commit a feedstock whose recipe sits below the repository root, and return its directory."""
-    subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
+    subprocess.run(["git", *_NO_HOOKS, "init", "-q", str(root)], check=True, capture_output=True)
     _git(root, "remote", "add", "origin", "git@github.com:climate-resource/feedstock.git")
     recipe_dir = root / "pipeline"
     (recipe_dir / "data").mkdir(parents=True)
@@ -329,11 +334,29 @@ def test_an_unrelated_edit_does_not_cost_the_link(tmp_path: Path) -> None:
     assert recorded.metadata["source_url"].endswith("/pipeline/data/raw.csv")
 
 
+def test_a_checked_in_input_that_moved_from_the_commit_records_no_link(tmp_path: Path) -> None:
+    """The bytes that were read are not the committed ones, so the link would misdescribe them."""
+    root = tmp_path / "feedstock"
+    recipe_dir = _repo_with_the_recipe_in_a_subdirectory(root)
+    (recipe_dir / "data" / "raw.csv").write_bytes(_PAYLOAD + b"co2,2024,2.0\n")
+    bundle_path = tmp_path / "bundle"
+
+    with _recording(recipe_dir / "bookshelf.yaml", bundle_path):
+        build = setup()
+        build.use("raw")
+        recorded = _written_resource(build.bs, bundle_path, "raw")
+
+    assert "source_url" not in recorded.metadata
+
+
 def test_a_checked_in_input_that_git_does_not_track_records_no_link(tmp_path: Path) -> None:
     """An untracked file is absent from the revision, so a link to it would not resolve."""
     root = tmp_path / "feedstock"
     recipe_dir = _repo_with_the_recipe_in_a_subdirectory(root)
-    (recipe_dir / "data" / "raw.csv").write_bytes(_PAYLOAD + b"co2,2024,2.0\n")
+    _git(root, "rm", "--cached", "-q", "pipeline/data/raw.csv")
+    _git(
+        root, "-c", "user.name=T", "-c", "user.email=t@example.invalid", "commit", "-q", "-m", "out"
+    )
     bundle_path = tmp_path / "bundle"
 
     with _recording(recipe_dir / "bookshelf.yaml", bundle_path):
