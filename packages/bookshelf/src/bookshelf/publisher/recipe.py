@@ -81,6 +81,11 @@ _MOVED_KEYS = (
 )
 
 
+# The catalogue metadata a resource states for itself, in the order a recipe reads it.
+# A ``bookshelf://`` resource states none, because the platform already holds them.
+_DISCOVERY_FIELDS = ("tags", "description", "authors", "doi", "citation", "license", "license_url")
+
+
 class _Section(BaseModel):
     """Base for every recipe section: unknown keys are rejected, and the result is immutable."""
 
@@ -284,6 +289,13 @@ class ResourceSpec(_ResourceFields):
                 raise ValueError(
                     "a bookshelf resource takes its digest from the platform, so it states no "
                     "sha256. Remove sha256, or name something to fetch with an http uri instead"
+                )
+            stated = [name for name in _DISCOVERY_FIELDS if getattr(self, name) is not None]
+            if stated:
+                raise ValueError(
+                    "a bookshelf resource takes its catalogue metadata from the platform, "
+                    f"so it states none of its own. Remove {', '.join(stated)}, "
+                    "or name something to fetch with an http uri instead"
                 )
             return self
         if self.uri is not None and self.sha256 is None:

@@ -176,8 +176,7 @@ def resolve_resource(
     Nothing is registered for it, because the platform already holds it,
     and the pointer returned is the published resource itself.
 
-    Whatever catalogue metadata the resource declares is registered with it,
-    and nothing is filled in from the book, so an undeclared field stays undeclared.
+    Whatever catalogue metadata the resource declares is registered with it.
 
     Raises :class:`~bookshelf._core.errors.BookshelfError` naming the declared resources
     when the version does not declare ``name``.
@@ -209,7 +208,7 @@ def resolve_resource(
             citation=spec.citation,
             license=spec.license,
             license_url=spec.license_url,
-            metadata=_declared_metadata(spec, doi),
+            metadata={"doi": doi} if doi is not None else None,
         )
         return ResolvedResource(
             name=name,
@@ -239,7 +238,7 @@ def resolve_resource(
         citation=spec.citation,
         license=spec.license,
         license_url=spec.license_url,
-        metadata=_declared_metadata(spec, doi),
+        metadata={"doi": doi} if doi is not None else None,
     )
     return ResolvedResource(
         name=name,
@@ -255,12 +254,6 @@ def _declared_authors(spec: ResourceSpec) -> list[dict[str, Any]] | None:
     if spec.authors is None:
         return None
     return [author.model_dump(exclude_none=True) for author in spec.authors]
-
-
-def _declared_metadata(spec: ResourceSpec, doi: str | None) -> dict[str, Any] | None:
-    """Stamp the DOI a reader should cite, preferring the resource's own over the book's."""
-    cited = spec.doi or doi
-    return None if cited is None else {"doi": cited}
 
 
 def _referenced(

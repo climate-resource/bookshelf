@@ -198,9 +198,9 @@ example shows both ends.
   That metadata is optional.
   It is omitted when the file is uncommitted or has moved away from the commit,
   and when the repository states no origin, holds no commit, or sits on an unrecognised forge.
-- **A `bookshelf://` uri states no `sha256`.**
-  The platform holds the resource already, so the digest comes from it.
-  Stating one is rejected rather than checked, because a recipe cannot know it in advance.
+- **A `bookshelf://` uri states no `sha256` and no catalogue metadata.**
+  The platform holds the resource already, so both come from it.
+  Stating either is rejected rather than checked, because a recipe cannot know them in advance.
 - **A resource always declares its `type`**, which is never inferred from the file extension.
   It is one of `tabular`, `timeseries`, `geospatial`, `document` or `binary`,
   the same set the platform registers a resource under,

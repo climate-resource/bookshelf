@@ -38,8 +38,7 @@ resources:
   kind: managed
   license: CC-BY-SA-4.0
   license_url: https://creativecommons.org/licenses/by-sa/4.0/
-  metadata:
-    doi: 10.5281/zenodo.0000000
+  metadata: {}
   name: upstream
   size: 201
   tags:

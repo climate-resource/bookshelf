@@ -37,7 +37,7 @@ from typing import Annotated, Any, Literal
 from uuid import UUID
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import BaseModel, ConfigDict, Field, RootModel, StringConstraints, model_validator
 
 from bookshelf._core.errors import BookshelfError
 from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
@@ -79,9 +79,9 @@ class InvalidBundleError(BookshelfError):
     """
 
 
-def _scalar(value: Any) -> str | None:
+def _unwrapped(value: RootModel[str] | None) -> str | None:
     """Unwrap a constrained wire scalar back to the plain string a manifest records."""
-    return None if value is None else str(getattr(value, "root", value))
+    return None if value is None else value.root
 
 
 def _sha256_hex(hash_: str) -> str:
@@ -174,7 +174,7 @@ class BundleResource(BaseModel):
     visibility: Literal["hidden", "org", "public"] = "hidden"
     tags: list[str] = Field(default_factory=list)
     description: str | None = None
-    authors: list[dict[str, Any]] | None = None
+    authors: list[models.Author] | None = None
     doi: str | None = None
     citation: str | None = None
     license: str | None = None
@@ -678,18 +678,12 @@ class Bundle:
             format=format_,
             visibility=visibility,
             tags=list(stated.tags or []),
-            description=_scalar(stated.description),
-            authors=(
-                None
-                if stated.authors is None
-                else [
-                    author.model_dump(mode="json", exclude_none=True) for author in stated.authors
-                ]
-            ),
-            doi=_scalar(stated.doi),
-            citation=_scalar(stated.citation),
-            license=_scalar(stated.license),
-            license_url=_scalar(stated.license_url),
+            description=_unwrapped(stated.description),
+            authors=stated.authors,
+            doi=_unwrapped(stated.doi),
+            citation=_unwrapped(stated.citation),
+            license=_unwrapped(stated.license),
+            license_url=_unwrapped(stated.license_url),
             metadata=dict(metadata or {}),
             dedupe=dedupe,
             size=size,

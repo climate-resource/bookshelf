@@ -131,7 +131,7 @@ def test_an_unknown_resource_key_still_names_the_keys_a_resource_takes(tmp_path:
 def test_a_declared_input_records_the_authors_the_recipe_gives_it(tmp_path: Path) -> None:
     raw = _named(_record(tmp_path), "raw")
 
-    assert raw.authors == [{"name": "Upstream Modelling Team", "affiliation": "Not us"}]
+    assert raw.authors == [models.Author(name="Upstream Modelling Team", affiliation="Not us")]
     assert raw.description == "Somebody else's workbook."
     assert raw.license == "CC-BY-SA-4.0"
     assert raw.license_url == "https://creativecommons.org/licenses/by-sa/4.0/"
@@ -143,7 +143,7 @@ def test_a_declared_input_records_the_authors_the_recipe_gives_it(tmp_path: Path
 def test_a_written_output_records_the_authors_book_write_gives_it(tmp_path: Path) -> None:
     totals = _named(_record(tmp_path), "totals")
 
-    assert totals.authors == [{"name": "Climate Resource"}]
+    assert totals.authors == [models.Author(name="Climate Resource")]
     assert totals.description == "What we made from it."
     assert totals.license == "CC-BY-4.0"
     assert totals.tags == ["derived"]
@@ -210,6 +210,33 @@ books:
     assert spec.license == "CC-BY-SA-4.0"
     assert spec.authors is not None
     assert [author.name for author in spec.authors] == ["A Different Upstream Team"]
+
+
+def test_a_bookshelf_resource_states_no_catalogue_metadata_of_its_own(tmp_path: Path) -> None:
+    """The platform already holds it, so declaring it is rejected rather than silently dropped."""
+    recipe = """\
+volume:
+  name: my-dataset
+build:
+  notebook: build.py
+books:
+  - version: "v1.0.0"
+    license: CC-BY-4.0
+    resources:
+      raw:
+        uri: bookshelf://other/v1.0.0/data
+        authors:
+          - name: Upstream Modelling Team
+        license: CC-BY-SA-4.0
+"""
+    (tmp_path / "bookshelf.yaml").write_text(recipe, encoding="utf-8")
+
+    with pytest.raises(BookshelfError) as excinfo:
+        load_record_recipe(tmp_path / "bookshelf.yaml")
+
+    message = str(excinfo.value)
+    assert "takes its catalogue metadata from the platform" in message
+    assert "Remove authors, license" in message
 
 
 def test_replay_sends_every_recorded_discovery_field(tmp_path: Path) -> None:

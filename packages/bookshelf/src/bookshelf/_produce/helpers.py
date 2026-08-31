@@ -107,7 +107,7 @@ def resource_discovery(
     """Gather a resource's catalogue metadata into the discovery object it travels in.
 
     A resource states its own attribution and never inherits the book's,
-    so a field nobody wrote stays unset rather than claiming the book's value.
+    so a field nobody wrote stays unset.
     An empty call still gets an object rather than a null,
     because the field is not nullable on the wire.
     A profile that states nothing and an absent profile mean the same thing to the platform.

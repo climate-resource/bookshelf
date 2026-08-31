@@ -97,7 +97,7 @@ class RecordedResource(Resource):
                 hash=hash_,
                 visibility=visibility,
                 # The read shape, because this stands in for what the platform would return.
-                discovery=discovery or models.ResourceDiscovery(tags=[]),
+                discovery=discovery or models.ResourceDiscovery(),
                 metadata=dict(metadata or {}),
                 owner_org_id="recording",
                 locations=[] if location is None else [location],
