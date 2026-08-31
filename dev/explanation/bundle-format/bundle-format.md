@@ -13,7 +13,7 @@ This page specifies what is written to disk.
 It is written so that an implementation in another language can produce and read bundles
 without reading the Python that implements this one.
 
-The format in force is manifest schema version **3.1**.
+The format in force is manifest schema version **3.2**.
 
 ## Bundle directory
 
@@ -89,6 +89,12 @@ Every entry in `resources` has these fields.
 | `format`       | optional     | string                      | absent    | the declared storage format, absent when it is not known                |
 | `visibility`   | optional     | `hidden`, `org` or `public` | `hidden`  | the tier this resource records as                                       |
 | `tags`         | optional     | list of strings             | `[]`      | free-form labels                                                        |
+| `description`  | optional     | string                      | absent    | what this resource holds                                                |
+| `authors`      | optional     | list of author mappings     | absent    | who made this resource                                                  |
+| `doi`          | optional     | string                      | absent    | the DOI for this resource                                               |
+| `citation`     | optional     | string                      | absent    | the citation to use for this resource                                   |
+| `license`      | optional     | string                      | absent    | the terms this resource is under                                        |
+| `license_url`  | optional     | string                      | absent    | the full licence text for those terms                                   |
 | `metadata`     | optional     | mapping                     | `{}`      | free-form metadata                                                      |
 | `dedupe`       | optional     | boolean                     | `true`    | whether byte-identical resources may collapse to one canonical resource |
 | `size`         | managed only | integer                     | absent    | the byte length of the stored bytes                                     |
@@ -200,7 +206,7 @@ This field is specific to the Bookshelf and is optional.
 | `version`         | required |          | the consumer-facing data version                                                 |
 | `visibility`      | optional | `hidden` | the tier of the book                                                             |
 | `license`         | optional | absent   | the SPDX licence                                                                 |
-| `authors`         | optional | `[]`     | the people credited with this version, sent on the replay                        |
+| `authors`         | optional | `[]`     | who made this version's data, sent on the replay                                 |
 | `discovery`       | optional | absent   | the editorial metadata baked onto this book, keyed by the recipe's field names   |
 | `description`     | optional | absent   | free prose                                                                       |
 | `metadata`        | optional | `{}`     | free-form metadata                                                               |
@@ -390,7 +396,7 @@ resources:
   used:
   - upstream-emissions
   visibility: public
-schema_version: '3.1'
+schema_version: '3.2'
 writer:
   pyarrow: 23.0.0
 ```
