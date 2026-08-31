@@ -31,7 +31,7 @@ from bookshelf._produce.provenance import (
 )
 from bookshelf._produce.resources import Resource
 from bookshelf._produce.serialise import SerialisedObject, format_from_suffix, serialise
-from bookshelf._produce.types import HasTrackingId, RegisterItem, UsedInput
+from bookshelf._produce.types import AuthorInput, HasTrackingId, RegisterItem, UsedInput
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
 from bookshelf.cache import ContentCache
 from bookshelf.facade import Bookshelf
@@ -82,7 +82,7 @@ class RecordedResource(Resource):
         *,
         name: str,
         visibility: models.Visibility = models.Visibility.hidden,
-        tags: Sequence[str] = (),
+        discovery: models.ResourceDiscovery | None = None,
         metadata: Mapping[str, Any] | None = None,
         location: str | None = None,
     ) -> None:
@@ -97,7 +97,7 @@ class RecordedResource(Resource):
                 hash=hash_,
                 visibility=visibility,
                 # The read shape, because this stands in for what the platform would return.
-                discovery=models.ResourceDiscovery(tags=list(tags)),
+                discovery=discovery or models.ResourceDiscovery(tags=[]),
                 metadata=dict(metadata or {}),
                 owner_org_id="recording",
                 locations=[] if location is None else [location],
@@ -174,6 +174,12 @@ class RecordingActivity(Activity):
         used: Sequence[UsedInput] = (),
         visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
+        description: str | None = None,
+        authors: Sequence[AuthorInput] | None = None,
+        doi: str | None = None,
+        citation: str | None = None,
+        license: str | None = None,
+        license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
         format: str | None = None,
@@ -186,6 +192,15 @@ class RecordingActivity(Activity):
         resource_visibility = helpers.visibility(visibility, self.default_visibility)
         materialised = serialise(obj, type=resource_type.value)
         resource_id = tracking_id or helpers.uuid7()
+        discovery = helpers.resource_discovery(
+            tags,
+            description=description,
+            authors=authors,
+            doi=doi,
+            citation=citation,
+            license=license,
+            license_url=license_url,
+        )
         self._merge_used(used)
         self._bundle.set_activity(self._bundle_activity())
         self._bundle.add_resource(
@@ -195,7 +210,7 @@ class RecordingActivity(Activity):
             name=recorded_name,
             format_=format or materialised.format,
             visibility=resource_visibility.value,
-            tags=list(tags),
+            discovery=discovery,
             metadata=dict(metadata or {}),
             dedupe=dedupe,
             generated=True,
@@ -210,7 +225,7 @@ class RecordingActivity(Activity):
             materialised.hash,
             name=recorded_name,
             visibility=resource_visibility,
-            tags=tags,
+            discovery=discovery,
             metadata=metadata,
         )
 
@@ -238,6 +253,12 @@ class RecordingActivity(Activity):
                     used=used,
                     visibility=entry.visibility,
                     tags=entry.tags,
+                    description=entry.description,
+                    authors=entry.authors,
+                    doi=entry.doi,
+                    citation=entry.citation,
+                    license=entry.license,
+                    license_url=entry.license_url,
                     metadata=entry.metadata,
                     tracking_id=entry.tracking_id,
                     format=entry.format,
@@ -265,7 +286,7 @@ class RecordingActivity(Activity):
                     name=item.resource_name,
                     format_=item.entry.format or item.materialised.format,
                     visibility=item.visibility.value,
-                    tags=list(item.entry.tags),
+                    discovery=helpers.item_discovery(item.entry),
                     metadata=dict(item.entry.metadata or {}),
                     dedupe=item.entry.dedupe,
                     generated=True,
@@ -303,7 +324,7 @@ class RecordingActivity(Activity):
                 item.materialised.hash,
                 name=item.resource_name,
                 visibility=item.visibility,
-                tags=item.entry.tags,
+                discovery=helpers.item_discovery(item.entry),
                 metadata=item.entry.metadata,
             )
             for item in prepared
@@ -331,6 +352,12 @@ class RecordingActivity(Activity):
         used: Sequence[UsedInput] = (),
         visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
+        description: str | None = None,
+        authors: Sequence[AuthorInput] | None = None,
+        doi: str | None = None,
+        citation: str | None = None,
+        license: str | None = None,
+        license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
         dedupe: bool = True,
@@ -350,7 +377,15 @@ class RecordingActivity(Activity):
             name=name,
             visibility=visibility,
             default_visibility=self.default_visibility,
-            tags=tags,
+            discovery=helpers.resource_discovery(
+                tags,
+                description=description,
+                authors=authors,
+                doi=doi,
+                citation=citation,
+                license=license,
+                license_url=license_url,
+            ),
             metadata=metadata,
             tracking_id=tracking_id,
             dedupe=dedupe,
@@ -641,6 +676,12 @@ class RecordingSink:
         name: str | None = None,
         visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
+        description: str | None = None,
+        authors: Sequence[AuthorInput] | None = None,
+        doi: str | None = None,
+        citation: str | None = None,
+        license: str | None = None,
+        license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
         dedupe: bool = True,
@@ -657,7 +698,15 @@ class RecordingSink:
             name=name,
             visibility=visibility,
             default_visibility=self.default_visibility,
-            tags=tags,
+            discovery=helpers.resource_discovery(
+                tags,
+                description=description,
+                authors=authors,
+                doi=doi,
+                citation=citation,
+                license=license,
+                license_url=license_url,
+            ),
             metadata=metadata,
             tracking_id=tracking_id,
             dedupe=dedupe,
@@ -672,6 +721,12 @@ class RecordingSink:
         name: str | None = None,
         visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
+        description: str | None = None,
+        authors: Sequence[AuthorInput] | None = None,
+        doi: str | None = None,
+        citation: str | None = None,
+        license: str | None = None,
+        license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
         dedupe: bool = True,
@@ -692,7 +747,15 @@ class RecordingSink:
             name=name,
             visibility=visibility,
             default_visibility=self.default_visibility,
-            tags=tags,
+            discovery=helpers.resource_discovery(
+                tags,
+                description=description,
+                authors=authors,
+                doi=doi,
+                citation=citation,
+                license=license,
+                license_url=license_url,
+            ),
             metadata=merged,
             tracking_id=tracking_id,
             dedupe=dedupe,
@@ -855,7 +918,7 @@ class _SettledResource:
         names: dict[UUID, str],
         *,
         hash_: str,
-        tags: Sequence[str],
+        discovery: models.ResourceDiscovery,
         metadata: Mapping[str, Any] | None,
         location: str | None = None,
     ) -> RecordedResource:
@@ -869,7 +932,7 @@ class _SettledResource:
             hash_,
             name=self.name,
             visibility=self.visibility,
-            tags=tags,
+            discovery=discovery,
             metadata=metadata,
             location=location,
         )
@@ -902,7 +965,7 @@ def _record_pointer(
     name: str | None,
     visibility: VisibilityInput,
     default_visibility: models.Visibility,
-    tags: Sequence[str],
+    discovery: models.ResourceDiscovery,
     metadata: Mapping[str, Any] | None,
     tracking_id: UUID | None,
     dedupe: bool,
@@ -921,14 +984,20 @@ def _record_pointer(
         type_=settled.type.value,
         name=settled.name,
         visibility=settled.visibility.value,
-        tags=list(tags),
+        discovery=discovery,
         metadata=dict(metadata or {}),
         dedupe=dedupe,
         generated=generated,
         used=list(used),
     )
     return settled.handle(
-        client, cache, names, hash_=resource_hash, tags=tags, metadata=metadata, location=uri
+        client,
+        cache,
+        names,
+        hash_=resource_hash,
+        discovery=discovery,
+        metadata=metadata,
+        location=uri,
     )
 
 
@@ -944,7 +1013,7 @@ def _record_file(
     name: str | None,
     visibility: VisibilityInput,
     default_visibility: models.Visibility,
-    tags: Sequence[str],
+    discovery: models.ResourceDiscovery,
     metadata: Mapping[str, Any] | None,
     tracking_id: UUID | None,
     dedupe: bool,
@@ -959,13 +1028,13 @@ def _record_file(
         # A re-hosted file lands at a key with no suffix, so the format travels with it.
         format_=format_from_suffix(path.name),
         visibility=settled.visibility.value,
-        tags=list(tags),
+        discovery=discovery,
         metadata=dict(metadata or {}),
         dedupe=dedupe,
         # An input is read by the activity rather than produced by it.
         generated=False,
     )
-    return settled.handle(client, cache, names, hash_=hash, tags=tags, metadata=metadata)
+    return settled.handle(client, cache, names, hash_=hash, discovery=discovery, metadata=metadata)
 
 
 def _recorded_activity_used(bundle: Bundle) -> list[str]:

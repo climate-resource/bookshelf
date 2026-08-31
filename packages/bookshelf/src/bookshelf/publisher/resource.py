@@ -14,7 +14,7 @@ This is what makes a book that is built from another book cite the original rath
 """
 
 import hashlib
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -48,6 +48,13 @@ class RegisterExternal(Protocol):
         uri: str,
         hash: str,
         name: str,
+        tags: Sequence[str],
+        description: str | None,
+        authors: Sequence[Mapping[str, Any]] | None,
+        doi: str | None,
+        citation: str | None,
+        license: str | None,
+        license_url: str | None,
         metadata: Mapping[str, Any] | None,
     ) -> HasTrackingId:
         """Catalogue an external pointer and return its handle."""
@@ -68,6 +75,13 @@ class RegisterFile(Protocol):
         path: Path,
         hash: str,
         name: str,
+        tags: Sequence[str],
+        description: str | None,
+        authors: Sequence[Mapping[str, Any]] | None,
+        doi: str | None,
+        citation: str | None,
+        license: str | None,
+        license_url: str | None,
         metadata: Mapping[str, Any] | None,
     ) -> HasTrackingId:
         """Catalogue the bytes of a checked-in file and return its handle."""
@@ -162,6 +176,9 @@ def resolve_resource(
     Nothing is registered for it, because the platform already holds it,
     and the pointer returned is the published resource itself.
 
+    Whatever catalogue metadata the resource declares is registered with it,
+    and nothing is filled in from the book, so an undeclared field stays undeclared.
+
     Raises :class:`~bookshelf._core.errors.BookshelfError` naming the declared resources
     when the version does not declare ``name``.
     """
@@ -185,7 +202,14 @@ def resolve_resource(
             path=path,
             hash=content_hash,
             name=flatten_to_resource_name(name),
-            metadata={"doi": doi} if doi is not None else None,
+            tags=list(spec.tags or ()),
+            description=spec.description,
+            authors=_declared_authors(spec),
+            doi=spec.doi,
+            citation=spec.citation,
+            license=spec.license,
+            license_url=spec.license_url,
+            metadata=_declared_metadata(spec, doi),
         )
         return ResolvedResource(
             name=name,
@@ -208,7 +232,14 @@ def resolve_resource(
         # The declared key names the input for the rest of the bundle,
         # flattened because a recipe may declare it under something the platform would refuse.
         name=flatten_to_resource_name(name),
-        metadata={"doi": doi} if doi is not None else None,
+        tags=list(spec.tags or ()),
+        description=spec.description,
+        authors=_declared_authors(spec),
+        doi=spec.doi,
+        citation=spec.citation,
+        license=spec.license,
+        license_url=spec.license_url,
+        metadata=_declared_metadata(spec, doi),
     )
     return ResolvedResource(
         name=name,
@@ -217,6 +248,19 @@ def resolve_resource(
         pointer=pointer,
         tracking_id=pointer.tracking_id,
     )
+
+
+def _declared_authors(spec: ResourceSpec) -> list[dict[str, Any]] | None:
+    """Read the people a resource credits, as a registration takes them."""
+    if spec.authors is None:
+        return None
+    return [author.model_dump(exclude_none=True) for author in spec.authors]
+
+
+def _declared_metadata(spec: ResourceSpec, doi: str | None) -> dict[str, Any] | None:
+    """Stamp the DOI a reader should cite, preferring the resource's own over the book's."""
+    cited = spec.doi or doi
+    return None if cited is None else {"doi": cited}
 
 
 def _referenced(

@@ -44,7 +44,7 @@ from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
 from bookshelf._core.names import RESOURCE_NAME_PATTERN
 from bookshelf._generated import models
 
-BUNDLE_SCHEMA_VERSION = "3.1"
+BUNDLE_SCHEMA_VERSION = "3.2"
 
 # A newer minor loads because the models ignore unknown fields, and any other major is refused:
 # v2 keys resources by tracking id and v3 by name, which no rule maps without inventing names.
@@ -77,6 +77,11 @@ class InvalidBundleError(BookshelfError):
     A caller therefore either holds a bundle that keeps its contract
     or holds an error explaining why it does not.
     """
+
+
+def _scalar(value: Any) -> str | None:
+    """Unwrap a constrained wire scalar back to the plain string a manifest records."""
+    return None if value is None else str(getattr(value, "root", value))
 
 
 def _sha256_hex(hash_: str) -> str:
@@ -150,6 +155,10 @@ class BundleResource(BaseModel):
       There is no byte file,
       and ``size`` is omitted.
 
+    ``tags`` through ``license_url`` are the catalogue metadata the resource itself carries.
+    They are the resource's own and are never filled in from the book,
+    so a book assembled from other people's data credits them on the thing they made.
+
     ``extra="ignore"`` keeps each resource record forward-compatible,
     so an older reader still loads a record written by a later client
     by dropping the fields it does not model.
@@ -164,6 +173,12 @@ class BundleResource(BaseModel):
     format: str | None = None  # declared storage format, ``None`` when unknown
     visibility: Literal["hidden", "org", "public"] = "hidden"
     tags: list[str] = Field(default_factory=list)
+    description: str | None = None
+    authors: list[dict[str, Any]] | None = None
+    doi: str | None = None
+    citation: str | None = None
+    license: str | None = None
+    license_url: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     dedupe: bool = True
     size: int | None = None  # byte length of a managed resource, ``None`` for a pointer
@@ -531,7 +546,7 @@ class Bundle:
         name: str,
         format_: str | None = None,
         visibility: str = "hidden",
-        tags: list[str] | None = None,
+        discovery: models.ResourceDiscovery | None = None,
         metadata: dict[str, Any] | None = None,
         dedupe: bool = True,
         generated: bool = False,
@@ -572,7 +587,7 @@ class Bundle:
             name=name,
             format_=format_,
             visibility=visibility,
-            tags=tags,
+            discovery=discovery,
             metadata=metadata,
             dedupe=dedupe,
             size=len(data),
@@ -588,7 +603,7 @@ class Bundle:
         type_: str,
         name: str,
         visibility: str = "hidden",
-        tags: list[str] | None = None,
+        discovery: models.ResourceDiscovery | None = None,
         metadata: dict[str, Any] | None = None,
         dedupe: bool = True,
         generated: bool = False,
@@ -612,7 +627,7 @@ class Bundle:
             kind="pointer",
             name=name,
             visibility=visibility,
-            tags=tags,
+            discovery=discovery,
             metadata=metadata,
             dedupe=dedupe,
             external_uri=external_uri,
@@ -628,7 +643,7 @@ class Bundle:
         kind: Literal["managed", "pointer"],
         name: str,
         visibility: str,
-        tags: list[str] | None,
+        discovery: models.ResourceDiscovery | None,
         metadata: dict[str, Any] | None,
         dedupe: bool,
         generated: bool,
@@ -654,6 +669,7 @@ class Bundle:
                     "which this bundle does not record before it. "
                     "Inputs must be registered before whatever consumes them."
                 )
+        stated = discovery or models.ResourceDiscovery()
         record = BundleResource(
             name=name,
             hash=hash_,
@@ -661,7 +677,19 @@ class Bundle:
             kind=kind,
             format=format_,
             visibility=visibility,
-            tags=list(tags or []),
+            tags=list(stated.tags or []),
+            description=_scalar(stated.description),
+            authors=(
+                None
+                if stated.authors is None
+                else [
+                    author.model_dump(mode="json", exclude_none=True) for author in stated.authors
+                ]
+            ),
+            doi=_scalar(stated.doi),
+            citation=_scalar(stated.citation),
+            license=_scalar(stated.license),
+            license_url=_scalar(stated.license_url),
             metadata=dict(metadata or {}),
             dedupe=dedupe,
             size=size,

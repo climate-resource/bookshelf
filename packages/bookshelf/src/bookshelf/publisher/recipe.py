@@ -177,6 +177,16 @@ class _ResourceFields(_Section):
     platform already states the type. Where it is stated the resolved resource is checked
     against it.
 
+    The remaining fields are the catalogue metadata the platform holds per resource,
+    spelled exactly as a book spells them.
+    A resource states its own and inherits none of the book's,
+    because a book assembled from other people's data credits them on the thing they made
+    rather than on the book as a whole.
+    A resource that states nothing therefore carries nothing,
+    which is at least honest about what is known.
+    Stating a field once under ``defaults:`` still shares it across every book that names
+    the resource.
+
     The rules here are structural, and nothing in this module fetches anything.
     Each stated field is checked on its own, and every field is optional.
     """
@@ -185,6 +195,13 @@ class _ResourceFields(_Section):
     uri: str | None = Field(default=None, min_length=1)
     path: Path | None = None
     sha256: str | None = None
+    tags: list[str] | None = None
+    description: str | None = None
+    authors: list[PersonSpec] | None = None
+    doi: str | None = None
+    citation: str | None = None
+    license: str | None = None
+    license_url: str | None = None
 
     @field_validator("type", mode="before")
     @classmethod

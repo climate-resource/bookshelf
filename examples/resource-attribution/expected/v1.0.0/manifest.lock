@@ -1,0 +1,71 @@
+activity:
+  activity_id: 00000000-0000-7000-8000-000000000000
+  code_ref: https://example.invalid/examples@0000000000000000000000000000000000000000
+  config_hash: sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+  kind: process
+  parameters: {}
+  runner: examples
+book:
+  authors:
+  - email: info@climate-resource.com
+    name: Climate Resource
+  description: One workbook from an upstream team, and one timeseries derived from it.
+  discovery:
+    publisher: Climate Resource
+    title: A feedstock whose inputs and outputs have different authors
+  entries:
+  - name: totals
+  license: CC-BY-4.0
+  metadata: {}
+  processing:
+  - - https://example.invalid/examples@0000000000000000000000000000000000000000
+    - sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+  published: true
+  version: v1.0.0
+  visibility: public
+  volume: resource-attribution-example
+resources:
+- authors:
+  - affiliation: An institute that is not us
+    name: Upstream Modelling Team
+  citation: Upstream Modelling Team (2024). Regional CO2 emissions.
+  dedupe: true
+  description: Regional CO2 emissions as the upstream team published them.
+  doi: 10.5281/zenodo.0000000
+  format: csv
+  generated: false
+  hash: sha256:9ceb4858a9f0da091f60cbd2801d7d6024598b2c598e52230deacab51051d533
+  kind: managed
+  license: CC-BY-SA-4.0
+  license_url: https://creativecommons.org/licenses/by-sa/4.0/
+  metadata:
+    doi: 10.5281/zenodo.0000000
+  name: upstream
+  size: 201
+  tags:
+  - upstream
+  type: tabular
+  used: []
+  visibility: public
+- authors:
+  - email: info@climate-resource.com
+    name: Climate Resource
+  dedupe: true
+  description: Regional totals derived from the upstream workbook.
+  format: parquet
+  generated: true
+  hash: sha256:76f2a9c81692ea9816ec55e4c78334fdf976d788b8cf7f47c6a7fa2d46e31876
+  kind: managed
+  license: CC-BY-4.0
+  metadata: {}
+  name: totals
+  size: 614
+  tags:
+  - derived
+  type: tabular
+  used:
+  - upstream
+  visibility: public
+schema_version: '3.2'
+writer:
+  pyarrow: 23.0.0

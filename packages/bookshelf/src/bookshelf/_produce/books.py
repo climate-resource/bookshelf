@@ -8,7 +8,7 @@ from uuid import UUID
 
 from bookshelf._core.client import BookshelfClient
 from bookshelf._generated import models
-from bookshelf._produce.types import HasTrackingId, UsedInput
+from bookshelf._produce.types import AuthorInput, HasTrackingId, UsedInput
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
 
 if TYPE_CHECKING:
@@ -87,6 +87,12 @@ class DraftBook:
         data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
+        description: str | None = None,
+        authors: Sequence[AuthorInput] | None = None,
+        doi: str | None = None,
+        citation: str | None = None,
+        license: str | None = None,
+        license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         format: str | None = None,
         dedupe: bool = True,
@@ -98,6 +104,9 @@ class DraftBook:
         and then calling :meth:`add`.
         The resource name and the book entry name are one name,
         because that is what replay addresses the resource by.
+
+        The catalogue fields describe this resource rather than the book holding it,
+        so a derived output credits whoever produced it and nothing is inherited.
         """
         resource = self._writing_activity().register(
             obj,
@@ -106,6 +115,12 @@ class DraftBook:
             used=used,
             visibility=visibility,
             tags=tags,
+            description=description,
+            authors=authors,
+            doi=doi,
+            citation=citation,
+            license=license,
+            license_url=license_url,
             metadata=metadata,
             format=format,
             dedupe=dedupe,
@@ -184,6 +199,12 @@ class AsyncDraftBook:
         data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
+        description: str | None = None,
+        authors: Sequence[AuthorInput] | None = None,
+        doi: str | None = None,
+        citation: str | None = None,
+        license: str | None = None,
+        license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         format: str | None = None,
         dedupe: bool = True,
@@ -199,6 +220,12 @@ class AsyncDraftBook:
             used=used,
             visibility=visibility,
             tags=tags,
+            description=description,
+            authors=authors,
+            doi=doi,
+            citation=citation,
+            license=license,
+            license_url=license_url,
             metadata=metadata,
             format=format,
             dedupe=dedupe,

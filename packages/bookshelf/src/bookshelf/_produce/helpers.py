@@ -14,7 +14,9 @@ from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf._produce.provenance import canonical_config_hash
 from bookshelf._produce.types import (
+    AuthorInput,
     PartialRegistrationError,
+    RegisterItem,
     RegistrationFailure,
     RegistrationSuccess,
     Used,
@@ -92,14 +94,51 @@ def used_ref(value: UsedInput) -> models.UsedRefByTrackingId | models.UsedRefByR
     return models.UsedRefByTrackingId(tracking_id=UUID(str(handle_tracking_id)))
 
 
-def resource_discovery(tags: Sequence[str]) -> models.ResourceDiscovery:
-    """Wrap a resource's tags in its discovery object, the only place they now travel.
+def resource_discovery(
+    tags: Sequence[str] = (),
+    *,
+    description: str | None = None,
+    authors: Sequence[AuthorInput] | None = None,
+    doi: str | None = None,
+    citation: str | None = None,
+    license: str | None = None,
+    license_url: str | None = None,
+) -> models.ResourceDiscovery:
+    """Gather a resource's catalogue metadata into the discovery object it travels in.
 
-    An empty sequence still gets an object rather than a null,
+    A resource states its own attribution and never inherits the book's,
+    so a field nobody wrote stays unset rather than claiming the book's value.
+    An empty call still gets an object rather than a null,
     because the field is not nullable on the wire.
     A profile that states nothing and an absent profile mean the same thing to the platform.
     """
-    return models.ResourceDiscovery(tags=list(tags))
+    return models.ResourceDiscovery(
+        tags=list(tags),
+        description=description,
+        authors=None if authors is None else [author_input(author) for author in authors],
+        doi=doi,
+        citation=citation,
+        license=license,
+        license_url=license_url,
+    )
+
+
+def author_input(value: AuthorInput) -> models.Author:
+    """Normalise one credited person, however a caller spelled them."""
+    return value if isinstance(value, models.Author) else models.Author(**dict(value))
+
+
+def item_discovery(entry: RegisterItem) -> models.ResourceDiscovery:
+    """Read one batch entry's catalogue metadata into the object it travels in."""
+    return resource_discovery(
+        entry.tags,
+        description=entry.description,
+        authors=entry.authors,
+        doi=entry.doi,
+        citation=entry.citation,
+        license=entry.license,
+        license_url=entry.license_url,
+    )
 
 
 def external_item(
@@ -109,7 +148,7 @@ def external_item(
     hash: str | None,
     name: str | None,
     visibility: models.Visibility,
-    tags: Sequence[str],
+    discovery: models.ResourceDiscovery,
     metadata: Mapping[str, Any] | None,
     tracking_id: UUID | None,
     dedupe: bool,
@@ -124,7 +163,7 @@ def external_item(
         hash=hash,
         name=name,
         visibility=visibility,
-        discovery=resource_discovery(tags),
+        discovery=discovery,
         metadata=dict(metadata or {}),
         external_uri=uri,
         dedupe=dedupe,
@@ -218,7 +257,9 @@ __all__ = [
     "MAX_REGISTRATION_BATCH",
     "VisibilityInput",
     "activity_envelope",
+    "author_input",
     "external_item",
+    "item_discovery",
     "paired_successes",
     "raise_partial_registration",
     "registered_name",

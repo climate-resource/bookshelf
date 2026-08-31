@@ -16,6 +16,10 @@ if TYPE_CHECKING:
     from bookshelf._produce.resources import AsyncResource, Resource
 
 
+type AuthorInput = models.Author | Mapping[str, Any]
+"""One credited person, as a model or as the mapping a recipe dumps them to."""
+
+
 @dataclass(frozen=True, slots=True)
 class Used:
     """Resolve a resource input by the name it was registered under.
@@ -46,6 +50,12 @@ class RegisterItem:
     name: str | None = None
     visibility: VisibilityInput = INHERIT
     tags: Sequence[str] = ()
+    description: str | None = None
+    authors: Sequence[AuthorInput] | None = None
+    doi: str | None = None
+    citation: str | None = None
+    license: str | None = None
+    license_url: str | None = None
     metadata: Mapping[str, Any] | None = None
     tracking_id: UUID | None = None
     format: str | None = None
@@ -108,6 +118,7 @@ class PartialRegistrationError(BookshelfError):
 
 
 __all__ = [
+    "AuthorInput",
     "HasTrackingId",
     "PartialRegistrationError",
     "RegisterItem",

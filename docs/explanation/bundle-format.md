@@ -13,7 +13,7 @@ This page specifies what is written to disk.
 It is written so that an implementation in another language can produce and read bundles
 without reading the Python that implements this one.
 
-The format in force is manifest schema version **3.1**.
+The format in force is manifest schema version **3.2**.
 
 ## Bundle directory
 
@@ -89,12 +89,22 @@ Every entry in `resources` has these fields.
 | `format`       | optional     | string                      | absent    | the declared storage format, absent when it is not known                |
 | `visibility`   | optional     | `hidden`, `org` or `public` | `hidden`  | the tier this resource records as                                       |
 | `tags`         | optional     | list of strings             | `[]`      | free-form labels                                                        |
+| `description`  | optional     | string                      | absent    | what this resource holds                                                |
+| `authors`      | optional     | list of author mappings     | absent    | who to credit for this resource                                         |
+| `doi`          | optional     | string                      | absent    | the DOI for this resource                                               |
+| `citation`     | optional     | string                      | absent    | the citation to use for this resource                                   |
+| `license`      | optional     | string                      | absent    | the terms this resource is under                                        |
+| `license_url`  | optional     | string                      | absent    | the full licence text for those terms                                   |
 | `metadata`     | optional     | mapping                     | `{}`      | free-form metadata                                                      |
 | `dedupe`       | optional     | boolean                     | `true`    | whether byte-identical resources may collapse to one canonical resource |
 | `size`         | managed only | integer                     | absent    | the byte length of the stored bytes                                     |
 | `external_uri` | pointer only | string                      | absent    | the external target                                                     |
 | `generated`    | optional     | boolean                     | `false`   | whether an activity produced this resource                              |
 | `used`         | optional     | list of names               | `[]`      | what this resource was derived from                                     |
+
+`tags` through `license_url` are the catalogue metadata the resource itself carries.
+They are the resource's own and are never filled in from the book,
+so a book assembled from other people's data credits them on the thing they made.
 
 `name` is local to the bundle that registers it, and it carries no hierarchy.
 It matches `^[a-z0-9][a-z0-9._-]{0,199}$`, it is unique within the manifest,
@@ -390,7 +400,7 @@ resources:
   used:
   - upstream-emissions
   visibility: public
-schema_version: '3.1'
+schema_version: '3.2'
 writer:
   pyarrow: 23.0.0
 ```

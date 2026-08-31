@@ -17,6 +17,7 @@ small part of.
 | [`defaults-and-overrides`](defaults-and-overrides/) | Inheriting from `defaults:`, then overriding some. |
 | [`figures`](figures/) | A png attached as a document entry, with no data dictionary. |
 | [`mixed-visibility`](mixed-visibility/) | A public book carrying one hidden resource. |
+| [`resource-attribution`](resource-attribution/) | Per-resource authors and licence, where the input and the output differ. |
 | [`reissue`](reissue/) | Same version, changed processing, which sits outside the seal. |
 | [`fetch-from-web`](fetch-from-web/) | One upstream url, digest verified and cached. Needs the network. |
 | [`low-level-api`](low-level-api/) | A plain script that records for itself, with no recipe and no recorder. |

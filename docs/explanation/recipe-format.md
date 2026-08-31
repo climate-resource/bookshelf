@@ -133,6 +133,37 @@ They sit flat at both levels, and where both set it, the book wins.
 | `intended_uses`     | What the data is suitable for.                                  |
 | `limitations`       | What it is not suitable for, and known caveats.                 |
 
+### A resource's own discovery fields
+
+A book's `authors` credit whoever assembled the book.
+That is not the same claim as who made any one resource inside it,
+and for a feedstock built on somebody else's data it is not even the same people.
+
+So a resource carries its own catalogue metadata, under `resources:`, spelled exactly as a book spells it.
+
+| Field         | Meaning                                                         |
+| ------------- | --------------------------------------------------------------- |
+| `tags`        | Free-form tags for this resource.                               |
+| `description` | What this resource holds.                                       |
+| `authors`     | Who to credit for this resource, in the same shape a book takes. |
+| `citation`    | The citation to use for this resource.                          |
+| `doi`         | The DOI for this resource.                                      |
+| `license`     | The terms this resource is under.                               |
+| `license_url` | The full licence text for those terms.                          |
+
+None of it is inherited from the book.
+A resource that states nothing carries nothing, which is at least honest about what is known.
+Inheriting instead would let a resource silently claim the book's authors
+whenever nobody thought about it, which is the failure the field exists to fix.
+
+Stating a field under `defaults:` still shares it across every book that names the resource,
+so a fact that does not move between books is written once.
+
+An output has the same fields, passed to `book.write` rather than declared here,
+because the recipe never names what a build writes.
+The [`resource-attribution`](https://github.com/climate-resource/bookshelf/tree/main/examples/resource-attribution)
+example shows both ends.
+
 ## The rules
 
 - **`books:` is a list, and every book states a quoted `version:`.**
@@ -177,6 +208,9 @@ They sit flat at both levels, and where both set it, the book wins.
   This is the field that usually belongs under `defaults:`, because it does not move between books.
   A `bookshelf://` resource may leave it out, because the platform already states it.
   Where it is stated it is checked, and a resource of another type is an error.
+- **A resource inherits no discovery field from its book.**
+  A book's authors credit whoever assembled the book, which is a different claim from who made
+  one resource in it. An undeclared field on a resource stays undeclared.
 - **Unknown keys are an error at every level**, so a typo is never silently dropped.
 - **Books are ordered by the recipe**, in the order the list states them.
   Each resolved book carries its position, so nothing has to parse a version string to sort.
