@@ -1,6 +1,7 @@
 """Tests for resolving declared resources: fetch, verify, cache and register."""
 
 import hashlib
+import subprocess
 import textwrap
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -82,6 +83,11 @@ def _write_data(tmp_path: Path) -> Path:
     data.parent.mkdir(parents=True, exist_ok=True)
     data.write_bytes(_PAYLOAD)
     return data
+
+
+def _git(cwd: Path, *args: str) -> None:
+    """Run one git command in ``cwd``, failing the test on a non-zero exit."""
+    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
 
 
 @contextmanager
@@ -256,41 +262,67 @@ def test_a_path_resource_records_its_bytes_rather_than_a_pointer(tmp_path: Path)
     assert recorded.kind == "managed"
     assert recorded.external_uri is None
     assert recorded.generated is False
+    # A re-hosted file lands at a key with no suffix, so the format has to travel with it.
+    assert recorded.format == "csv"
     assert (bundle_path / "resources").exists()
 
 
-def test_a_checked_in_input_records_where_it_is_committed(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The bytes are re-hosted, so the link back to the repository is what is left."""
-    sha = "b9aa2996d890d16691d9978ec4f1772f5e51b0f1"
-    monkeypatch.setattr(
-        "bookshelf.publisher.recording.derive_code_ref",
-        lambda: f"git@github.com:climate-resource/feedstock.git@{sha}",
+def _repo_with_the_recipe_in_a_subdirectory(root: Path) -> Path:
+    """Commit a feedstock whose recipe sits below the repository root, and return its directory."""
+    subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
+    _git(root, "remote", "add", "origin", "git@github.com:climate-resource/feedstock.git")
+    recipe_dir = root / "pipeline"
+    (recipe_dir / "data").mkdir(parents=True)
+    (recipe_dir / "bookshelf.yaml").write_text(
+        _RECIPE.format(version_body=textwrap.indent(_PATH_VERSION, "    ")), encoding="utf-8"
     )
-    recipe = _write_recipe(tmp_path, _PATH_VERSION)
-    _write_data(tmp_path)
+    (recipe_dir / "data" / "raw.csv").write_bytes(_PAYLOAD)
+    _git(root, "add", "-A")
+    _git(
+        root, "-c", "user.name=T", "-c", "user.email=t@example.invalid", "commit", "-q", "-m", "in"
+    )
+    return recipe_dir
+
+
+def test_a_checked_in_input_links_to_where_it_is_committed(tmp_path: Path) -> None:
+    """The link is repository-root relative, so a recipe in a subdirectory still resolves.
+
+    Joining the recipe-relative path onto the repository root is what produced a 404.
+    """
+    root = tmp_path / "feedstock"
+    recipe_dir = _repo_with_the_recipe_in_a_subdirectory(root)
     bundle_path = tmp_path / "bundle"
 
-    with _recording(recipe, bundle_path):
+    with _recording(recipe_dir / "bookshelf.yaml", bundle_path):
         build = setup()
         build.use("raw")
         recorded = _written_resource(build.bs, bundle_path, "raw")
 
+    sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True
+    ).stdout.strip()
     assert recorded.metadata["source_url"] == (
-        f"https://github.com/climate-resource/feedstock/blob/{sha}/data/raw.csv"
+        f"https://github.com/climate-resource/feedstock/blob/{sha}/pipeline/data/raw.csv"
     )
 
 
-def test_a_checked_in_input_without_a_derivable_commit_still_records(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_a_checked_in_input_that_git_does_not_track_records_no_link(tmp_path: Path) -> None:
+    """An untracked file is absent from the revision, so a link to it would not resolve."""
+    root = tmp_path / "feedstock"
+    recipe_dir = _repo_with_the_recipe_in_a_subdirectory(root)
+    (recipe_dir / "data" / "raw.csv").write_bytes(_PAYLOAD + b"co2,2024,2.0\n")
+    bundle_path = tmp_path / "bundle"
+
+    with _recording(recipe_dir / "bookshelf.yaml", bundle_path):
+        build = setup()
+        build.use("raw")
+        recorded = _written_resource(build.bs, bundle_path, "raw")
+
+    assert "source_url" not in recorded.metadata
+
+
+def test_a_checked_in_input_outside_a_repository_still_records(tmp_path: Path) -> None:
     """A checkout git cannot read is a missing link, not a failed build."""
-
-    def _refuse() -> str:
-        raise BookshelfError("no repository here")
-
-    monkeypatch.setattr("bookshelf.publisher.recording.derive_code_ref", _refuse)
     recipe = _write_recipe(tmp_path, _PATH_VERSION)
     _write_data(tmp_path)
     bundle_path = tmp_path / "bundle"

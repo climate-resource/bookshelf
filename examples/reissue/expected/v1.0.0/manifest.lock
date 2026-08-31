@@ -26,6 +26,7 @@ book:
   volume: reissue-example
 resources:
 - dedupe: true
+  format: csv
   generated: false
   hash: sha256:0fd5036a68c2b9a3c7a67581f5dc1accfa9e4667b9932ef018486a2452873f9f
   kind: managed

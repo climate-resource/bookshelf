@@ -28,6 +28,7 @@ book:
   volume: defaults-and-overrides-example
 resources:
 - dedupe: true
+  format: csv
   generated: false
   hash: sha256:eb7cc4817f0a014cba1cb9b7049b7652bf20831104237b039a4b9422f4a03d64
   kind: managed

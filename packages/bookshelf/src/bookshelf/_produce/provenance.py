@@ -169,6 +169,38 @@ def source_url(code_ref: str, relative_path: str) -> str | None:
     return f"https://{host}/{path}/{segment}/{match.group('sha')}/{quoted}"
 
 
+def committed_source_url(path: Path) -> str | None:
+    """Return the web address of ``path`` at the revision its own repository sits on.
+
+    The repository containing the file is what is read, not the working directory,
+    so a recipe in a subdirectory links to the file where it actually lives.
+
+    Returns ``None`` rather than raising whenever no honest link can be built:
+    a dirty tree, a file git does not track, a repository without an origin or a commit,
+    or an unrecognised forge.
+    The link is a convenience, so failing to derive one must never fail a build.
+    """
+    try:
+        import git
+    except ImportError:
+        return None
+    try:
+        repo = git.Repo(path.parent, search_parent_directories=True)
+        if repo.bare or repo.working_tree_dir is None:
+            return None
+        if "origin" not in {remote.name for remote in repo.remotes}:
+            return None
+        if not repo.head.is_valid() or repo.is_dirty(untracked_files=True):
+            return None
+        relative = path.resolve().relative_to(Path(repo.working_tree_dir).resolve())
+        # A file git does not track is absent from the revision, so a link would 404.
+        repo.head.commit.tree / relative.as_posix()
+    except (git.GitError, KeyError, OSError, ValueError):
+        return None
+    code_ref = f"{_sanitise_remote_url(repo.remotes.origin.url)}@{repo.head.commit.hexsha}"
+    return source_url(code_ref, relative.as_posix())
+
+
 def _remote_parts(remote: str) -> tuple[str | None, str | None]:
     """Split a git remote into its host and its ``owner/repo`` path."""
     scp = _SCP_REMOTE.match(remote)
@@ -207,4 +239,10 @@ def derive_activity_id(
     return uuid5(_ACTIVITY_NAMESPACE, seed.decode())
 
 
-__all__ = ["canonical_config_hash", "derive_activity_id", "derive_code_ref", "source_url"]
+__all__ = [
+    "canonical_config_hash",
+    "committed_source_url",
+    "derive_activity_id",
+    "derive_code_ref",
+    "source_url",
+]

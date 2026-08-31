@@ -66,7 +66,6 @@ class RegisterFile(Protocol):
         *,
         type: models.ResourceType,
         path: Path,
-        relative_path: str,
         hash: str,
         name: str,
         metadata: Mapping[str, Any] | None,
@@ -180,14 +179,10 @@ def resolve_resource(
             "Add type, or name a bookshelf resource, whose type the platform states"
         )
     if spec.path is not None:
-        # A checked-in file names no address the platform could fetch from, so its bytes
-        # are re-hosted. The commit it is read at is recorded as its source_url instead.
-        relative = spec.path.as_posix()
         path, content_hash = _checked_in(name, relative=spec.path, recipe_dir=recipe_dir)
         pointer = register_file(
             type=spec.type,
             path=path,
-            relative_path=relative,
             hash=content_hash,
             name=flatten_to_resource_name(name),
             metadata={"doi": doi} if doi is not None else None,
