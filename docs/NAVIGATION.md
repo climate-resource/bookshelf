@@ -13,6 +13,7 @@ See https://oprypin.github.io/mkdocs-literate-nav/
     * [Reading asynchronously](how-to-guides/read_asynchronously.py)
     * [Publishing a book](how-to-guides/publish_a_book.py)
     * [Cataloguing external data](how-to-guides/catalogue_external_data.py)
+    * [Keeping pinned books up to date with Renovate](how-to-guides/renovate_updates.md)
 * [Tutorials](tutorials.md)
 * Further background
     * [Explanation](explanation.md)

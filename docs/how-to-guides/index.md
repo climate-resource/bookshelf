@@ -28,3 +28,9 @@ Both guides record, and both show the replay step without running it.
   and reads the recorded manifest back before anything is written.
 - [Cataloguing external data](catalogue_external_data) covers pointers to data the platform does not
   store, batch registration, partial failure, and deduplication.
+
+## Maintaining a feedstock
+
+- [Keeping pinned books up to date with Renovate](renovate_updates.md) wires Renovate to the
+  platform's release feed, so a stale `bookshelf://` pin becomes an ordinary dependency-update
+  pull request.
