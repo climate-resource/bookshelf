@@ -1,6 +1,7 @@
 """The producer surface the public facades bind to, reached through the facade itself."""
 
 import ast
+import hashlib
 import inspect
 import itertools
 import json
@@ -162,6 +163,64 @@ def test_register_external_catalogues_the_pointer() -> None:
     assert item["visibility"] == "hidden"
 
 
+def _upload_then_register(recorded: list[httpx.Request]) -> httpx.MockTransport:
+    """Answer the initiate call with the dedupe short-circuit, then the registration."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        recorded.append(request)
+        if request.url.path == "/v1/resources/uploads":
+            return httpx.Response(200, json=payloads.UPLOAD_EXISTS)
+        return httpx.Response(200, json=REGISTERED_ONE)
+
+    return httpx.MockTransport(handler)
+
+
+def test_register_file_uploads_then_catalogues_the_bytes(tmp_path: Path) -> None:
+    """A file registers as managed bytes with no activity, so it is an input rather than an output."""
+    data = tmp_path / "raw.csv"
+    data.write_bytes(b"gas,value\nco2,1\n")
+    recorded: list[httpx.Request] = []
+
+    with Bookshelf(BASE_URL, auth=None, transport=_upload_then_register(recorded)) as client:
+        resource = client.register_file(type="tabular", path=data, name="raw", tags=["raw"])
+
+    assert resource.tracking_id == UUID(TRACKING_ID)
+    assert resource.registration_status is models.Status2.created
+    initiate, register = recorded
+    assert (initiate.method, initiate.url.path) == ("POST", "/v1/resources/uploads")
+    digest = hashlib.sha256(data.read_bytes()).hexdigest()
+    assert _body(initiate)["hash"] == f"sha256:{digest}"
+    assert (register.method, register.url.path) == ("POST", "/v1/resources/registrations")
+    body = _body(register)
+    assert "activity" not in body or body["activity"] is None
+    item = body["items"][0]
+    assert item["hash"] == f"sha256:{digest}"
+    assert item["type"] == "tabular"
+    assert item["name"] == "raw"
+    assert item["format"] == "csv"
+    assert item["locations"] == [{"shelf": "managed", "path": "ingest/org_1/abc"}]
+    assert item["discovery"]["tags"] == ["raw"]
+    assert item["dedupe"] is True
+    assert "external_uri" not in item or item["external_uri"] is None
+
+
+async def test_register_file_has_an_async_twin(tmp_path: Path) -> None:
+    data = tmp_path / "raw.bin"
+    data.write_bytes(b"opaque")
+    recorded: list[httpx.Request] = []
+
+    async with AsyncBookshelf(
+        BASE_URL, auth=None, async_transport=_upload_then_register(recorded)
+    ) as client:
+        resource = await client.register_file(type="binary", path=data)
+
+    assert resource.tracking_id == UUID(TRACKING_ID)
+    assert [request.url.path for request in recorded] == [
+        "/v1/resources/uploads",
+        "/v1/resources/registrations",
+    ]
+
+
 def test_register_external_raises_when_the_batch_comes_back_empty() -> None:
     recorded: list[httpx.Request] = []
 
@@ -213,20 +272,25 @@ def _parameters(adapter: type, call: str) -> list[tuple[str, Any, Any]]:
     ]
 
 
-@pytest.mark.parametrize("call", ["activity", "register_external", "draft_book"])
+@pytest.mark.parametrize("call", ["activity", "register_external", "register_file", "draft_book"])
 def test_the_live_and_recording_adapters_declare_the_same_call(call: str) -> None:
     """The two adapters substitute for each other, so a caller cannot tell them apart."""
     assert _parameters(LiveSink, call) == _parameters(RecordingSink, call)
 
 
 def test_a_recording_facade_binds_every_producer_call_to_its_bundle(tmp_path: Path) -> None:
-    """A recorded build keeps live reads, so only the three producer calls move to the bundle."""
+    """A recorded build keeps live reads, so only the four producer calls move to the bundle."""
     bundle = Bundle(tmp_path / "bundle")
 
     with RecordingBookshelf(bundle) as recording:
-        bound = [recording.activity, recording.register_external, recording.draft_book]
+        bound = [
+            recording.activity,
+            recording.register_external,
+            recording.register_file,
+            recording.draft_book,
+        ]
 
-    assert [call.__self__ for call in bound] == [recording.recording_sink] * 3
+    assert [call.__self__ for call in bound] == [recording.recording_sink] * 4
 
 
 @pytest.mark.parametrize("facade", ["Bookshelf", "AsyncBookshelf"])
@@ -249,5 +313,6 @@ def test_every_bound_producer_call_carries_a_docstring(facade: str) -> None:
         if isinstance(after, ast.Expr) and isinstance(after.value, ast.Constant)
     }
 
-    assert {"activity", "register_external", "draft_book"} <= documented.keys()
-    assert all(documented[name].strip() for name in ("activity", "register_external", "draft_book"))
+    names = ("activity", "register_external", "register_file", "draft_book")
+    assert set(names) <= documented.keys()
+    assert all(documented[name].strip() for name in names)

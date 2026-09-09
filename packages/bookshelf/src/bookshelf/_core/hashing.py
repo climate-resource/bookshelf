@@ -7,12 +7,24 @@ so the formatting lives in exactly one place.
 
 import hashlib
 import json
+from pathlib import Path
 from typing import Any
+
+_CHUNK_BYTES = 1 << 20
 
 
 def sha256_hex(data: bytes) -> str:
     """Return the canonical ``sha256:<hex>`` digest for ``data``."""
     return f"sha256:{hashlib.sha256(data).hexdigest()}"
+
+
+def sha256_path(path: Path) -> str:
+    """Return the canonical ``sha256:<hex>`` digest of a file, read in chunks."""
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        while chunk := stream.read(_CHUNK_BYTES):
+            digest.update(chunk)
+    return f"sha256:{digest.hexdigest()}"
 
 
 def canonical_json_bytes(obj: Any) -> bytes:
@@ -27,4 +39,4 @@ def canonical_json_bytes(obj: Any) -> bytes:
     return json.dumps(obj, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
-__all__ = ["canonical_json_bytes", "sha256_hex"]
+__all__ = ["canonical_json_bytes", "sha256_hex", "sha256_path"]

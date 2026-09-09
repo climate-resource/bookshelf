@@ -17,6 +17,7 @@ from uuid import UUID
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import UNSET, AuthInput
 from bookshelf._core.errors import BookshelfError
+from bookshelf._core.hashing import sha256_path
 from bookshelf._core.names import validate_resource_name
 from bookshelf._generated import models
 from bookshelf._produce import helpers
@@ -43,7 +44,12 @@ from bookshelf.publisher.bundle import (
     synthesise_pointer_hash,
 )
 from bookshelf.publisher.recipe import ResolvedBook, resolve_book_visibility
-from bookshelf.publisher.resource import LookupBook, ResolvedResource, resolve_resource
+from bookshelf.publisher.resource import (
+    LookupBook,
+    LookupDigest,
+    ResolvedResource,
+    resolve_resource,
+)
 
 WRITE_ACTIVITY_KIND = "process"
 """The kind the implicit ``book.write`` activity records under.
@@ -527,6 +533,7 @@ class RecordingSink:
         resolved: ResolvedBook | None = None,
         recipe_dir: Path | None = None,
         lookup_book: LookupBook | None = None,
+        lookup_digest: LookupDigest | None = None,
         parameters: Mapping[str, Any] | None = None,
     ) -> None:
         self.bundle = bundle
@@ -536,6 +543,7 @@ class RecordingSink:
         self._resolved = resolved
         self._recipe_dir = recipe_dir
         self._lookup_book = lookup_book
+        self._lookup_digest = lookup_digest
         self._authors = tuple(dict(author) for author in authors)
         self._open_activity: RecordingActivity | None = None
         # A handle carries a tracking id, and the manifest is keyed by name,
@@ -723,7 +731,7 @@ class RecordingSink:
         *,
         type: str | models.ResourceType,
         path: Path,
-        hash: str,
+        hash: str | None = None,
         name: str | None = None,
         visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
@@ -738,6 +746,7 @@ class RecordingSink:
         dedupe: bool = True,
     ) -> RecordedResource:
         """Record a checked-in file as managed bytes, linked back to where it is committed."""
+        hash = hash or sha256_path(path)
         source = committed_source_url(path)
         merged = dict(metadata or {})
         if source is not None:
@@ -789,6 +798,7 @@ class RecordingSink:
                 register_external=self.register_external,
                 register_file=self.register_file,
                 lookup_book=self._lookup_book,
+                lookup_digest=self._lookup_digest,
             )
             self._used_resources[name] = resolved
         return resolved
@@ -866,11 +876,13 @@ class RecordingBookshelf(Bookshelf):
             parameters=parameters,
             # A bookshelf reference is a read, so it goes through the same facade a consumer uses.
             lookup_book=self.book,
+            lookup_digest=self.resource_by_hash,
         )
         # Every producer call moves to the recording adapter,
         # so reads stay live and writes land in the bundle.
         self.activity = self.recording_sink.activity
         self.register_external = self.recording_sink.register_external
+        self.register_file = self.recording_sink.register_file
         self.draft_book = self.recording_sink.draft_book
 
     def use(self, name: str) -> ResolvedResource:

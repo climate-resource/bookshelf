@@ -198,6 +198,74 @@ def published(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _PublishedBook
     return book
 
 
+_DIGEST_VERSION = f"""\
+resources:
+  raw:
+    uri: bookshelf://sha256/{_SHA256}
+"""
+
+
+@dataclass
+class _Held:
+    """A standalone resource the organisation holds, plus the digests it was asked for."""
+
+    entry: _PublishedEntry
+    looked_up: list[str] = field(default_factory=list)
+
+    def lookup(self, content_hash: str) -> _PublishedEntry:
+        self.looked_up.append(content_hash)
+        if content_hash != self.entry.metadata.hash:
+            raise NotFoundError(f"no resource with hash {content_hash}", status_code=404)
+        return self.entry
+
+
+@pytest.fixture
+def held(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Held:
+    """Serve one uploaded file through the facade's digest lookup, never the network."""
+    cached = tmp_path / "held" / "raw.csv"
+    cached.parent.mkdir(parents=True, exist_ok=True)
+    cached.write_bytes(_PAYLOAD)
+    holding = _Held(_PublishedEntry(cached, type=models.ResourceType.tabular))
+    monkeypatch.setattr(Bookshelf, "resource_by_hash", holding.lookup)
+    return holding
+
+
+def test_a_digest_resource_resolves_to_the_held_resource(tmp_path: Path, held: _Held) -> None:
+    """The reference is a lookup by bytes, so nothing is registered and the id is the platform's."""
+    with _recording(_write_recipe(tmp_path, _DIGEST_VERSION), tmp_path / "bundle"):
+        build = setup()
+        raw = build.use("raw")
+
+        assert raw.tracking_id == _PUBLISHED_ID
+        assert raw.path.read_bytes() == _PAYLOAD
+        assert raw.hash == f"sha256:{_SHA256}"
+        assert _pointers(build.bs) == []
+    assert held.looked_up == [f"sha256:{_SHA256}"]
+
+
+def test_a_digest_the_organisation_does_not_hold_is_rejected(tmp_path: Path, held: _Held) -> None:
+    other = "f" * 64
+    version = _DIGEST_VERSION.replace(_SHA256, other)
+
+    with _recording(_write_recipe(tmp_path, version), tmp_path / "bundle"):
+        build = setup()
+        with pytest.raises(BookshelfError) as excinfo:
+            build.use("raw")
+
+    message = str(excinfo.value)
+    assert f"bookshelf://sha256/{other}" in message
+    assert "does not hold" in message
+
+
+def test_a_digest_resource_checks_a_stated_type(tmp_path: Path, held: _Held) -> None:
+    version = _DIGEST_VERSION + "    type: timeseries\n"
+
+    with _recording(_write_recipe(tmp_path, version), tmp_path / "bundle"):
+        build = setup()
+        with pytest.raises(BookshelfError, match="declares type timeseries"):
+            build.use("raw")
+
+
 def test_a_uri_resource_fetches_once_and_reads_back(tmp_path: Path, server: _Server) -> None:
     with _recording(_write_recipe(tmp_path, _URI_VERSION), tmp_path / "bundle"):
         build = setup()

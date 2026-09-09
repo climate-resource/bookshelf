@@ -170,6 +170,34 @@ def external_item(
     )
 
 
+def managed_item(
+    *,
+    type: str | models.ResourceType,
+    storage_path: str,
+    hash: str,
+    format: str | None,
+    name: str | None,
+    visibility: models.Visibility,
+    discovery: models.ResourceDiscovery,
+    metadata: Mapping[str, Any] | None,
+    tracking_id: UUID | None,
+    dedupe: bool,
+) -> models.RegisterResourceItem:
+    """Build the single-item registration that already uploaded bytes become."""
+    return models.RegisterResourceItem(
+        tracking_id=tracking_id or uuid7(),
+        type=resource_type(type),
+        hash=hash,
+        format=format,
+        name=name,
+        visibility=visibility,
+        discovery=discovery,
+        metadata=dict(metadata or {}),
+        locations=[models.LocationInput(shelf="managed", path=storage_path)],
+        dedupe=dedupe,
+    )
+
+
 def activity_envelope(
     *,
     activity_id: UUID,
@@ -258,6 +286,7 @@ __all__ = [
     "VisibilityInput",
     "activity_envelope",
     "external_item",
+    "managed_item",
     "item_discovery",
     "paired_successes",
     "people",

@@ -3,19 +3,23 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Mapping, Sequence
+from pathlib import Path
 from typing import Any, Protocol
 from uuid import UUID
 
 from pydantic import RootModel
 
 from bookshelf._core.client import BookshelfClient
+from bookshelf._core.hashing import sha256_path
 from bookshelf._generated import models
 from bookshelf._produce import helpers
 from bookshelf._produce.activities import Activity, AsyncActivity
 from bookshelf._produce.books import AsyncDraftBook, DraftBook
-from bookshelf._produce.provenance import derive_code_ref
+from bookshelf._produce.provenance import committed_source_url, derive_code_ref
 from bookshelf._produce.resources import AsyncResource, Resource
+from bookshelf._produce.serialise import content_type_for, format_from_suffix
 from bookshelf._produce.types import AuthorInput
+from bookshelf._produce.uploads import upload_bytes, upload_bytes_async
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
 from bookshelf.cache import ContentCache
 
@@ -129,6 +133,15 @@ def _draft_request(
     )
 
 
+def _with_source_url(metadata: Mapping[str, Any] | None, path: Path) -> dict[str, Any]:
+    """Link re-hosted bytes back to the commit they were read at, where there is one."""
+    merged = dict(metadata or {})
+    source = committed_source_url(path)
+    if source is not None:
+        merged.setdefault("source_url", source)
+    return merged
+
+
 class LiveSink:
     """Live synchronous adapter for producer writes."""
 
@@ -209,6 +222,73 @@ class LiveSink:
                 license_url=license_url,
             ),
             metadata=metadata,
+            tracking_id=tracking_id,
+            dedupe=dedupe,
+        )
+        response = self._client.register_resources(
+            models.RegisterResourcesRequest(items=[item], atomic=True)
+        )
+        successful, failures = helpers.registration_results(response)
+        helpers.raise_partial_registration(successful, failures)
+        outcome = helpers.single_success(successful)
+        return Resource(
+            self._client,
+            self._cache,
+            tracking_id=outcome.tracking_id,
+            resource_type=helpers.registered_resource_type(outcome, item.type),
+            registration_outcome=outcome,
+            name=helpers.registered_name(item),
+        )
+
+    def register_file(
+        self,
+        *,
+        type: str | models.ResourceType,
+        path: Path,
+        hash: str | None = None,
+        name: str | None = None,
+        visibility: VisibilityInput = INHERIT,
+        tags: Sequence[str] = (),
+        description: str | None = None,
+        authors: Sequence[AuthorInput] | None = None,
+        doi: str | None = None,
+        citation: str | None = None,
+        license: str | None = None,
+        license_url: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        tracking_id: UUID | None = None,
+        dedupe: bool = True,
+    ) -> Resource:
+        """Upload a file and catalogue it as an input, attributing it to no activity.
+
+        The bytes are content addressed, so a file the organisation already holds
+        is not transferred again and the registration answers with the canonical resource.
+        The file is read into memory for the upload.
+        """
+        content_hash = hash or sha256_path(path)
+        storage_path = upload_bytes(
+            self._client,
+            path.read_bytes(),
+            hash_=content_hash,
+            content_type=content_type_for(helpers.resource_type(type).value),
+        )
+        item = helpers.managed_item(
+            type=type,
+            storage_path=storage_path,
+            hash=content_hash,
+            format=format_from_suffix(path.name),
+            name=name,
+            visibility=helpers.visibility(visibility, self.default_visibility),
+            discovery=helpers.resource_discovery(
+                tags,
+                description=description,
+                authors=authors,
+                doi=doi,
+                citation=citation,
+                license=license,
+                license_url=license_url,
+            ),
+            metadata=_with_source_url(metadata, path),
             tracking_id=tracking_id,
             dedupe=dedupe,
         )
@@ -357,6 +437,73 @@ class AsyncLiveSink:
             name=helpers.registered_name(item),
         )
 
+    async def register_file(
+        self,
+        *,
+        type: str | models.ResourceType,
+        path: Path,
+        hash: str | None = None,
+        name: str | None = None,
+        visibility: VisibilityInput = INHERIT,
+        tags: Sequence[str] = (),
+        description: str | None = None,
+        authors: Sequence[AuthorInput] | None = None,
+        doi: str | None = None,
+        citation: str | None = None,
+        license: str | None = None,
+        license_url: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        tracking_id: UUID | None = None,
+        dedupe: bool = True,
+    ) -> AsyncResource:
+        """Upload a file and catalogue it as an input, attributing it to no activity.
+
+        The bytes are content addressed, so a file the organisation already holds
+        is not transferred again and the registration answers with the canonical resource.
+        The file is read into memory for the upload.
+        """
+        content_hash = hash or sha256_path(path)
+        storage_path = await upload_bytes_async(
+            self._client,
+            path.read_bytes(),
+            hash_=content_hash,
+            content_type=content_type_for(helpers.resource_type(type).value),
+        )
+        item = helpers.managed_item(
+            type=type,
+            storage_path=storage_path,
+            hash=content_hash,
+            format=format_from_suffix(path.name),
+            name=name,
+            visibility=helpers.visibility(visibility, self.default_visibility),
+            discovery=helpers.resource_discovery(
+                tags,
+                description=description,
+                authors=authors,
+                doi=doi,
+                citation=citation,
+                license=license,
+                license_url=license_url,
+            ),
+            metadata=_with_source_url(metadata, path),
+            tracking_id=tracking_id,
+            dedupe=dedupe,
+        )
+        response = await self._client.register_resources_async(
+            models.RegisterResourcesRequest(items=[item], atomic=True)
+        )
+        successful, failures = helpers.registration_results(response)
+        helpers.raise_partial_registration(successful, failures)
+        outcome = helpers.single_success(successful)
+        return AsyncResource(
+            self._client,
+            self._cache,
+            tracking_id=outcome.tracking_id,
+            resource_type=helpers.registered_resource_type(outcome, item.type),
+            registration_outcome=outcome,
+            name=helpers.registered_name(item),
+        )
+
     async def draft_book(
         self,
         volume: str,
@@ -412,6 +559,26 @@ class _ProduceSink[ActivityT, ResourceT, DraftT](Protocol):
         *,
         type: str | models.ResourceType,
         uri: str,
+        hash: str | None = None,
+        name: str | None = None,
+        visibility: VisibilityInput = INHERIT,
+        tags: Sequence[str] = (),
+        description: str | None = None,
+        authors: Sequence[AuthorInput] | None = None,
+        doi: str | None = None,
+        citation: str | None = None,
+        license: str | None = None,
+        license_url: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        tracking_id: UUID | None = None,
+        dedupe: bool = True,
+    ) -> ResourceT: ...
+
+    def register_file(
+        self,
+        *,
+        type: str | models.ResourceType,
+        path: Path,
         hash: str | None = None,
         name: str | None = None,
         visibility: VisibilityInput = INHERIT,

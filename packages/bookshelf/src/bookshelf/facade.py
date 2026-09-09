@@ -151,6 +151,22 @@ def _book_order(item: models.BookListItem) -> tuple[Any, ...]:
     return (version_key(item.version), item.edition)
 
 
+def _one_resource(content_hash: str, items: Sequence[models.ResourceRead]) -> models.ResourceRead:
+    """Pick the canonical resource a digest names, or say why there is not exactly one."""
+    if not items:
+        raise NotFoundError(
+            f"no resource with hash {content_hash} in your organisation. "
+            "Upload the file with 'bookshelf upload', or check the digest",
+            status_code=404,
+        )
+    if len(items) > 1:
+        raise BookshelfError(
+            f"hash {content_hash} resolves to {len(items)} merging resources, "
+            "where the platform promises one"
+        )
+    return items[0]
+
+
 def _missing_book(volume: str, version: str, edition: int | None) -> NotFoundError:
     coordinate = version if edition is None else f"{version}_e{edition:03}"
     return NotFoundError(
@@ -184,6 +200,8 @@ class Bookshelf:
         """Open an ambient producer activity with deterministic provenance."""
         self.register_external = sink.register_external
         """Catalogue an external pointer without attributing it to an activity."""
+        self.register_file = sink.register_file
+        """Upload a file and catalogue it as an input, attributing it to no activity."""
         self.draft_book = sink.draft_book
         """Create a mutable draft whose membership changes remain intentional calls."""
 
@@ -201,6 +219,16 @@ class Bookshelf:
         """Resolve an exact tracking id into a lean Resource."""
         metadata = self._client.get_resource(tracking_id)
         return Resource(self._client, self._cache, tracking_id, metadata=metadata)
+
+    def resource_by_hash(self, content_hash: str) -> Resource:
+        """Resolve a content digest into the one resource your organisation holds for it.
+
+        Book entries opt out of merging, so each edition owns its own row for the same bytes.
+        The lookup asks for the canonical merging row alone, which is what a digest names.
+        """
+        response = self._client.list_resources(hash=content_hash, dedupe=True, limit=2)
+        metadata = _one_resource(content_hash, response.items)
+        return Resource(self._client, self._cache, metadata.tracking_id, metadata=metadata)
 
     def search_volumes(
         self,
@@ -426,6 +454,8 @@ class AsyncBookshelf:
         """Open an ambient asynchronous producer activity."""
         self.register_external = sink.register_external
         """Catalogue an external pointer without attributing it to an activity."""
+        self.register_file = sink.register_file
+        """Upload a file and catalogue it as an input, attributing it to no activity."""
         self.draft_book = sink.draft_book
         """Create an asynchronous mutable draft book handle."""
 
@@ -443,6 +473,12 @@ class AsyncBookshelf:
         """Resolve an exact tracking id into a lean async Resource."""
         metadata = await self._client.get_resource_async(tracking_id)
         return AsyncResource(self._client, self._cache, tracking_id, metadata=metadata)
+
+    async def resource_by_hash(self, content_hash: str) -> AsyncResource:
+        """Resolve a content digest into the one resource your organisation holds for it."""
+        response = await self._client.list_resources_async(hash=content_hash, dedupe=True, limit=2)
+        metadata = _one_resource(content_hash, response.items)
+        return AsyncResource(self._client, self._cache, metadata.tracking_id, metadata=metadata)
 
     async def search_volumes(
         self,
