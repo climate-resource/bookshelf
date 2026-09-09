@@ -238,9 +238,7 @@ class LiveSink:
     ) -> Resource:
         """Upload a file and catalogue it as an input, attributing it to no activity.
 
-        The bytes are content addressed, so a file the organisation already holds
-        is not transferred again and the registration answers with the canonical resource.
-        The file is read into memory once, for the digest and the upload alike.
+        The file is read into memory once, for the digest and the upload.
         """
         serialised = serialise(path, type=helpers.resource_type(type).value)
         content_hash = hash or serialised.hash
@@ -280,6 +278,7 @@ class LiveSink:
         successful, failures = helpers.registration_results(response)
         helpers.raise_partial_registration(successful, failures)
         outcome = helpers.single_success(successful)
+
         return Resource(
             self._client,
             self._cache,

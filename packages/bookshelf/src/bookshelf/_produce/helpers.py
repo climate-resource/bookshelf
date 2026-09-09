@@ -109,7 +109,6 @@ def resource_discovery(
 
     A resource states its own attribution and never inherits the book's,
     so a field nobody wrote stays unset rather than travelling as null.
-    ``authors`` in particular is a list or absent on the wire, never null.
     An empty call still gets an object rather than a null,
     because the field is not nullable on the wire.
     A profile that states nothing and an absent profile mean the same thing to the platform.
@@ -301,9 +300,8 @@ __all__ = [
     "VisibilityInput",
     "activity_envelope",
     "external_item",
-    "managed_item",
-    "with_source_url",
     "item_discovery",
+    "managed_item",
     "paired_successes",
     "people",
     "raise_partial_registration",
@@ -316,4 +314,5 @@ __all__ = [
     "single_success",
     "uuid7",
     "visibility",
+    "with_source_url",
 ]

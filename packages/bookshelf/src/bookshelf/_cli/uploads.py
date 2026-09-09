@@ -2,8 +2,7 @@
 
 A dataset that cannot be checked into a feedstock, because it is embargoed or too large,
 is uploaded once and then declared in a recipe by digest.
-The bytes are catalogued as an input that belongs to no book,
-so a book built from them cites the original rather than a re-hosted copy.
+The same resource can be used as inputs for different books if needed.
 """
 
 from pathlib import Path
@@ -37,8 +36,6 @@ def upload(
     """Upload a file as a standalone input and print the bookshelf URI that names it.
 
     The URI is bookshelf://sha256/<hex>, which a recipe declares under resources: as its uri.
-    Bytes your organisation already holds are not transferred again,
-    and the outcome then names the resource that already exists.
     The file is readable by your organisation alone.
     """
     with command_errors():
@@ -72,6 +69,7 @@ def upload(
                 }
             )
             return
+
         aliased = outcome.status is models.Status2.aliased
         lines = [
             uri,

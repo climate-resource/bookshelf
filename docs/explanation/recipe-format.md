@@ -247,7 +247,7 @@ and `used=[primap]` cites the original rather than a copy of it.
 A dataset that is embargoed, or too large for the repository, is uploaded once and named by its digest:
 
 ```console
-$ bookshelf upload data/scenario-compass.xlsx --type tabular
+$ bookshelf upload data/scenario-data.xlsx --type tabular
 bookshelf://sha256/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
 ```
 
@@ -257,11 +257,11 @@ resources:
     uri: bookshelf://sha256/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
 ```
 
-The bytes sit in no book, so a digest is the only address they have.
-A digest resolves for the organisation that uploaded the file and for nobody else,
-and uploading the same bytes twice answers with the resource that already exists.
-Everything else is as for a book coordinate:
-no `sha256`, no catalogue metadata, and a stated `type` is checked rather than trusted.
+This creates a resource that isn't attached to a book,
+but can be used as a resource and will appear on the provenance graph.
+These files can only be access by an organisation member.
+
+The preference is to use a publicly accessible pointer if possible.
 
 ## Versioning
 

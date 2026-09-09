@@ -1,8 +1,7 @@
 """``bookshelf`` command line interface.
 
-A machine-first CLI over the SDK's public operations.
+A machine-first CLI over the Bookshelf API.
 Payload goes to stdout and diagnostics to stderr in every command,
-nothing branches on whether a terminal is attached,
 and the exit code carries the meaning (see :mod:`bookshelf._cli._runtime`).
 """
 
