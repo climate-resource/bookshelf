@@ -107,19 +107,22 @@ def resource_discovery(
     """Gather a resource's catalogue metadata into the discovery object it travels in.
 
     A resource states its own attribution and never inherits the book's,
-    so a field nobody wrote stays unset.
+    so a field nobody wrote stays unset rather than travelling as null.
+    ``authors`` in particular is a list or absent on the wire, never null.
     An empty call still gets an object rather than a null,
     because the field is not nullable on the wire.
     A profile that states nothing and an absent profile mean the same thing to the platform.
     """
+    stated = {
+        "description": description,
+        "authors": None if authors is None else people(authors),
+        "doi": doi,
+        "citation": citation,
+        "license": license,
+        "license_url": license_url,
+    }
     return models.ResourceDiscovery(
-        tags=list(tags),
-        description=description,
-        authors=None if authors is None else people(authors),
-        doi=doi,
-        citation=citation,
-        license=license,
-        license_url=license_url,
+        tags=list(tags), **{name: value for name, value in stated.items() if value is not None}
     )
 
 

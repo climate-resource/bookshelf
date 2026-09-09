@@ -221,6 +221,17 @@ async def test_register_file_has_an_async_twin(tmp_path: Path) -> None:
     ]
 
 
+def test_a_fact_nobody_stated_stays_off_the_wire() -> None:
+    """The platform takes authors as a list or not at all, so an unstated one is omitted, never null."""
+    recorded: list[httpx.Request] = []
+
+    with _sync(recorded, 200, REGISTERED_ONE) as client:
+        client.register_external(type="tabular", uri="https://example.invalid/data.csv")
+
+    discovery = _body(recorded[0])["items"][0]["discovery"]
+    assert discovery == {"tags": []}
+
+
 def test_register_external_raises_when_the_batch_comes_back_empty() -> None:
     recorded: list[httpx.Request] = []
 
