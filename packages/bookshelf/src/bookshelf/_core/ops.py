@@ -270,6 +270,8 @@ LIST_RESOURCES = _op(
             ("query", "tags"),
             ("query", "owner_org_id"),
             ("query", "latest"),
+            ("query", "dedupe"),
+            ("query", "in_book"),
             ("query", "limit"),
             ("query", "cursor"),
         ),

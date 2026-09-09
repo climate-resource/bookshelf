@@ -30,7 +30,7 @@ SCHEME = "bookshelf://"
 
 _EDITION_RE = re.compile(r"^(?P<version>.+)_e(?P<edition>\d+)$")
 _DIGEST_RE = re.compile(r"^sha256/(?P<hex>[0-9a-fA-F]{64})$")
-_DIGEST_LIKE_RE = re.compile(r"^sha256/[0-9a-fA-F]+$")
+_DIGEST_LIKE_RE = re.compile(r"^sha256/[0-9a-fA-F]+(?:/.*)?$")
 
 
 def _digest_hex(uri: str) -> str | None:
@@ -128,7 +128,8 @@ def parse_reference(uri: str) -> Reference:
     """Read either reference shape, raising :class:`ValueError` naming the one it falls short of.
 
     ``sha256`` followed by 64 hex characters is a digest.
-    Hex of any other length after ``sha256/`` is a mistyped digest rather than a book,
+    Hex of any other length after ``sha256/``, or hex followed by an entry,
+    is a mistyped digest rather than a book,
     so it is refused instead of being looked up as a volume of that name.
     A volume called ``sha256`` stays reachable by any version that is not bare hex.
     """
