@@ -86,6 +86,7 @@ class RecordedResource(Resource):
         discovery: models.ResourceDiscovery | None = None,
         metadata: Mapping[str, Any] | None = None,
         location: str | None = None,
+        dedupe: bool = True,
     ) -> None:
         now = datetime.now(UTC)
         super().__init__(
@@ -101,6 +102,7 @@ class RecordedResource(Resource):
                 discovery=discovery or models.ResourceDiscovery(),
                 metadata=dict(metadata or {}),
                 owner_org_id="recording",
+                dedupe=dedupe,
                 locations=[] if location is None else [location],
                 location_url=location,
                 created_at=now,
@@ -228,6 +230,7 @@ class RecordingActivity(Activity):
             visibility=resource_visibility,
             discovery=discovery,
             metadata=metadata,
+            dedupe=dedupe,
         )
 
     def register_many(
@@ -327,6 +330,7 @@ class RecordingActivity(Activity):
                 visibility=item.visibility,
                 discovery=item.discovery,
                 metadata=item.entry.metadata,
+                dedupe=item.entry.dedupe,
             )
             for item in prepared
         ]
@@ -829,6 +833,7 @@ class RecordingSink:
             name=name,
             visibility=self.default_visibility,
             metadata=metadata,
+            dedupe=False,
         )
 
 
@@ -922,6 +927,7 @@ class _SettledResource:
         hash_: str,
         discovery: models.ResourceDiscovery,
         metadata: Mapping[str, Any] | None,
+        dedupe: bool,
         location: str | None = None,
     ) -> RecordedResource:
         """Index the recorded name and return the handle a build file holds."""
@@ -937,6 +943,7 @@ class _SettledResource:
             discovery=discovery,
             metadata=metadata,
             location=location,
+            dedupe=dedupe,
         )
 
 
@@ -998,6 +1005,7 @@ def _record_pointer(
         names,
         hash_=resource_hash,
         discovery=discovery,
+        dedupe=dedupe,
         metadata=metadata,
         location=uri,
     )
@@ -1036,7 +1044,9 @@ def _record_file(
         # An input is read by the activity rather than produced by it.
         generated=False,
     )
-    return settled.handle(client, cache, names, hash_=hash, discovery=discovery, metadata=metadata)
+    return settled.handle(
+        client, cache, names, hash_=hash, discovery=discovery, metadata=metadata, dedupe=dedupe
+    )
 
 
 def _recorded_activity_used(bundle: Bundle) -> list[str]:

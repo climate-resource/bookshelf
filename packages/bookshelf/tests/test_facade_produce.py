@@ -30,7 +30,7 @@ REGISTERED_ONE: dict[str, Any] = {
         {
             "index": 0,
             "status": "created",
-            "outcome": {"status": "created", "tracking_id": TRACKING_ID},
+            "outcome": {"status": "created", "tracking_id": TRACKING_ID, "dedupe": True},
         }
     ],
 }
