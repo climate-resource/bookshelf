@@ -68,6 +68,8 @@ def test_build_list_resources_drops_none_and_coerces_sequences() -> None:
         tags=["climate", "emissions"],
         owner_org_id=None,
         latest=True,
+        dedupe=True,
+        in_book=False,
         limit=25,
         cursor="next",
     )
@@ -76,6 +78,8 @@ def test_build_list_resources_drops_none_and_coerces_sequences() -> None:
         "type": "timeseries",
         "tags": ["climate", "emissions"],
         "latest": True,
+        "dedupe": True,
+        "in_book": False,
         "limit": 25,
         "cursor": "next",
     }
