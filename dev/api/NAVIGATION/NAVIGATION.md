@@ -7,6 +7,7 @@
         * [cache](bookshelf/_cli/cache/index.md)
         * [discovery](bookshelf/_cli/discovery/index.md)
         * [producer](bookshelf/_cli/producer/index.md)
+        * [uploads](bookshelf/_cli/uploads/index.md)
         * [volume](bookshelf/_cli/volume/index.md)
     * [\_consume](bookshelf/_consume/index.md)
         * [books](bookshelf/_consume/books/index.md)

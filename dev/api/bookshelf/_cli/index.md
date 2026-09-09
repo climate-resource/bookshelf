@@ -9,6 +9,7 @@
 | [cache][bookshelf._cli.cache]         | ``bookshelf cache`` commands over the content cache the SDK fills.                             |
 | [discovery][bookshelf._cli.discovery] | ``bookshelf search`` and ``bookshelf show``: what exists, and what one address is.             |
 | [producer][bookshelf._cli.producer]   | ``bookshelf record``, ``bookshelf validate``, ``bookshelf publish`` and ``bookshelf discard``. |
+| [uploads][bookshelf._cli.uploads]     | ``bookshelf upload``: put a file on the bookshelf and get back the URI that names it.          |
 | [volume][bookshelf._cli.volume]       | ``bookshelf volume``: the collection lifecycle a first publish needs.                          |
 
 ::: bookshelf._cli
