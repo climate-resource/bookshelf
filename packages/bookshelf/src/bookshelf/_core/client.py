@@ -680,6 +680,8 @@ class BookshelfClient:
         tags: Sequence[str] | None = None,
         owner_org_id: str | None = None,
         latest: bool | None = None,
+        dedupe: bool | None = None,
+        in_book: bool | None = None,
         limit: int | None = None,
         cursor: str | None = None,
     ) -> models.ResourceListResponse:
@@ -693,6 +695,8 @@ class BookshelfClient:
                     tags=tags,
                     owner_org_id=owner_org_id,
                     latest=latest,
+                    dedupe=dedupe,
+                    in_book=in_book,
                     limit=limit,
                     cursor=cursor,
                 )
@@ -709,6 +713,8 @@ class BookshelfClient:
         tags: Sequence[str] | None = None,
         owner_org_id: str | None = None,
         latest: bool | None = None,
+        dedupe: bool | None = None,
+        in_book: bool | None = None,
         limit: int | None = None,
         cursor: str | None = None,
     ) -> models.ResourceListResponse:
@@ -722,6 +728,8 @@ class BookshelfClient:
                     tags=tags,
                     owner_org_id=owner_org_id,
                     latest=latest,
+                    dedupe=dedupe,
+                    in_book=in_book,
                     limit=limit,
                     cursor=cursor,
                 )

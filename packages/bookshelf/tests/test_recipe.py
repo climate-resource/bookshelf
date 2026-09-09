@@ -30,7 +30,7 @@ from bookshelf.publisher.record import (
     run_record,
     setup,
 )
-from bookshelf.publisher.reference import BookshelfReference
+from bookshelf.publisher.reference import BookshelfReference, DigestReference
 
 _VERSION = "v1.0.0"
 
@@ -716,6 +716,23 @@ def test_a_bookshelf_resource_that_states_a_digest_is_rejected(tmp_path: Path) -
         "    uri: bookshelf://primap-hist/v2.7_e002/by_country\n"
         f"    sha256: {'a' * 64}"
     )
+
+    with pytest.raises(BookshelfError, match="takes its digest from the platform"):
+        load_record_recipe(_one_book(tmp_path, body))
+
+
+def test_a_digest_resource_is_a_reference_too(tmp_path: Path) -> None:
+    """An uploaded file is declared by its digest, and obeys the same rules as a coordinate."""
+    path = _one_book(tmp_path, f"resources:\n  raw:\n    uri: bookshelf://sha256/{'a' * 64}")
+
+    spec = load_record_recipe(path).resolve("v1.0").resources["raw"]
+
+    assert spec.reference == DigestReference(hash=f"sha256:{'a' * 64}")
+    assert spec.type is None
+
+
+def test_a_digest_resource_that_restates_the_digest_is_rejected(tmp_path: Path) -> None:
+    body = f"resources:\n  raw:\n    uri: bookshelf://sha256/{'a' * 64}\n    sha256: {'a' * 64}"
 
     with pytest.raises(BookshelfError, match="takes its digest from the platform"):
         load_record_recipe(_one_book(tmp_path, body))

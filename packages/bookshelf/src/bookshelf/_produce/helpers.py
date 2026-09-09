@@ -7,12 +7,13 @@ import platform
 import secrets
 import time
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
-from bookshelf._produce.provenance import canonical_config_hash
+from bookshelf._produce.provenance import canonical_config_hash, committed_source_url
 from bookshelf._produce.types import (
     AuthorInput,
     PartialRegistrationError,
@@ -107,19 +108,21 @@ def resource_discovery(
     """Gather a resource's catalogue metadata into the discovery object it travels in.
 
     A resource states its own attribution and never inherits the book's,
-    so a field nobody wrote stays unset.
+    so a field nobody wrote stays unset rather than travelling as null.
     An empty call still gets an object rather than a null,
     because the field is not nullable on the wire.
     A profile that states nothing and an absent profile mean the same thing to the platform.
     """
+    stated = {
+        "description": description,
+        "authors": None if authors is None else people(authors),
+        "doi": doi,
+        "citation": citation,
+        "license": license,
+        "license_url": license_url,
+    }
     return models.ResourceDiscovery(
-        tags=list(tags),
-        description=description,
-        authors=None if authors is None else people(authors),
-        doi=doi,
-        citation=citation,
-        license=license,
-        license_url=license_url,
+        tags=list(tags), **{name: value for name, value in stated.items() if value is not None}
     )
 
 
@@ -166,6 +169,45 @@ def external_item(
         discovery=discovery,
         metadata=dict(metadata or {}),
         external_uri=uri,
+        dedupe=dedupe,
+    )
+
+
+def with_source_url(metadata: Mapping[str, Any] | None, path: Path) -> dict[str, Any]:
+    """Link re-hosted bytes back to the commit they were read at, where there is one."""
+    merged = dict(metadata or {})
+    if "source_url" in merged:
+        return merged
+    source = committed_source_url(path)
+    if source is not None:
+        merged["source_url"] = source
+    return merged
+
+
+def managed_item(
+    *,
+    type: str | models.ResourceType,
+    storage_path: str,
+    hash: str,
+    format: str | None,
+    name: str | None,
+    visibility: models.Visibility,
+    discovery: models.ResourceDiscovery,
+    metadata: Mapping[str, Any] | None,
+    tracking_id: UUID | None,
+    dedupe: bool,
+) -> models.RegisterResourceItem:
+    """Build the single-item registration that already uploaded bytes become."""
+    return models.RegisterResourceItem(
+        tracking_id=tracking_id or uuid7(),
+        type=resource_type(type),
+        hash=hash,
+        format=format,
+        name=name,
+        visibility=visibility,
+        discovery=discovery,
+        metadata=dict(metadata or {}),
+        locations=[models.LocationInput(shelf="managed", path=storage_path)],
         dedupe=dedupe,
     )
 
@@ -259,6 +301,7 @@ __all__ = [
     "activity_envelope",
     "external_item",
     "item_discovery",
+    "managed_item",
     "paired_successes",
     "people",
     "raise_partial_registration",
@@ -271,4 +314,5 @@ __all__ = [
     "single_success",
     "uuid7",
     "visibility",
+    "with_source_url",
 ]

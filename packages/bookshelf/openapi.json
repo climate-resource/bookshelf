@@ -3,10 +3,10 @@
   "info": {
     "title": "Bookshelf API",
     "description": "API for Climate Resource's dataset management system",
-    "version": "0.1.0"
+    "version": "0.3.1.dev592+ga380ada4"
   },
   "paths": {
-    "/live": {
+    "/livez": {
       "get": {
         "tags": [
           "health"
@@ -28,7 +28,7 @@
         }
       }
     },
-    "/ready": {
+    "/readyz": {
       "get": {
         "tags": [
           "health"
@@ -407,7 +407,7 @@
           "volumes"
         ],
         "summary": "List Volumes",
-        "description": "List all volumes with computed fields.\n\nReturns a paginated list with the discovery profile, latest_version,\nlatest_edition, resource_types and download totals.\nFilters combine with AND, and repeated topic, keyword or region values\nnarrow the result further.",
+        "description": "List all volumes with computed fields.\n\nReturns a paginated list with the discovery profile, latest_version,\nlatest_edition, resource_types and download totals.\nFilters combine with AND, and repeated topic, keyword or region values\nnarrow the result further.\nFixture volumes are left out unless ``include_demo`` asks for them,\nso a preview environment's scaffolding does not sit beside the real catalogue.",
         "operationId": "volumesListVolumes",
         "security": [
           {},
@@ -592,6 +592,18 @@
               "title": "Deprecated"
             },
             "description": "Restrict to deprecated or active volumes"
+          },
+          {
+            "name": "include_demo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include seeded and stress-test fixture volumes, which are excluded by default.",
+              "default": false,
+              "title": "Include Demo"
+            },
+            "description": "Include seeded and stress-test fixture volumes, which are excluded by default."
           }
         ],
         "responses": {
@@ -1654,6 +1666,61 @@
         }
       }
     },
+    "/v1/books/{book_id}/rendered-notebook": {
+      "get": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "Get Rendered Notebook",
+        "description": "Read a book's rendered notebook as text, for inline display.\n\nThe ``build.html`` a recorded build captures is author-written markup, so a client\nmust only ever show it inside a sandboxed frame on an opaque origin.",
+        "operationId": "resourcesGetRenderedNotebook",
+        "security": [
+          {},
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "book_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Book Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenderedNotebookResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
     "/v1/books/{book_id}/archive": {
       "get": {
         "tags": [
@@ -2068,7 +2135,7 @@
           "resources"
         ],
         "summary": "Get Resource Preview",
-        "description": "Get generic preview for tabular/other resources.\n\nReturns paginated rows with column metadata.\nSuitable for displaying data tables in the UI.\n\nRepeat `columns` to preview a subset of a wide resource.\nThe projection is pushed into the read, so the columns left out cost nothing.",
+        "description": "Get generic preview for tabular/other resources.\n\nReturns paginated rows with column metadata.\nSuitable for displaying data tables in the UI.\n\nRepeat `columns` to preview a subset of a wide resource.\nThe projection is pushed into the read, so the columns left out cost nothing.\n\n`order` sorts the whole resource before the page is cut, so a sorted page\ndescribes the resource rather than the rows that happened to load first.\n\nFilters are passed as query params: ?region=USA&scenario=SSP1.\nThey narrow the rows and the reported total, so a page and its count\ndescribe the same filtered resource rather than the loaded sample.",
         "operationId": "resourcesGetResourcePreview",
         "security": [
           {},
@@ -2143,6 +2210,24 @@
               "title": "Columns"
             },
             "description": "Columns to return"
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sort spec, e.g. `order=region.asc,2020.desc`; direction defaults to `asc`.",
+              "title": "Order"
+            },
+            "description": "Sort spec, e.g. `order=region.asc,2020.desc`; direction defaults to `asc`."
           }
         ],
         "responses": {
@@ -3364,6 +3449,42 @@
             "description": "When true, return only the most-recent resource per (volume, name) pair. Resources not attached to a book are excluded, because they have no volume."
           },
           {
+            "name": "dedupe",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter on the merge flag. ``true`` returns the canonical merging row for a digest lookup.",
+              "title": "Dedupe"
+            },
+            "description": "Filter on the merge flag. ``true`` returns the canonical merging row for a digest lookup."
+          },
+          {
+            "name": "in_book",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "``false`` returns resources placed in no book, ``true`` only placed ones.",
+              "title": "In Book"
+            },
+            "description": "``false`` returns resources placed in no book, ``true`` only placed ones."
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -3903,6 +4024,118 @@
         }
       }
     },
+    "/v1/resources/{tracking_id}/data{fmt}": {
+      "get": {
+        "tags": [
+          "data"
+        ],
+        "summary": "Query Resource Data With Suffix",
+        "description": "Query a resource's tabular data, choosing the format by URL suffix.\n\nThe bare-URL form for tools that cannot set an ``Accept`` header,\nsuch as a spreadsheet web query or ``pandas.read_parquet``.\nThe suffix wins over ``Accept``.\n\nFilters and modifiers are the same as the clean route.",
+        "operationId": "queryResourceDataWithSuffix",
+        "security": [
+          {},
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tracking_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tracking Id"
+            }
+          },
+          {
+            "name": "fmt",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\.(json|csv|parquet)$",
+              "description": "Output format suffix: `.json`, `.csv` or `.parquet`.",
+              "title": "Fmt"
+            },
+            "description": "Output format suffix: `.json`, `.csv` or `.parquet`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Query results serialised in the negotiated media type.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "title": "ResourceDataRows",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/parquet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "description": "Strong validator for the resource representation; folds in the negotiated media type.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always ``Accept``; the response body depends on content negotiation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "304": {
+            "description": "Not modified; the resource ETag matched If-None-Match.",
+            "headers": {
+              "ETag": {
+                "description": "Strong validator for the resource representation; folds in the negotiated media type.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always ``Accept``; the response body depends on content negotiation.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
     "/v1/books/{book_id}/entries": {
       "post": {
         "tags": [
@@ -4193,7 +4426,7 @@
           "book-actions"
         ],
         "summary": "Correct Book",
-        "description": "Correct an authored fact on a published book.\n\nThis is the one way a published book's descriptive metadata may change.\nA plain ``PATCH`` against a published book is still rejected,\nso nothing reaches a release without a correction event recording that it moved.\n\nThe body names the facts it corrects and nothing else:\na fact left out keeps what the book already says,\nand a fact sent as null is cleared.\nRequires write permission on the owning org, the same gate publish passes.\n\nA correction mints no edition.\nContent, licence and visibility keep the edition path,\nso naming one of those is a 422 pointing at publish rather than a correction in place.\nCorrecting a draft is a 409 pointing at the edit route.",
+        "description": "Correct an authored fact on a published book.\n\nThis is the one way a published book's descriptive metadata may change.\nA plain ``PATCH`` against a published book is still rejected,\nso nothing reaches a release without a correction event recording that it moved.\n\nThe body names the facts it corrects and nothing else:\na fact left out keeps what the book already says,\nand a fact sent as null is cleared.\nThe ``metadata`` blob is the one exception, being replaced whole.\nRequires write permission on the owning org, the same gate publish passes.\n\nA correction mints no edition.\nContent, licence and visibility keep the edition path,\nso naming one of those is a 422 pointing at publish rather than a correction in place.\nCorrecting a draft is a 409 pointing at the edit route.",
         "operationId": "bookActionsCorrectBook",
         "security": [
           {
@@ -4565,6 +4798,9 @@
           "403": {
             "$ref": "#/components/responses/Forbidden"
           },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
           }
@@ -4613,6 +4849,222 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/v1/me/share-links": {
+      "get": {
+        "tags": [
+          "share-links"
+        ],
+        "summary": "List Share Links",
+        "description": "List the caller's own links. Tokens are not recoverable.",
+        "operationId": "listShareLinks",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareLinkListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "share-links"
+        ],
+        "summary": "Create Share Link",
+        "description": "Mint a read-only link for one volume.\n\nOnly a member of the volume's owning organisation may mint. The plaintext\ntoken is returned here and nowhere else.",
+        "operationId": "createShareLink",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareLinkCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareLinkCreated"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/me/share-links/{link_id}": {
+      "delete": {
+        "tags": [
+          "share-links"
+        ],
+        "summary": "Revoke Share Link",
+        "description": "Revoke one of the caller's links. Idempotent.",
+        "operationId": "revokeShareLink",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "link_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Link Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/links/{token}/{version_edition}/{name_in_book}": {
+      "get": {
+        "tags": [
+          "share-links"
+        ],
+        "summary": "Resolve Share Link",
+        "description": "Resolve a share link to data or to the stored bytes.\n\nA ``.csv`` or ``.parquet`` suffix runs the query engine and passes the query string through.\nAnything else redirects to the bytes, like the public resolver.",
+        "operationId": "resolveShareLink",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Signed share link token.",
+              "title": "Token"
+            },
+            "description": "Signed share link token."
+          },
+          {
+            "name": "version_edition",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "``{version}_e{edition}`` slug; edition is exactly three digits.",
+              "title": "Version Edition"
+            },
+            "description": "``{version}_e{edition}`` slug; edition is exactly three digits."
+          },
+          {
+            "name": "name_in_book",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Entry name within the book.",
+              "title": "Name In Book"
+            },
+            "description": "Entry name within the book."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Query results serialised in the negotiated media type.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "title": "ResourceDataRows",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/parquet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "302": {
+            "description": "Redirect to the resource bytes.",
+            "headers": {
+              "Location": {
+                "description": "Presigned or pointer URL for the resource bytes.",
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
       }
     },
     "/{series_name}/{version_edition}/{name_in_book}": {
@@ -5012,7 +5464,20 @@
         "properties": {
           "discovery": {
             "$ref": "#/components/schemas/BookDiscoveryInput",
-            "description": "The facts to correct. Only the fields present in the body are written, so a correction of one fact leaves the rest of the profile standing. ``license`` may be restated but not changed: a licence is a legal claim about a specific release, so changing it mints a new edition through publish."
+            "description": "The facts to correct, omitted entirely by a correction that names only ``metadata``. Only the fields present in the body are written, so a correction of one fact leaves the rest of the profile standing. ``license`` may be restated but not changed: a licence is a legal claim about a specific release, so changing it mints a new edition through publish."
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata",
+            "description": "The unstructured metadata blob, replaced whole rather than merged key by key, because the platform reads nothing inside it and cannot patch what it cannot parse. Omit it to keep what the book already carries, and send null to clear it."
           },
           "reason": {
             "anyOf": [
@@ -5030,9 +5495,6 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "discovery"
-        ],
         "title": "BookCorrection",
         "description": "Body for the book correction endpoint.\n\nThe correction names the facts it changes and nothing else.\nA fact left out keeps what the book already says,\nand a fact sent as null is cleared.\n\nContent, licence and visibility keep the edition path,\nso naming one here is a 422 pointing at publish."
       },
@@ -5060,13 +5522,20 @@
           "discovery": {
             "$ref": "#/components/schemas/BookDiscovery",
             "description": "The book's discovery profile as it now reads."
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata",
+            "description": "The book's metadata blob as it now reads."
           }
         },
         "type": "object",
         "required": [
           "book_id",
           "corrected_at",
-          "discovery"
+          "discovery",
+          "metadata"
         ],
         "title": "BookCorrectionResponse",
         "description": "Response for the book correction endpoint."
@@ -7074,6 +7543,7 @@
             "description": "Dataset label for legend"
           }
         },
+        "additionalProperties": true,
         "type": "object",
         "required": [
           "id",
@@ -7902,6 +8372,73 @@
         "title": "EventKind",
         "description": "Kinds of immutable RegistrationEvent rows in the append-only log."
       },
+      "EventSubject": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "book",
+              "resource"
+            ],
+            "title": "Kind",
+            "description": "Whether the event is about a book or a resource."
+          },
+          "volume_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volume Name",
+            "description": "Volume the subject belongs to."
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version",
+            "description": "Book version, e.g. ``v1.0.0``."
+          },
+          "edition": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edition",
+            "description": "Book edition."
+          },
+          "resource_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Name",
+            "description": "The resource's name inside its book."
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "EventSubject",
+        "description": "What an event is about, named the way a reader would name it.\n\nAn event carries only the id of the thing it changed, which is unreadable on its own.\nThis names that thing so a feed can render it and link to its page,\nand it is ``None`` when the subject has been deleted or cannot be resolved."
+      },
       "ExplorerChartConfig": {
         "properties": {
           "chartType": {
@@ -8005,6 +8542,7 @@
             "description": "Chart theme name"
           }
         },
+        "additionalProperties": true,
         "type": "object",
         "title": "ExplorerChartConfig",
         "description": "Complete chart configuration."
@@ -9287,6 +9825,29 @@
             ],
             "title": "Parent Event Id",
             "description": "Optional parent event id for causal threading."
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventSubject"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The named book or resource the event applies to."
+          },
+          "recorded_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded By Name",
+            "description": "Display name of the WorkOS user that recorded the event. Best effort: absent when the name cannot be resolved."
           }
         },
         "type": "object",
@@ -9358,15 +9919,36 @@
             ],
             "title": "Event Id",
             "description": "Id of the persisted RegistrationEvent. Absent on aliased responses (no new resource event written)."
+          },
+          "dedupe": {
+            "type": "boolean",
+            "title": "Dedupe",
+            "description": "True when this row merges with later registrations of the same bytes. An aliased outcome always reports true."
           }
         },
         "type": "object",
         "required": [
           "status",
-          "tracking_id"
+          "tracking_id",
+          "dedupe"
         ],
         "title": "RegistrationOutcome",
         "description": "Outcome of a single registration call."
+      },
+      "RenderedNotebookResponse": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content",
+            "description": "The rendered notebook's HTML, decoded as UTF-8. It is author-written markup and must only ever be displayed inside a sandboxed frame."
+          }
+        },
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "RenderedNotebookResponse",
+        "description": "The text of a build's rendered notebook, for inline display."
       },
       "ReplayActivity": {
         "properties": {
@@ -9948,6 +10530,11 @@
             "title": "Owner Org Id",
             "description": "WorkOS org that owns the resource."
           },
+          "dedupe": {
+            "type": "boolean",
+            "title": "Dedupe",
+            "description": "True when this row merges with later registrations of the same bytes. Book entries carry false so each edition owns its own row."
+          },
           "discovery": {
             "$ref": "#/components/schemas/ResourceDiscovery",
             "description": "Discovery profile. The facts the resource states itself, and no others."
@@ -9992,6 +10579,7 @@
           "hash",
           "visibility",
           "owner_org_id",
+          "dedupe",
           "created_at",
           "updated_at"
         ],
@@ -10019,6 +10607,9 @@
           "type": {
             "type": "string",
             "title": "Type"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/Visibility"
           },
           "tracking_id": {
             "type": "string",
@@ -10086,6 +10677,7 @@
           "id",
           "name",
           "type",
+          "visibility",
           "tracking_id"
         ],
         "title": "ResourceSummary",
@@ -10177,6 +10769,206 @@
         ],
         "title": "ServiceAuthRegistrationResponse",
         "description": "Response for a service_auth registration (no assertion until claimed)."
+      },
+      "ShareLinkCreate": {
+        "properties": {
+          "volume_name": {
+            "type": "string",
+            "title": "Volume Name",
+            "description": "Volume the link is scoped to."
+          },
+          "expiry": {
+            "type": "string",
+            "enum": [
+              "1d",
+              "7d",
+              "30d",
+              "90d",
+              "1y",
+              "never"
+            ],
+            "title": "Expiry",
+            "description": "How long the link stays valid.",
+            "default": "30d"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label",
+            "description": "The minting user's own note."
+          }
+        },
+        "type": "object",
+        "required": [
+          "volume_name"
+        ],
+        "title": "ShareLinkCreate",
+        "description": "Request body for minting a share link."
+      },
+      "ShareLinkCreated": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "volume_name": {
+            "type": "string",
+            "title": "Volume Name"
+          },
+          "expiry": {
+            "type": "string",
+            "enum": [
+              "1d",
+              "7d",
+              "30d",
+              "90d",
+              "1y",
+              "never"
+            ],
+            "title": "Expiry"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token",
+            "description": "Plaintext bearer, shown once and not recoverable."
+          },
+          "url_template": {
+            "type": "string",
+            "title": "Url Template",
+            "description": "Link URL with the token filled in and the rest left as placeholders."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "volume_name",
+          "expiry",
+          "expires_at",
+          "created_at",
+          "token",
+          "url_template"
+        ],
+        "title": "ShareLinkCreated",
+        "description": "Mint response. The only place the plaintext token is ever returned."
+      },
+      "ShareLinkListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ShareLinkRead"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "ShareLinkListResponse",
+        "description": "The caller's share links."
+      },
+      "ShareLinkRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "volume_name": {
+            "type": "string",
+            "title": "Volume Name"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "volume_name",
+          "label",
+          "expires_at",
+          "revoked_at",
+          "last_used_at",
+          "created_at"
+        ],
+        "title": "ShareLinkRead",
+        "description": "One of the caller's links, without its token."
       },
       "TemporalCoverage": {
         "properties": {
@@ -10754,6 +11546,12 @@
             "format": "date-time",
             "title": "Updated At"
           },
+          "is_demo": {
+            "type": "boolean",
+            "title": "Is Demo",
+            "description": "Whether the volume is a seeded or stress-test fixture rather than a real dataset.",
+            "default": false
+          },
           "versions": {
             "items": {
               "$ref": "#/components/schemas/VersionInfo"
@@ -11081,6 +11879,12 @@
             "title": "Total Size Bytes",
             "description": "Total size of the readable resources",
             "default": 0
+          },
+          "is_demo": {
+            "type": "boolean",
+            "title": "Is Demo",
+            "description": "Whether the volume is a seeded or stress-test fixture rather than a real dataset.",
+            "default": false
           }
         },
         "type": "object",
@@ -11167,6 +11971,12 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At"
+          },
+          "is_demo": {
+            "type": "boolean",
+            "title": "Is Demo",
+            "description": "Whether the volume is a seeded or stress-test fixture rather than a real dataset.",
+            "default": false
           }
         },
         "type": "object",

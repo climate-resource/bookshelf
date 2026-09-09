@@ -100,6 +100,7 @@ RESOURCE_READ: dict[str, Any] = {
     "hash": "sha256:" + "0" * 64,
     "visibility": "org",
     "owner_org_id": "org_1",
+    "dedupe": True,
     "created_at": TS,
     "updated_at": TS,
 }

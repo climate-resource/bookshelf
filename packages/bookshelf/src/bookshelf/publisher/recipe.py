@@ -34,7 +34,7 @@ from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf._produce import helpers
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
-from bookshelf.publisher.reference import BookshelfReference, is_reference
+from bookshelf.publisher.reference import Reference, is_reference, parse_reference
 
 _SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 
@@ -173,7 +173,7 @@ class _ResourceFields(_Section):
     - ``uri`` names something to fetch, and its declared ``sha256`` is what the fetch is checked
       against.
     - a ``uri`` under the ``bookshelf://`` scheme names data the platform already holds,
-      as :class:`~bookshelf.publisher.reference.BookshelfReference` describes.
+      by book coordinate or by digest, as :mod:`bookshelf.publisher.reference` describes.
       It states no ``sha256``, because the platform is where that digest comes from.
     - ``path`` names a file beside the recipe, and its digest is computed when it is read.
 
@@ -277,15 +277,15 @@ class ResourceSpec(_ResourceFields):
     """
 
     @property
-    def reference(self) -> BookshelfReference | None:
-        """The published resource this declaration names, or ``None`` for a fetch or a file.
+    def reference(self) -> Reference | None:
+        """The platform-held resource this declaration names, or ``None`` for a fetch or a file.
 
-        Raises :class:`ValueError` where the URI takes the scheme without the coordinate,
+        Raises :class:`ValueError` where the URI takes the scheme without a coordinate or a digest,
         which is what makes reading it enough to validate it.
         """
         if self.uri is None or not is_reference(self.uri):
             return None
-        return BookshelfReference.parse(self.uri)
+        return parse_reference(self.uri)
 
     @model_validator(mode="after")
     def _one_complete_location(self) -> Self:

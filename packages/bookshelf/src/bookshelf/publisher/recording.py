@@ -17,6 +17,7 @@ from uuid import UUID
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import UNSET, AuthInput
 from bookshelf._core.errors import BookshelfError
+from bookshelf._core.hashing import sha256_path
 from bookshelf._core.names import validate_resource_name
 from bookshelf._generated import models
 from bookshelf._produce import helpers
@@ -25,7 +26,6 @@ from bookshelf._produce.books import DraftBook
 from bookshelf._produce.facade import ProcessingInput
 from bookshelf._produce.provenance import (
     canonical_config_hash,
-    committed_source_url,
     derive_activity_id,
     derive_code_ref,
 )
@@ -43,7 +43,12 @@ from bookshelf.publisher.bundle import (
     synthesise_pointer_hash,
 )
 from bookshelf.publisher.recipe import ResolvedBook, resolve_book_visibility
-from bookshelf.publisher.resource import LookupBook, ResolvedResource, resolve_resource
+from bookshelf.publisher.resource import (
+    LookupBook,
+    LookupDigest,
+    ResolvedResource,
+    resolve_resource,
+)
 
 WRITE_ACTIVITY_KIND = "process"
 """The kind the implicit ``book.write`` activity records under.
@@ -86,6 +91,7 @@ class RecordedResource(Resource):
         discovery: models.ResourceDiscovery | None = None,
         metadata: Mapping[str, Any] | None = None,
         location: str | None = None,
+        dedupe: bool = True,
     ) -> None:
         now = datetime.now(UTC)
         super().__init__(
@@ -101,6 +107,7 @@ class RecordedResource(Resource):
                 discovery=discovery or models.ResourceDiscovery(),
                 metadata=dict(metadata or {}),
                 owner_org_id="recording",
+                dedupe=dedupe,
                 locations=[] if location is None else [location],
                 location_url=location,
                 created_at=now,
@@ -228,6 +235,7 @@ class RecordingActivity(Activity):
             visibility=resource_visibility,
             discovery=discovery,
             metadata=metadata,
+            dedupe=dedupe,
         )
 
     def register_many(
@@ -327,6 +335,7 @@ class RecordingActivity(Activity):
                 visibility=item.visibility,
                 discovery=item.discovery,
                 metadata=item.entry.metadata,
+                dedupe=item.entry.dedupe,
             )
             for item in prepared
         ]
@@ -523,6 +532,7 @@ class RecordingSink:
         resolved: ResolvedBook | None = None,
         recipe_dir: Path | None = None,
         lookup_book: LookupBook | None = None,
+        lookup_digest: LookupDigest | None = None,
         parameters: Mapping[str, Any] | None = None,
     ) -> None:
         self.bundle = bundle
@@ -532,6 +542,7 @@ class RecordingSink:
         self._resolved = resolved
         self._recipe_dir = recipe_dir
         self._lookup_book = lookup_book
+        self._lookup_digest = lookup_digest
         self._authors = tuple(dict(author) for author in authors)
         self._open_activity: RecordingActivity | None = None
         # A handle carries a tracking id, and the manifest is keyed by name,
@@ -719,7 +730,7 @@ class RecordingSink:
         *,
         type: str | models.ResourceType,
         path: Path,
-        hash: str,
+        hash: str | None = None,
         name: str | None = None,
         visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
@@ -734,10 +745,6 @@ class RecordingSink:
         dedupe: bool = True,
     ) -> RecordedResource:
         """Record a checked-in file as managed bytes, linked back to where it is committed."""
-        source = committed_source_url(path)
-        merged = dict(metadata or {})
-        if source is not None:
-            merged.setdefault("source_url", source)
         return _record_file(
             self.bundle,
             self._client,
@@ -745,7 +752,7 @@ class RecordingSink:
             self._names,
             type=type,
             path=path,
-            hash=hash,
+            hash=hash or sha256_path(path),
             name=name,
             visibility=visibility,
             default_visibility=self.default_visibility,
@@ -758,7 +765,7 @@ class RecordingSink:
                 license=license,
                 license_url=license_url,
             ),
-            metadata=merged,
+            metadata=helpers.with_source_url(metadata, path),
             tracking_id=tracking_id,
             dedupe=dedupe,
         )
@@ -785,6 +792,7 @@ class RecordingSink:
                 register_external=self.register_external,
                 register_file=self.register_file,
                 lookup_book=self._lookup_book,
+                lookup_digest=self._lookup_digest,
             )
             self._used_resources[name] = resolved
         return resolved
@@ -829,6 +837,7 @@ class RecordingSink:
             name=name,
             visibility=self.default_visibility,
             metadata=metadata,
+            dedupe=False,
         )
 
 
@@ -861,11 +870,13 @@ class RecordingBookshelf(Bookshelf):
             parameters=parameters,
             # A bookshelf reference is a read, so it goes through the same facade a consumer uses.
             lookup_book=self.book,
+            lookup_digest=self.resource_by_hash,
         )
         # Every producer call moves to the recording adapter,
         # so reads stay live and writes land in the bundle.
         self.activity = self.recording_sink.activity
         self.register_external = self.recording_sink.register_external
+        self.register_file = self.recording_sink.register_file
         self.draft_book = self.recording_sink.draft_book
 
     def use(self, name: str) -> ResolvedResource:
@@ -922,6 +933,7 @@ class _SettledResource:
         hash_: str,
         discovery: models.ResourceDiscovery,
         metadata: Mapping[str, Any] | None,
+        dedupe: bool,
         location: str | None = None,
     ) -> RecordedResource:
         """Index the recorded name and return the handle a build file holds."""
@@ -937,6 +949,7 @@ class _SettledResource:
             discovery=discovery,
             metadata=metadata,
             location=location,
+            dedupe=dedupe,
         )
 
 
@@ -998,6 +1011,7 @@ def _record_pointer(
         names,
         hash_=resource_hash,
         discovery=discovery,
+        dedupe=dedupe,
         metadata=metadata,
         location=uri,
     )
@@ -1036,7 +1050,9 @@ def _record_file(
         # An input is read by the activity rather than produced by it.
         generated=False,
     )
-    return settled.handle(client, cache, names, hash_=hash, discovery=discovery, metadata=metadata)
+    return settled.handle(
+        client, cache, names, hash_=hash, discovery=discovery, metadata=metadata, dedupe=dedupe
+    )
 
 
 def _recorded_activity_used(bundle: Bundle) -> list[str]:

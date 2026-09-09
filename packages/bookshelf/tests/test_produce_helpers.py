@@ -23,6 +23,7 @@ def _outcome(suffix: str) -> models.RegistrationOutcome:
     return models.RegistrationOutcome(
         tracking_id=UUID(f"0197a000-0000-7000-8000-0000000000{suffix}"),
         status=models.Status2.created,
+        dedupe=True,
     )
 
 
