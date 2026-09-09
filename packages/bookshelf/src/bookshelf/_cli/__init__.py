@@ -12,6 +12,7 @@ from bookshelf._cli.auth import auth_app
 from bookshelf._cli.cache import cache_app
 from bookshelf._cli.discovery import search, show
 from bookshelf._cli.producer import discard, publish, record, validate
+from bookshelf._cli.uploads import upload
 from bookshelf._cli.volume import volume_app
 
 app = typer.Typer(help="Bookshelf data platform CLI.", no_args_is_help=True)
@@ -24,6 +25,7 @@ app.command("record")(record)
 app.command("validate")(validate)
 app.command("publish")(publish)
 app.command("discard")(discard)
+app.command("upload")(upload)
 
 
 def main() -> None:  # pragma: no cover - thin entry point

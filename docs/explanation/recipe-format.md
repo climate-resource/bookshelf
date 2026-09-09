@@ -242,6 +242,27 @@ The reference resolves to the existing resource,
 so `build.use("primap")` hands back the tracking id the platform already assigned
 and `used=[primap]` cites the original rather than a copy of it.
 
+### Building on a file that cannot be checked in
+
+A dataset that is embargoed, or too large for the repository, is uploaded once and named by its digest:
+
+```console
+$ bookshelf upload data/scenario-compass.xlsx --type tabular
+bookshelf://sha256/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+```
+
+```yaml
+resources:
+  compass:
+    uri: bookshelf://sha256/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+```
+
+The bytes sit in no book, so a digest is the only address they have.
+A digest resolves for the organisation that uploaded the file and for nobody else,
+and uploading the same bytes twice answers with the resource that already exists.
+Everything else is as for a book coordinate:
+no `sha256`, no catalogue metadata, and a stated `type` is checked rather than trusted.
+
 ## Versioning
 
 The bookshelf uses a composite versioning format to support a variety of different use-cases.

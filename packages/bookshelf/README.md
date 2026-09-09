@@ -173,6 +173,15 @@ The server computes the seal from the request,
 so replaying the same bundle again converges on the one edition
 and reports `converged` rather than minting a rival.
 
+## Uploading a file that cannot be checked in
+
+`bookshelf upload FILE --type TYPE` puts a file on the bookshelf as an input that belongs to no book,
+and prints the `bookshelf://sha256/<hex>` URI a recipe declares it by.
+`Bookshelf.register_file` does the same from Python,
+and `Bookshelf.resource_by_hash` resolves the digest back into the resource.
+The file is readable by the uploading organisation alone,
+and bytes the organisation already holds are not transferred again.
+
 ## Generated model core
 
 The committed files under `src/bookshelf/_generated/` are generated from the vendored `openapi.json`.
