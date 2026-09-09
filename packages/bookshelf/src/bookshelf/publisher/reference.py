@@ -30,6 +30,7 @@ SCHEME = "bookshelf://"
 
 _EDITION_RE = re.compile(r"^(?P<version>.+)_e(?P<edition>\d+)$")
 _DIGEST_RE = re.compile(r"^sha256/(?P<hex>[0-9a-fA-F]{64})$")
+_DIGEST_LIKE_RE = re.compile(r"^sha256/[0-9a-fA-F]+$")
 
 
 def _digest_hex(uri: str) -> str | None:
@@ -110,6 +111,8 @@ class DigestReference:
     @classmethod
     def parse(cls, uri: str) -> Self:
         """Read a ``bookshelf://sha256/<hex>`` URI, raising :class:`ValueError` otherwise."""
+        if not uri.startswith(SCHEME):
+            raise ValueError(f"a bookshelf reference starts with {SCHEME!r}, got {uri!r}")
         hex_ = _digest_hex(uri)
         if hex_ is None:
             raise ValueError(
@@ -125,10 +128,16 @@ def parse_reference(uri: str) -> Reference:
     """Read either reference shape, raising :class:`ValueError` naming the one it falls short of.
 
     ``sha256`` followed by 64 hex characters is a digest.
-    A volume of that name is reachable by any other version string.
+    Hex of any other length after ``sha256/`` is a mistyped digest rather than a book,
+    so it is refused instead of being looked up as a volume of that name.
+    A volume called ``sha256`` stays reachable by any version that is not bare hex.
     """
     if _digest_hex(uri) is not None:
         return DigestReference.parse(uri)
+    if uri.startswith(SCHEME) and _DIGEST_LIKE_RE.match(uri[len(SCHEME) :]) is not None:
+        raise ValueError(
+            f"{uri!r} is not a digest reference. Write {SCHEME}sha256/<64 hex characters>"
+        )
     return BookshelfReference.parse(uri)
 
 

@@ -52,6 +52,8 @@ def upload(
                 tags=tag,
                 description=description,
             )
+            # An aliased outcome reads the canonical row's type back, so it needs the client open.
+            resource_type = resource.type
         uri = DigestReference(hash=content_hash).uri
         outcome = resource.registration_outcome
         assert outcome is not None, "a single registration always carries its outcome"
@@ -65,7 +67,7 @@ def upload(
                     "outcome": outcome.status.value,
                     "dedupe": outcome.dedupe,
                     "name": resource.name,
-                    "type": resource.type.value,
+                    "type": resource_type.value,
                     "size_bytes": size,
                 }
             )
@@ -78,7 +80,7 @@ def upload(
                 "Outcome", "already held, nothing new was made" if aliased else outcome.status.value
             ),
             field("Name", resource.name or "-"),
-            field("Type", resource.type.value),
+            field("Type", resource_type.value),
             field("Size", human_bytes(size)),
         ]
         emit("\n".join(lines))

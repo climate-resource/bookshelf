@@ -115,3 +115,8 @@ def test_a_malformed_digest_is_refused(uri: str) -> None:
 def test_the_coordinate_parser_refuses_a_digest() -> None:
     with pytest.raises(ValueError, match="by digest rather than by coordinate"):
         BookshelfReference.parse(f"bookshelf://sha256/{_HEX}")
+
+
+def test_a_truncated_digest_is_refused_rather_than_read_as_a_book() -> None:
+    with pytest.raises(ValueError, match="64 hex characters"):
+        parse_reference("bookshelf://sha256/" + "a" * 63)
