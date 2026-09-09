@@ -26,7 +26,6 @@ from bookshelf._produce.books import DraftBook
 from bookshelf._produce.facade import ProcessingInput
 from bookshelf._produce.provenance import (
     canonical_config_hash,
-    committed_source_url,
     derive_activity_id,
     derive_code_ref,
 )
@@ -746,11 +745,6 @@ class RecordingSink:
         dedupe: bool = True,
     ) -> RecordedResource:
         """Record a checked-in file as managed bytes, linked back to where it is committed."""
-        hash = hash or sha256_path(path)
-        source = committed_source_url(path)
-        merged = dict(metadata or {})
-        if source is not None:
-            merged.setdefault("source_url", source)
         return _record_file(
             self.bundle,
             self._client,
@@ -758,7 +752,7 @@ class RecordingSink:
             self._names,
             type=type,
             path=path,
-            hash=hash,
+            hash=hash or sha256_path(path),
             name=name,
             visibility=visibility,
             default_visibility=self.default_visibility,
@@ -771,7 +765,7 @@ class RecordingSink:
                 license=license,
                 license_url=license_url,
             ),
-            metadata=merged,
+            metadata=helpers.with_source_url(metadata, path),
             tracking_id=tracking_id,
             dedupe=dedupe,
         )

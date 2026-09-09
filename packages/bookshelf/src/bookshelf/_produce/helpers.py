@@ -7,12 +7,13 @@ import platform
 import secrets
 import time
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
-from bookshelf._produce.provenance import canonical_config_hash
+from bookshelf._produce.provenance import canonical_config_hash, committed_source_url
 from bookshelf._produce.types import (
     AuthorInput,
     PartialRegistrationError,
@@ -173,6 +174,15 @@ def external_item(
     )
 
 
+def with_source_url(metadata: Mapping[str, Any] | None, path: Path) -> dict[str, Any]:
+    """Link re-hosted bytes back to the commit they were read at, where there is one."""
+    merged = dict(metadata or {})
+    source = committed_source_url(path)
+    if source is not None:
+        merged.setdefault("source_url", source)
+    return merged
+
+
 def managed_item(
     *,
     type: str | models.ResourceType,
@@ -290,6 +300,7 @@ __all__ = [
     "activity_envelope",
     "external_item",
     "managed_item",
+    "with_source_url",
     "item_discovery",
     "paired_successes",
     "people",

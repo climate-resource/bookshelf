@@ -62,6 +62,9 @@ def upload(
                     "hash": content_hash,
                     "tracking_id": str(resource.tracking_id),
                     "outcome": outcome.value if outcome is not None else None,
+                    "dedupe": resource.registration_outcome.dedupe
+                    if resource.registration_outcome is not None
+                    else None,
                     "name": resource.name,
                     "type": resource.type.value,
                     "size_bytes": size,
@@ -71,7 +74,7 @@ def upload(
         lines = [
             uri,
             field("Tracking id", str(resource.tracking_id)),
-            field("Outcome", _describe(outcome)),
+            field("Outcome", _outcome_text(outcome)),
             field("Name", resource.name or "-"),
             field("Type", resource.type.value),
             field("Size", human_bytes(size)),
@@ -79,7 +82,7 @@ def upload(
         emit("\n".join(lines))
 
 
-def _describe(outcome: models.Status2 | None) -> str:
+def _outcome_text(outcome: models.Status2 | None) -> str:
     """Say what the registration did, spelling out the case where nothing new was made."""
     if outcome is models.Status2.aliased:
         return "already held, nothing new was made"

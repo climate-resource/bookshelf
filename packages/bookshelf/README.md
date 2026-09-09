@@ -179,7 +179,7 @@ and reports `converged` rather than minting a rival.
 and prints the `bookshelf://sha256/<hex>` URI a recipe declares it by.
 `Bookshelf.register_file` does the same from Python,
 and `Bookshelf.resource_by_hash` resolves the digest back into the resource.
-The file is readable by the uploading organisation alone,
+The command leaves the file hidden, so it is readable by the uploading organisation alone,
 and bytes the organisation already holds are not transferred again.
 
 ## Generated model core

@@ -25,6 +25,7 @@ from uuid import UUID
 import httpx
 
 from bookshelf._core.errors import BookshelfError, NotFoundError
+from bookshelf._core.hashing import sha256_path
 from bookshelf._core.names import flatten_to_resource_name
 from bookshelf._generated import models
 from bookshelf._produce.types import HasTrackingId
@@ -426,11 +427,7 @@ def _checked_in(name: str, *, relative: Path, recipe_dir: Path | None) -> tuple[
         raise BookshelfError(f"resource {name!r} resolves outside the recipe directory: {resolved}")
     if not resolved.is_file():
         raise BookshelfError(f"resource {name!r} names a file that does not exist: {resolved}")
-    digest = hashlib.sha256()
-    with resolved.open("rb") as file:
-        for chunk in iter(lambda: file.read(_CHUNK_BYTES), b""):
-            digest.update(chunk)
-    return resolved, f"sha256:{digest.hexdigest()}"
+    return resolved, sha256_path(resolved)
 
 
 __all__ = [

@@ -15,7 +15,7 @@ from bookshelf._generated import models
 from bookshelf._produce import helpers
 from bookshelf._produce.activities import Activity, AsyncActivity
 from bookshelf._produce.books import AsyncDraftBook, DraftBook
-from bookshelf._produce.provenance import committed_source_url, derive_code_ref
+from bookshelf._produce.provenance import derive_code_ref
 from bookshelf._produce.resources import AsyncResource, Resource
 from bookshelf._produce.serialise import content_type_for, format_from_suffix
 from bookshelf._produce.types import AuthorInput
@@ -131,15 +131,6 @@ def _draft_request(
         bundle_hash=_as_model(models.BundleHash, bundle_hash),
         **baked,
     )
-
-
-def _with_source_url(metadata: Mapping[str, Any] | None, path: Path) -> dict[str, Any]:
-    """Link re-hosted bytes back to the commit they were read at, where there is one."""
-    merged = dict(metadata or {})
-    source = committed_source_url(path)
-    if source is not None:
-        merged.setdefault("source_url", source)
-    return merged
 
 
 class LiveSink:
@@ -288,7 +279,7 @@ class LiveSink:
                 license=license,
                 license_url=license_url,
             ),
-            metadata=_with_source_url(metadata, path),
+            metadata=helpers.with_source_url(metadata, path),
             tracking_id=tracking_id,
             dedupe=dedupe,
         )
@@ -485,7 +476,7 @@ class AsyncLiveSink:
                 license=license,
                 license_url=license_url,
             ),
-            metadata=_with_source_url(metadata, path),
+            metadata=helpers.with_source_url(metadata, path),
             tracking_id=tracking_id,
             dedupe=dedupe,
         )

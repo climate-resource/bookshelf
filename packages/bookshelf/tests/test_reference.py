@@ -107,7 +107,7 @@ def test_a_volume_named_sha256_is_reachable_by_any_other_version() -> None:
         f"bookshelf://sha256/{_HEX}/entry",
     ],
 )
-def test_a_malformed_digest_is_read_as_a_coordinate_or_refused(uri: str) -> None:
+def test_a_malformed_digest_is_refused(uri: str) -> None:
     with pytest.raises(ValueError, match="digest reference"):
         DigestReference.parse(uri)
 

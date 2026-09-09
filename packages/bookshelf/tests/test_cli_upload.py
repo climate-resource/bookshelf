@@ -103,6 +103,7 @@ def test_upload_json_carries_the_uri_and_the_identity(
         "hash": f"sha256:{digest}",
         "tracking_id": TRACKING_ID,
         "outcome": "created",
+        "dedupe": True,
         "name": "compass",
         "type": "tabular",
         "size_bytes": workbook.stat().st_size,
