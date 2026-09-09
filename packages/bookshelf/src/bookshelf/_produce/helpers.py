@@ -177,9 +177,11 @@ def external_item(
 def with_source_url(metadata: Mapping[str, Any] | None, path: Path) -> dict[str, Any]:
     """Link re-hosted bytes back to the commit they were read at, where there is one."""
     merged = dict(metadata or {})
+    if "source_url" in merged:
+        return merged
     source = committed_source_url(path)
     if source is not None:
-        merged.setdefault("source_url", source)
+        merged["source_url"] = source
     return merged
 
 

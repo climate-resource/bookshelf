@@ -32,6 +32,14 @@ _EDITION_RE = re.compile(r"^(?P<version>.+)_e(?P<edition>\d+)$")
 _DIGEST_RE = re.compile(r"^sha256/(?P<hex>[0-9a-fA-F]{64})$")
 
 
+def _digest_hex(uri: str) -> str | None:
+    """The lower-case hex of a digest reference, or ``None`` for any other string."""
+    if not uri.startswith(SCHEME):
+        return None
+    matched = _DIGEST_RE.match(uri[len(SCHEME) :])
+    return None if matched is None else matched["hex"].lower()
+
+
 @dataclass(frozen=True, slots=True)
 class BookshelfReference:
     """One published resource, named by coordinate.
@@ -66,7 +74,7 @@ class BookshelfReference:
         """
         if not uri.startswith(SCHEME):
             raise ValueError(f"a bookshelf reference starts with {SCHEME!r}, got {uri!r}")
-        if _DIGEST_RE.match(uri[len(SCHEME) :]) is not None:
+        if _digest_hex(uri) is not None:
             raise ValueError(f"{uri!r} names a resource by digest rather than by coordinate")
         segments = uri[len(SCHEME) :].split("/")
         if len(segments) not in (2, 3) or not all(segments):
@@ -102,14 +110,12 @@ class DigestReference:
     @classmethod
     def parse(cls, uri: str) -> Self:
         """Read a ``bookshelf://sha256/<hex>`` URI, raising :class:`ValueError` otherwise."""
-        if not uri.startswith(SCHEME):
-            raise ValueError(f"a bookshelf reference starts with {SCHEME!r}, got {uri!r}")
-        matched = _DIGEST_RE.match(uri[len(SCHEME) :])
-        if matched is None:
+        hex_ = _digest_hex(uri)
+        if hex_ is None:
             raise ValueError(
                 f"{uri!r} is not a digest reference. Write {SCHEME}sha256/<64 hex characters>"
             )
-        return cls(hash=f"sha256:{matched['hex'].lower()}")
+        return cls(hash=f"sha256:{hex_}")
 
 
 type Reference = BookshelfReference | DigestReference
@@ -121,7 +127,7 @@ def parse_reference(uri: str) -> Reference:
     ``sha256`` followed by 64 hex characters is a digest.
     A volume of that name is reachable by any other version string.
     """
-    if uri.startswith(SCHEME) and _DIGEST_RE.match(uri[len(SCHEME) :]) is not None:
+    if _digest_hex(uri) is not None:
         return DigestReference.parse(uri)
     return BookshelfReference.parse(uri)
 

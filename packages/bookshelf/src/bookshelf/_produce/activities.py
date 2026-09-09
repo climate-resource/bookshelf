@@ -235,16 +235,16 @@ class Activity:
             hash_=serialised.hash,
             content_type=serialised.content_type,
         )
-        return models.RegisterResourceItem(
-            tracking_id=entry.tracking_id or helpers.uuid7(),
+        return helpers.managed_item(
             type=resource_type,
+            storage_path=storage_path,
             hash=serialised.hash,
             format=entry.format or serialised.format,
             name=entry.name,
             visibility=helpers.visibility(entry.visibility, self.default_visibility),
             discovery=helpers.item_discovery(entry),
-            metadata=dict(entry.metadata or {}),
-            locations=[models.LocationInput(shelf="managed", path=storage_path)],
+            metadata=entry.metadata,
+            tracking_id=entry.tracking_id,
             dedupe=entry.dedupe,
         )
 
@@ -505,16 +505,16 @@ class AsyncActivity:
             hash_=serialised.hash,
             content_type=serialised.content_type,
         )
-        return models.RegisterResourceItem(
-            tracking_id=entry.tracking_id or helpers.uuid7(),
+        return helpers.managed_item(
             type=resource_type,
+            storage_path=storage_path,
             hash=serialised.hash,
             format=entry.format or serialised.format,
             name=entry.name,
             visibility=helpers.visibility(entry.visibility, self.default_visibility),
             discovery=helpers.item_discovery(entry),
-            metadata=dict(entry.metadata or {}),
-            locations=[models.LocationInput(shelf="managed", path=storage_path)],
+            metadata=entry.metadata,
+            tracking_id=entry.tracking_id,
             dedupe=entry.dedupe,
         )
 

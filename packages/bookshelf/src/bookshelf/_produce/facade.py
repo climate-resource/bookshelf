@@ -10,14 +10,13 @@ from uuid import UUID
 from pydantic import RootModel
 
 from bookshelf._core.client import BookshelfClient
-from bookshelf._core.hashing import sha256_path
 from bookshelf._generated import models
 from bookshelf._produce import helpers
 from bookshelf._produce.activities import Activity, AsyncActivity
 from bookshelf._produce.books import AsyncDraftBook, DraftBook
 from bookshelf._produce.provenance import derive_code_ref
 from bookshelf._produce.resources import AsyncResource, Resource
-from bookshelf._produce.serialise import content_type_for, format_from_suffix
+from bookshelf._produce.serialise import serialise
 from bookshelf._produce.types import AuthorInput
 from bookshelf._produce.uploads import upload_bytes, upload_bytes_async
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
@@ -216,20 +215,7 @@ class LiveSink:
             tracking_id=tracking_id,
             dedupe=dedupe,
         )
-        response = self._client.register_resources(
-            models.RegisterResourcesRequest(items=[item], atomic=True)
-        )
-        successful, failures = helpers.registration_results(response)
-        helpers.raise_partial_registration(successful, failures)
-        outcome = helpers.single_success(successful)
-        return Resource(
-            self._client,
-            self._cache,
-            tracking_id=outcome.tracking_id,
-            resource_type=helpers.registered_resource_type(outcome, item.type),
-            registration_outcome=outcome,
-            name=helpers.registered_name(item),
-        )
+        return self._register_one(item)
 
     def register_file(
         self,
@@ -254,20 +240,21 @@ class LiveSink:
 
         The bytes are content addressed, so a file the organisation already holds
         is not transferred again and the registration answers with the canonical resource.
-        The file is read into memory for the upload.
+        The file is read into memory once, for the digest and the upload alike.
         """
-        content_hash = hash or sha256_path(path)
+        serialised = serialise(path, type=helpers.resource_type(type).value)
+        content_hash = hash or serialised.hash
         storage_path = upload_bytes(
             self._client,
-            path.read_bytes(),
+            serialised.data,
             hash_=content_hash,
-            content_type=content_type_for(helpers.resource_type(type).value),
+            content_type=serialised.content_type,
         )
         item = helpers.managed_item(
             type=type,
             storage_path=storage_path,
             hash=content_hash,
-            format=format_from_suffix(path.name),
+            format=serialised.format,
             name=name,
             visibility=helpers.visibility(visibility, self.default_visibility),
             discovery=helpers.resource_discovery(
@@ -283,6 +270,10 @@ class LiveSink:
             tracking_id=tracking_id,
             dedupe=dedupe,
         )
+        return self._register_one(item)
+
+    def _register_one(self, item: models.RegisterResourceItem) -> Resource:
+        """Send one registration and wrap the outcome the platform answers with."""
         response = self._client.register_resources(
             models.RegisterResourcesRequest(items=[item], atomic=True)
         )
@@ -413,20 +404,7 @@ class AsyncLiveSink:
             tracking_id=tracking_id,
             dedupe=dedupe,
         )
-        response = await self._client.register_resources_async(
-            models.RegisterResourcesRequest(items=[item], atomic=True)
-        )
-        successful, failures = helpers.registration_results(response)
-        helpers.raise_partial_registration(successful, failures)
-        outcome = helpers.single_success(successful)
-        return AsyncResource(
-            self._client,
-            self._cache,
-            tracking_id=outcome.tracking_id,
-            resource_type=helpers.registered_resource_type(outcome, item.type),
-            registration_outcome=outcome,
-            name=helpers.registered_name(item),
-        )
+        return await self._register_one(item)
 
     async def register_file(
         self,
@@ -451,20 +429,21 @@ class AsyncLiveSink:
 
         The bytes are content addressed, so a file the organisation already holds
         is not transferred again and the registration answers with the canonical resource.
-        The file is read into memory for the upload.
+        The file is read into memory once, for the digest and the upload alike.
         """
-        content_hash = hash or sha256_path(path)
+        serialised = serialise(path, type=helpers.resource_type(type).value)
+        content_hash = hash or serialised.hash
         storage_path = await upload_bytes_async(
             self._client,
-            path.read_bytes(),
+            serialised.data,
             hash_=content_hash,
-            content_type=content_type_for(helpers.resource_type(type).value),
+            content_type=serialised.content_type,
         )
         item = helpers.managed_item(
             type=type,
             storage_path=storage_path,
             hash=content_hash,
-            format=format_from_suffix(path.name),
+            format=serialised.format,
             name=name,
             visibility=helpers.visibility(visibility, self.default_visibility),
             discovery=helpers.resource_discovery(
@@ -480,6 +459,10 @@ class AsyncLiveSink:
             tracking_id=tracking_id,
             dedupe=dedupe,
         )
+        return await self._register_one(item)
+
+    async def _register_one(self, item: models.RegisterResourceItem) -> AsyncResource:
+        """Send one registration and wrap the outcome the platform answers with."""
         response = await self._client.register_resources_async(
             models.RegisterResourcesRequest(items=[item], atomic=True)
         )
