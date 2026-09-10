@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Self
@@ -11,6 +12,12 @@ import httpx
 
 from bookshelf._consume.books import AsyncBook, Book
 from bookshelf._consume.integrity import HashMismatchError
+from bookshelf._consume.memo import (
+    forget_book,
+    remember_book,
+    remembered_book,
+    still_published,
+)
 from bookshelf._consume.resources import (
     AsyncBookEntry,
     AsyncResource,
@@ -184,6 +191,7 @@ class Bookshelf:
         *,
         auth: AuthInput = UNSET,
         timeout: float = 30.0,
+        book_ttl: float | None = None,
         # The transport is the test seam: production always leaves it None.
         transport: httpx.BaseTransport | None = None,
     ) -> None:
@@ -193,7 +201,7 @@ class Bookshelf:
             timeout=timeout,
             transport=transport,
         )
-        self._cache = ContentCache()
+        self._cache = ContentCache(book_ttl=book_ttl)
         # A subclass changes these by rebinding them after this runs, not by redefining them.
         sink: ProduceSink = LiveSink(self._client, self._cache)
         self.activity = sink.activity
@@ -387,8 +395,30 @@ class Bookshelf:
         )
 
     def book(self, volume: str, version: str, *, edition: int | None = None) -> Book:
-        """Resolve a published Book, defaulting to the latest edition."""
+        """Resolve a published Book, defaulting to the latest edition.
+
+        A pinned edition is remembered on disk, so resolving it again makes no request
+        until ``book_ttl`` seconds have passed.
+        After that one request checks it is still published before it is trusted again.
+        The latest edition is always asked for, because a newer one may have been published.
+        """
         chosen: models.BookListItem | None = None
+        if edition is not None:
+            remembered = remembered_book(self._cache, self._client, volume, version, edition)
+            if remembered is not None:
+                if not remembered.stale:
+                    return Book(self._client, self._cache, remembered.book, remembered.entries)
+                if self._still_published(remembered.book.id):
+                    remember_book(
+                        self._cache,
+                        self._client,
+                        volume,
+                        version,
+                        remembered.book,
+                        remembered.entries,
+                    )
+                    return Book(self._client, self._cache, remembered.book, remembered.entries)
+                forget_book(self._cache, self._client, volume, version, edition)
         if edition is None:
             response = self._client.list_books(
                 volume=volume,
@@ -416,7 +446,15 @@ class Bookshelf:
         if chosen is None:
             raise _missing_book(volume, version, edition)
         entries = self._all_entries(chosen.id)
+        if edition is not None:
+            remember_book(self._cache, self._client, volume, version, chosen, entries)
         return Book(self._client, self._cache, chosen, entries)
+
+    def _still_published(self, book_id: str) -> bool:
+        try:
+            return still_published(self._client.get_book(book_id))
+        except NotFoundError:
+            return False
 
     def _all_entries(self, book_id: str) -> list[models.BookEntryItem]:
         entries: list[models.BookEntryItem] = []
@@ -439,6 +477,7 @@ class AsyncBookshelf:
         *,
         auth: AuthInput = UNSET,
         timeout: float = 30.0,
+        book_ttl: float | None = None,
         # The transport is the test seam: production always leaves it None.
         async_transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
@@ -448,7 +487,7 @@ class AsyncBookshelf:
             timeout=timeout,
             async_transport=async_transport,
         )
-        self._cache = ContentCache()
+        self._cache = ContentCache(book_ttl=book_ttl)
         sink: AsyncProduceSink = AsyncLiveSink(self._client, self._cache)
         self.activity = sink.activity
         """Open an ambient asynchronous producer activity."""
@@ -645,8 +684,32 @@ class AsyncBookshelf:
         *,
         edition: int | None = None,
     ) -> AsyncBook:
-        """Resolve a published async Book, defaulting to the latest edition."""
+        """Resolve a published async Book, defaulting to the latest edition.
+
+        A pinned edition is remembered on disk, so resolving it again makes no request
+        until ``book_ttl`` seconds have passed.
+        After that one request checks it is still published before it is trusted again.
+        The latest edition is always asked for, because a newer one may have been published.
+        """
         chosen: models.BookListItem | None = None
+        if edition is not None:
+            remembered = await asyncio.to_thread(
+                remembered_book, self._cache, self._client, volume, version, edition
+            )
+            if remembered is not None:
+                if not remembered.stale:
+                    return AsyncBook(self._client, self._cache, remembered.book, remembered.entries)
+                if await self._still_published(remembered.book.id):
+                    remember_book(
+                        self._cache,
+                        self._client,
+                        volume,
+                        version,
+                        remembered.book,
+                        remembered.entries,
+                    )
+                    return AsyncBook(self._client, self._cache, remembered.book, remembered.entries)
+                forget_book(self._cache, self._client, volume, version, edition)
         if edition is None:
             response = await self._client.list_books_async(
                 volume=volume,
@@ -674,7 +737,15 @@ class AsyncBookshelf:
         if chosen is None:
             raise _missing_book(volume, version, edition)
         entries = await self._all_entries(chosen.id)
+        if edition is not None:
+            remember_book(self._cache, self._client, volume, version, chosen, entries)
         return AsyncBook(self._client, self._cache, chosen, entries)
+
+    async def _still_published(self, book_id: str) -> bool:
+        try:
+            return still_published(await self._client.get_book_async(book_id))
+        except NotFoundError:
+            return False
 
     async def _all_entries(self, book_id: str) -> list[models.BookEntryItem]:
         entries: list[models.BookEntryItem] = []

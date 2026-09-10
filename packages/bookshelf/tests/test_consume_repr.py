@@ -34,6 +34,7 @@ class _Metadata:
     """The attributes a repr and the fetch path read off a resource record."""
 
     def __init__(self) -> None:
+        self.tracking_id = TRACKING_ID
         self.type = models.ResourceType.timeseries
         self.hash = "sha256:" + "0" * 64
         self.visibility = models.Visibility.public
@@ -43,6 +44,7 @@ class _FakeClient:
     """Answers the one metadata call a typeless handle has to make."""
 
     def __init__(self) -> None:
+        self.base_url = "https://bookshelf.test"
         self.calls = 0
 
     def get_resource(self, tracking_id: Any) -> _Metadata:

@@ -28,6 +28,7 @@ from bookshelf._consume.frames import (
     timeseries_frame,
 )
 from bookshelf._consume.integrity import cached_if_verified, require_cached, verify_path
+from bookshelf._consume.memo import remember_resource, remembered_resource
 from bookshelf._consume.presentation import summary_table
 from bookshelf._consume.query import TimeseriesQuery, constant_columns, timeseries_filters
 from bookshelf._core.client import BookshelfClient
@@ -64,6 +65,24 @@ class _ResourceHandle:
         self.tracking_id = UUID(str(tracking_id))
         self._metadata = metadata
         self._resource_type = resource_type
+        self._content_hash: str | None = None if metadata is None else metadata.hash
+
+    def _recall(self) -> None:
+        """Fill in the hash and type from the metadata cache, without a request."""
+        if self._content_hash is not None and self._resource_type is not None:
+            return
+        remembered = remembered_resource(self._cache, self._client, self.tracking_id)
+        if remembered is None:
+            return
+        self._content_hash, self._resource_type = remembered
+
+    def _learned(self, metadata: models.ResourceRead) -> models.ResourceRead:
+        """Adopt a freshly fetched record and remember its immutable parts."""
+        self._metadata = metadata
+        self._resource_type = metadata.type
+        self._content_hash = metadata.hash
+        remember_resource(self._cache, self._client, metadata)
+        return metadata
 
 
 class Resource(_ResourceHandle):
@@ -72,17 +91,25 @@ class Resource(_ResourceHandle):
     @property
     def metadata(self) -> models.ResourceRead:
         """Return the generated resource projection."""
-        if self._metadata is None:
-            self._metadata = self._client.get_resource(self.tracking_id)
-            self._resource_type = self._metadata.type
-        return self._metadata
+        if self._metadata is not None:
+            return self._metadata
+        return self._learned(self._client.get_resource(self.tracking_id))
 
     @property
     def type(self) -> models.ResourceType:
         """Return the canonical resource type."""
         if self._resource_type is None:
+            self._recall()
+        if self._resource_type is None:
             return self.metadata.type
         return self._resource_type
+
+    def _hash(self) -> str:
+        if self._content_hash is None:
+            self._recall()
+        if self._content_hash is None:
+            return self.metadata.hash
+        return self._content_hash
 
     def _repr_html_(self) -> str:
         metadata = self.metadata
@@ -260,7 +287,7 @@ class Resource(_ResourceHandle):
         return self._ensure_cached()
 
     def _ensure_cached(self) -> Path:
-        content_hash = self.metadata.hash
+        content_hash = self._hash()
         cached = cached_if_verified(self._cache, content_hash)
         if cached is not None:
             return cached
@@ -410,15 +437,23 @@ class AsyncResource(_ResourceHandle):
     """Asynchronous lean immutable resource handle."""
 
     async def _get_metadata(self) -> models.ResourceRead:
-        if self._metadata is None:
-            self._metadata = await self._client.get_resource_async(self.tracking_id)
-            self._resource_type = self._metadata.type
-        return self._metadata
+        if self._metadata is not None:
+            return self._metadata
+        return self._learned(await self._client.get_resource_async(self.tracking_id))
 
     async def _get_type(self) -> models.ResourceType:
         if self._resource_type is None:
+            await asyncio.to_thread(self._recall)
+        if self._resource_type is None:
             return (await self._get_metadata()).type
         return self._resource_type
+
+    async def _get_hash(self) -> str:
+        if self._content_hash is None:
+            await asyncio.to_thread(self._recall)
+        if self._content_hash is None:
+            return (await self._get_metadata()).hash
+        return self._content_hash
 
     def _repr_html_(self) -> str:
         resource_type = self._resource_type.value if self._resource_type is not None else "unknown"
@@ -598,7 +633,7 @@ class AsyncResource(_ResourceHandle):
         return await self._ensure_cached()
 
     async def _ensure_cached(self) -> Path:
-        content_hash = (await self._get_metadata()).hash
+        content_hash = await self._get_hash()
         # A cache hit hashes the whole file on disk, so run it off the event loop.
         cached = await asyncio.to_thread(cached_if_verified, self._cache, content_hash)
         if cached is not None:

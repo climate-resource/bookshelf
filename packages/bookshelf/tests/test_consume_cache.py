@@ -64,3 +64,17 @@ def test_every_stored_entry_is_visible_to_the_summary(cache: ContentCache) -> No
     assert cache.summary().entries == 2
     assert cache.clear() == len(b"payload") + len(b"other")
     assert cache.summary().entries == 0
+
+
+def test_metadata_records_round_trip_and_never_count_as_content(cache: ContentCache) -> None:
+    cache.metadata.put("scope/resources/abc", {"hash": "x"})
+
+    assert cache.metadata.get("scope/resources/abc") == {"hash": "x"}
+    assert cache.metadata.get("scope/resources/missing") is None
+    assert cache.summary().entries == 0
+
+
+@pytest.mark.parametrize("key", ["", "a//b", "../escape", "./here"])
+def test_a_metadata_key_cannot_leave_the_cache(cache: ContentCache, key: str) -> None:
+    with pytest.raises(ValueError, match="invalid metadata key"):
+        cache.metadata.put(key, {})

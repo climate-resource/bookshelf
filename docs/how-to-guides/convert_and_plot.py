@@ -121,6 +121,12 @@ plt.tight_layout()
 # A mismatch raises `HashMismatchError` rather than returning suspect data.
 # The verified bytes land in a local content cache,
 # so a second call for the same resource does no network work.
+# The cache also remembers each resource's hash and every pinned edition you resolve,
+# so `bs.book(volume, version, edition=n)[name].as_path()` makes no request at all once warm.
+# A remembered edition is checked with one request after a day,
+# in case it was retracted.
+# Tune that with `Bookshelf(book_ttl=seconds)` or `BOOKSHELF_CACHE_BOOK_TTL`.
+# Only the latest edition lookup, `bs.book(volume, version)`, always asks the platform.
 
 # %%
 path = entry.as_path()

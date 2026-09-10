@@ -140,7 +140,7 @@ class BookShelf:
         except (UnknownBook, UnknownVersion):
             return False
         cache = self._bookshelf._cache
-        return all(cache.get(book[entry].metadata.hash) is not None for entry in book.entry_names)
+        return all(cache.get(book[entry]._hash()) is not None for entry in book.entry_names)
 
     def list_books(self) -> list[str]:
         """Not supported in 0.4 either."""

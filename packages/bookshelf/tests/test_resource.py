@@ -114,12 +114,6 @@ def _recording(recipe_path: Path, bundle_path: Path) -> Iterator[None]:
             context.bookshelf.close()
 
 
-@pytest.fixture(autouse=True)
-def _isolated_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Keep every test's downloads out of the user's real content cache."""
-    monkeypatch.setenv("BOOKSHELF_CACHE_DIR", str(tmp_path / "content-cache"))
-
-
 @dataclass
 class _Server:
     """Canned bytes served through a mock transport, counting every request."""
