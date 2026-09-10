@@ -17,13 +17,15 @@ Install the SDK from PyPI:
 uv add bookshelf
 ```
 
+The SDK requires Python 3.12 or newer.
+It ships with pandas and PyArrow, so `as_df()` and `as_arrow()` work out of the box.
+`as_polars()` uses Polars if you have it installed.
+
 Install optional integrations as needed:
 
 ```bash
-uv add "bookshelf[dataframes,scmrun,publish]"
+uv add "bookshelf[scmrun,publish]"
 ```
-
-The SDK requires Python 3.12 or newer.
 
 ## Example
 

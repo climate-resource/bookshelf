@@ -41,11 +41,11 @@ entry = bs.book("rcmip-emissions", "v5.1.0")["magicc"]
 # - `as_arrow()` returns a PyArrow Table.
 # - `as_scmrun()` returns an `scmdata.ScmRun`.
 #
-# Polars and PyArrow need the `dataframes` extra.
+# `as_polars()` needs Polars installed.
 # `as_scmrun()` needs the `scmrun` extra.
 #
 # ```bash
-# uv add "bookshelf[dataframes,scmrun]"
+# uv add polars "bookshelf[scmrun]"
 # ```
 
 # %%

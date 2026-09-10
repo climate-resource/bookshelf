@@ -17,12 +17,12 @@ uv add bookshelf
 ```
 
 The SDK requires Python 3.12 or newer.
-Optional dataframe,
-SCMRun,
-and publishing integrations are available as extras:
+It ships with pandas and PyArrow, so `as_df()` and `as_arrow()` work out of the box.
+`as_polars()` uses Polars if you have it installed.
+SCMRun and publishing integrations are available as extras:
 
 ```bash
-uv add "bookshelf[dataframes,scmrun,publish]"
+uv add "bookshelf[scmrun,publish]"
 ```
 
 Continue with [Getting started](getting_started.md),

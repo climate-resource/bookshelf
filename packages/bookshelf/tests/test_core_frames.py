@@ -9,7 +9,7 @@ import pandas.testing as pdt
 import pytest
 
 from bookshelf._core.errors import BookshelfError
-from bookshelf._core.frames import DataFrameSupportError, require_extra, to_pandas
+from bookshelf._core.frames import DataFrameSupportError, require_package, to_pandas
 from bookshelf._core.types import DataPayload
 
 
@@ -36,15 +36,14 @@ def test_json_rows_round_trip() -> None:
     pdt.assert_frame_equal(result, _frame())
 
 
-def test_a_missing_extra_is_reported_as_a_bookshelf_error(
+def test_a_missing_package_is_reported_as_a_bookshelf_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A caller catching BookshelfError should not have to catch ImportError as well."""
-    monkeypatch.setitem(sys.modules, "pandas", None)
+    monkeypatch.setitem(sys.modules, "polars", None)
 
     with pytest.raises(DataFrameSupportError) as raised:
-        require_extra("pandas", "DataFrame conversion")
+        require_package("polars", "as_polars()")
 
     assert isinstance(raised.value, BookshelfError)
-    assert "DataFrame conversion requires the 'dataframes' extra" in str(raised.value)
-    assert "pip install 'bookshelf[dataframes]'" in str(raised.value)
+    assert str(raised.value) == "as_polars() requires polars: pip install polars"

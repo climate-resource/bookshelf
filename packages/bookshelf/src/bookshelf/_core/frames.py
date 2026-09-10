@@ -1,7 +1,7 @@
 """Bytes-to-DataFrame conversion for ``/data`` payloads.
 
 Lives in the parse layer because generators cannot reach binary content negotiation.
-pandas and pyarrow are optional (``bookshelf[dataframes]``), so imports are deferred.
+pandas is imported on first use, so the CLI starts without loading it.
 """
 
 import importlib
@@ -17,11 +17,11 @@ if TYPE_CHECKING:
 
 
 class DataFrameSupportError(BookshelfError):
-    """Raised when frame conversion is requested without the ``dataframes`` extra installed."""
+    """Raised when a conversion needs an optional package that is not installed."""
 
 
-def require_extra(module: str, caller: str) -> Any:
-    """Import a module from the ``dataframes`` extra, reporting a missing one as a typed error.
+def require_package(module: str, caller: str) -> Any:
+    """Import an optional package, reporting a missing one as a typed error.
 
     ``caller`` names what the user was trying to do, so the message points at their call
     rather than at the import.
@@ -29,9 +29,8 @@ def require_extra(module: str, caller: str) -> Any:
     try:
         return importlib.import_module(module)
     except ImportError as exc:
-        raise DataFrameSupportError(
-            f"{caller} requires the 'dataframes' extra: pip install 'bookshelf[dataframes]'"
-        ) from exc
+        package = module.partition(".")[0]
+        raise DataFrameSupportError(f"{caller} requires {package}: pip install {package}") from exc
 
 
 def require_payload(result: DataPayload | NotModified) -> DataPayload:
@@ -43,11 +42,10 @@ def require_payload(result: DataPayload | NotModified) -> DataPayload:
 
 def to_pandas(payload: DataPayload) -> "pd.DataFrame":
     """Convert a ``/data`` payload to a pandas DataFrame, dispatching on the negotiated format."""
-    pandas = require_extra("pandas", "DataFrame conversion")
+    import pandas as pd
+
     if payload.format == "json":
-        rows = json.loads(payload.content)
-        frame: pd.DataFrame = pandas.DataFrame(rows)
-        return frame
+        return pd.DataFrame(json.loads(payload.content))
     if payload.format == "csv":
-        return pandas.read_csv(io.BytesIO(payload.content))  # type: ignore[no-any-return]
-    return pandas.read_parquet(io.BytesIO(payload.content))  # type: ignore[no-any-return]
+        return pd.read_csv(io.BytesIO(payload.content))
+    return pd.read_parquet(io.BytesIO(payload.content))

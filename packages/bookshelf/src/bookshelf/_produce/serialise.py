@@ -30,7 +30,6 @@ import io
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NamedTuple
 
-from bookshelf._core.frames import require_extra
 from bookshelf._core.hashing import sha256_hex
 
 if TYPE_CHECKING:
@@ -130,11 +129,8 @@ def _dataframe_to_parquet(df: Any) -> bytes:
     - ``version`` and ``data_page_version`` select a stable format.
     - The pandas index and schema metadata are removed.
       A pandas frame therefore encodes identically to the equivalent polars frame.
-
-    Requires the optional ``dataframes`` extra (``polars`` / ``pandas`` /
-    ``pyarrow``).
     """
-    pq = require_extra("pyarrow.parquet", "Serialising a DataFrame")
+    import pyarrow.parquet as pq
 
     table = _to_arrow_table(df)
     buf = io.BytesIO()
@@ -171,10 +167,8 @@ def _to_arrow_table(df: Any) -> pa.Table:
 
 def _is_pandas_frame(obj: Any) -> bool:
     """Return whether ``obj`` is a pandas ``DataFrame`` without importing pandas eagerly."""
-    try:
-        import pandas as pd
-    except ImportError:
-        return False
+    import pandas as pd
+
     return isinstance(obj, pd.DataFrame)
 
 
