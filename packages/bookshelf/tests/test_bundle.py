@@ -72,6 +72,22 @@ def test_lineage_citing_a_digest_names_nothing_and_validates(make_bundle: Bundle
     bundle.validate()
 
 
+def test_a_digest_ending_in_a_newline_is_not_canonical(make_bundle: BundleFactory) -> None:
+    """``$`` alone would accept a trailing newline, which is not the digest it claims to be."""
+    trailing = "sha256:" + "a" * 64 + "\n"
+
+    with pytest.raises(ValueError, match="canonical"):
+        resource_filename(trailing, "tabular")
+
+    with pytest.raises(ValueError, match="canonical"):
+        make_bundle().add_pointer(
+            external_uri="https://example.invalid/raw.csv",
+            hash_=trailing,
+            type_="tabular",
+            name="cited",
+        )
+
+
 def test_lineage_citing_a_non_canonical_digest_is_refused(make_bundle: BundleFactory) -> None:
     """Replay takes a canonical digest, so anything else fails as the record is written."""
     bundle = make_bundle()

@@ -94,7 +94,8 @@ def _sha256_hex(hash_: str) -> str:
     followed by 64 lowercase hex characters.
     The result is therefore safe to use as a filesystem path component.
     """
-    match = _SHA256_RE.match(hash_)
+    # A full match, because ``$`` alone would let a trailing newline through.
+    match = _SHA256_RE.fullmatch(hash_)
     if match is None:
         raise ValueError("hash must be canonical 'sha256:<64-lowercase-hex>'")
     return match.group(1)
