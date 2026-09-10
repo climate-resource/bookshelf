@@ -4,17 +4,20 @@ The two used to disagree.
 The facade split on ``[._-]`` and read a prerelease as an extra trailing segment,
 which made ``1.0.0-rc1`` sort NEWER than ``1.0.0``.
 The CLI implemented SemVer, where a prerelease sorts older than its release.
-SemVer won, so these pin the semantics and the agreement.
+SemVer won, so these pin the semantics.
+The two surfaces now share one ordering function rather than agreeing by luck.
 """
 
-import itertools
-
+import httpx
 import pytest
 
-from bookshelf._cli.discovery import _book_order as cli_order
+from bookshelf._cli import discovery
+from bookshelf._cli._address import parse_address
 from bookshelf._consume.lookup import book_order as sdk_order
+from bookshelf._core.client import BookshelfClient
 from bookshelf._core.names import version_key
 from bookshelf._generated import models
+from tests import _core_payloads as payloads
 
 
 def _item(version: str, edition: int = 1) -> models.BookListItem:
@@ -93,36 +96,20 @@ def test_a_date_style_label_orders_within_its_own_family() -> None:
     assert _order(["2024-03", "2024-01", "2024-02"]) == ["2024-01", "2024-02", "2024-03"]
 
 
-@pytest.mark.parametrize(
-    ("left", "right"),
-    list(
-        itertools.combinations(
-            [
-                "1.0.0",
-                "1.0.0-rc1",
-                "1.0.0-rc.1",
-                "1.0.0-alpha",
-                "1.0",
-                "1.0.0+build1",
-                "2.9",
-                "2.10",
-                "v1.2.3",
-                "2023.1",
-                "1.0.0-RC1",
-                "2024-01",
-                "rev3",
-            ],
-            2,
-        )
-    ),
-)
-def test_the_sdk_and_the_cli_order_every_pair_identically(left: str, right: str) -> None:
-    """The whole point of the shared key: the two surfaces cannot drift apart again."""
-    sdk = (sdk_order(_item(left)) > sdk_order(_item(right))) - (
-        sdk_order(_item(left)) < sdk_order(_item(right))
-    )
-    cli = (cli_order(_item(left)) > cli_order(_item(right))) - (
-        cli_order(_item(left)) < cli_order(_item(right))
-    )
+def test_the_cli_resolves_the_latest_book_by_this_ordering() -> None:
+    """The CLI used to keep its own copy of the key, which is how the two drifted."""
+    scrambled = [("v2.10", 1), ("v2.9", 2), ("v10.0", 1), ("v2.9.1", 1)]
+    items = [
+        dict(payloads.book_list_item(status="published"), version=version, edition=edition)
+        for version, edition in scrambled
+    ]
 
-    assert sdk == cli
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=dict(payloads.BOOK_LIST, items=items, total=len(items)))
+
+    client = BookshelfClient(
+        "https://bookshelf.test", auth=None, transport=httpx.MockTransport(handler)
+    )
+    chosen = discovery._resolve_book(client, parse_address("primap-hist"))
+
+    assert (chosen.version, chosen.edition) == ("v10.0", 1)

@@ -6,7 +6,6 @@ from urllib.parse import parse_qs
 import httpx
 import pytest
 
-from bookshelf._core.errors import BookshelfError
 from bookshelf.facade import AsyncBookshelf, Bookshelf
 from tests import _core_payloads as payloads
 
@@ -21,18 +20,6 @@ def _volume_list(names: list[str], *, has_more: bool = False) -> dict[str, Any]:
         "offset": 0,
         "has_more": has_more,
     }
-
-
-def _book_page(versions: list[tuple[str, int]], *, has_more: bool) -> dict[str, Any]:
-    return dict(
-        payloads.BOOK_LIST,
-        items=[
-            dict(payloads.book_list_item(status="published"), version=version, edition=edition)
-            for version, edition in versions
-        ],
-        total=len(versions),
-        has_more=has_more,
-    )
 
 
 def _transport(recorded: list[httpx.Request], pages: list[Any]) -> httpx.MockTransport:
@@ -84,62 +71,6 @@ def test_search_volumes_with_no_arguments_lists_the_catalogue() -> None:
     assert _query(recorded[0]) == {}
 
 
-def test_list_books_walks_every_page() -> None:
-    recorded: list[httpx.Request] = []
-    pages = [
-        _book_page([("v1.0", 1)], has_more=True),
-        _book_page([("v1.1", 1)], has_more=False),
-    ]
-
-    with _sync(recorded, pages) as client:
-        books = client.list_books("primap-hist")
-
-    assert [book.version for book in books] == ["v1.0", "v1.1"]
-    assert len(recorded) == 2
-    assert _query(recorded[1])["offset"] == ["100"]
-
-
-def test_list_books_orders_versions_numerically() -> None:
-    """``v2.10`` follows ``v2.9``, which a plain string sort would get wrong."""
-    recorded: list[httpx.Request] = []
-    scrambled = [("v2.10", 1), ("v2.9", 1), ("v2.9", 2), ("v10.0", 1), ("v2.9.1", 1)]
-
-    with _sync(recorded, [_book_page(scrambled, has_more=False)]) as client:
-        books = client.list_books("primap-hist")
-
-    assert [(book.version, book.edition) for book in books] == [
-        ("v2.9", 1),
-        ("v2.9", 2),
-        ("v2.9.1", 1),
-        ("v2.10", 1),
-        ("v10.0", 1),
-    ]
-
-
-def test_list_books_defaults_to_published_and_honours_status() -> None:
-    recorded: list[httpx.Request] = []
-    pages = [_book_page([], has_more=False), _book_page([], has_more=False)]
-
-    with _sync(recorded, pages) as client:
-        client.list_books("primap-hist")
-        client.list_books("primap-hist", status="draft")
-
-    assert _query(recorded[0])["status"] == ["published"]
-    assert _query(recorded[1])["status"] == ["draft"]
-
-
-def test_list_books_stops_at_the_pagination_cap() -> None:
-    """A server that always claims another page must not loop forever."""
-    recorded: list[httpx.Request] = []
-    endless = [_book_page([("v1.0", 1)], has_more=True) for _ in range(1001)]
-
-    with (
-        _sync(recorded, endless) as client,
-        pytest.raises(BookshelfError, match="pagination safety cap"),
-    ):
-        client.list_books("primap-hist")
-
-
 @pytest.mark.asyncio
 async def test_async_search_volumes_matches_the_sync_surface() -> None:
     recorded: list[httpx.Request] = []
@@ -149,18 +80,3 @@ async def test_async_search_volumes_matches_the_sync_surface() -> None:
 
     assert [volume.name for volume in found.items] == ["ceds"]
     assert _query(recorded[0])["q"] == ["emissions"]
-
-
-@pytest.mark.asyncio
-async def test_async_list_books_walks_every_page() -> None:
-    recorded: list[httpx.Request] = []
-    pages = [
-        _book_page([("v1.0", 1)], has_more=True),
-        _book_page([("v1.1", 1)], has_more=False),
-    ]
-
-    async with _async(recorded, pages) as client:
-        books = await client.list_books("primap-hist")
-
-    assert [book.version for book in books] == ["v1.0", "v1.1"]
-    assert len(recorded) == 2

@@ -11,12 +11,7 @@ import httpx
 
 from bookshelf._consume.books import AsyncBook, Book
 from bookshelf._consume.integrity import HashMismatchError
-from bookshelf._consume.lookup import (
-    all_books,
-    all_books_async,
-    resolve_book,
-    resolve_book_async,
-)
+from bookshelf._consume.lookup import resolve_book, resolve_book_async
 from bookshelf._consume.memo import (
     book_ttl as _book_ttl,
 )
@@ -259,14 +254,6 @@ class Bookshelf:
             offset=offset,
         )
 
-    def list_books(self, volume: str, *, status: str = "published") -> list[models.BookListItem]:
-        """List every book in one volume, newest edition of each version last.
-
-        This walks the pages itself,
-        because a volume holds few enough books that a caller should not have to.
-        """
-        return all_books(self._client, volume, status=status)
-
     def volume(self, name: str) -> Volume:
         """Resolve a volume, carrying the versions and editions it has published."""
         return Volume(
@@ -474,15 +461,6 @@ class AsyncBookshelf:
             limit=limit,
             offset=offset,
         )
-
-    async def list_books(
-        self,
-        volume: str,
-        *,
-        status: str = "published",
-    ) -> list[models.BookListItem]:
-        """List every book in one volume, newest edition of each version last."""
-        return await all_books_async(self._client, volume, status=status)
 
     async def volume(self, name: str) -> AsyncVolume:
         """Resolve a volume, carrying the versions and editions it has published."""
