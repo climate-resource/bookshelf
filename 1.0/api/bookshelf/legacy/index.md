@@ -1,3 +1,0 @@
-# bookshelf.legacy
-
-::: bookshelf.legacy

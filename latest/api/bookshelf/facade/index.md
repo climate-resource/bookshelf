@@ -1,3 +1,0 @@
-# bookshelf.facade
-
-::: bookshelf.facade
