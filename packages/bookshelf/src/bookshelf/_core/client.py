@@ -90,6 +90,8 @@ class BookshelfClient:
                         timeout=self._timeout,
                         headers={"user-agent": _USER_AGENT},
                         transport=self._transport,
+                        # A bulk read is answered with a redirect.
+                        follow_redirects=True,
                     )
         return self._sync
 
@@ -104,6 +106,7 @@ class BookshelfClient:
                         timeout=self._timeout,
                         headers={"user-agent": _USER_AGENT},
                         transport=self._async_transport,
+                        follow_redirects=True,
                     )
         return self._async
 

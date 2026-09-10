@@ -322,3 +322,45 @@ def test_upload_initiate_dedupe_short_circuit_reaches_the_shell() -> None:
             models.IngestUploadInitiateRequest(hash="sha256:" + "0" * 64, size_bytes=10)
         )
     assert isinstance(response, models.UploadAlreadyExistsResponse)
+
+
+def test_a_data_redirect_is_followed_to_the_stored_bytes() -> None:
+    """A bulk read is answered with a redirect, so not following one loses the download."""
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        if request.url.path == "/v1/resources/r1/data":
+            return httpx.Response(302, headers={"location": "https://store.test/signed"})
+        return httpx.Response(200, content=b"PAR1", headers={"content-type": "application/parquet"})
+
+    with make_client(handler) as client:
+        payload = client.query_resource_data("r1")
+
+    assert payload.content == b"PAR1"
+    assert payload.format == "parquet"
+    assert seen == [f"{BASE_URL}/v1/resources/r1/data", "https://store.test/signed"]
+
+
+def test_a_redirect_off_the_api_does_not_carry_the_token() -> None:
+    """The signed URL grants its own access, so the bearer must not reach the object store."""
+    authorization: dict[str, str | None] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/resources/r1/data":
+            authorization["api"] = request.headers.get("authorization")
+            return httpx.Response(302, headers={"location": "https://store.test/signed"})
+        authorization["store"] = request.headers.get("authorization")
+        return httpx.Response(200, content=b"PAR1", headers={"content-type": "application/parquet"})
+
+    class Bearer(httpx.Auth):
+        def auth_flow(self, request: httpx.Request) -> Any:
+            request.headers["authorization"] = "Bearer secret"
+            yield request
+
+    with make_client(handler, auth=Bearer()) as client:
+        client.query_resource_data("r1")
+
+    # Both halves matter: dropping auth everywhere would satisfy the second assert alone.
+    assert authorization["api"] == "Bearer secret"
+    assert authorization["store"] is None
