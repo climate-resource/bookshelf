@@ -14,6 +14,7 @@
         * [conversions](bookshelf/_consume/conversions/index.md)
         * [frames](bookshelf/_consume/frames/index.md)
         * [integrity](bookshelf/_consume/integrity/index.md)
+        * [memo](bookshelf/_consume/memo/index.md)
         * [presentation](bookshelf/_consume/presentation/index.md)
         * [query](bookshelf/_consume/query/index.md)
         * [resources](bookshelf/_consume/resources/index.md)
