@@ -15,8 +15,8 @@ TRACKING_ID = UUID("0197a000-0000-7000-8000-000000000001")
 
 
 def test_registry_covers_the_used_surface() -> None:
-    assert len(ops.OP_REGISTRY) == 32
-    assert len({(op.method, op.path_template) for op in ops.OP_REGISTRY.values()}) == 32
+    assert len(ops.OP_REGISTRY) == 38
+    assert len({(op.method, op.path_template) for op in ops.OP_REGISTRY.values()}) == 38
 
 
 def test_build_register_resources_dumps_set_fields_only() -> None:

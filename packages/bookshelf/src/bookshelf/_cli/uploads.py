@@ -70,7 +70,7 @@ def upload(
             )
             return
 
-        aliased = outcome.status is models.Status2.aliased
+        aliased = outcome.status is models.Status3.aliased
         lines = [
             uri,
             field("Tracking id", str(resource.tracking_id)),

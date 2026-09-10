@@ -3,7 +3,7 @@
   "info": {
     "title": "Bookshelf API",
     "description": "API for Climate Resource's dataset management system",
-    "version": "1.0.2.dev18+ge7de4f37"
+    "version": "1.0.2.dev47+g7fc6f93c"
   },
   "paths": {
     "/livez": {
@@ -1211,6 +1211,55 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/books/{book_id}/origin": {
+      "get": {
+        "tags": [
+          "books"
+        ],
+        "summary": "Get Book Origin",
+        "description": "Where this edition came from: the pull request that published it.\n\nA book the platform did not publish from a preview has no origin, which is a 404.",
+        "operationId": "booksGetBookOrigin",
+        "security": [
+          {},
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "book_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Book Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicationReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -4851,6 +4900,752 @@
         ]
       }
     },
+    "/v1/previews/{preview_id}/uploads": {
+      "post": {
+        "tags": [
+          "previews"
+        ],
+        "summary": "Initiate Preview Upload",
+        "description": "Plan a byte upload into an open preview.\n\nThe key is derived from the declared digest, so the caller never chooses a path.",
+        "operationId": "previewsInitiatePreviewUpload",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "preview_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Preview Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewUploadInitiateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/UploadInitiateResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UploadAlreadyExistsResponse"
+                    }
+                  ],
+                  "title": "Response Previewsinitiatepreviewupload"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/previews/{preview_id}/uploads/complete": {
+      "post": {
+        "tags": [
+          "previews"
+        ],
+        "summary": "Complete Preview Upload",
+        "description": "Finalise a preview byte upload and re-check the digest the key claims.\n\nAn object whose digest disagrees with its key can never become right,\nso it is removed and the key stays claimable by the true bytes.",
+        "operationId": "previewsCompletePreviewUpload",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "preview_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Preview Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewUploadCompleteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/previews/{preview_id}/books/{volume}/{version}": {
+      "post": {
+        "tags": [
+          "previews"
+        ],
+        "summary": "Attach Preview Book",
+        "description": "Attach one target's manifest and files. A target may be filled once.",
+        "operationId": "previewsAttachPreviewBook",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "preview_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Preview Id"
+            }
+          },
+          {
+            "name": "volume",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Target volume name.",
+              "title": "Volume"
+            },
+            "description": "Target volume name."
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Target book version.",
+              "title": "Version"
+            },
+            "description": "Target book version."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewBookUpload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/previews/{preview_id}/seal": {
+      "post": {
+        "tags": [
+          "previews"
+        ],
+        "summary": "Seal Preview",
+        "description": "Seal a preview once every target is uploaded, making it immutable.",
+        "operationId": "previewsSealPreview",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "preview_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Preview Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/previews/{preview_id}/fail": {
+      "post": {
+        "tags": [
+          "previews"
+        ],
+        "summary": "Fail Preview",
+        "description": "Mark a preview failed because the producing run could not finish it.",
+        "operationId": "previewsFailPreview",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "preview_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Preview Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewFailRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/previews/{preview_id}": {
+      "get": {
+        "tags": [
+          "previews"
+        ],
+        "summary": "Get Preview",
+        "description": "Return one preview, listing only the targets the reader may read.",
+        "operationId": "previewsGetPreview",
+        "security": [
+          {},
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "preview_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Preview Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/previews/{preview_id}/compare": {
+      "get": {
+        "tags": [
+          "previews"
+        ],
+        "summary": "Compare Preview",
+        "description": "Report what publishing this preview would change for consumers.\n\nCounts are computed here and are complete.\nOnly the value examples are capped, so the response stays a page a browser can render.",
+        "operationId": "previewsComparePreview",
+        "security": [
+          {},
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "preview_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Preview Id"
+            }
+          },
+          {
+            "name": "baseline",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "What to compare against: `published` for each book's pinned edition, or `preview:<preview_id>` for another preview.",
+              "default": "published",
+              "title": "Baseline"
+            },
+            "description": "What to compare against: `published` for each book's pinned edition, or `preview:<preview_id>` for another preview."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewComparison"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/previews/{preview_id}/books/{volume}/{version}/resources/{name}/data": {
+      "get": {
+        "tags": [
+          "previews"
+        ],
+        "summary": "Query Preview Resource Data",
+        "description": "Query one preview file's rows, through the same engine the catalogue reads use.\n\nThe file is addressed by its preview coordinates only,\nso no tracking id can be used to reach a resource this route was not meant to serve.",
+        "operationId": "previewsQueryPreviewResourceData",
+        "security": [
+          {},
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "preview_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Preview Id"
+            }
+          },
+          {
+            "name": "volume",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Target volume name.",
+              "title": "Volume"
+            },
+            "description": "Target volume name."
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Target book version.",
+              "title": "Version"
+            },
+            "description": "Target book version."
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Query results serialised in the negotiated media type.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "title": "ResourceDataRows",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/parquet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/proposals/{repository}/{pr_number}/previews": {
+      "post": {
+        "tags": [
+          "previews"
+        ],
+        "summary": "Create Preview",
+        "description": "Open a preview for one candidate of one pull request.\n\nEvery call mints a new preview, so a re-run never mutates what a reviewer already read.\nEach target's baseline is resolved here and never again.",
+        "operationId": "previewsCreatePreview",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "repository",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Feedstock repository as `owner/name`, URL-encoded as one path segment.",
+              "title": "Repository"
+            },
+            "description": "Feedstock repository as `owner/name`, URL-encoded as one path segment."
+          },
+          {
+            "name": "pr_number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Pr Number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/proposals/{repository}/{pr_number}": {
+      "get": {
+        "tags": [
+          "previews"
+        ],
+        "summary": "Get Proposal",
+        "description": "Return a pull request's previews, newest first.\n\nOnly the previews with a target the reader may read are listed,\nand a reader with none gets 404 rather than an empty proposal.",
+        "operationId": "previewsGetProposal",
+        "security": [
+          {},
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "repository",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Feedstock repository as `owner/name`, URL-encoded as one path segment.",
+              "title": "Repository"
+            },
+            "description": "Feedstock repository as `owner/name`, URL-encoded as one path segment."
+          },
+          {
+            "name": "pr_number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Pr Number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/previews/{preview_id}/publish": {
+      "post": {
+        "tags": [
+          "previews"
+        ],
+        "summary": "Publish Preview Route",
+        "description": "Queue the publication of a sealed preview, and report what it has already done.\n\nThe merge webhook queues the same job, so this is the operator's retry.\nQueueing is idempotent on ``(proposal, merge_sha)``,\nwhich is why a second call returns the same outcomes and no second job.",
+        "operationId": "previewsPublishPreviewRoute",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "preview_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Preview Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewPublishRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewPublishResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
     "/v1/me/share-links": {
       "get": {
         "tags": [
@@ -5459,6 +6254,111 @@
           "token"
         ],
         "title": "Body_agentTokenRevoke"
+      },
+      "BookBaseline": {
+        "properties": {
+          "edition": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edition",
+            "description": "Pinned published edition."
+          },
+          "hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hash",
+            "description": "That edition's seal."
+          }
+        },
+        "type": "object",
+        "title": "BookBaseline",
+        "description": "The baseline one book was compared against.\n\n``edition`` and ``hash`` are the pinned published edition.\nBoth are ``null`` for a preview baseline, because a preview mints no edition and carries no seal."
+      },
+      "BookComparison": {
+        "properties": {
+          "volume": {
+            "type": "string",
+            "title": "Volume"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "added",
+              "changed",
+              "unchanged",
+              "removed",
+              "unavailable",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "baseline": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BookBaseline"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "absent",
+                  "unavailable"
+                ]
+              }
+            ],
+            "title": "Baseline"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/MetadataDiff"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ProvenanceDiff"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/ResourceComparison"
+            },
+            "type": "array",
+            "title": "Resources"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason",
+            "description": "Why the book is ``failed``: a manifest publication would refuse, or a file that could not be read."
+          }
+        },
+        "type": "object",
+        "required": [
+          "volume",
+          "version",
+          "status",
+          "baseline"
+        ],
+        "title": "BookComparison",
+        "description": "One ``(volume, version)``, compared across the two sides."
       },
       "BookCorrection": {
         "properties": {
@@ -7388,6 +8288,68 @@
         "title": "ColumnMetadata",
         "description": "Column metadata for generic preview."
       },
+      "ColumnTypeChange": {
+        "properties": {
+          "column": {
+            "type": "string",
+            "title": "Column"
+          },
+          "before": {
+            "type": "string",
+            "title": "Before"
+          },
+          "after": {
+            "type": "string",
+            "title": "After"
+          }
+        },
+        "type": "object",
+        "required": [
+          "column",
+          "before",
+          "after"
+        ],
+        "title": "ColumnTypeChange",
+        "description": "One column whose type differs between the two sides."
+      },
+      "ComparisonBaseline": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "published",
+              "preview"
+            ],
+            "title": "Kind",
+            "description": "``published`` or another ``preview``."
+          },
+          "preview_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview Id",
+            "description": "The other preview, for a ``preview`` baseline."
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "Human label for the baseline, for a page heading."
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "label"
+        ],
+        "title": "ComparisonBaseline",
+        "description": "What the whole comparison is against."
+      },
       "ControlledVocabularyValue": {
         "properties": {
           "value": {
@@ -7414,6 +8376,37 @@
         ],
         "title": "ControlledVocabularyValue",
         "description": "An allowed value for a controlled dimension, paired with its meaning.\n\nMirrors ``bookshelf.schema.ControlledVocabularyValue`` in the consumer\nlibrary so the platform and the SDK share one shape."
+      },
+      "CoverageDiff": {
+        "properties": {
+          "rows_added": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Rows Added",
+            "default": 0
+          },
+          "rows_removed": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Rows Removed",
+            "default": 0
+          },
+          "series_added": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Series Added",
+            "default": 0
+          },
+          "series_removed": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Series Removed",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "CoverageDiff",
+        "description": "What the two sides cover, counted over identities rather than over file rows.\n\nA row is one identity, every non-value column including the axis label.\nA series is that identity with the axis label dropped,\nso a version adding one more year to every series adds rows and no series."
       },
       "DataDictionaryEntry": {
         "properties": {
@@ -8925,6 +9918,29 @@
         "title": "FacetsResponse",
         "description": "Response for facets endpoint."
       },
+      "FieldChange": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path",
+            "description": "Dotted path of the field, e.g. ``discovery.license``."
+          },
+          "before": {
+            "title": "Before",
+            "description": "Baseline value, ``null`` when the field was absent."
+          },
+          "after": {
+            "title": "After",
+            "description": "Preview value, ``null`` when the field is absent."
+          }
+        },
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "title": "FieldChange",
+        "description": "One field that differs, with both sides as they were declared."
+      },
       "FrontendLogEvent": {
         "properties": {
           "level": {
@@ -9189,6 +10205,27 @@
         "title": "LogIngestRequest",
         "description": "Batched frontend log events."
       },
+      "MetadataDiff": {
+        "properties": {
+          "changed": {
+            "items": {
+              "$ref": "#/components/schemas/FieldChange"
+            },
+            "type": "array",
+            "title": "Changed"
+          },
+          "unchanged_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Unchanged Count",
+            "description": "Fields compared that did not differ.",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "MetadataDiff",
+        "description": "Discovery and descriptive fields, which a consumer reads but does not compute on."
+      },
       "OAuthError": {
         "properties": {
           "error": {
@@ -9209,6 +10246,364 @@
         ],
         "title": "OAuthError",
         "description": "OAuth-style error body returned by the agent-auth endpoints.\n\nDistinct from the RFC 7807 problem responses used elsewhere. Mirrors the\n``AgentAuthError`` shape (e.g. ``authorization_pending``, ``invalid_request``,\n``unsupported_grant_type``)."
+      },
+      "PreviewBaseline": {
+        "properties": {
+          "edition": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Edition",
+            "description": "Latest published edition at creation time."
+          },
+          "hash": {
+            "type": "string",
+            "title": "Hash",
+            "description": "That edition's seal."
+          }
+        },
+        "type": "object",
+        "required": [
+          "edition",
+          "hash"
+        ],
+        "title": "PreviewBaseline",
+        "description": "The published edition a preview target will be compared against."
+      },
+      "PreviewBookUpload": {
+        "properties": {
+          "manifest": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Manifest",
+            "description": "The bundle's manifest sections for this book, as the run produced them."
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/PreviewResourceUpload"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Resources",
+            "description": "Every file of the book. Names are unique within the book."
+          }
+        },
+        "type": "object",
+        "required": [
+          "manifest",
+          "resources"
+        ],
+        "title": "PreviewBookUpload",
+        "description": "Attach one book's manifest and files to a preview target."
+      },
+      "PreviewCandidate": {
+        "properties": {
+          "head_sha": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{7,64}$",
+            "title": "Head Sha",
+            "description": "Pull request head commit."
+          },
+          "main_sha": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{7,64}$",
+            "title": "Main Sha",
+            "description": "Base commit built against."
+          },
+          "candidate_tree": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{7,64}$",
+            "title": "Candidate Tree",
+            "description": "Tree hash of the candidate build."
+          }
+        },
+        "type": "object",
+        "required": [
+          "head_sha",
+          "main_sha",
+          "candidate_tree"
+        ],
+        "title": "PreviewCandidate",
+        "description": "The code identity a preview was built from.\n\nTwo builds of the same candidate are recognisable as such,\nwhich is what lets a reviewer tell a rebuild from a change."
+      },
+      "PreviewComparison": {
+        "properties": {
+          "preview_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Preview Id"
+          },
+          "baseline": {
+            "$ref": "#/components/schemas/ComparisonBaseline"
+          },
+          "books": {
+            "items": {
+              "$ref": "#/components/schemas/BookComparison"
+            },
+            "type": "array",
+            "title": "Books"
+          }
+        },
+        "type": "object",
+        "required": [
+          "preview_id",
+          "baseline"
+        ],
+        "title": "PreviewComparison",
+        "description": "What publishing this preview would change, for every book the reader may read."
+      },
+      "PreviewCreate": {
+        "properties": {
+          "candidate": {
+            "$ref": "#/components/schemas/PreviewCandidate"
+          },
+          "run_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Run Id",
+            "description": "GitHub Actions run producing the upload."
+          },
+          "pr_url": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Pr Url",
+            "description": "Pull request web URL."
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/PreviewTarget"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Targets",
+            "description": "Every book this candidate proposes. Seal requires all of them uploaded."
+          }
+        },
+        "type": "object",
+        "required": [
+          "candidate",
+          "run_id",
+          "pr_url",
+          "targets"
+        ],
+        "title": "PreviewCreate",
+        "description": "Open a preview for one candidate of one pull request."
+      },
+      "PreviewDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "proposal_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Proposal Id"
+          },
+          "repository": {
+            "type": "string",
+            "title": "Repository"
+          },
+          "pr_number": {
+            "type": "integer",
+            "title": "Pr Number"
+          },
+          "candidate": {
+            "$ref": "#/components/schemas/PreviewCandidate"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "state": {
+            "$ref": "#/components/schemas/PreviewState"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "sealed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sealed At"
+          },
+          "failure_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Reason"
+          },
+          "proposal_url": {
+            "type": "string",
+            "title": "Proposal Url"
+          },
+          "preview_url": {
+            "type": "string",
+            "title": "Preview Url"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/PreviewTargetDetail"
+            },
+            "type": "array",
+            "title": "Targets"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "proposal_id",
+          "repository",
+          "pr_number",
+          "candidate",
+          "run_id",
+          "state",
+          "created_at",
+          "proposal_url",
+          "preview_url",
+          "targets"
+        ],
+        "title": "PreviewDetail",
+        "description": "One preview and every target the reader may see."
+      },
+      "PreviewFailRequest": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "description": "Why the run failed."
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "PreviewFailRequest",
+        "description": "Mark a preview failed because the producing run could not finish it."
+      },
+      "PreviewPublishRequest": {
+        "properties": {
+          "merge_sha": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{7,64}$",
+            "title": "Merge Sha",
+            "description": "The merge commit that triggered publication."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "merge_sha"
+        ],
+        "title": "PreviewPublishRequest",
+        "description": "Publish a sealed preview because its pull request merged."
+      },
+      "PreviewPublishResponse": {
+        "properties": {
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id",
+            "description": "The publication job. Null when the queue holds no row for this merge."
+          },
+          "outcomes": {
+            "items": {
+              "$ref": "#/components/schemas/PublicationBookOutcome"
+            },
+            "type": "array",
+            "title": "Outcomes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "outcomes"
+        ],
+        "title": "PreviewPublishResponse",
+        "description": "The queued publication and the outcomes already recorded."
+      },
+      "PreviewResourceUpload": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "description": "Name within the book."
+          },
+          "hash": {
+            "type": "string",
+            "title": "Hash",
+            "description": "Content hash in canonical '<algo>:<hex>' form."
+          },
+          "type": {
+            "$ref": "#/components/schemas/ResourceType",
+            "description": "Canonical resource type."
+          },
+          "format": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format",
+            "description": "File format, e.g. 'parquet'."
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes",
+            "description": "Size of the uploaded object."
+          },
+          "storage_path": {
+            "type": "string",
+            "title": "Storage Path",
+            "description": "Preview key the bytes were uploaded to."
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "hash",
+          "type",
+          "storage_path"
+        ],
+        "title": "PreviewResourceUpload",
+        "description": "One file of an uploaded preview book, already landed under a preview key."
       },
       "PreviewResponse": {
         "properties": {
@@ -9255,6 +10650,241 @@
         ],
         "title": "PreviewResponse",
         "description": "Generic preview for non-timeseries resources."
+      },
+      "PreviewState": {
+        "type": "string",
+        "enum": [
+          "open",
+          "sealed",
+          "failed"
+        ],
+        "title": "PreviewState",
+        "description": "Lifecycle state of one preview upload.\n\n``SEALED`` and ``FAILED`` are terminal.\n\nAttributes\n----------\nOPEN\n    Accepting uploads.\nSEALED\n    Every target book was uploaded and the preview is now immutable.\nFAILED\n    The producing run failed or the preview timed out before sealing."
+      },
+      "PreviewSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "head_sha": {
+            "type": "string",
+            "title": "Head Sha"
+          },
+          "state": {
+            "$ref": "#/components/schemas/PreviewState"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "created_at",
+          "head_sha",
+          "state"
+        ],
+        "title": "PreviewSummary",
+        "description": "A preview as it appears in a proposal's history."
+      },
+      "PreviewTarget": {
+        "properties": {
+          "volume": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Volume",
+            "description": "Volume name."
+          },
+          "version": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Version",
+            "description": "Book version."
+          }
+        },
+        "type": "object",
+        "required": [
+          "volume",
+          "version"
+        ],
+        "title": "PreviewTarget",
+        "description": "One ``(volume, version)`` a preview promises to upload."
+      },
+      "PreviewTargetDetail": {
+        "properties": {
+          "volume": {
+            "type": "string",
+            "title": "Volume"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "uploaded": {
+            "type": "boolean",
+            "title": "Uploaded",
+            "description": "Whether the producing run has attached this book."
+          },
+          "baseline": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PreviewBaseline"
+              },
+              {
+                "type": "string",
+                "const": "absent"
+              }
+            ],
+            "title": "Baseline",
+            "description": "The published edition to compare against, or 'absent' for a new version."
+          }
+        },
+        "type": "object",
+        "required": [
+          "volume",
+          "version",
+          "uploaded",
+          "baseline"
+        ],
+        "title": "PreviewTargetDetail",
+        "description": "One target of a preview, as a reader sees it."
+      },
+      "PreviewUploadCompleteRequest": {
+        "properties": {
+          "upload_id": {
+            "type": "string",
+            "title": "Upload Id",
+            "description": "Upload ID from initiation"
+          },
+          "storage_path": {
+            "type": "string",
+            "title": "Storage Path",
+            "description": "Preview key from the initiation response"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/UploadPartComplete"
+            },
+            "type": "array",
+            "title": "Parts",
+            "description": "Completed parts with ETags (empty for single-part uploads)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "upload_id",
+          "storage_path"
+        ],
+        "title": "PreviewUploadCompleteRequest",
+        "description": "Complete a preview byte upload.\n\nSingle-part uploads land directly on the client ``PUT``,\nso for them ``parts`` is empty and the call is a digest re-check."
+      },
+      "PreviewUploadInitiateRequest": {
+        "properties": {
+          "hash": {
+            "type": "string",
+            "title": "Hash",
+            "description": "Content hash in canonical '<algo>:<hex>' form (e.g. 'sha256:...')."
+          },
+          "size_bytes": {
+            "type": "integer",
+            "maximum": 104857600000.0,
+            "minimum": 1.0,
+            "title": "Size Bytes",
+            "description": "Expected file size in bytes"
+          },
+          "content_type": {
+            "type": "string",
+            "title": "Content Type",
+            "description": "MIME type of the file",
+            "default": "application/octet-stream"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hash",
+          "size_bytes"
+        ],
+        "title": "PreviewUploadInitiateRequest",
+        "description": "Initiate a byte upload into a preview.\n\nThe same declared-digest shape as an ingest upload.\nOnly the key the server derives from it differs."
+      },
+      "ProposalDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "repository": {
+            "type": "string",
+            "title": "Repository"
+          },
+          "pr_number": {
+            "type": "integer",
+            "title": "Pr Number"
+          },
+          "pr_url": {
+            "type": "string",
+            "title": "Pr Url"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ProposalState"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "proposal_url": {
+            "type": "string",
+            "title": "Proposal Url"
+          },
+          "latest_preview": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PreviewDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "previews": {
+            "items": {
+              "$ref": "#/components/schemas/PreviewSummary"
+            },
+            "type": "array",
+            "title": "Previews"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "repository",
+          "pr_number",
+          "pr_url",
+          "state",
+          "created_at",
+          "proposal_url",
+          "previews"
+        ],
+        "title": "ProposalDetail",
+        "description": "One pull request, its latest preview and the previews before it."
+      },
+      "ProposalState": {
+        "type": "string",
+        "enum": [
+          "open",
+          "closed",
+          "merged"
+        ],
+        "title": "ProposalState",
+        "description": "Lifecycle state of a pull request.\n\nAttributes\n----------\nOPEN\n    The pull request is open and may gain further previews.\nCLOSED\n    The pull request was closed without merging.\nMERGED\n    The pull request was merged."
       },
       "ProvDocument": {
         "properties": {
@@ -9359,6 +10989,20 @@
         "title": "ProvDocument",
         "description": "A PROV-JSON document.\n\nPydantic is used for the response schema so OpenAPI advertises the shape.\nThe body is intentionally permissive (extra keys allowed)."
       },
+      "ProvenanceDiff": {
+        "properties": {
+          "changed": {
+            "items": {
+              "$ref": "#/components/schemas/FieldChange"
+            },
+            "type": "array",
+            "title": "Changed"
+          }
+        },
+        "type": "object",
+        "title": "ProvenanceDiff",
+        "description": "How the data was produced, reported apart from the descriptive fields.\n\nAgainst a published baseline only ``producer_version`` is compared,\nbecause publishing carries no ``processing`` fingerprint or ``code_ref`` onto a book.\nAgainst another preview all three are."
+      },
       "PublicStorageResponse": {
         "properties": {
           "status": {
@@ -9399,6 +11043,130 @@
         ],
         "title": "PublicStorageResponse",
         "description": "Public presigned-endpoint probe response."
+      },
+      "PublicationBookOutcome": {
+        "properties": {
+          "volume": {
+            "type": "string",
+            "title": "Volume"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "published",
+              "unchanged",
+              "pending"
+            ],
+            "title": "Outcome"
+          }
+        },
+        "type": "object",
+        "required": [
+          "volume",
+          "version",
+          "outcome"
+        ],
+        "title": "PublicationBookOutcome",
+        "description": "What one target of the preview resolved to, as far as the platform knows.\n\n``pending`` means no receipt exists yet, so the queued job has not reached that book."
+      },
+      "PublicationOutcome": {
+        "type": "string",
+        "enum": [
+          "published",
+          "unchanged"
+        ],
+        "title": "PublicationOutcome",
+        "description": "What publishing one preview book resolved to.\n\nAttributes\n----------\nPUBLISHED\n    A new edition was minted from the preview's bytes.\nUNCHANGED\n    The seal was already published, so the consumer gets the edition that was there."
+      },
+      "PublicationReceipt": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "book_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Book Id",
+            "description": "The edition a consumer gets."
+          },
+          "preview_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Preview Id",
+            "description": "The preview that was published."
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "repository": {
+            "type": "string",
+            "title": "Repository",
+            "description": "Feedstock repository as ``owner/name``."
+          },
+          "pr_number": {
+            "type": "integer",
+            "title": "Pr Number"
+          },
+          "pr_url": {
+            "type": "string",
+            "title": "Pr Url"
+          },
+          "head_sha": {
+            "type": "string",
+            "title": "Head Sha"
+          },
+          "main_sha": {
+            "type": "string",
+            "title": "Main Sha"
+          },
+          "candidate_tree": {
+            "type": "string",
+            "title": "Candidate Tree"
+          },
+          "merge_sha": {
+            "type": "string",
+            "title": "Merge Sha"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/PublicationOutcome"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "preview_id",
+          "version",
+          "repository",
+          "pr_number",
+          "pr_url",
+          "head_sha",
+          "main_sha",
+          "candidate_tree",
+          "merge_sha",
+          "outcome",
+          "created_at"
+        ],
+        "title": "PublicationReceipt",
+        "description": "Where one published book came from."
       },
       "ReadinessResponse": {
         "properties": {
@@ -10283,6 +12051,95 @@
         "title": "ReplayUsedByHash",
         "description": "One lineage input this request does not carry, named by the bytes it holds.\n\nAn input the org already holds has no bundle-local name to travel under,\nwhich is the case for a file uploaded outside any book.\nThe digest is what the recipe declares it by,\nso citing it here is portable in a way a tracking id is not:\nthe same bundle replays against another deployment\nand resolves against whatever that deployment holds for the same bytes."
       },
+      "ResourceComparison": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "added",
+              "removed",
+              "changed",
+              "unchanged",
+              "unavailable",
+              "not-compared"
+            ],
+            "title": "Status"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResourceSide"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "after": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResourceSide"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schema": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SchemaDiff"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "coverage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CoverageDiff"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "values": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValueDiff"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason",
+            "description": "Why a comparison was not made, when it was not."
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "status"
+        ],
+        "title": "ResourceComparison",
+        "description": "One named file, compared across the two sides."
+      },
       "ResourceCreate": {
         "properties": {
           "name": {
@@ -10610,6 +12467,50 @@
         "title": "ResourceRead",
         "description": "Single-resource projection returned by the read endpoints."
       },
+      "ResourceSide": {
+        "properties": {
+          "hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hash",
+            "description": "Content hash in canonical ``<algo>:<hex>`` form."
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type",
+            "description": "Canonical resource type."
+          },
+          "rows": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rows",
+            "description": "Rows in the file, ``null`` when the comparison never had to read it."
+          }
+        },
+        "type": "object",
+        "title": "ResourceSide",
+        "description": "One side of a resource comparison, as the platform holds it."
+      },
       "ResourceSummary": {
         "properties": {
           "data_dictionary": {
@@ -10745,6 +12646,34 @@
         ],
         "title": "ReviseResponse",
         "description": "Response for revising a single resource."
+      },
+      "SchemaDiff": {
+        "properties": {
+          "added_columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Added Columns"
+          },
+          "removed_columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Removed Columns"
+          },
+          "type_changes": {
+            "items": {
+              "$ref": "#/components/schemas/ColumnTypeChange"
+            },
+            "type": "array",
+            "title": "Type Changes"
+          }
+        },
+        "type": "object",
+        "title": "SchemaDiff",
+        "description": "Columns gained, lost or retyped."
       },
       "ServiceAuthRegistrationResponse": {
         "properties": {
@@ -11476,6 +13405,83 @@
         ],
         "title": "UserSessionResponse",
         "description": "Full session information for the current user."
+      },
+      "ValueDiff": {
+        "properties": {
+          "changed": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Changed",
+            "description": "Identities where both sides hold a differing value.",
+            "default": 0
+          },
+          "null_to_value": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Null To Value",
+            "default": 0
+          },
+          "value_to_null": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Value To Null",
+            "default": 0
+          },
+          "max_abs_diff": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Abs Diff"
+          },
+          "max_rel_diff": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Rel Diff"
+          },
+          "examples": {
+            "items": {
+              "$ref": "#/components/schemas/ValueExample"
+            },
+            "type": "array",
+            "title": "Examples"
+          }
+        },
+        "type": "object",
+        "title": "ValueDiff",
+        "description": "Values on the identities both sides share.\n\n``max_rel_diff`` skips identities whose baseline value is zero,\nbecause a relative change against zero is not a number a reviewer can read."
+      },
+      "ValueExample": {
+        "properties": {
+          "key": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Key",
+            "description": "The identity, one entry per key column."
+          },
+          "before": {
+            "title": "Before"
+          },
+          "after": {
+            "title": "After"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "ValueExample",
+        "description": "One identity whose value differs, with both sides."
       },
       "VersionInfo": {
         "properties": {

@@ -304,6 +304,22 @@ class BookshelfClient:
             await self._send_async(ops.build_attach_entry(book_id, request))
         )
 
+    def attach_preview_book(
+        self, preview_id: UUID, volume: str, version: str, request: models.PreviewBookUpload
+    ) -> models.PreviewDetail:
+        return ops.parse_attach_preview_book(
+            self._send(ops.build_attach_preview_book(preview_id, volume, version, request))
+        )
+
+    async def attach_preview_book_async(
+        self, preview_id: UUID, volume: str, version: str, request: models.PreviewBookUpload
+    ) -> models.PreviewDetail:
+        return ops.parse_attach_preview_book(
+            await self._send_async(
+                ops.build_attach_preview_book(preview_id, volume, version, request)
+            )
+        )
+
     def complete_ingest_upload(self, request: models.IngestUploadCompleteRequest) -> None:
         ops.parse_complete_ingest_upload(self._send(ops.build_complete_ingest_upload(request)))
 
@@ -312,6 +328,34 @@ class BookshelfClient:
     ) -> None:
         ops.parse_complete_ingest_upload(
             await self._send_async(ops.build_complete_ingest_upload(request))
+        )
+
+    def complete_preview_upload(
+        self, preview_id: UUID, request: models.PreviewUploadCompleteRequest
+    ) -> None:
+        ops.parse_complete_preview_upload(
+            self._send(ops.build_complete_preview_upload(preview_id, request))
+        )
+
+    async def complete_preview_upload_async(
+        self, preview_id: UUID, request: models.PreviewUploadCompleteRequest
+    ) -> None:
+        ops.parse_complete_preview_upload(
+            await self._send_async(ops.build_complete_preview_upload(preview_id, request))
+        )
+
+    def create_preview(
+        self, repository: str, pr_number: int, request: models.PreviewCreate
+    ) -> models.PreviewDetail:
+        return ops.parse_create_preview(
+            self._send(ops.build_create_preview(repository, pr_number, request))
+        )
+
+    async def create_preview_async(
+        self, repository: str, pr_number: int, request: models.PreviewCreate
+    ) -> models.PreviewDetail:
+        return ops.parse_create_preview(
+            await self._send_async(ops.build_create_preview(repository, pr_number, request))
         )
 
     def create_volume(self, request: models.VolumeCreate) -> models.VolumeResponse:
@@ -337,6 +381,18 @@ class BookshelfClient:
 
     async def draft_book_async(self, request: models.BookDraftRequest) -> models.BookDetail:
         return ops.parse_draft_book(await self._send_async(ops.build_draft_book(request)))
+
+    def fail_preview(
+        self, preview_id: UUID, request: models.PreviewFailRequest
+    ) -> models.PreviewDetail:
+        return ops.parse_fail_preview(self._send(ops.build_fail_preview(preview_id, request)))
+
+    async def fail_preview_async(
+        self, preview_id: UUID, request: models.PreviewFailRequest
+    ) -> models.PreviewDetail:
+        return ops.parse_fail_preview(
+            await self._send_async(ops.build_fail_preview(preview_id, request))
+        )
 
     def get_book(self, book_id: str) -> models.BookResponse:
         return ops.parse_get_book(self._send(ops.build_get_book(book_id)))
@@ -560,6 +616,20 @@ class BookshelfClient:
     ) -> models.UploadInitiateResponse | models.UploadAlreadyExistsResponse:
         return ops.parse_initiate_ingest_upload(
             await self._send_async(ops.build_initiate_ingest_upload(request))
+        )
+
+    def initiate_preview_upload(
+        self, preview_id: UUID, request: models.PreviewUploadInitiateRequest
+    ) -> models.UploadInitiateResponse | models.UploadAlreadyExistsResponse:
+        return ops.parse_initiate_preview_upload(
+            self._send(ops.build_initiate_preview_upload(preview_id, request))
+        )
+
+    async def initiate_preview_upload_async(
+        self, preview_id: UUID, request: models.PreviewUploadInitiateRequest
+    ) -> models.UploadInitiateResponse | models.UploadAlreadyExistsResponse:
+        return ops.parse_initiate_preview_upload(
+            await self._send_async(ops.build_initiate_preview_upload(preview_id, request))
         )
 
     def invalidate_resource(
@@ -917,6 +987,12 @@ class BookshelfClient:
         self, request: models.BundleReplayRequest
     ) -> models.BundleReplayResponse:
         return ops.parse_replay_bundle(await self._send_async(ops.build_replay_bundle(request)))
+
+    def seal_preview(self, preview_id: UUID) -> models.PreviewDetail:
+        return ops.parse_seal_preview(self._send(ops.build_seal_preview(preview_id)))
+
+    async def seal_preview_async(self, preview_id: UUID) -> models.PreviewDetail:
+        return ops.parse_seal_preview(await self._send_async(ops.build_seal_preview(preview_id)))
 
     def update_book(self, book_id: str, request: models.BookUpdate) -> models.BookResponse:
         return ops.parse_update_book(self._send(ops.build_update_book(book_id, request)))
