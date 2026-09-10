@@ -24,7 +24,9 @@ class _BookBase(Describable):
         self._client = client
         self._cache = cache
         self.metadata = metadata
+        """The book's record as the platform lists it."""
         self.book_id = UUID(metadata.id)
+        """The platform's id for this book."""
         self._entries = {entry.name_in_book: entry for entry in entries}
 
     @property
@@ -69,6 +71,7 @@ class Book(_BookBase):
     """A resolved published Book indexed by Entry name."""
 
     def __getitem__(self, name_in_book: str) -> BookEntry:
+        """Look up one entry by name, raising KeyError for a name the book does not index."""
         return BookEntry(
             self._client,
             self._cache,
@@ -83,6 +86,7 @@ class AsyncBook(_BookBase):
     _title = "Bookshelf Async Book"
 
     def __getitem__(self, name_in_book: str) -> AsyncBookEntry:
+        """Look up one entry by name, raising KeyError for a name the book does not index."""
         return AsyncBookEntry(
             self._client,
             self._cache,

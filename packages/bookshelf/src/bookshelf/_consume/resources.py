@@ -107,6 +107,7 @@ class _ResourceHandle(Describable):
         self._client = client
         self._cache = cache
         self.tracking_id = UUID(str(tracking_id))
+        """The platform's id for this resource."""
         self._metadata = metadata
         self._resource_type = resource_type
         self._content_hash: str | None = None if metadata is None else metadata.hash
@@ -387,8 +388,10 @@ class BookEntry(Resource):
     ) -> None:
         super().__init__(client, cache, entry.tracking_id, resource_type=entry.type)
         self.book_id = UUID(str(book_id))
+        """The id of the book this entry belongs to."""
         self.entry = entry
         self.name_in_book = entry.name_in_book
+        """The name this entry has in its book."""
 
     def as_df(
         self,
@@ -740,8 +743,10 @@ class AsyncBookEntry(AsyncResource):
     ) -> None:
         super().__init__(client, cache, entry.tracking_id, resource_type=entry.type)
         self.book_id = UUID(str(book_id))
+        """The id of the book this entry belongs to."""
         self.entry = entry
         self.name_in_book = entry.name_in_book
+        """The name this entry has in its book."""
 
     async def as_df(
         self,
