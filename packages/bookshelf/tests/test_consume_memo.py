@@ -267,3 +267,14 @@ def test_a_bad_ttl_in_the_environment_falls_back_to_the_default(
         bs = _sync([], [])
 
     assert bs._book_ttl == 24 * 60 * 60
+
+
+def test_a_version_that_flattens_onto_another_is_not_confused_with_it() -> None:
+    plus = dict(BOOK_PAGE, items=[dict(BOOK_PAGE["items"][0], version="1.0.0+a")])
+    _sync([], [plus, ENTRIES_PAGE]).book("example", "1.0.0+a", edition=2)
+
+    recorded: list[httpx.Request] = []
+    dash = dict(BOOK_PAGE, items=[dict(BOOK_PAGE["items"][0], version="1.0.0-a")])
+    _sync(recorded, [dash, ENTRIES_PAGE]).book("example", "1.0.0-a", edition=2)
+
+    assert len(recorded) == 2

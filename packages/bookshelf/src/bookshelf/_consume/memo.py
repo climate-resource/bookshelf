@@ -106,6 +106,9 @@ def remembered_book(
         entries = [models.BookEntryItem.model_validate(item) for item in record["entries"]]
     except (KeyError, TypeError, ValueError):
         return None
+    # Flattening the path is lossy, so the record itself has to name the edition asked for.
+    if (book.volume_name, book.version, book.edition) != (volume, version, edition):
+        return None
     return RememberedBook(book, entries, stale=age > ttl)
 
 
