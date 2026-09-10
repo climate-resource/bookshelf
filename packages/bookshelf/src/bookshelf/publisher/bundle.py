@@ -832,5 +832,6 @@ __all__ = [
     "BundleWriter",
     "InvalidBundleError",
     "resource_filename",
+    "stated",
     "synthesise_pointer_hash",
 ]
