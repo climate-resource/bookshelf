@@ -178,14 +178,8 @@ used_digests:
 This is how a book built from an uploaded file cites the upload.
 Such an input is already on the platform and belongs to no book,
 so the bundle records nothing for it and it has no name for `used` to carry.
-Each digest is canonical `sha256:<hex>`,
-and the server resolves it against what the publishing organisation holds for those bytes.
-A deployment holding nothing for the digest refuses the replay,
-so this cites an input the publisher can reach rather than one any reader could.
-
-The field arrived in schema 3.3.
-An older reader drops it under the additive-minor rule,
-which costs it the lineage edge and nothing else.
+Each digest is canonical `sha256:<hex>`.
+This resource must exist and be accesible by the publisher.
 
 Inputs accumulate within a run.
 A resource records the inputs known at the moment it was registered,

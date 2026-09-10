@@ -169,8 +169,7 @@ and rolls all of it back on a failure anywhere.
 Every resource travels under its bundle-local name.
 A resource that a book entry names takes that name inside the book,
 and `used=` lineage cites the name of a resource recorded earlier in the same bundle.
-An input the platform already holds is cited by its digest instead,
-because the bundle records nothing for it and so has no name to give it.
+An input the platform already holds is cited by its digest instead.
 The server computes the seal from the request,
 so replaying the same bundle again converges on the one edition
 and reports `converged` rather than minting a rival.
@@ -183,10 +182,6 @@ and prints the `bookshelf://sha256/<hex>` URI a recipe declares it by.
 and `Bookshelf.resource_by_hash` resolves the digest back into the resource.
 
 The command leaves the file hidden, so it is readable by the uploading organisation alone.
-
-`used=[raw]` on an output records the lineage back to the upload,
-under the digest the recipe declares it by.
-Publishing that book needs a deployment that resolves a digest in a replay `used` reference.
 
 ## Generated model core
 
