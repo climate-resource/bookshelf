@@ -54,6 +54,31 @@ def _books(versions: list[tuple[str, int]]) -> dict[str, Any]:
     return dict(payloads.BOOK_LIST, items=items, total=len(items))
 
 
+def _volume(versions: list[tuple[str, int]]) -> dict[str, Any]:
+    """The volume summary the shim reads to find the published versions."""
+    editions: dict[str, list[dict[str, Any]]] = {}
+    for version, edition in versions:
+        editions.setdefault(version, []).append(
+            {
+                "edition": edition,
+                "status": "published",
+                "created_at": payloads.TS,
+                "published_at": payloads.TS,
+            }
+        )
+    return dict(
+        payloads.VOLUME,
+        name="primap-hist",
+        versions=[{"version": version, "editions": found} for version, found in editions.items()],
+        stats={
+            "total_versions": len(editions),
+            "total_editions": len(versions),
+            "total_resources": len(versions),
+            "total_size_bytes": 0,
+        },
+    )
+
+
 def _entries(*names: str) -> dict[str, Any]:
     return {
         "items": [
@@ -74,6 +99,10 @@ def _platform(
 
     def handler(request: httpx.Request) -> httpx.Response:
         path = request.url.path
+        if path == "/v1/volumes/primap-hist":
+            return httpx.Response(200, json=_volume(versions))
+        if path.startswith("/v1/volumes/"):
+            return httpx.Response(404, json={"detail": "no such volume"})
         if path == "/v1/books":
             params = request.url.params
             if params.get("volume") != "primap-hist":

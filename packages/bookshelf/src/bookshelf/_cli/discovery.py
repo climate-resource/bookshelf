@@ -15,9 +15,9 @@ from bookshelf._cli._runtime import (
     human_bytes,
     iso,
 )
+from bookshelf._consume.lookup import book_order
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import resolve_base_url
-from bookshelf._core.names import version_key
 from bookshelf._generated import models
 
 
@@ -214,11 +214,7 @@ def _resolve_book(client: BookshelfClient, parsed: Address) -> models.BookListIt
             f"Run 'bookshelf show {parsed.volume}' to see the published versions.",
             exit_code=EXIT_NOT_FOUND,
         )
-    return max(candidates, key=_book_order)
-
-
-def _book_order(item: models.BookListItem) -> tuple[Any, ...]:
-    return (version_key(item.version), item.edition)
+    return max(candidates, key=book_order)
 
 
 def _show_book(detail: models.BookResponse, label: str, json_output: bool) -> None:
