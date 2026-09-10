@@ -119,6 +119,38 @@ class RecordedResource(Resource):
         self.name = name
 
 
+@dataclass(frozen=True, slots=True)
+class _UsedInputs:
+    """The lineage inputs recorded so far, split by how the bundle cites each one.
+
+    A resource the bundle carries is cited by its bundle-local name.
+    An input the platform already holds is cited by the bytes it holds,
+    because the bundle records nothing for it and so has no name for it.
+    """
+
+    names: tuple[str, ...] = ()
+    digests: tuple[str, ...] = ()
+
+    def extended(self, values: Sequence[UsedInput], names: Mapping[UUID, str]) -> _UsedInputs:
+        """Return these inputs with whatever ``values`` adds, keeping first-seen order."""
+        merged_names = list(self.names)
+        merged_digests = list(self.digests)
+        for value in values:
+            reference = _used_reference(value, names)
+            target = merged_names if isinstance(reference, str) else merged_digests
+            settled = reference if isinstance(reference, str) else reference.content_hash
+            if settled not in target:
+                target.append(settled)
+        return _UsedInputs(names=tuple(merged_names), digests=tuple(merged_digests))
+
+
+@dataclass(frozen=True, slots=True)
+class _UsedDigest:
+    """One lineage input cited by the bytes it holds."""
+
+    content_hash: str
+
+
 class RecordingActivity(Activity):
     """Activity context that records generated resources without network writes."""
 
@@ -157,7 +189,7 @@ class RecordingActivity(Activity):
             used=(),
             config_hash=config_hash,
         )
-        self._used: list[str] = []
+        self._used = _UsedInputs()
         self._entered = False
         self._closed = False
 
@@ -222,7 +254,8 @@ class RecordingActivity(Activity):
             metadata=dict(metadata or {}),
             dedupe=dedupe,
             generated=True,
-            used=list(self._used),
+            used=list(self._used.names),
+            used_digests=list(self._used.digests),
         )
         self._names[resource_id] = recorded_name
         return RecordedResource(
@@ -277,7 +310,7 @@ class RecordingActivity(Activity):
             ]
 
         prepared = [self._prepare_registration(entry) for entry in entries]
-        merged_used = self._merged_used_names(self._used, used)
+        merged_used = self._used.extended(used, self._names)
 
         previous_count = len(self._bundle.manifest.resources)
         with tempfile.TemporaryDirectory(prefix="bookshelf-record-batch-") as staging_dir:
@@ -299,7 +332,8 @@ class RecordingActivity(Activity):
                     metadata=dict(item.entry.metadata or {}),
                     dedupe=item.entry.dedupe,
                     generated=True,
-                    used=list(merged_used),
+                    used=list(merged_used.names),
+                    used_digests=list(merged_used.digests),
                 )
 
             created: list[Path] = []
@@ -413,20 +447,7 @@ class RecordingActivity(Activity):
 
         Resources already recorded keep the inputs they were registered with.
         """
-        self._used = self._merged_used_names(self._used, values)
-
-    def _merged_used_names(
-        self,
-        existing: Sequence[str],
-        values: Sequence[UsedInput],
-    ) -> list[str]:
-        """Return ``existing`` extended with the names ``values`` adds, keeping first-seen order."""
-        merged = list(existing)
-        for value in values:
-            name = _used_name(value, self._names)
-            if name not in merged:
-                merged.append(name)
-        return merged
+        self._used = self._used.extended(values, self._names)
 
     def _bundle_activity(self) -> BundleActivity:
         return BundleActivity(
@@ -826,7 +847,8 @@ class RecordingSink:
             metadata=dict(metadata),
             dedupe=False,
             generated=True,
-            used=used,
+            used=list(used.names),
+            used_digests=list(used.digests),
         )
         self._names[resource_id] = name
         return RecordedResource(
@@ -898,22 +920,29 @@ def _recorded_name(name: str | None) -> str:
     return validate_resource_name(name)
 
 
-def _used_name(value: UsedInput, names: Mapping[UUID, str]) -> str:
-    """Resolve one recorded lineage input to the bundle-local name replay cites it by.
+def _used_reference(value: UsedInput, names: Mapping[UUID, str]) -> str | _UsedDigest:
+    """Resolve one recorded lineage input to the coordinate replay cites it by.
 
-    A replay cites its inputs by name against the resources of that same request,
-    so an input the bundle does not record has no coordinate to travel under.
+    A resource the bundle carries travels under its bundle-local name.
+    An input the organisation already holds travels under its digest,
+    which is what a recipe declares an uploaded file by,
+    and replay resolves that against what the organisation holds.
     """
     reference = helpers.used_ref(value)
     if isinstance(reference, models.UsedRefByResourceName):
         return reference.resource_name
     name = names.get(reference.tracking_id)
-    if name is None:
-        raise ValueError(
-            f"used= cites resource {reference.tracking_id}, which this bundle does not record. "
-            "A replayed resource cites only the inputs the same bundle carries."
-        )
-    return name
+    if name is not None:
+        return name
+    citable = getattr(value, "citable_hash", None)
+    if isinstance(citable, str):
+        return _UsedDigest(content_hash=citable)
+    raise ValueError(
+        f"used= cites resource {reference.tracking_id}, which this bundle does not record. "
+        "A recorded resource cites the inputs the same bundle carries, "
+        "or a resource the recipe names by digest, which travels under that digest. "
+        "Pass what build.use() returned rather than a bare tracking id."
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -986,7 +1015,7 @@ def _record_pointer(
     tracking_id: UUID | None,
     dedupe: bool,
     generated: bool = False,
-    used: Sequence[str] = (),
+    used: _UsedInputs = _UsedInputs(),
 ) -> RecordedResource:
     """Append one pointer resource and return its local handle."""
     settled = _settle(name, type, visibility, default_visibility, tracking_id)
@@ -1004,7 +1033,8 @@ def _record_pointer(
         metadata=dict(metadata or {}),
         dedupe=dedupe,
         generated=generated,
-        used=list(used),
+        used=list(used.names),
+        used_digests=list(used.digests),
     )
     return settled.handle(
         client,
@@ -1056,15 +1086,20 @@ def _record_file(
     )
 
 
-def _recorded_activity_used(bundle: Bundle) -> list[str]:
-    """Return the ordered union of input names recorded by activity outputs."""
-    values: list[str] = []
+def _recorded_activity_used(bundle: Bundle) -> _UsedInputs:
+    """Return the ordered union of the inputs recorded by activity outputs."""
+    names: list[str] = []
+    digests: list[str] = []
     for resource in bundle.manifest.resources:
-        if resource.generated:
-            for reference in resource.used:
-                if reference not in values:
-                    values.append(reference)
-    return values
+        if not resource.generated:
+            continue
+        for reference in resource.used:
+            if reference not in names:
+                names.append(reference)
+        for digest in resource.used_digests:
+            if digest not in digests:
+                digests.append(digest)
+    return _UsedInputs(names=tuple(names), digests=tuple(digests))
 
 
 __all__ = [

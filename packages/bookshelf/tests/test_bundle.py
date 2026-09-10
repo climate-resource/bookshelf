@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from bookshelf._core.errors import BookshelfError
-from bookshelf._core.hashing import canonical_json_bytes
+from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
 from bookshelf.publisher.bundle import (
     Bundle,
     BundleBook,
@@ -62,6 +62,45 @@ def test_lineage_naming_an_unrecorded_resource_is_invalid(make_bundle: BundleFac
 
     with pytest.raises(InvalidBundleError, match="uses 'absent'"):
         bundle.validate()
+
+
+def test_lineage_citing_a_digest_names_nothing_and_validates(make_bundle: BundleFactory) -> None:
+    """An input the platform holds is cited by its bytes, so it names no resource here."""
+    bundle = make_bundle()
+    bundle.manifest.resources[0].used_digests = ["sha256:" + "b" * 64]
+
+    bundle.validate()
+
+
+def test_a_digest_ending_in_a_newline_is_not_canonical(make_bundle: BundleFactory) -> None:
+    """``$`` alone would accept a trailing newline, which is not the digest it claims to be."""
+    trailing = "sha256:" + "a" * 64 + "\n"
+
+    with pytest.raises(ValueError, match="canonical"):
+        resource_filename(trailing, "tabular")
+
+    with pytest.raises(ValueError, match="canonical"):
+        make_bundle().add_pointer(
+            external_uri="https://example.invalid/raw.csv",
+            hash_=trailing,
+            type_="tabular",
+            name="cited",
+        )
+
+
+def test_lineage_citing_a_non_canonical_digest_is_refused(make_bundle: BundleFactory) -> None:
+    """Replay takes a canonical digest, so anything else fails as the record is written."""
+    bundle = make_bundle()
+
+    with pytest.raises(ValueError, match="canonical"):
+        bundle.add_resource(
+            data=b"derived",
+            hash_=sha256_hex(b"derived"),
+            type_="tabular",
+            name="cited",
+            generated=True,
+            used_digests=["not-a-digest"],
+        )
 
 
 def test_lineage_recorded_after_its_consumer_is_invalid(make_bundle: BundleFactory) -> None:

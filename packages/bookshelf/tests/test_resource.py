@@ -260,6 +260,47 @@ def test_a_digest_resource_checks_a_stated_type(tmp_path: Path, held: _Held) -> 
             build.use("raw")
 
 
+def test_a_digest_input_is_cited_by_its_digest(tmp_path: Path, held: _Held) -> None:
+    """An uploaded input has no name in the bundle, so the output cites the bytes it holds."""
+    bundle_path = tmp_path / "bundle"
+    with _recording(_write_recipe(tmp_path, _DIGEST_VERSION), bundle_path):
+        build = setup()
+        raw = build.use("raw")
+        build.book.write("by_country", b"payload", type="document", used=[raw])
+        recorded = _written_resource(build.bs, bundle_path, "by_country")
+
+    assert recorded.used == []
+    assert recorded.used_digests == [f"sha256:{_SHA256}"]
+
+
+def test_a_digest_input_is_cited_once_however_often_it_is_passed(
+    tmp_path: Path, held: _Held
+) -> None:
+    """Inputs accumulate within a run, so the same upload cited twice is one edge."""
+    bundle_path = tmp_path / "bundle"
+    with _recording(_write_recipe(tmp_path, _DIGEST_VERSION), bundle_path):
+        build = setup()
+        raw = build.use("raw")
+        build.book.write("first", b"first", type="document", used=[raw])
+        build.book.write("second", b"second", type="document", used=[raw])
+        recorded = _written_resource(build.bs, bundle_path, "second")
+
+    assert recorded.used_digests == [f"sha256:{_SHA256}"]
+
+
+def test_a_book_reference_cannot_be_cited_as_lineage(
+    tmp_path: Path, published: _PublishedBook
+) -> None:
+    """A referenced book may belong to another organisation, which a digest could not resolve to."""
+    with _recording(_write_recipe(tmp_path, _REFERENCE_VERSION), tmp_path / "bundle"):
+        build = setup()
+        raw = build.use("raw")
+        with pytest.raises(ValueError) as excinfo:
+            build.book.write("by_country", b"payload", type="document", used=[raw])
+
+    assert "this bundle does not record" in str(excinfo.value)
+
+
 def test_a_uri_resource_fetches_once_and_reads_back(tmp_path: Path, server: _Server) -> None:
     with _recording(_write_recipe(tmp_path, _URI_VERSION), tmp_path / "bundle"):
         build = setup()

@@ -179,6 +179,14 @@ class ResolvedResource:
     """The registered pointer handle."""
     tracking_id: UUID
     """The pointer's id, so the handle passes straight into ``used=`` on a later registration."""
+    citable_hash: str | None = None
+    """The digest a recorded bundle may cite this input by, set for a digest reference alone.
+
+    A recorded ``used=`` cites an input the bundle carries by name,
+    and an input the platform holds by the bytes it holds, which replay resolves in-organisation.
+    A resource reached through a book coordinate may belong to another organisation,
+    so only a digest reference, which resolved in-organisation to begin with, carries one.
+    """
 
 
 def resolve_resource(
@@ -336,7 +344,7 @@ def _by_digest(
         raise BookshelfError(
             f"resource {name!r} names {reference.uri}, which your organisation does not hold: {exc}"
         ) from exc
-    return _held(name, uri=reference.uri, declared=declared, entry=entry)
+    return _held(name, uri=reference.uri, declared=declared, entry=entry, citable=True)
 
 
 def _held(
@@ -345,6 +353,7 @@ def _held(
     uri: str,
     declared: models.ResourceType | None,
     entry: PublishedEntry,
+    citable: bool = False,
 ) -> ResolvedResource:
     """Wrap a platform-held resource, checking a stated type rather than trusting it."""
     if declared is not None and entry.type != declared:
@@ -359,6 +368,7 @@ def _held(
         hash=entry.metadata.hash,
         pointer=entry,
         tracking_id=entry.tracking_id,
+        citable_hash=entry.metadata.hash if citable else None,
     )
 
 

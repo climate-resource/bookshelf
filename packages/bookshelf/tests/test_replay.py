@@ -71,6 +71,51 @@ def test_a_used_input_travels_as_the_name_of_an_earlier_resource(tmp_path: Path)
     assert resources[1]["used"] == ["raw"]
 
 
+def test_a_used_digest_travels_as_the_bytes_the_platform_holds(tmp_path: Path) -> None:
+    """An input the bundle does not carry has no name, so the request cites its digest."""
+    upload = "sha256:" + "b" * 64
+    bundle = Bundle(tmp_path / "bundle")
+    bundle.set_book(
+        BundleBook(volume="example", version="v1.0.0", visibility="public", license="MIT")
+    )
+    bundle.set_activity(_activity())
+    data = b"derived payload"
+    bundle.add_resource(
+        data=data,
+        hash_=sha256_hex(data),
+        type_="tabular",
+        name="derived",
+        generated=True,
+        used_digests=[upload],
+    )
+    bundle.add_book_entry(name="derived")
+    bundle.mark_book_published()
+    bundle.write()
+    recorded: list[httpx.Request] = []
+
+    with replay_client(recorded) as client:
+        replay_bundle_sync(bundle, client)
+
+    resources = replayed(recorded)["resources"]
+    assert [resource["name"] for resource in resources] == ["derived"]
+    assert resources[0]["used"] == [{"content_hash": upload}]
+
+
+def test_a_used_digest_travels_after_the_names_alongside_it(tmp_path: Path) -> None:
+    """Both citation forms reach the one field the request carries."""
+    upload = "sha256:" + "b" * 64
+    bundle = _derived_bundle(tmp_path / "bundle")
+    bundle.manifest.resources[1].used_digests = [upload]
+    bundle.write()
+    recorded: list[httpx.Request] = []
+
+    with replay_client(recorded) as client:
+        replay_bundle_sync(bundle, client)
+
+    resources = replayed(recorded)["resources"]
+    assert resources[1]["used"] == ["raw", {"content_hash": upload}]
+
+
 def test_a_resource_consuming_one_the_bundle_records_later_is_refused(tmp_path: Path) -> None:
     """Ordering is the contract, so a forward reference fails here rather than as a 422."""
     bundle = Bundle(tmp_path / "bundle")

@@ -39,6 +39,7 @@ resources:
   tags: []
   type: tabular
   used: []
+  used_digests: []
   visibility: public
 - dedupe: true
   format: parquet
@@ -52,6 +53,7 @@ resources:
   type: timeseries
   used:
   - raw
+  used_digests: []
   visibility: public
 - dedupe: true
   format: parquet
@@ -66,6 +68,7 @@ resources:
   used:
   - raw
   - cleaned
+  used_digests: []
   visibility: public
 - dedupe: true
   format: parquet
@@ -80,6 +83,7 @@ resources:
   used:
   - raw
   - cleaned
+  used_digests: []
   visibility: public
 - dedupe: true
   format: parquet
@@ -96,7 +100,8 @@ resources:
   - cleaned
   - by_region
   - world
+  used_digests: []
   visibility: public
-schema_version: '3.2'
+schema_version: '3.3'
 writer:
   pyarrow: 23.0.0
