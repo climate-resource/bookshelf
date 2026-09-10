@@ -41,11 +41,11 @@ entry = bs.book("rcmip-emissions", "v5.1.0")["magicc"]
 # - `as_arrow()` returns a PyArrow Table.
 # - `as_scmrun()` returns an `scmdata.ScmRun`.
 #
-# Polars and PyArrow need the `dataframes` extra.
+# `as_polars()` needs Polars installed.
 # `as_scmrun()` needs the `scmrun` extra.
 #
 # ```bash
-# uv add "bookshelf[dataframes,scmrun]"
+# uv add polars "bookshelf[scmrun]"
 # ```
 
 # %%
@@ -58,7 +58,7 @@ entry.as_arrow(**selection).schema.names[:8]
 
 # %% [markdown]
 # The optional imports are resolved before any request is made,
-# so a missing extra fails immediately rather than after downloading data.
+# so a missing Polars fails immediately rather than after downloading data.
 
 # %% [markdown]
 # ## Working in scmdata
