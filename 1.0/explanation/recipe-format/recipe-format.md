@@ -239,8 +239,11 @@ The coordinate is `bookshelf://<volume>/<version>_e<edition>/<entry>`.
 
 Nothing is fetched from upstream and nothing new is catalogued.
 The reference resolves to the existing resource,
-so `build.use("primap")` hands back the tracking id the platform already assigned
-and `used=[primap]` cites the original rather than a copy of it.
+so `build.use("primap")` hands back the tracking id the platform already assigned.
+
+A recorded build cannot cite it in `used=`.
+A replay resolves an input it does not carry by digest, against the publishing organisation alone,
+and a referenced book may belong to another one.
 
 ### Building on a file that cannot be checked in
 
@@ -260,6 +263,10 @@ resources:
 This creates a resource that isn't attached to a book,
 but can be used as a resource and will appear on the provenance graph.
 These files can only be access by an organisation member.
+
+`used=[compass]` records the lineage back to the upload,
+under the digest the recipe declares it by,
+because the upload belongs to no book and so has no bundle-local name.
 
 The preference is to use a publicly accessible pointer if possible.
 

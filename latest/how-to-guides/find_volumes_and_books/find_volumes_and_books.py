@@ -118,13 +118,9 @@ entry = volume.book()["by_region"]
 entry.as_df(year_min=2018, year_max=2020, top_n=5).iloc[:5, :3]
 
 # %% [markdown]
-# `list_books()` is the lower level form, returning the raw catalogue rows oldest first.
-# Pass `status=` to look at something other than published books.
-# Drafts are only visible to the organisation that owns them.
-
-# %%
-books = bs.list_books("primap-hist")
-[f"{book.version}_e{book.edition:03}" for book in books]
+# A volume reports only what it has published,
+# because a draft is not something a consumer can read.
+# The full catalogue rows, drafts included, are on the command line and in `BookshelfClient`.
 
 # %% [markdown]
 # ## From the command line
