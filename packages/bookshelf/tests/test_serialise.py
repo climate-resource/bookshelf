@@ -12,6 +12,7 @@ import io
 from pathlib import Path
 
 import polars as pl
+import pyarrow as pa
 import pytest
 
 from bookshelf._produce.serialise import SerialisedObject, serialise
@@ -69,6 +70,55 @@ def test_serialise_polars_and_pandas_agree() -> None:
     df = _frame()
     pandas_bytes = serialise(df.to_pandas(), type="timeseries")
     assert pandas_bytes.data == serialise(df, type="timeseries").data
+
+
+@pytest.mark.parametrize(
+    "column",
+    [
+        pytest.param(pl.Series(["a", None]), id="string"),
+        pytest.param(pl.Series([b"x", b"y"]), id="binary"),
+        pytest.param(pl.Series([[1], [2, 3]]), id="list"),
+        pytest.param(pl.Series([["a"], ["b", "c"]]), id="list-of-string"),
+        pytest.param(pl.Series([{"k": "a"}, {"k": "b"}]), id="struct"),
+        pytest.param(pl.Series(["a", "b", "a"], dtype=pl.Categorical), id="categorical"),
+    ],
+)
+def test_serialise_polars_and_pandas_agree_per_column_type(column: pl.Series) -> None:
+    """pandas and polars pick different Arrow offset and index widths, which must not reach the bytes."""
+    df = pl.DataFrame({"column": column})
+
+    assert serialise(df.to_pandas(), type="tabular").data == serialise(df, type="tabular").data
+
+
+class _ArrowFrame:
+    """A frame whose ``to_arrow`` hands back a prepared table, as polars does."""
+
+    def __init__(self, table: pa.Table) -> None:
+        self._table = table
+
+    def to_arrow(self) -> pa.Table:
+        return self._table
+
+
+def test_serialise_view_types_match_their_offset_equivalents() -> None:
+    """A frontend that switches to Arrow view types must not change the bytes."""
+    plain = pa.table(
+        {
+            "s": pa.array(["a", None], pa.large_string()),
+            "b": pa.array([b"x", b"y"], pa.large_binary()),
+        }
+    )
+    views = pa.table(
+        {
+            "s": pa.array(["a", None], pa.string_view()),
+            "b": pa.array([b"x", b"y"], pa.binary_view()),
+        }
+    )
+
+    assert (
+        serialise(_ArrowFrame(views), type="tabular").data
+        == serialise(_ArrowFrame(plain), type="tabular").data
+    )
 
 
 def test_serialise_document_passes_bytes_through() -> None:

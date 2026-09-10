@@ -127,7 +127,7 @@ def _dataframe_to_parquet(df: Any) -> bytes:
     - ``compression="none"`` and ``write_statistics=False`` remove
       compression- and statistics-driven byte variance.
     - ``version`` and ``data_page_version`` select a stable format.
-    - The pandas index and schema metadata are removed.
+    - The pandas index is removed and the schema is made canonical (see :func:`_to_arrow_table`).
       A pandas frame therefore encodes identically to the equivalent polars frame.
     """
     import pyarrow.parquet as pq
@@ -146,10 +146,48 @@ def _dataframe_to_parquet(df: Any) -> bytes:
 
 
 def _to_arrow_table(df: Any) -> pa.Table:
+    """Convert a polars or pandas ``DataFrame`` to a pyarrow ``Table`` with a canonical schema.
+
+    pandas and polars choose different offset and index widths for the same data,
+    and each attaches its own metadata.
+    Every column is cast to the widths polars writes and all metadata is dropped,
+    so either frame yields the same bytes.
+    """
+    import pyarrow as pa
+
+    table = _frame_to_arrow(df)
+    return table.cast(pa.schema([_canonical_field(field) for field in table.schema]))
+
+
+def _canonical_field(field: pa.Field) -> pa.Field:
+    """Return ``field`` with a canonical type and no metadata."""
+    return field.with_type(_canonical_type(field.type)).remove_metadata()
+
+
+def _canonical_type(data_type: pa.DataType) -> pa.DataType:
+    """Return ``data_type`` with large offsets and ``uint32`` dictionary indices, recursively."""
+    import pyarrow as pa
+
+    types = pa.types
+    if types.is_string(data_type) or types.is_string_view(data_type):
+        return pa.large_string()
+    if types.is_binary(data_type) or types.is_binary_view(data_type):
+        return pa.large_binary()
+    if types.is_list(data_type) or types.is_large_list(data_type) or types.is_list_view(data_type):
+        return pa.large_list(_canonical_field(data_type.value_field))
+    if types.is_struct(data_type):
+        return pa.struct(
+            [_canonical_field(data_type.field(i)) for i in range(data_type.num_fields)]
+        )
+    if types.is_dictionary(data_type):
+        return pa.dictionary(pa.uint32(), _canonical_type(data_type.value_type), data_type.ordered)
+    return data_type
+
+
+def _frame_to_arrow(df: Any) -> pa.Table:
     """Convert a polars or pandas ``DataFrame`` to a pyarrow ``Table``.
 
-    pandas frames drop their index and have pandas-specific schema metadata
-    stripped, so the byte output matches the equivalent polars frame.
+    pandas frames drop their index.
     """
     import pyarrow as pa
 
@@ -160,8 +198,7 @@ def _to_arrow_table(df: Any) -> pa.Table:
         if isinstance(table, pa.Table):
             return table
     if _is_pandas_frame(df):
-        table = pa.Table.from_pandas(df, preserve_index=False)
-        return table.replace_schema_metadata(None)
+        return pa.Table.from_pandas(df, preserve_index=False)
     raise TypeError(f"Expected a polars or pandas DataFrame, got {type(df).__name__!r}.")
 
 
