@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable, Mapping
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -45,16 +46,9 @@ if TYPE_CHECKING:
     from scmdata import ScmRun
 
 _FACET_MAX_VALUES = 500
+_REPR_TIMEOUT = 2.0
 _TRIMMING_ON_RESOURCE = "timeseries trimming requires a book entry handle"
 _UNSUPPORTED_TIMESERIES_ARGS = "timeseries entries accept filters, trimming, top_n, and limit"
-
-
-def _reachable[T](read: Callable[[], T]) -> T | None:
-    """Read what only the platform can answer, giving up rather than failing a repr."""
-    try:
-        return read()
-    except BookshelfError:
-        return None
 
 
 def describe_type(resource_type: models.ResourceType | None) -> str:
@@ -117,6 +111,20 @@ class _ResourceHandle(Describable):
         self._content_hash: str | None = None if metadata is None else metadata.hash
         self._recalled = False
 
+    def _reachable[T](self, read: Callable[[], T]) -> T | None:
+        """Read what only the platform can answer, within a deadline a printed line can afford.
+
+        A repr is what you reach for when things are already going wrong,
+        so it gives up rather than failing or holding a debugger for the client's full timeout.
+        """
+        pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="bookshelf-repr")
+        try:
+            return pool.submit(read).result(timeout=_REPR_TIMEOUT)
+        except (BookshelfError, TimeoutError):
+            return None
+        finally:
+            pool.shutdown(wait=False)
+
     def _recall(self) -> None:
         """Fill in the hash and type from the metadata cache, without a request."""
         if self._recalled:
@@ -171,7 +179,8 @@ class Resource(_ResourceHandle):
 
     def _summary(self) -> tuple[str, Sections]:
         # Resolves the type it was not given, the way the type property does, but never fails for it.
-        metadata = _reachable(lambda: self.metadata)
+        self._recall()
+        metadata = self._metadata or self._reachable(lambda: self.metadata)
         identity: dict[str, object] = {"tracking_id": self.tracking_id}
         if self._content_hash is not None:
             identity["hash"] = self._content_hash
@@ -445,7 +454,7 @@ class BookEntry(Resource):
 
     def _summary(self) -> tuple[str, Sections]:
         # Resolves the type it was not given, the way the type property does, but never fails for it.
-        resource_type = _reachable(lambda: self.type)
+        resource_type = self._resource_type or self._reachable(lambda: self.type)
         return _entry_header(self._title, self.name_in_book, resource_type), _entry_sections(
             self.entry, resource_type, self.book_id
         )

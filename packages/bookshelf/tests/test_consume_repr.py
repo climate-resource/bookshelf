@@ -5,6 +5,8 @@ Only the handle learns it, by fetching the resource metadata,
 so a repr reading the entry instead of the handle reports "unknown" forever.
 """
 
+import threading
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -12,6 +14,7 @@ from uuid import UUID
 
 import pytest
 
+from bookshelf._consume import resources
 from bookshelf._consume.books import Book
 from bookshelf._consume.resources import AsyncBookEntry, BookEntry, Resource
 from bookshelf._core.errors import APIError
@@ -203,3 +206,34 @@ def test_a_sync_resource_repr_survives_an_unreachable_platform(cache: ContentCac
     assert "unknown" in printed
     assert str(TRACKING_ID) in printed
     assert "hash" not in printed
+
+
+class _HangingClient:
+    """A platform that accepts the connection and then never answers."""
+
+    base_url = "https://bookshelf.invalid"
+
+    def __init__(self) -> None:
+        self.released = threading.Event()
+
+    def get_resource(self, tracking_id: Any) -> _Metadata:
+        self.released.wait(timeout=30)
+        return _Metadata()
+
+
+def test_a_repr_gives_up_rather_than_holding_a_debugger(
+    cache: ContentCache, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A hung platform must not hold a printed line for the client's full timeout."""
+    monkeypatch.setattr(resources, "_REPR_TIMEOUT", 0.05)
+    client = _HangingClient()
+    resource = Resource(client, cache, TRACKING_ID)  # type: ignore[arg-type]
+
+    started = time.monotonic()
+    printed = repr(resource)
+    waited = time.monotonic() - started
+    client.released.set()
+
+    assert waited < 5, "the repr waited on the platform instead of giving up"
+    assert "unknown" in printed
+    assert str(TRACKING_ID) in printed
