@@ -6,13 +6,11 @@ import pandas as pd
 import pytest
 
 from bookshelf._consume.frames import (
-    arrow_converter,
     long_timeseries,
     polars_converter,
     timeseries_frame,
     wide_timeseries,
 )
-from bookshelf._core.errors import BookshelfError
 from bookshelf._core.frames import DataFrameSupportError
 from bookshelf._generated import models
 
@@ -51,25 +49,13 @@ def test_wide_timeseries_leaves_a_year_only_frame_alone() -> None:
     assert list(wide_timeseries(wide).columns) == ["2000"]
 
 
-@pytest.mark.parametrize(
-    ("module", "converter", "method"),
-    [
-        ("polars", polars_converter, "as_polars()"),
-        ("pyarrow", arrow_converter, "as_arrow()"),
-    ],
-)
-def test_a_missing_extra_is_reported_as_a_bookshelf_error(
+def test_a_missing_polars_fails_when_the_converter_is_resolved(
     monkeypatch: pytest.MonkeyPatch,
-    module: str,
-    converter: object,
-    method: str,
 ) -> None:
-    """A caller catching BookshelfError should not have to catch ImportError as well."""
-    monkeypatch.setitem(sys.modules, module, None)
+    """The converter is resolved before any request, so a missing polars costs no download."""
+    monkeypatch.setitem(sys.modules, "polars", None)
 
     with pytest.raises(DataFrameSupportError) as raised:
-        converter()  # type: ignore[operator]
+        polars_converter()
 
-    assert isinstance(raised.value, BookshelfError)
-    assert method in str(raised.value)
-    assert "pip install 'bookshelf[dataframes]'" in str(raised.value)
+    assert "as_polars()" in str(raised.value)

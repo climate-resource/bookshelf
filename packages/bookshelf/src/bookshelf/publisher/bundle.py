@@ -320,19 +320,9 @@ class BundleBook(BaseModel):
     published: bool = False
 
 
-def _pyarrow_version() -> str | None:
-    """Return the installed pyarrow version, or ``None`` when it is not installed.
-
-    pyarrow arrives with the optional extras,
-    so a bundle can legitimately be written on a machine without it.
-    The version is read from the installed distribution metadata
-    rather than by importing pyarrow,
-    because the import is slow and the package may be absent.
-    """
-    try:
-        return importlib.metadata.version("pyarrow")
-    except importlib.metadata.PackageNotFoundError:
-        return None
+def _pyarrow_version() -> str:
+    """Return the installed pyarrow version, read from metadata because the import is slow."""
+    return importlib.metadata.version("pyarrow")
 
 
 class BundleWriter(BaseModel):
@@ -472,14 +462,10 @@ class Bundle:
 
     def __init__(self, root: Path, manifest: BundleManifest | None = None) -> None:
         self.root = root
-        # A fresh bundle records the writer versions of the machine writing it,
-        # and the whole block is absent when pyarrow is not installed.
+        # A fresh bundle records the writer versions of the machine writing it.
         # A manifest handed in came from disk, so it keeps whatever header it was written with.
         if manifest is None:
-            version = _pyarrow_version()
-            manifest = BundleManifest(
-                writer=BundleWriter(pyarrow=version) if version is not None else None
-            )
+            manifest = BundleManifest(writer=BundleWriter(pyarrow=_pyarrow_version()))
         self.manifest = manifest
 
     @property

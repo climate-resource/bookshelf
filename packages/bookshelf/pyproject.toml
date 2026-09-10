@@ -15,8 +15,10 @@ dependencies = [
     "gitpython>=3.1",
     "httpx>=0.27",
     "keyring>=25",
+    "pandas>=2.3",
     "pydantic>=2.7",
     "platformdirs>=4",
+    "pyarrow>=18",
     "pyyaml>=6.0",
     "typer>=0.12",
 ]
@@ -25,11 +27,8 @@ dependencies = [
 bookshelf = "bookshelf._cli:main"
 
 [project.optional-dependencies]
-dataframes = [
-    "polars>=1.0",
-    "pandas>=2.2",
-    "pyarrow>=16",
-]
+# Empty alias so older `bookshelf[dataframes]` install lines still resolve.
+dataframes = []
 scmrun = ["scmdata>=0.18"]
 publish = [
     "nbconvert>=7.0",
@@ -43,8 +42,7 @@ test = [
     "types-PyYAML>=6.0",
     "keyring>=25",
     "typer>=0.12",
-    "pandas>=2.2",
-    "pyarrow>=16",
+    "polars>=1.8",
 ]
 
 [build-system]
