@@ -58,8 +58,11 @@ class _Candidate:
 
 def _candidate(path: Path) -> _Candidate:
     """Read one bundle far enough to name its target, keeping any contract failure as its problem."""
-    bundle = Bundle.read(path)
-    framing = bundle.require_framing()
+    try:
+        bundle = Bundle.read(path)
+        framing = bundle.require_framing()
+    except (OSError, ValueError, InvalidBundleError) as exc:
+        raise InvalidBundleError(f"{path}: {exc}") from exc
     try:
         bundle.validate()
         pointers = [
