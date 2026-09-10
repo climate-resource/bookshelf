@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from bookshelf._consume.presentation import Sections
 from bookshelf._consume.resources import AsyncResource as ConsumedAsyncResource
 from bookshelf._consume.resources import Resource as ConsumedResource
 from bookshelf._core.client import BookshelfClient
@@ -11,8 +12,26 @@ from bookshelf._generated import models
 from bookshelf.cache import ContentCache
 
 
+def _registered(
+    summary: tuple[str, Sections],
+    name: str | None,
+    status: models.Status2 | None,
+) -> tuple[str, Sections]:
+    """Record how a registration was resolved, alongside what the resource itself reports."""
+    header, sections = summary
+    return header, {
+        **sections,
+        "Registration": {
+            "name": name or "(unnamed)",
+            "status": status.value if status is not None else "(none)",
+        },
+    }
+
+
 class Resource(ConsumedResource):
     """Synchronous resource handle retaining its registration outcome."""
+
+    _title = "Registered Resource"
 
     def __init__(
         self,
@@ -42,11 +61,16 @@ class Resource(ConsumedResource):
         if self.registration_outcome is None:
             return None
         return self.registration_outcome.status
+
+    def _summary(self) -> tuple[str, Sections]:
+        return _registered(super()._summary(), self.name, self.registration_status)
 
 
 class AsyncResource(ConsumedAsyncResource):
     """Asynchronous resource handle retaining its registration outcome."""
 
+    _title = "Registered Async Resource"
+
     def __init__(
         self,
         client: BookshelfClient,
@@ -75,6 +99,9 @@ class AsyncResource(ConsumedAsyncResource):
         if self.registration_outcome is None:
             return None
         return self.registration_outcome.status
+
+    def _summary(self) -> tuple[str, Sections]:
+        return _registered(super()._summary(), self.name, self.registration_status)
 
 
 __all__ = ["AsyncResource", "Resource"]

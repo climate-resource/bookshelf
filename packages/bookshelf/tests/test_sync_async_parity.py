@@ -21,7 +21,7 @@ from typing import Any
 import pytest
 
 from bookshelf import facade
-from bookshelf._consume import resources
+from bookshelf._consume import resources, volumes
 from bookshelf._produce import books
 from bookshelf._produce import facade as produce
 
@@ -31,6 +31,7 @@ CLASS_PAIRS = [
     (books.DraftBook, books.AsyncDraftBook),
     (resources.Resource, resources.AsyncResource),
     (resources.BookEntry, resources.AsyncBookEntry),
+    (volumes.Volume, volumes.AsyncVolume),
 ]
 
 # Pre-existing asymmetries, recorded rather than fixed.

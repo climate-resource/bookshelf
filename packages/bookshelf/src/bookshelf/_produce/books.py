@@ -6,7 +6,9 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Self
 from uuid import UUID
 
+from bookshelf._consume.presentation import Describable, Sections
 from bookshelf._core.client import BookshelfClient
+from bookshelf._core.names import book_coordinate
 from bookshelf._generated import models
 from bookshelf._produce.types import AuthorInput, HasTrackingId, UsedInput
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
@@ -53,7 +55,36 @@ def _attach_request(
     )
 
 
-class DraftBook:
+class _DraftBookBase(Describable):
+    """The attachment record and self-description both draft flavours share."""
+
+    _title = "Bookshelf Draft Book"
+    metadata: models.BookDetail
+    _attached: list[str]
+
+    def _record_attached(self, name_in_book: str) -> None:
+        """Note a name this handle has attached, so a printed draft says what is on it."""
+        if name_in_book not in self._attached:
+            self._attached.append(name_in_book)
+
+    def _summary(self) -> tuple[str, Sections]:
+        metadata = self.metadata
+        coordinate = book_coordinate(metadata.version, metadata.edition)
+        return (
+            f"{self._title} {metadata.series_name!r} {coordinate} "
+            f"(attached: {len(self._attached)})",
+            {
+                "Book": {
+                    "status": metadata.status,
+                    "visibility": metadata.visibility.value,
+                    "book_id": metadata.book_id,
+                },
+                "Attached": self._attached,
+            },
+        )
+
+
+class DraftBook(_DraftBookBase):
     """Mutable synchronous draft-book handle."""
 
     def __init__(
@@ -68,6 +99,7 @@ class DraftBook:
         # The activity book.write registers through.
         # A book drafted without one can still attach resources the caller registered itself, so this stays optional.
         self._activity = activity
+        self._attached: list[str] = []
 
     def _writing_activity(self) -> Activity:
         if self._activity is None:
@@ -159,7 +191,9 @@ class DraftBook:
             name_in_book=name_in_book,
             data_dictionary=data_dictionary,
         )
-        return self._client.attach_entry(str(self.book_id), request)
+        response = self._client.attach_entry(str(self.book_id), request)
+        self._record_attached(name_in_book)
+        return response
 
     def publish(self) -> Self:
         """Publish the assembled draft and update this handle in place."""
@@ -167,8 +201,10 @@ class DraftBook:
         return self
 
 
-class AsyncDraftBook:
+class AsyncDraftBook(_DraftBookBase):
     """Mutable asynchronous draft-book handle."""
+
+    _title = "Bookshelf Async Draft Book"
 
     def __init__(
         self,
@@ -180,6 +216,7 @@ class AsyncDraftBook:
         self._client = client
         self.metadata = detail
         self._activity = activity
+        self._attached: list[str] = []
 
     def _writing_activity(self) -> AsyncActivity:
         if self._activity is None:
@@ -264,7 +301,9 @@ class AsyncDraftBook:
             name_in_book=name_in_book,
             data_dictionary=data_dictionary,
         )
-        return await self._client.attach_entry_async(str(self.book_id), request)
+        response = await self._client.attach_entry_async(str(self.book_id), request)
+        self._record_attached(name_in_book)
+        return response
 
     async def publish(self) -> Self:
         """Publish the assembled draft and update this handle in place."""

@@ -8,13 +8,17 @@ Every decision they share lives in the sibling modules, so the flavours cannot d
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
+import queue
+import threading
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
 from bookshelf._consume.conversions import (
     UnsupportedConversionError,
+    explorers_for,
+    readers_for,
     require_frame_support,
     require_timeseries_support,
     scmrun_class,
@@ -29,9 +33,10 @@ from bookshelf._consume.frames import (
 )
 from bookshelf._consume.integrity import cached_if_verified, require_cached, verify_path
 from bookshelf._consume.memo import remember_resource, remembered_resource
-from bookshelf._consume.presentation import summary_table
+from bookshelf._consume.presentation import Describable, Section, Sections
 from bookshelf._consume.query import TimeseriesQuery, constant_columns, timeseries_filters
 from bookshelf._core.client import BookshelfClient
+from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf.cache import ContentCache
 
@@ -42,11 +47,50 @@ if TYPE_CHECKING:
     from scmdata import ScmRun
 
 _FACET_MAX_VALUES = 500
+_REPR_TIMEOUT = 2.0
 _TRIMMING_ON_RESOURCE = "timeseries trimming requires a book entry handle"
 _UNSUPPORTED_TIMESERIES_ARGS = "timeseries entries accept filters, trimming, top_n, and limit"
 
 
-class _ResourceHandle:
+def describe_type(resource_type: models.ResourceType | None) -> str:
+    """Name a type the handle may not have learned yet."""
+    return resource_type.value if resource_type is not None else "unknown"
+
+
+def _resource_sections(
+    resource_type: models.ResourceType | None,
+    identity: dict[str, object],
+) -> dict[str, Section]:
+    """Build the sections every resource flavour renders."""
+    return {
+        "Identity": identity,
+        "Read": readers_for(resource_type),
+        "Explore": explorers_for(resource_type),
+    }
+
+
+def _entry_sections(
+    entry: models.BookEntryItem,
+    resource_type: models.ResourceType | None,
+    book_id: UUID,
+) -> dict[str, Section]:
+    """Build the sections both entry flavours render."""
+    return _resource_sections(
+        resource_type,
+        {
+            "tracking_id": entry.tracking_id,
+            "book_id": book_id,
+            "visibility": entry.visibility.value,
+        },
+    )
+
+
+def _entry_header(title: str, name_in_book: str, resource_type: models.ResourceType | None) -> str:
+    """Name an entry and the type that decides which calls it answers."""
+    return f"{title} {name_in_book!r} ({describe_type(resource_type)})"
+
+
+class _ResourceHandle(Describable):
     """Identity and lazily resolved metadata shared by both resource flavours."""
 
     def __init__(
@@ -67,6 +111,27 @@ class _ResourceHandle:
         self._resource_type = resource_type
         self._content_hash: str | None = None if metadata is None else metadata.hash
         self._recalled = False
+
+    def _reachable[T](self, read: Callable[[], T]) -> T | None:
+        """Read what only the platform can answer, within a deadline a printed line can afford.
+
+        A repr is what you reach for when things are already going wrong,
+        so it gives up rather than failing or holding a debugger for the client's full timeout.
+        The reader is a daemon, so a read still hanging at the deadline cannot delay exit either.
+        """
+        answers: queue.Queue[T | None] = queue.Queue(maxsize=1)
+
+        def attempt() -> None:
+            try:
+                answers.put(read())
+            except BookshelfError:
+                answers.put(None)
+
+        threading.Thread(target=attempt, name="bookshelf-repr", daemon=True).start()
+        try:
+            return answers.get(timeout=_REPR_TIMEOUT)
+        except queue.Empty:
+            return None
 
     def _recall(self) -> None:
         """Fill in the hash and type from the metadata cache, without a request."""
@@ -91,6 +156,8 @@ class _ResourceHandle:
 
 class Resource(_ResourceHandle):
     """Lean immutable resource handle for machine and provenance reads."""
+
+    _title = "Bookshelf Resource"
 
     @property
     def metadata(self) -> models.ResourceRead:
@@ -118,16 +185,17 @@ class Resource(_ResourceHandle):
             return self.metadata.hash
         return self._content_hash
 
-    def _repr_html_(self) -> str:
-        metadata = self.metadata
-        return summary_table(
-            "Bookshelf Resource",
-            {
-                "tracking_id": self.tracking_id,
-                "type": metadata.type.value,
-                "hash": metadata.hash,
-                "visibility": metadata.visibility.value,
-            },
+    def _summary(self) -> tuple[str, Sections]:
+        self._recall()
+        metadata = self._metadata or self._reachable(lambda: self.metadata)
+        identity: dict[str, object] = {"tracking_id": self.tracking_id}
+        if self._content_hash is not None:
+            identity["hash"] = self._content_hash
+        if metadata is not None:
+            identity["visibility"] = metadata.visibility.value
+        return (
+            f"{self._title} ({describe_type(self._resource_type)})",
+            _resource_sections(self._resource_type, identity),
         )
 
     def _frame(
@@ -308,6 +376,8 @@ class Resource(_ResourceHandle):
 class BookEntry(Resource):
     """A resource handle with its book scoped exploration capabilities."""
 
+    _title = "Bookshelf Book Entry"
+
     def __init__(
         self,
         client: BookshelfClient,
@@ -389,15 +459,10 @@ class BookEntry(Resource):
         )
         return timeseries_frame(response)
 
-    def _repr_html_(self) -> str:
-        return summary_table(
-            "Bookshelf Book Entry",
-            {
-                "name": self.name_in_book,
-                "tracking_id": self.tracking_id,
-                "type": self.type.value,
-                "book_id": self.book_id,
-            },
+    def _summary(self) -> tuple[str, Sections]:
+        resource_type = self._resource_type or self._reachable(lambda: self.type)
+        return _entry_header(self._title, self.name_in_book, resource_type), _entry_sections(
+            self.entry, resource_type, self.book_id
         )
 
     def as_resource(self) -> Resource:
@@ -443,6 +508,8 @@ class BookEntry(Resource):
 class AsyncResource(_ResourceHandle):
     """Asynchronous lean immutable resource handle."""
 
+    _title = "Bookshelf Async Resource"
+
     async def _get_metadata(self) -> models.ResourceRead:
         if self._metadata is not None:
             return self._metadata
@@ -465,11 +532,14 @@ class AsyncResource(_ResourceHandle):
             return (await self._get_metadata()).hash
         return self._content_hash
 
-    def _repr_html_(self) -> str:
-        resource_type = self._resource_type.value if self._resource_type is not None else "unknown"
-        return summary_table(
-            "Bookshelf Async Resource",
-            {"tracking_id": self.tracking_id, "type": resource_type},
+    def _summary(self) -> tuple[str, Sections]:
+        # No await here, so this reports only what the handle has already learned.
+        identity: dict[str, object] = {"tracking_id": self.tracking_id}
+        if self._content_hash is not None:
+            identity["hash"] = self._content_hash
+        return (
+            f"{self._title} ({describe_type(self._resource_type)})",
+            _resource_sections(self._resource_type, identity),
         )
 
     async def _frame(
@@ -659,6 +729,8 @@ class AsyncResource(_ResourceHandle):
 class AsyncBookEntry(AsyncResource):
     """An async resource handle with book scoped exploration capabilities."""
 
+    _title = "Bookshelf Async Book Entry"
+
     def __init__(
         self,
         client: BookshelfClient,
@@ -740,18 +812,11 @@ class AsyncBookEntry(AsyncResource):
         )
         return timeseries_frame(response)
 
-    def _repr_html_(self) -> str:
+    def _summary(self) -> tuple[str, Sections]:
         # Read the handle's own type, not the entry's.
         # A book entry may arrive without one, and only the handle learns it from the metadata.
-        resource_type = self._resource_type.value if self._resource_type is not None else "unknown"
-        return summary_table(
-            "Bookshelf Async Book Entry",
-            {
-                "name": self.name_in_book,
-                "tracking_id": self.tracking_id,
-                "type": resource_type,
-                "book_id": self.book_id,
-            },
+        return _entry_header(self._title, self.name_in_book, self._resource_type), _entry_sections(
+            self.entry, self._resource_type, self.book_id
         )
 
     def as_resource(self) -> AsyncResource:
@@ -802,4 +867,5 @@ __all__ = [
     "BookEntry",
     "Resource",
     "UnsupportedConversionError",
+    "describe_type",
 ]

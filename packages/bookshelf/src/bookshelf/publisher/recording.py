@@ -504,6 +504,7 @@ class RecordedDraftBook(DraftBook):
                 f"so register it as {name_in_book!r}."
             )
         self._bundle.add_book_entry(name=name_in_book, data_dictionary=data_dictionary)
+        self._record_attached(name_in_book)
         return models.BookEntryAttachResponse(
             entry_id=helpers.uuid7(),
             book_id=self.book_id,
