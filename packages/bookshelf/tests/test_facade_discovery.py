@@ -22,18 +22,6 @@ def _volume_list(names: list[str], *, has_more: bool = False) -> dict[str, Any]:
     }
 
 
-def _book_page(versions: list[tuple[str, int]], *, has_more: bool) -> dict[str, Any]:
-    return dict(
-        payloads.BOOK_LIST,
-        items=[
-            dict(payloads.book_list_item(status="published"), version=version, edition=edition)
-            for version, edition in versions
-        ],
-        total=len(versions),
-        has_more=has_more,
-    )
-
-
 def _transport(recorded: list[httpx.Request], pages: list[Any]) -> httpx.MockTransport:
     """Serve one payload per request, so a paging caller sees the pages in order."""
     remaining = list(pages)

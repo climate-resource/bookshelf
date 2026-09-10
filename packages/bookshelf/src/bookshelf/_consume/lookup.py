@@ -24,7 +24,6 @@ from bookshelf.cache import ContentCache
 PAGE_SIZE = 100
 MAX_PAGES = 1000
 
-_LISTING_CAP = "book listing exceeded the pagination safety cap"
 _LOOKUP_CAP = "book lookup exceeded the pagination safety cap"
 _ENTRY_CAP = "book entry lookup exceeded the pagination safety cap"
 

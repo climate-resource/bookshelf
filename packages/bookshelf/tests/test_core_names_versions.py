@@ -8,12 +8,16 @@ SemVer won, so these pin the semantics.
 The two surfaces now share one ordering function rather than agreeing by luck.
 """
 
+import httpx
 import pytest
 
 from bookshelf._cli import discovery
+from bookshelf._cli._address import parse_address
 from bookshelf._consume.lookup import book_order as sdk_order
+from bookshelf._core.client import BookshelfClient
 from bookshelf._core.names import version_key
 from bookshelf._generated import models
+from tests import _core_payloads as payloads
 
 
 def _item(version: str, edition: int = 1) -> models.BookListItem:
@@ -92,6 +96,20 @@ def test_a_date_style_label_orders_within_its_own_family() -> None:
     assert _order(["2024-03", "2024-01", "2024-02"]) == ["2024-01", "2024-02", "2024-03"]
 
 
-def test_the_cli_resolves_latest_through_the_shared_ordering() -> None:
-    """The two surfaces used to keep separate copies of this, which is how they drifted."""
-    assert discovery.book_order is sdk_order
+def test_the_cli_resolves_the_latest_book_by_this_ordering() -> None:
+    """The CLI used to keep its own copy of the key, which is how the two drifted."""
+    scrambled = [("v2.10", 1), ("v2.9", 2), ("v10.0", 1), ("v2.9.1", 1)]
+    items = [
+        dict(payloads.book_list_item(status="published"), version=version, edition=edition)
+        for version, edition in scrambled
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=dict(payloads.BOOK_LIST, items=items, total=len(items)))
+
+    client = BookshelfClient(
+        "https://bookshelf.test", auth=None, transport=httpx.MockTransport(handler)
+    )
+    chosen = discovery._resolve_book(client, parse_address("primap-hist"))
+
+    assert (chosen.version, chosen.edition) == ("v10.0", 1)
