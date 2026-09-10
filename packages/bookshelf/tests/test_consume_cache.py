@@ -74,7 +74,7 @@ def test_metadata_records_round_trip_and_never_count_as_content(cache: ContentCa
     assert cache.summary().entries == 0
 
 
-@pytest.mark.parametrize("key", ["", "a//b", "../escape", "./here"])
+@pytest.mark.parametrize("key", ["", "a//b", "../escape", "./here", "..\\escape", "C:/escape"])
 def test_a_metadata_key_cannot_leave_the_cache(cache: ContentCache, key: str) -> None:
     with pytest.raises(ValueError, match="invalid metadata key"):
         cache.metadata.put(key, {})
@@ -84,3 +84,12 @@ def test_a_metadata_key_may_contain_a_dot(cache: ContentCache) -> None:
     cache.metadata.put("scope/books/v1.0.0", {"edition": 1})
 
     assert cache.metadata.get("scope/books/v1.0.0") == {"edition": 1}
+
+
+def test_a_record_that_is_not_an_object_reads_as_absent(cache: ContentCache) -> None:
+    cache.metadata.put("scope/list", {"ok": True})
+    path = cache.metadata.base_dir / "scope" / "list.json"
+    path.write_text("[1, 2]")
+
+    assert cache.metadata.get("scope/list") is None
+    assert not path.exists()

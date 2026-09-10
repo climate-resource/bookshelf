@@ -1,12 +1,12 @@
 """Content addressed local cache for downloaded resources."""
 
+import contextlib
 import hashlib
 import json
 import os
 import shutil
 import time
 from collections.abc import Iterator
-from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -29,7 +29,7 @@ def _is_digest(name: str) -> bool:
     return len(name) == _DIGEST_LENGTH and _HEX_DIGITS.issuperset(name)
 
 
-@contextmanager
+@contextlib.contextmanager
 def _staged(path: Path) -> Iterator[Path]:
     """Yield a unique temporary path beside ``path`` and atomically move it into place on success."""
     temporary = path.with_name(f"{path.name}.{uuid4().hex}.tmp")
@@ -80,12 +80,12 @@ class MetadataCache:
         try:
             loaded = json.loads(path.read_text())
         except (OSError, ValueError):
+            loaded = None
+        if isinstance(loaded, dict):
+            return loaded
+        with contextlib.suppress(OSError):
             path.unlink(missing_ok=True)
-            return None
-        if not isinstance(loaded, dict):
-            path.unlink(missing_ok=True)
-            return None
-        return loaded
+        return None
 
     def put(self, key: str, record: dict[str, Any]) -> None:
         """Atomically store ``record`` under ``key``."""
@@ -116,7 +116,7 @@ class MetadataCache:
 
     def _path_for(self, key: str) -> Path:
         parts = key.split("/")
-        if not parts or any(part in ("", ".", "..") for part in parts):
+        if any(part in ("", ".", "..") or "\\" in part or ":" in part for part in parts):
             raise ValueError(f"invalid metadata key {key!r}")
         path = self.base_dir.joinpath(*parts)
         return path.with_name(f"{path.name}.json")
@@ -145,7 +145,7 @@ class ContentCache:
             temporary.write_bytes(content)
         return self._path_for(content_hash)
 
-    @contextmanager
+    @contextlib.contextmanager
     def stage(self, content_hash: str) -> Iterator[Path]:
         """Yield a unique staging path and atomically commit it on success."""
         with _staged(self._path_for(content_hash)) as temporary:

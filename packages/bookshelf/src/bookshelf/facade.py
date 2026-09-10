@@ -13,6 +13,9 @@ import httpx
 from bookshelf._consume.books import AsyncBook, Book
 from bookshelf._consume.integrity import HashMismatchError
 from bookshelf._consume.memo import (
+    book_ttl as _book_ttl,
+)
+from bookshelf._consume.memo import (
     confirm_book,
     default_book_ttl,
     forget_book,
@@ -203,7 +206,7 @@ class Bookshelf:
             transport=transport,
         )
         self._cache = ContentCache()
-        self._book_ttl = default_book_ttl() if book_ttl is None else book_ttl
+        self._book_ttl = default_book_ttl() if book_ttl is None else _book_ttl(book_ttl)
         # A subclass changes these by rebinding them after this runs, not by redefining them.
         sink: ProduceSink = LiveSink(self._client, self._cache)
         self.activity = sink.activity
@@ -491,7 +494,7 @@ class AsyncBookshelf:
             async_transport=async_transport,
         )
         self._cache = ContentCache()
-        self._book_ttl = default_book_ttl() if book_ttl is None else book_ttl
+        self._book_ttl = default_book_ttl() if book_ttl is None else _book_ttl(book_ttl)
         sink: AsyncProduceSink = AsyncLiveSink(self._client, self._cache)
         self.activity = sink.activity
         """Open an ambient asynchronous producer activity."""

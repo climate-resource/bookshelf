@@ -278,3 +278,23 @@ def test_a_version_that_flattens_onto_another_is_not_confused_with_it() -> None:
     _sync(recorded, [dash, ENTRIES_PAGE]).book("example", "1.0.0-a", edition=2)
 
     assert len(recorded) == 2
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -1.0])
+def test_a_ttl_that_is_not_finite_seconds_is_rejected(value: float) -> None:
+    with pytest.raises(ValueError, match="book_ttl"):
+        _sync([], [], book_ttl=value)
+
+
+def test_a_malformed_remembered_hash_is_a_miss() -> None:
+    _sync([], [BOOK_PAGE, ENTRIES_PAGE, RESOURCE_READ]).book("example", "v1.0.0", edition=2)[
+        "by_country"
+    ].content_hash()
+    (record,) = ContentCache().metadata.base_dir.rglob("resources/*.json")
+    record.write_text('{"hash": "md5:nope", "type": "timeseries"}')
+
+    recorded: list[httpx.Request] = []
+    entry = _sync(recorded, [RESOURCE_READ]).book("example", "v1.0.0", edition=2)["by_country"]
+
+    assert entry.content_hash() == CONTENT_HASH
+    assert len(recorded) == 1

@@ -72,10 +72,11 @@ class _ResourceHandle:
         """Fill in the hash and type from the metadata cache, without a request."""
         if self._recalled:
             return
-        self._recalled = True
         remembered = remembered_resource(self._cache, self._client, self.tracking_id)
         if remembered is not None:
             self._content_hash, self._resource_type = remembered
+        # Marked last, so a concurrent caller that sees the flag also sees the fields.
+        self._recalled = True
 
     def _adopt(self, metadata: models.ResourceRead) -> models.ResourceRead:
         """Keep a freshly fetched record on the handle."""

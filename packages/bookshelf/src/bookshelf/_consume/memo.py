@@ -6,7 +6,9 @@ so a remembered edition is trusted for a while and then checked with one request
 Records are scoped by server, because ids differ between deployments.
 """
 
+import math
 import os
+import re
 import warnings
 from dataclasses import dataclass
 from uuid import UUID
@@ -19,6 +21,17 @@ from bookshelf._generated import models
 from bookshelf.cache import ContentCache
 
 DEFAULT_BOOK_TTL = 24 * 60 * 60.0
+_CONTENT_HASH = re.compile(r"^sha256:[0-9a-fA-F]{64}$")
+
+
+def book_ttl(value: float) -> float:
+    """Return ``value`` as a usable trust window, rejecting anything that is not finite seconds."""
+    seconds = float(value)
+    if math.isnan(seconds) or math.isinf(seconds) or seconds < 0:
+        raise ValueError(
+            f"book_ttl must be a finite, non-negative number of seconds, not {value!r}"
+        )
+    return seconds
 
 
 def default_book_ttl() -> float:
@@ -30,7 +43,7 @@ def default_book_ttl() -> float:
     if not override:
         return DEFAULT_BOOK_TTL
     try:
-        return float(override)
+        return book_ttl(override)  # type: ignore[arg-type]
     except ValueError:
         warnings.warn(
             f"ignoring BOOKSHELF_CACHE_BOOK_TTL={override!r}, it is not a number of seconds",
@@ -42,7 +55,8 @@ def default_book_ttl() -> float:
 def _scope(client: BookshelfClient) -> str:
     # Readable on disk, with a digest suffix so flattening two URLs onto one name cannot mix them.
     url = normalise_api_url(client.base_url)
-    return f"{flatten_to_resource_name(url)}-{sha256_hex(url.encode())[:8]}"
+    digest = sha256_hex(url.encode()).removeprefix("sha256:")
+    return f"{flatten_to_resource_name(url)}-{digest[:8]}"
 
 
 def _resource_key(client: BookshelfClient, tracking_id: UUID) -> str:
@@ -62,9 +76,12 @@ def remembered_resource(
     if record is None:
         return None
     try:
-        return str(record["hash"]), models.ResourceType(record["type"])
+        content_hash, resource_type = record["hash"], models.ResourceType(record["type"])
     except (KeyError, ValueError):
         return None
+    if not isinstance(content_hash, str) or not _CONTENT_HASH.match(content_hash):
+        return None
+    return content_hash, resource_type
 
 
 def remember_resource(
@@ -147,6 +164,7 @@ def remember_book(
 __all__ = [
     "DEFAULT_BOOK_TTL",
     "RememberedBook",
+    "book_ttl",
     "confirm_book",
     "default_book_ttl",
     "forget_book",
