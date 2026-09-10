@@ -31,7 +31,7 @@ from bookshelf._consume.frames import (
 )
 from bookshelf._consume.integrity import cached_if_verified, require_cached, verify_path
 from bookshelf._consume.memo import remember_resource, remembered_resource
-from bookshelf._consume.presentation import Section, Sections, summary_table, summary_text
+from bookshelf._consume.presentation import Describable, Section, Sections
 from bookshelf._consume.query import TimeseriesQuery, constant_columns, timeseries_filters
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import BookshelfError
@@ -95,7 +95,7 @@ def _entry_header(title: str, name_in_book: str, resource_type: models.ResourceT
     return f"{title} {name_in_book!r} ({describe_type(resource_type)})"
 
 
-class _ResourceHandle:
+class _ResourceHandle(Describable):
     """Identity and lazily resolved metadata shared by both resource flavours."""
 
     def __init__(
@@ -136,16 +136,6 @@ class _ResourceHandle:
 
     def _remember(self, metadata: models.ResourceRead) -> None:
         remember_resource(self._cache, self._client, metadata)
-
-    def _summary(self) -> tuple[str, Sections]:
-        """Return the header and sections both reprs render."""
-        raise NotImplementedError
-
-    def __repr__(self) -> str:
-        return summary_text(*self._summary())
-
-    def _repr_html_(self) -> str:
-        return summary_table(*self._summary())
 
 
 class Resource(_ResourceHandle):

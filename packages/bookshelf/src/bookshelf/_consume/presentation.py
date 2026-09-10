@@ -64,4 +64,18 @@ def summary_table(header: str, sections: Sections) -> str:
     return f"<div><strong>{escape(header)}</strong>{body}</div>"
 
 
-__all__ = ["Section", "Sections", "summary_table", "summary_text"]
+class Describable:
+    """Renders a handle as a header line over named sections, in text and in HTML."""
+
+    def _summary(self) -> tuple[str, Sections]:
+        """Return the header and sections both reprs render."""
+        raise NotImplementedError
+
+    def __repr__(self) -> str:
+        return summary_text(*self._summary())
+
+    def _repr_html_(self) -> str:
+        return summary_table(*self._summary())
+
+
+__all__ = ["Describable", "Section", "Sections", "summary_table", "summary_text"]

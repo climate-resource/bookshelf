@@ -6,7 +6,7 @@ from textwrap import shorten
 from bookshelf._consume.books import AsyncBook, Book
 from bookshelf._consume.lookup import resolve_book, resolve_book_async
 from bookshelf._consume.memo import default_book_ttl
-from bookshelf._consume.presentation import Section, Sections, summary_table, summary_text
+from bookshelf._consume.presentation import Describable, Section, Sections
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import NotFoundError
 from bookshelf._core.names import book_coordinate, version_key
@@ -37,7 +37,7 @@ def _describe_editions(editions: tuple[int, ...]) -> str:
     return f"editions {editions[0]:03}-{editions[-1]:03}"
 
 
-class _VolumeBase:
+class _VolumeBase(Describable):
     """Identity, versions and discovery for one volume, shared by both flavours."""
 
     _title = "Bookshelf Volume"
@@ -70,7 +70,7 @@ class _VolumeBase:
     @property
     def latest(self) -> str | None:
         """The newest published version, or None for a volume that has published nothing."""
-        return next(reversed(self._versions), None) if self._versions else None
+        return next(reversed(self._versions), None)
 
     def editions(self, version: str) -> tuple[int, ...]:
         """The published editions of one version, oldest first."""
@@ -117,7 +117,7 @@ class _VolumeBase:
         stats = self.metadata.stats
         latest = self.latest
         volume: dict[str, object] = {
-            "latest": book_coordinate(latest, max(self.editions(latest), default=None))
+            "latest": book_coordinate(latest, self.editions(latest)[-1])
             if latest is not None
             else "(nothing published)",
             "license": _unwrap_root(discovery.license if discovery else None) or "(unstated)",
@@ -136,12 +136,6 @@ class _VolumeBase:
             "Access": [self._access_hint(latest if latest is not None else "<version>")],
         }
         return f"{self._title} {self.name!r} (versions: {len(self._versions)})", sections
-
-    def __repr__(self) -> str:
-        return summary_text(*self._summary())
-
-    def _repr_html_(self) -> str:
-        return summary_table(*self._summary())
 
 
 class Volume(_VolumeBase):
@@ -171,7 +165,7 @@ class AsyncVolume(_VolumeBase):
     _title = "Bookshelf Async Volume"
 
     def _access_hint(self, version: str) -> str:
-        # No __getitem__ here, because an index cannot be awaited.
+        # An index cannot be awaited, so the hint names the coroutine.
         return f'await volume.book("{version}")'
 
     async def book(self, version: str | None = None, *, edition: int | None = None) -> AsyncBook:

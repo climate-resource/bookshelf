@@ -3,7 +3,7 @@
 from collections.abc import Iterator
 from uuid import UUID
 
-from bookshelf._consume.presentation import Sections, summary_table, summary_text
+from bookshelf._consume.presentation import Describable, Sections
 from bookshelf._consume.resources import AsyncBookEntry, BookEntry, describe_type
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.names import book_coordinate
@@ -11,7 +11,7 @@ from bookshelf._generated import models
 from bookshelf.cache import ContentCache
 
 
-class _BookBase:
+class _BookBase(Describable):
     _title = "Bookshelf Book"
 
     def __init__(
@@ -53,12 +53,6 @@ class _BookBase:
                 "Access": [f'book["{next(iter(self._entries), "<name>")}"]'],
             },
         )
-
-    def __repr__(self) -> str:
-        return summary_text(*self._summary())
-
-    def _repr_html_(self) -> str:
-        return summary_table(*self._summary())
 
     def _entry(self, name_in_book: str) -> models.BookEntryItem:
         try:

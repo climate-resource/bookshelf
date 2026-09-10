@@ -24,7 +24,8 @@ from bookshelf.cache import ContentCache
 PAGE_SIZE = 100
 MAX_PAGES = 1000
 
-_PAGINATION_CAP = "book listing exceeded the pagination safety cap"
+_LISTING_CAP = "book listing exceeded the pagination safety cap"
+_LOOKUP_CAP = "book lookup exceeded the pagination safety cap"
 _ENTRY_CAP = "book entry lookup exceeded the pagination safety cap"
 
 
@@ -63,7 +64,7 @@ def all_books(client: BookshelfClient, volume: str, *, status: str) -> list[mode
         books.extend(response.items)
         if not response.has_more:
             return sorted(books, key=book_order)
-    raise BookshelfError(_PAGINATION_CAP)
+    raise BookshelfError(_LISTING_CAP)
 
 
 async def all_books_async(
@@ -81,7 +82,7 @@ async def all_books_async(
         books.extend(response.items)
         if not response.has_more:
             return sorted(books, key=book_order)
-    raise BookshelfError(_PAGINATION_CAP)
+    raise BookshelfError(_LISTING_CAP)
 
 
 def all_entries(client: BookshelfClient, book_id: str) -> list[models.BookEntryItem]:
@@ -137,7 +138,7 @@ def find_book(
             if chosen is not None or not response.has_more:
                 break
         else:
-            raise BookshelfError(_PAGINATION_CAP)
+            raise BookshelfError(_LOOKUP_CAP)
     if chosen is None:
         raise missing_book(volume, version, edition)
     return chosen
@@ -170,7 +171,7 @@ async def find_book_async(
             if chosen is not None or not response.has_more:
                 break
         else:
-            raise BookshelfError(_PAGINATION_CAP)
+            raise BookshelfError(_LOOKUP_CAP)
     if chosen is None:
         raise missing_book(volume, version, edition)
     return chosen

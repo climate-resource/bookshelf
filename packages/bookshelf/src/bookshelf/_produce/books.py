@@ -6,7 +6,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Self
 from uuid import UUID
 
-from bookshelf._consume.presentation import Sections, summary_table, summary_text
+from bookshelf._consume.presentation import Describable, Sections
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.names import book_coordinate
 from bookshelf._generated import models
@@ -55,7 +55,7 @@ def _attach_request(
     )
 
 
-class _DraftBookBase:
+class _DraftBookBase(Describable):
     """The attachment record and self-description both draft flavours share."""
 
     _title = "Bookshelf Draft Book"
@@ -82,12 +82,6 @@ class _DraftBookBase:
                 "Attached": self._attached,
             },
         )
-
-    def __repr__(self) -> str:
-        return summary_text(*self._summary())
-
-    def _repr_html_(self) -> str:
-        return summary_table(*self._summary())
 
 
 class DraftBook(_DraftBookBase):
