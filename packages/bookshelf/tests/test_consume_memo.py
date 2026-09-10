@@ -298,3 +298,30 @@ def test_a_malformed_remembered_hash_is_a_miss() -> None:
 
     assert entry.content_hash() == CONTENT_HASH
     assert len(recorded) == 1
+
+
+@pytest.mark.asyncio
+async def test_the_async_surface_resolves_and_remembers_a_cold_pinned_edition() -> None:
+    """The path with nothing remembered yet, which the expiry test starts from a warm cache."""
+    first: list[httpx.Request] = []
+    book = await _async(first, [BOOK_PAGE, ENTRIES_PAGE]).book("example", "v1.0.0", edition=2)
+
+    assert [request.url.path for request in first] == ["/v1/books", f"/v1/books/{BOOK_ID}/entries"]
+    assert book.entry_names == ("by_country",)
+
+    second: list[httpx.Request] = []
+    again = await _async(second, []).book("example", "v1.0.0", edition=2)
+
+    assert second == [], "the async surface asked again for an edition it had just remembered"
+    assert again.entry_names == ("by_country",)
+
+
+@pytest.mark.asyncio
+async def test_the_async_surface_always_asks_for_the_latest_edition() -> None:
+    """A newer edition may have been published, so the unpinned read is never served from memory."""
+    await _async([], [BOOK_PAGE, ENTRIES_PAGE]).book("example", "v1.0.0", edition=2)
+
+    asked: list[httpx.Request] = []
+    await _async(asked, [BOOK_PAGE, ENTRIES_PAGE]).book("example", "v1.0.0")
+
+    assert [request.url.path for request in asked] == ["/v1/books", f"/v1/books/{BOOK_ID}/entries"]
