@@ -32,7 +32,6 @@ dev = [
     "mkdocs>=1.6.0",
     "mkdocstrings[python]>=0.25.0",
     "mkdocs-material>=9.5.0",
-    "mkdocs-gen-files>=0.5.0",
     "mkdocs-section-index>=0.3.9",
     "mkdocs-literate-nav>=0.6.1",
     "mkdocs-autorefs>=1.0.1",
