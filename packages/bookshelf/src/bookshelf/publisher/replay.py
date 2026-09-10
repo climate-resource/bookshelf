@@ -19,7 +19,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
 
 from bookshelf._core.client import BookshelfClient
 from bookshelf._generated import models
@@ -33,17 +32,20 @@ from bookshelf.publisher.bundle import (
     BundleBook,
     BundleBookEntry,
     BundleResource,
+    stated,
 )
 
 
 def _entry(entry: BundleBookEntry) -> models.ReplayEntry:
-    """Project one recorded membership row, preserving omission versus clearing."""
-    dictionary = (
-        None
-        if entry.data_dictionary is None
-        else [models.DataDictionaryEntry.model_validate(item) for item in entry.data_dictionary]
+    """Project one recorded membership row. An omitted dictionary stays omitted, an empty one clears."""
+    if entry.data_dictionary is None:
+        return models.ReplayEntry(name=entry.name)
+    return models.ReplayEntry(
+        name=entry.name,
+        data_dictionary=[
+            models.DataDictionaryEntry.model_validate(item) for item in entry.data_dictionary
+        ],
     )
-    return models.ReplayEntry(name=entry.name, data_dictionary=dictionary)
 
 
 def _activity(activity: BundleActivity) -> models.ReplayActivity:
@@ -58,16 +60,8 @@ def _activity(activity: BundleActivity) -> models.ReplayActivity:
         code_ref=activity.code_ref,
         config_hash=activity.config_hash,
         parameters=dict(activity.parameters),
-        runner=activity.runner,
+        **stated(runner=activity.runner),
     )
-
-
-def _stated(**fields: Any) -> dict[str, Any]:
-    """Keep only the fields the manifest states, so an omission never reaches the wire as a null.
-
-    The request is serialised with ``exclude_unset``, so a field left out here is left out there.
-    """
-    return {name: value for name, value in fields.items() if value is not None}
 
 
 def _book(book: BundleBook) -> models.ReplayBook:
@@ -79,7 +73,7 @@ def _book(book: BundleBook) -> models.ReplayBook:
         metadata=dict(book.metadata),
         entries=[_entry(entry) for entry in book.entries],
         published=book.published,
-        **_stated(
+        **stated(
             discovery=discovery_input(
                 book.discovery,
                 description=book.description,
@@ -103,7 +97,7 @@ def _resource(resource: BundleResource, storage_path: str | None) -> models.Repl
         dedupe=resource.dedupe,
         generated=resource.generated,
         used=list(resource.used),
-        **_stated(
+        **stated(
             format=resource.format,
             discovery=resource.discovery,
             size_bytes=None if pointer else resource.size,
@@ -120,7 +114,7 @@ def _request(bundle: Bundle, storage_paths: Mapping[str, str]) -> models.BundleR
         resources=[
             _resource(resource, storage_paths.get(resource.name)) for resource in manifest.resources
         ],
-        **_stated(
+        **stated(
             activity=None if manifest.activity is None else _activity(manifest.activity),
             book=None if manifest.book is None else _book(manifest.book),
         ),

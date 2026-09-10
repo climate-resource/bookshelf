@@ -173,6 +173,51 @@ def test_a_book_stating_no_discovery_sends_no_discovery_object(tmp_path: Path) -
     assert "discovery" not in replayed(recorded)["book"]
 
 
+def test_a_book_sends_the_discovery_it_states(tmp_path: Path) -> None:
+    """A stated fact still travels, folded into the discovery object the API reads."""
+    bundle = Bundle(tmp_path / "bundle")
+    bundle.set_book(
+        BundleBook(
+            volume="example",
+            version="v1.0.0",
+            license="MIT",
+            discovery={"title": "An example"},
+        )
+    )
+    data = b"derived payload"
+    bundle.add_resource(data=data, hash_=sha256_hex(data), type_="tabular", name="derived")
+    bundle.add_book_entry(name="derived")
+    bundle.write()
+    recorded: list[httpx.Request] = []
+
+    with replay_client(recorded) as client:
+        replay_bundle_sync(bundle, client)
+
+    assert replayed(recorded)["book"]["discovery"] == {"title": "An example", "license": "MIT"}
+
+
+def test_an_entry_without_a_data_dictionary_sends_none(tmp_path: Path) -> None:
+    """Omitting the dictionary keeps an existing one, so the key must not travel as a null."""
+    bundle = _derived_bundle(tmp_path / "bundle")
+    recorded: list[httpx.Request] = []
+
+    with replay_client(recorded) as client:
+        replay_bundle_sync(bundle, client)
+
+    (entry,) = replayed(recorded)["book"]["entries"]
+    assert entry == {"name": "derived"}
+
+
+def test_an_activity_without_a_runner_sends_no_runner(tmp_path: Path) -> None:
+    bundle = _derived_bundle(tmp_path / "bundle")
+    recorded: list[httpx.Request] = []
+
+    with replay_client(recorded) as client:
+        replay_bundle_sync(bundle, client)
+
+    assert "runner" not in replayed(recorded)["activity"]
+
+
 def test_the_managed_bytes_are_uploaded_before_the_replay(tmp_path: Path) -> None:
     bundle = _derived_bundle(tmp_path / "bundle")
     recorded: list[httpx.Request] = []

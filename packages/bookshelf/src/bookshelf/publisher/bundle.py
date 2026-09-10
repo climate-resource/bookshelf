@@ -99,6 +99,15 @@ def _sha256_hex(hash_: str) -> str:
 _EXTERNAL_SHELF = "external"
 
 
+def stated(**fields: Any) -> dict[str, Any]:
+    """Keep only the fields a record states, so an omission never reaches the wire as a null.
+
+    The replay request is serialised with ``exclude_unset``, so a field left out here is left out there.
+    An empty list is an omission too, because the manifest defaults its list fields to one.
+    """
+    return {name: value for name, value in fields.items() if value is not None and value != []}
+
+
 def synthesise_pointer_hash(
     *,
     type_: str,
@@ -188,14 +197,8 @@ class BundleResource(BaseModel):
         A field the record never stated stays unset, so replay omits it rather than sending a null.
         ``None`` is a record that states nothing at all.
         """
-        stated = {
-            name: value
-            for name, value in self.model_dump(
-                include=set(models.ResourceDiscovery.model_fields)
-            ).items()
-            if value is not None and value != []
-        }
-        return models.ResourceDiscovery(**stated) if stated else None
+        fields = stated(**self.model_dump(include=set(models.ResourceDiscovery.model_fields)))
+        return models.ResourceDiscovery(**fields) if fields else None
 
     @model_validator(mode="after")
     def _a_pointer_records_its_target(self) -> BundleResource:
