@@ -84,11 +84,6 @@ def forget_book(
     cache.metadata.discard(_book_key(client, volume, version, edition))
 
 
-def still_published(book: models.BookResponse) -> bool:
-    """Report whether a checked edition is still one a consumer may depend on."""
-    return book.status is models.BookStatus.published
-
-
 def remember_book(
     cache: ContentCache,
     client: BookshelfClient,
@@ -115,5 +110,4 @@ __all__ = [
     "remember_resource",
     "remembered_book",
     "remembered_resource",
-    "still_published",
 ]

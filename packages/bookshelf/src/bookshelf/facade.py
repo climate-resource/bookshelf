@@ -12,12 +12,7 @@ import httpx
 
 from bookshelf._consume.books import AsyncBook, Book
 from bookshelf._consume.integrity import HashMismatchError
-from bookshelf._consume.memo import (
-    forget_book,
-    remember_book,
-    remembered_book,
-    still_published,
-)
+from bookshelf._consume.memo import forget_book, remember_book, remembered_book
 from bookshelf._consume.resources import (
     AsyncBookEntry,
     AsyncResource,
@@ -406,9 +401,10 @@ class Bookshelf:
         if edition is not None:
             remembered = remembered_book(self._cache, self._client, volume, version, edition)
             if remembered is not None:
-                if not remembered.stale:
-                    return Book(self._client, self._cache, remembered.book, remembered.entries)
-                if self._still_published(remembered.book.id):
+                published = (
+                    None if not remembered.stale else self._still_published(remembered.book.id)
+                )
+                if published:
                     remember_book(
                         self._cache,
                         self._client,
@@ -417,6 +413,7 @@ class Bookshelf:
                         remembered.book,
                         remembered.entries,
                     )
+                if published is not False:
                     return Book(self._client, self._cache, remembered.book, remembered.entries)
                 forget_book(self._cache, self._client, volume, version, edition)
         if edition is None:
@@ -450,11 +447,14 @@ class Bookshelf:
             remember_book(self._cache, self._client, volume, version, chosen, entries)
         return Book(self._client, self._cache, chosen, entries)
 
-    def _still_published(self, book_id: str) -> bool:
+    def _still_published(self, book_id: str) -> bool | None:
+        """Check a remembered edition, or ``None`` when the platform could not say."""
         try:
-            return still_published(self._client.get_book(book_id))
+            return self._client.get_book(book_id).status is models.BookStatus.published
         except NotFoundError:
             return False
+        except BookshelfError:
+            return None
 
     def _all_entries(self, book_id: str) -> list[models.BookEntryItem]:
         entries: list[models.BookEntryItem] = []
@@ -697,10 +697,14 @@ class AsyncBookshelf:
                 remembered_book, self._cache, self._client, volume, version, edition
             )
             if remembered is not None:
-                if not remembered.stale:
-                    return AsyncBook(self._client, self._cache, remembered.book, remembered.entries)
-                if await self._still_published(remembered.book.id):
-                    remember_book(
+                published = (
+                    None
+                    if not remembered.stale
+                    else await self._still_published(remembered.book.id)
+                )
+                if published:
+                    await asyncio.to_thread(
+                        remember_book,
                         self._cache,
                         self._client,
                         volume,
@@ -708,8 +712,11 @@ class AsyncBookshelf:
                         remembered.book,
                         remembered.entries,
                     )
+                if published is not False:
                     return AsyncBook(self._client, self._cache, remembered.book, remembered.entries)
-                forget_book(self._cache, self._client, volume, version, edition)
+                await asyncio.to_thread(
+                    forget_book, self._cache, self._client, volume, version, edition
+                )
         if edition is None:
             response = await self._client.list_books_async(
                 volume=volume,
@@ -738,14 +745,20 @@ class AsyncBookshelf:
             raise _missing_book(volume, version, edition)
         entries = await self._all_entries(chosen.id)
         if edition is not None:
-            remember_book(self._cache, self._client, volume, version, chosen, entries)
+            await asyncio.to_thread(
+                remember_book, self._cache, self._client, volume, version, chosen, entries
+            )
         return AsyncBook(self._client, self._cache, chosen, entries)
 
-    async def _still_published(self, book_id: str) -> bool:
+    async def _still_published(self, book_id: str) -> bool | None:
+        """Check a remembered edition, or ``None`` when the platform could not say."""
         try:
-            return still_published(await self._client.get_book_async(book_id))
+            book = await self._client.get_book_async(book_id)
         except NotFoundError:
             return False
+        except BookshelfError:
+            return None
+        return book.status is models.BookStatus.published
 
     async def _all_entries(self, book_id: str) -> list[models.BookEntryItem]:
         entries: list[models.BookEntryItem] = []

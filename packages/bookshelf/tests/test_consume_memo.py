@@ -235,3 +235,34 @@ async def test_the_async_surface_checks_an_expired_record_too() -> None:
 
     assert [request.url.path for request in checked] == [f"/v1/books/{BOOK_ID}"]
     assert book.entry_names == ("by_country",)
+
+
+def test_an_outage_during_the_recheck_serves_the_remembered_edition() -> None:
+    _sync([], [BOOK_PAGE, ENTRIES_PAGE]).book("example", "v1.0.0", edition=2)
+
+    recorded: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        recorded.append(request)
+        return httpx.Response(500, json=payloads.problem(500, "Broken", "later"))
+
+    bs = Bookshelf(BASE_URL, auth=None, book_ttl=0, transport=httpx.MockTransport(handler))
+    book = bs.book("example", "v1.0.0", edition=2)
+
+    assert book.entry_names == ("by_country",)
+    assert {request.url.path for request in recorded} == {f"/v1/books/{BOOK_ID}"}
+
+    checked: list[httpx.Request] = []
+    _sync(checked, [BOOK_PUBLISHED], book_ttl=0).book("example", "v1.0.0", edition=2)
+    assert len(checked) == 1
+
+
+def test_a_bad_ttl_in_the_environment_falls_back_to_the_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BOOKSHELF_CACHE_BOOK_TTL", "soon")
+
+    with pytest.warns(UserWarning, match="BOOKSHELF_CACHE_BOOK_TTL"):
+        cache = ContentCache()
+
+    assert cache.book_ttl == 24 * 60 * 60

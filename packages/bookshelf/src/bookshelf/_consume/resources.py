@@ -76,13 +76,16 @@ class _ResourceHandle:
             return
         self._content_hash, self._resource_type = remembered
 
-    def _learned(self, metadata: models.ResourceRead) -> models.ResourceRead:
-        """Adopt a freshly fetched record and remember its immutable parts."""
+    def _adopt(self, metadata: models.ResourceRead) -> models.ResourceRead:
+        """Adopt a freshly fetched record, ready for :meth:`_remember`."""
         self._metadata = metadata
         self._resource_type = metadata.type
         self._content_hash = metadata.hash
-        remember_resource(self._cache, self._client, metadata)
         return metadata
+
+    def _remember(self) -> None:
+        if self._metadata is not None:
+            remember_resource(self._cache, self._client, self._metadata)
 
 
 class Resource(_ResourceHandle):
@@ -93,7 +96,9 @@ class Resource(_ResourceHandle):
         """Return the generated resource projection."""
         if self._metadata is not None:
             return self._metadata
-        return self._learned(self._client.get_resource(self.tracking_id))
+        self._adopt(self._client.get_resource(self.tracking_id))
+        self._remember()
+        return self.metadata
 
     @property
     def type(self) -> models.ResourceType:
@@ -104,7 +109,8 @@ class Resource(_ResourceHandle):
             return self.metadata.type
         return self._resource_type
 
-    def _hash(self) -> str:
+    def content_hash(self) -> str:
+        """Return the declared ``sha256:`` digest, from memory or disk before the platform."""
         if self._content_hash is None:
             self._recall()
         if self._content_hash is None:
@@ -287,7 +293,7 @@ class Resource(_ResourceHandle):
         return self._ensure_cached()
 
     def _ensure_cached(self) -> Path:
-        content_hash = self._hash()
+        content_hash = self.content_hash()
         cached = cached_if_verified(self._cache, content_hash)
         if cached is not None:
             return cached
@@ -439,7 +445,9 @@ class AsyncResource(_ResourceHandle):
     async def _get_metadata(self) -> models.ResourceRead:
         if self._metadata is not None:
             return self._metadata
-        return self._learned(await self._client.get_resource_async(self.tracking_id))
+        self._adopt(await self._client.get_resource_async(self.tracking_id))
+        await asyncio.to_thread(self._remember)
+        return await self._get_metadata()
 
     async def _get_type(self) -> models.ResourceType:
         if self._resource_type is None:
@@ -448,7 +456,8 @@ class AsyncResource(_ResourceHandle):
             return (await self._get_metadata()).type
         return self._resource_type
 
-    async def _get_hash(self) -> str:
+    async def content_hash(self) -> str:
+        """Return the declared ``sha256:`` digest, from memory or disk before the platform."""
         if self._content_hash is None:
             await asyncio.to_thread(self._recall)
         if self._content_hash is None:
@@ -633,7 +642,7 @@ class AsyncResource(_ResourceHandle):
         return await self._ensure_cached()
 
     async def _ensure_cached(self) -> Path:
-        content_hash = await self._get_hash()
+        content_hash = await self.content_hash()
         # A cache hit hashes the whole file on disk, so run it off the event loop.
         cached = await asyncio.to_thread(cached_if_verified, self._cache, content_hash)
         if cached is not None:

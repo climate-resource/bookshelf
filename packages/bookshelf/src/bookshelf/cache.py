@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import shutil
+import warnings
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -46,9 +47,16 @@ def default_book_ttl() -> float:
     ``$BOOKSHELF_CACHE_BOOK_TTL`` overrides the one day default.
     """
     override = os.environ.get("BOOKSHELF_CACHE_BOOK_TTL")
-    if override:
+    if not override:
+        return DEFAULT_BOOK_TTL
+    try:
         return float(override)
-    return DEFAULT_BOOK_TTL
+    except ValueError:
+        warnings.warn(
+            f"ignoring BOOKSHELF_CACHE_BOOK_TTL={override!r}, it is not a number of seconds",
+            stacklevel=2,
+        )
+        return DEFAULT_BOOK_TTL
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,7 +119,8 @@ class MetadataCache:
         parts = key.split("/")
         if not parts or any(part in ("", ".", "..") for part in parts):
             raise ValueError(f"invalid metadata key {key!r}")
-        return self.base_dir.joinpath(*parts).with_suffix(".json")
+        path = self.base_dir.joinpath(*parts)
+        return path.with_name(f"{path.name}.json")
 
 
 class ContentCache:

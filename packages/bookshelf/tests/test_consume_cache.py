@@ -78,3 +78,9 @@ def test_metadata_records_round_trip_and_never_count_as_content(cache: ContentCa
 def test_a_metadata_key_cannot_leave_the_cache(cache: ContentCache, key: str) -> None:
     with pytest.raises(ValueError, match="invalid metadata key"):
         cache.metadata.put(key, {})
+
+
+def test_a_metadata_key_may_contain_a_dot(cache: ContentCache) -> None:
+    cache.metadata.put("scope/books/v1.0.0", {"edition": 1})
+
+    assert cache.metadata.get("scope/books/v1.0.0") == {"edition": 1}
