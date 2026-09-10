@@ -75,6 +75,11 @@ class BookshelfClient:
         self._init_lock = threading.Lock()
 
     @property
+    def base_url(self) -> str:
+        """The resolved API root this client talks to."""
+        return self._base_url
+
+    @property
     def _sync_client(self) -> httpx.Client:
         if self._sync is None:
             with self._init_lock:

@@ -12,6 +12,10 @@ The SDK recognises these environment variables:
 - `BOOKSHELF_WORKOS_CLIENT_ID` configures interactive user login.
 - `BOOKSHELF_WORKOS_BASE_URL` overrides the WorkOS API base URL.
 - `BOOKSHELF_USE_KEYCHAIN` stores credentials in the OS keychain instead of the file.
+- `BOOKSHELF_CACHE_DIR` moves the local content cache.
+  `BOOKSHELF_CACHE_LOCATION` is accepted as an alias.
+- `BOOKSHELF_CACHE_BOOK_TTL` sets how many seconds a remembered pinned edition is trusted
+  before one request checks it is still published. The default is one day.
 
 ## Where credentials are stored
 
