@@ -1,6 +1,8 @@
 """Tests for the bundle-backed producer recording adapter."""
 
+import uuid
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock
 from uuid import uuid4
 
@@ -92,6 +94,39 @@ def test_a_later_batch_does_not_rewrite_earlier_lineage(tmp_path: Path) -> None:
     assert recorded["raw"] == [], "the raw input consumed nothing and must not cite itself"
     assert recorded["derived"] == ["raw"]
     assert recorded["notebook"] == ["raw"]
+
+
+def test_a_bare_tracking_id_the_bundle_does_not_record_says_what_to_pass(tmp_path: Path) -> None:
+    """An id alone carries no digest, so there is nothing for the citation to travel under."""
+    bundle = Bundle(tmp_path / "bundle")
+    stranger = uuid.UUID("0193f0f3-0000-7000-8000-0000000000ff")
+
+    with (
+        _activity(bundle, tmp_path / "cache") as activity,
+        pytest.raises(ValueError) as excinfo,
+    ):
+        activity.register(b"derived", type="tabular", name="derived", used=[stranger])
+
+    message = str(excinfo.value)
+    assert "this bundle does not record" in message
+    assert "build.use()" in message
+
+
+def test_an_input_carrying_a_citable_digest_is_recorded_as_one(tmp_path: Path) -> None:
+    """The recipe resolved the input in-organisation, so the bundle cites the bytes it holds."""
+    bundle = Bundle(tmp_path / "bundle")
+    digest = "sha256:" + "c" * 64
+    upload = SimpleNamespace(
+        tracking_id=uuid.UUID("0193f0f3-0000-7000-8000-0000000000fe"),
+        citable_hash=digest,
+    )
+
+    with _activity(bundle, tmp_path / "cache") as activity:
+        activity.register(b"derived", type="tabular", name="derived", used=[upload])
+
+    recorded = bundle.manifest.resources[0]
+    assert recorded.used == []
+    assert recorded.used_digests == [digest]
 
 
 def test_drafting_a_book_reseeds_the_sinks_default_tier(tmp_path: Path) -> None:

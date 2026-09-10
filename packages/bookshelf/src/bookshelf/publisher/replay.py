@@ -8,7 +8,10 @@ all in one transaction that rolls back as a whole.
 The client's job is therefore to put the managed bytes in place
 and to project the manifest onto the request.
 
-Every resource travels under its bundle-local name.
+Every resource travels under its bundle-local name,
+and so does every input the bundle carries.
+An input the platform already holds travels under its digest,
+which the server resolves against what the publishing organisation holds.
 The server owns the name to tracking id mapping,
 so nothing is carried between calls
 and the manifest order is the contract:
@@ -80,7 +83,11 @@ def _book(book: BundleBook) -> models.ReplayBook:
 
 
 def _resource(resource: BundleResource, storage_path: str | None) -> models.ReplayResource:
-    """Project one recorded resource, addressing it and its inputs by name."""
+    """Project one recorded resource, addressing it and the inputs it carries by name.
+
+    An input the platform already holds travels under its digest instead,
+    because this request carries no resource for it to name.
+    """
     pointer = resource.kind == "pointer"
     return models.ReplayResource(
         name=resource.name,
@@ -96,7 +103,10 @@ def _resource(resource: BundleResource, storage_path: str | None) -> models.Repl
         external_uri=resource.external_uri,
         storage_path=None if pointer else storage_path,
         generated=resource.generated,
-        used=list(resource.used),
+        used=[
+            *resource.used,
+            *(models.ReplayUsedByHash(content_hash=digest) for digest in resource.used_digests),
+        ],
     )
 
 

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from bookshelf._core.errors import BookshelfError
-from bookshelf._core.hashing import canonical_json_bytes
+from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
 from bookshelf.publisher.bundle import (
     Bundle,
     BundleBook,
@@ -62,6 +62,29 @@ def test_lineage_naming_an_unrecorded_resource_is_invalid(make_bundle: BundleFac
 
     with pytest.raises(InvalidBundleError, match="uses 'absent'"):
         bundle.validate()
+
+
+def test_lineage_citing_a_digest_names_nothing_and_validates(make_bundle: BundleFactory) -> None:
+    """An input the platform holds is cited by its bytes, so it names no resource here."""
+    bundle = make_bundle()
+    bundle.manifest.resources[0].used_digests = ["sha256:" + "b" * 64]
+
+    bundle.validate()
+
+
+def test_lineage_citing_a_non_canonical_digest_is_refused(make_bundle: BundleFactory) -> None:
+    """Replay takes a canonical digest, so anything else fails as the record is written."""
+    bundle = make_bundle()
+
+    with pytest.raises(ValueError, match="canonical"):
+        bundle.add_resource(
+            data=b"derived",
+            hash_=sha256_hex(b"derived"),
+            type_="tabular",
+            name="cited",
+            generated=True,
+            used_digests=["not-a-digest"],
+        )
 
 
 def test_lineage_recorded_after_its_consumer_is_invalid(make_bundle: BundleFactory) -> None:

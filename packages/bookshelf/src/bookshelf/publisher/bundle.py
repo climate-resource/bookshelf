@@ -37,14 +37,21 @@ from typing import Annotated, Any, Literal
 from uuid import UUID
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from bookshelf._core.errors import BookshelfError
 from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
 from bookshelf._core.names import RESOURCE_NAME_PATTERN
 from bookshelf._generated import models
 
-BUNDLE_SCHEMA_VERSION = "3.2"
+BUNDLE_SCHEMA_VERSION = "3.3"
 
 # A newer minor loads because the models ignore unknown fields, and any other major is refused:
 # v2 keys resources by tracking id and v3 by name, which no rule maps without inventing names.
@@ -142,8 +149,10 @@ class BundleResource(BaseModel):
       ``hash`` is the digest of the bytes at ``resources/<hex>.<ext>``.
       ``size`` is their length.
       For an activity output,
-      ``generated`` marks the output
-      and ``used`` carries its lineage input references.
+      ``generated`` marks the output,
+      ``used`` names the resources recorded earlier that it was derived from,
+      and ``used_digests`` cites the inputs the platform already holds
+      and this bundle records nothing for.
     - ``"pointer"``:
       an external pointer created with ``register_external``.
       ``external_uri`` is the target that the platform must not re-host.
@@ -180,6 +189,15 @@ class BundleResource(BaseModel):
     external_uri: str | None = None  # the pointer target, ``None`` for a managed resource
     generated: bool = False
     used: list[ResourceName] = Field(default_factory=list)
+    used_digests: list[str] = Field(default_factory=list)
+
+    @field_validator("used_digests")
+    @classmethod
+    def _digests_are_canonical(cls, value: list[str]) -> list[str]:
+        """Refuse a digest replay would refuse, at the point it is recorded."""
+        for digest in value:
+            _sha256_hex(digest)
+        return value
 
     @property
     def discovery(self) -> models.ResourceDiscovery:
@@ -553,6 +571,7 @@ class Bundle:
         dedupe: bool = True,
         generated: bool = False,
         used: list[str] | None = None,
+        used_digests: list[str] | None = None,
     ) -> BundleResource:
         """Write ``data`` to ``resources/<hex>`` and append a manifest record.
 
@@ -565,6 +584,8 @@ class Bundle:
         ``generated`` marks it as an activity output.
         ``used`` names the resources it was derived from,
         each of which must already be recorded.
+        ``used_digests`` cites the inputs the platform already holds,
+        which this bundle records nothing for and so has no name for.
         Both default to the no-lineage case,
         so a plain managed registration retains its earlier shape.
 
@@ -595,6 +616,7 @@ class Bundle:
             size=len(data),
             generated=generated,
             used=used,
+            used_digests=used_digests,
         )
 
     def add_pointer(
@@ -610,6 +632,7 @@ class Bundle:
         dedupe: bool = True,
         generated: bool = False,
         used: list[str] | None = None,
+        used_digests: list[str] | None = None,
     ) -> BundleResource:
         """Append a ``kind="pointer"`` manifest record: write **no** bytes.
 
@@ -635,6 +658,7 @@ class Bundle:
             external_uri=external_uri,
             generated=generated,
             used=used,
+            used_digests=used_digests,
         )
 
     def _append(
@@ -650,6 +674,7 @@ class Bundle:
         dedupe: bool,
         generated: bool,
         used: list[str] | None,
+        used_digests: list[str] | None,
         format_: str | None = None,
         size: int | None = None,
         external_uri: str | None = None,
@@ -687,6 +712,7 @@ class Bundle:
             external_uri=external_uri,
             generated=generated,
             used=list(used or []),
+            used_digests=list(used_digests or []),
         )
         self.manifest.resources.append(record)
         return record

@@ -56,6 +56,7 @@ resources:
   tags: []
   type: tabular
   used: []
+  used_digests: []
   visibility: public
 - dedupe: true
   format: parquet
@@ -69,6 +70,7 @@ resources:
   type: tabular
   used:
   - raw
+  used_digests: []
   visibility: public
 - dedupe: true
   generated: true
@@ -81,7 +83,8 @@ resources:
   type: document
   used:
   - raw
+  used_digests: []
   visibility: public
-schema_version: '3.2'
+schema_version: '3.3'
 writer:
   pyarrow: 23.0.0

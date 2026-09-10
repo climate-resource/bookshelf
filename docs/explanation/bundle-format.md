@@ -13,7 +13,7 @@ This page specifies what is written to disk.
 It is written so that an implementation in another language can produce and read bundles
 without reading the Python that implements this one.
 
-The format in force is manifest schema version **3.2**.
+The format in force is manifest schema version **3.3**.
 
 ## Bundle directory
 
@@ -101,6 +101,7 @@ Every entry in `resources` has these fields.
 | `external_uri` | pointer only | string                      | absent    | the external target                                                     |
 | `generated`    | optional     | boolean                     | `false`   | whether an activity produced this resource                              |
 | `used`         | optional     | list of names               | `[]`      | what this resource was derived from                                     |
+| `used_digests` | optional     | list of digests             | `[]`      | inputs it was derived from that the bundle does not carry               |
 
 `name` is local to the bundle that registers it, and it carries no hierarchy.
 It matches `^[a-z0-9][a-z0-9._-]{0,199}$`, it is unique within the manifest,
@@ -166,6 +167,25 @@ The server resolves each name against the resources of that same replay and noth
 so the same bundle always resolves to the same inputs however often it is replayed.
 
 Order is therefore part of the format rather than an accident of how the bundle was written.
+
+`used_digests` cites the inputs the bundle does not carry, by the bytes they hold:
+
+```yaml
+used_digests:
+  - sha256:0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0
+```
+
+This is how a book built from an uploaded file cites the upload.
+Such an input is already on the platform and belongs to no book,
+so the bundle records nothing for it and it has no name for `used` to carry.
+Each digest is canonical `sha256:<hex>`,
+and the server resolves it against what the publishing organisation holds for those bytes.
+A deployment holding nothing for the digest refuses the replay,
+so this cites an input the publisher can reach rather than one any reader could.
+
+The field arrived in schema 3.3.
+An older reader drops it under the additive-minor rule,
+which costs it the lineage edge and nothing else.
 
 Inputs accumulate within a run.
 A resource records the inputs known at the moment it was registered,
@@ -396,7 +416,7 @@ resources:
   used:
   - upstream-emissions
   visibility: public
-schema_version: '3.2'
+schema_version: '3.3'
 writer:
   pyarrow: 23.0.0
 ```
