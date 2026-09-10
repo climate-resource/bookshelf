@@ -101,6 +101,10 @@
          <lastmod>2026-09-10</lastmod>
     </url>
     <url>
+         <loc>https://climate-resource.github.io/bookshelf/dev/api/bookshelf/_consume/lookup/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
          <loc>https://climate-resource.github.io/bookshelf/dev/api/bookshelf/_consume/memo/</loc>
          <lastmod>2026-09-10</lastmod>
     </url>
@@ -114,6 +118,10 @@
     </url>
     <url>
          <loc>https://climate-resource.github.io/bookshelf/dev/api/bookshelf/_consume/resources/</loc>
+         <lastmod>2026-09-10</lastmod>
+    </url>
+    <url>
+         <loc>https://climate-resource.github.io/bookshelf/dev/api/bookshelf/_consume/volumes/</loc>
          <lastmod>2026-09-10</lastmod>
     </url>
     <url>
