@@ -25,5 +25,5 @@ This includes:
 - `bookshelf.publisher` drives recording, replaying and publishing bundles, and is not covered.
 - `bookshelf.models` holds the generated API models.
   Methods above still return some of these, but their fields track the platform API.
-- The `transport` argument to `Bookshelf` and `AsyncBookshelf` exists for tests.
+- The `transport` and `async_transport` arguments exist for tests.
 - The `bookshelf` command line interface is not covered.

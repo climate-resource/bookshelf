@@ -178,14 +178,16 @@ class Bookshelf:
         # The transport is the test seam: production always leaves it None.
         transport: httpx.BaseTransport | None = None,
     ) -> None:
-        """Configure the client, reading anything left out from the environment.
+        """Configure the client.
 
         Args:
-            base_url: API deployment to talk to, defaulting to ``$BOOKSHELF_URL``.
+            base_url: API deployment to talk to.
+                Left out, ``$BOOKSHELF_URL`` or the default deployment.
             auth: A bearer token, an ``httpx.Auth``, or None for anonymous access.
                 Left out, credentials come from the environment or a stored login.
             timeout: Seconds to wait for each request.
             book_ttl: Seconds a remembered pinned edition is trusted before it is checked again.
+                Left out, ``$BOOKSHELF_CACHE_BOOK_TTL`` or one day.
         """
         self._client = BookshelfClient(
             base_url,
@@ -403,14 +405,16 @@ class AsyncBookshelf:
         # The transport is the test seam: production always leaves it None.
         async_transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
-        """Configure the client, reading anything left out from the environment.
+        """Configure the client.
 
         Args:
-            base_url: API deployment to talk to, defaulting to ``$BOOKSHELF_URL``.
+            base_url: API deployment to talk to.
+                Left out, ``$BOOKSHELF_URL`` or the default deployment.
             auth: A bearer token, an ``httpx.Auth``, or None for anonymous access.
                 Left out, credentials come from the environment or a stored login.
             timeout: Seconds to wait for each request.
             book_ttl: Seconds a remembered pinned edition is trusted before it is checked again.
+                Left out, ``$BOOKSHELF_CACHE_BOOK_TTL`` or one day.
         """
         self._client = BookshelfClient(
             base_url,
