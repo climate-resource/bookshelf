@@ -124,6 +124,26 @@ def test_a_multipart_upload_completes_under_the_preview(make_bundle: BundleFacto
     assert [part["part_number"] for part in completed["parts"]] == [1, 2]
 
 
+def test_a_single_part_upload_is_completed_so_its_digest_is_rechecked(
+    make_bundle: BundleFactory,
+) -> None:
+    bundle = make_bundle()
+    deployment = PreviewDeployment()
+
+    with _client(deployment) as client:
+        upload_preview([bundle.root], client, IDENTITY)
+
+    (completed,) = deployment.sent("/uploads/complete")
+    assert completed["upload_id"] == "single"
+    assert completed["parts"] == []
+    paths = [
+        request.url.path for request in deployment.requests if request.url.host != "s3.example"
+    ]
+    assert paths.index(f"/v1/previews/{PREVIEW_ID}/uploads/complete") < paths.index(
+        f"/v1/previews/{PREVIEW_ID}/books/example/v1.0.0"
+    )
+
+
 def test_a_bundle_without_a_book_is_refused_before_anything_is_created(
     make_bundle: BundleFactory,
 ) -> None:

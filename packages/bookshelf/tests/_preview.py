@@ -16,7 +16,7 @@ class PreviewDeployment:
     """Answers the preview routes, recording every request and remembering the preview's state.
 
     ``refuse`` maps a path suffix to the status the deployment answers it with instead.
-    ``multipart`` answers every upload with two parts, so the completion call is exercised.
+    ``multipart`` answers every upload with two parts instead of one.
     """
 
     def __init__(self, *, refuse: dict[str, int] | None = None, multipart: bool = False) -> None:

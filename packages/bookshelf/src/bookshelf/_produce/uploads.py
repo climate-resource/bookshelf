@@ -59,7 +59,7 @@ def upload_bytes(
         )
         if multipart:
             completed.append(_part_complete(part, etag))
-    if multipart and preview_id is not None:
+    if preview_id is not None:
         client.complete_preview_upload(
             preview_id,
             models.PreviewUploadCompleteRequest(
