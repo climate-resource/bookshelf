@@ -74,6 +74,10 @@ class BookshelfClient:
         # The async surface can therefore share it.
         self._init_lock = threading.Lock()
 
+    # A bulk read is answered with a redirect to stored bytes rather than a serialisation
+    # of them, so a client that does not follow one cannot download the large resources.
+    # httpx drops the Authorization header when a redirect crosses hosts, so the bearer
+    # token does not reach the object store the signed URL points at.
     @property
     def base_url(self) -> str:
         """The resolved API root this client talks to."""
@@ -90,6 +94,7 @@ class BookshelfClient:
                         timeout=self._timeout,
                         headers={"user-agent": _USER_AGENT},
                         transport=self._transport,
+                        follow_redirects=True,
                     )
         return self._sync
 
@@ -104,6 +109,7 @@ class BookshelfClient:
                         timeout=self._timeout,
                         headers={"user-agent": _USER_AGENT},
                         transport=self._async_transport,
+                        follow_redirects=True,
                     )
         return self._async
 
