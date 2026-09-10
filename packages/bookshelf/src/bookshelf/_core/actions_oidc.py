@@ -37,11 +37,12 @@ def fetch_actions_token(
             "Run inside a GitHub Actions job with the 'id-token: write' permission."
         )
     try:
+        request_url = httpx.URL(url).copy_merge_params({"audience": audience})
+    except httpx.InvalidURL as exc:
+        raise ActionsTokenError(f"${REQUEST_URL_VAR} is not a valid URL: {exc}") from exc
+    try:
         with httpx.Client(transport=transport, timeout=timeout) as client:
-            response = client.get(
-                httpx.URL(url).copy_merge_params({"audience": audience}),
-                headers={"Authorization": f"bearer {bearer}"},
-            )
+            response = client.get(request_url, headers={"Authorization": f"bearer {bearer}"})
     except httpx.HTTPError as exc:
         raise errors.TransportError(f"could not reach the Actions token endpoint: {exc}") from exc
     if response.status_code != httpx.codes.OK:

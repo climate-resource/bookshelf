@@ -45,6 +45,16 @@ def test_a_missing_runtime_variable_names_the_permission(
         fetch_actions_token("bookshelf")
 
 
+def test_a_malformed_request_url_is_an_actions_token_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ACTIONS_ID_TOKEN_REQUEST_URL", "https://actions.test:notaport/token")
+    monkeypatch.setenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "runtime-bearer")
+
+    with pytest.raises(ActionsTokenError, match="ACTIONS_ID_TOKEN_REQUEST_URL"):
+        fetch_actions_token("bookshelf")
+
+
 @pytest.mark.usefixtures("actions_env")
 def test_a_refusal_from_the_runtime_carries_the_status() -> None:
     transport = httpx.MockTransport(lambda _request: httpx.Response(403, text="denied"))
