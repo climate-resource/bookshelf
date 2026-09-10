@@ -23,6 +23,16 @@ _TIMESERIES_READERS = ("as_df()", "as_long_df()", "as_scmrun()", "as_polars()", 
 _FRAME_EXPLORERS = ("facets()", "preview()")
 _TIMESERIES_EXPLORERS = ("schema()",)
 
+# What each resource type answers, so a handle describing itself names only calls that work.
+_CAPABILITIES: dict[models.ResourceType | None, tuple[tuple[str, ...], tuple[str, ...]]] = {
+    models.ResourceType.timeseries: (
+        _TIMESERIES_READERS + _BYTE_READERS,
+        _FRAME_EXPLORERS + _TIMESERIES_EXPLORERS,
+    ),
+    models.ResourceType.tabular: (_FRAME_READERS + _BYTE_READERS, _FRAME_EXPLORERS),
+}
+_NOTHING_BUT_BYTES = (_BYTE_READERS, ())
+
 
 class UnsupportedConversionError(BookshelfError):
     """A converter does not apply to the resource type."""
@@ -44,22 +54,12 @@ def require_timeseries_support(resource_type: models.ResourceType) -> None:
 
 def readers_for(resource_type: models.ResourceType | None) -> tuple[str, ...]:
     """Name the converters that work on a resource type, for a handle describing itself."""
-    if resource_type is None:
-        return _BYTE_READERS
-    if resource_type is models.ResourceType.timeseries:
-        return _TIMESERIES_READERS + _BYTE_READERS
-    if resource_type in _FRAME_TYPES:
-        return _FRAME_READERS + _BYTE_READERS
-    return _BYTE_READERS
+    return _CAPABILITIES.get(resource_type, _NOTHING_BUT_BYTES)[0]
 
 
 def explorers_for(resource_type: models.ResourceType | None) -> tuple[str, ...]:
     """Name the book scoped exploration calls a resource type answers."""
-    if resource_type not in _FRAME_TYPES:
-        return ()
-    if resource_type is models.ResourceType.timeseries:
-        return _FRAME_EXPLORERS + _TIMESERIES_EXPLORERS
-    return _FRAME_EXPLORERS
+    return _CAPABILITIES.get(resource_type, _NOTHING_BUT_BYTES)[1]
 
 
 def shape_frame(resource_type: models.ResourceType, frame: pd.DataFrame) -> pd.DataFrame:

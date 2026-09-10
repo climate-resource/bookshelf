@@ -141,6 +141,8 @@ class _ResourceHandle(Describable):
 class Resource(_ResourceHandle):
     """Lean immutable resource handle for machine and provenance reads."""
 
+    _title = "Bookshelf Resource"
+
     @property
     def metadata(self) -> models.ResourceRead:
         """Return the generated resource projection."""
@@ -168,19 +170,16 @@ class Resource(_ResourceHandle):
         return self._content_hash
 
     def _summary(self) -> tuple[str, Sections]:
-        # A repr reads what the memo already knows, and never fails for want of the rest.
-        self._recall()
+        # Resolves the type it was not given, the way the type property does, but never fails for it.
         metadata = _reachable(lambda: self.metadata)
-        resource_type = metadata.type if metadata is not None else self._resource_type
         identity: dict[str, object] = {"tracking_id": self.tracking_id}
-        content_hash = metadata.hash if metadata is not None else self._content_hash
-        if content_hash is not None:
-            identity["hash"] = content_hash
+        if self._content_hash is not None:
+            identity["hash"] = self._content_hash
         if metadata is not None:
             identity["visibility"] = metadata.visibility.value
         return (
-            f"Bookshelf Resource ({describe_type(resource_type)})",
-            _resource_sections(resource_type, identity),
+            f"{self._title} ({describe_type(self._resource_type)})",
+            _resource_sections(self._resource_type, identity),
         )
 
     def _frame(
@@ -361,6 +360,8 @@ class Resource(_ResourceHandle):
 class BookEntry(Resource):
     """A resource handle with its book scoped exploration capabilities."""
 
+    _title = "Bookshelf Book Entry"
+
     def __init__(
         self,
         client: BookshelfClient,
@@ -443,11 +444,11 @@ class BookEntry(Resource):
         return timeseries_frame(response)
 
     def _summary(self) -> tuple[str, Sections]:
-        # A repr resolves the type it was not given, but never fails for want of it.
-        resource_type = _reachable(lambda: self.type) or self._resource_type
-        return _entry_header(
-            "Bookshelf Book Entry", self.name_in_book, resource_type
-        ), _entry_sections(self.entry, resource_type, self.book_id)
+        # Resolves the type it was not given, the way the type property does, but never fails for it.
+        resource_type = _reachable(lambda: self.type)
+        return _entry_header(self._title, self.name_in_book, resource_type), _entry_sections(
+            self.entry, resource_type, self.book_id
+        )
 
     def as_resource(self) -> Resource:
         """Drop book context and return the lean resource handle."""
@@ -492,6 +493,8 @@ class BookEntry(Resource):
 class AsyncResource(_ResourceHandle):
     """Asynchronous lean immutable resource handle."""
 
+    _title = "Bookshelf Async Resource"
+
     async def _get_metadata(self) -> models.ResourceRead:
         if self._metadata is not None:
             return self._metadata
@@ -516,13 +519,12 @@ class AsyncResource(_ResourceHandle):
 
     def _summary(self) -> tuple[str, Sections]:
         # No await here, so this reports only what the handle has already learned.
-        resource_type = self._resource_type
         identity: dict[str, object] = {"tracking_id": self.tracking_id}
         if self._content_hash is not None:
             identity["hash"] = self._content_hash
         return (
-            f"Bookshelf Async Resource ({describe_type(resource_type)})",
-            _resource_sections(resource_type, identity),
+            f"{self._title} ({describe_type(self._resource_type)})",
+            _resource_sections(self._resource_type, identity),
         )
 
     async def _frame(
@@ -712,6 +714,8 @@ class AsyncResource(_ResourceHandle):
 class AsyncBookEntry(AsyncResource):
     """An async resource handle with book scoped exploration capabilities."""
 
+    _title = "Bookshelf Async Book Entry"
+
     def __init__(
         self,
         client: BookshelfClient,
@@ -796,10 +800,9 @@ class AsyncBookEntry(AsyncResource):
     def _summary(self) -> tuple[str, Sections]:
         # Read the handle's own type, not the entry's.
         # A book entry may arrive without one, and only the handle learns it from the metadata.
-        resource_type = self._resource_type
-        return _entry_header(
-            "Bookshelf Async Book Entry", self.name_in_book, resource_type
-        ), _entry_sections(self.entry, resource_type, self.book_id)
+        return _entry_header(self._title, self.name_in_book, self._resource_type), _entry_sections(
+            self.entry, self._resource_type, self.book_id
+        )
 
     def as_resource(self) -> AsyncResource:
         """Drop book context and return the lean async resource handle."""

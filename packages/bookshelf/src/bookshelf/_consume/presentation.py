@@ -17,19 +17,23 @@ _INDENT = "    "
 _TEXT_WIDTH = 88
 
 
-def _rows(section: Section) -> Mapping[str, object] | None:
-    """Return the section's label/value pairs, or None when it is a bare list of lines."""
-    return section if isinstance(section, Mapping) else None
+def human_bytes(count: int) -> str:
+    """Render a byte count for the human summaries."""
+    size = float(count)
+    for unit in ("B", "kB", "MB", "GB"):
+        if size < 1000 or unit == "GB":
+            return f"{size:.1f} {unit}" if unit != "B" else f"{int(size)} B"
+        size /= 1000
+    return f"{int(size)} B"  # pragma: no cover - unreachable
 
 
 def _text_lines(section: Section) -> list[str]:
     """Lay a section out as indented text, aligning a mapping into two columns."""
-    rows = _rows(section)
-    if rows is None:
+    if not isinstance(section, Mapping):
         joined = "  ".join(str(item) for item in section)
-        return wrap(joined, width=_TEXT_WIDTH - len(_INDENT)) or []
-    width = max(len(label) for label in rows)
-    return [f"{label.ljust(width)}  {value}" for label, value in rows.items()]
+        return wrap(joined, width=_TEXT_WIDTH - len(_INDENT))
+    width = max(len(label) for label in section)
+    return [f"{label.ljust(width)}  {value}" for label, value in section.items()]
 
 
 def summary_text(header: str, sections: Sections) -> str:
@@ -44,12 +48,11 @@ def summary_text(header: str, sections: Sections) -> str:
 
 
 def _html_section(section: Section) -> str:
-    rows = _rows(section)
-    if rows is None:
+    if not isinstance(section, Mapping):
         return f"<div>{escape('  '.join(str(item) for item in section))}</div>"
     body = "".join(
         f"<tr><th>{escape(label)}</th><td>{escape(str(value))}</td></tr>"
-        for label, value in rows.items()
+        for label, value in section.items()
     )
     return f"<table>{body}</table>"
 
@@ -78,4 +81,11 @@ class Describable:
         return summary_table(*self._summary())
 
 
-__all__ = ["Describable", "Section", "Sections", "summary_table", "summary_text"]
+__all__ = [
+    "Describable",
+    "Section",
+    "Sections",
+    "human_bytes",
+    "summary_table",
+    "summary_text",
+]

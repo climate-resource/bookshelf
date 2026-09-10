@@ -31,6 +31,8 @@ def _registered(
 class Resource(ConsumedResource):
     """Synchronous resource handle retaining its registration outcome."""
 
+    _title = "Registered Resource"
+
     def __init__(
         self,
         client: BookshelfClient,
@@ -66,6 +68,8 @@ class Resource(ConsumedResource):
 
 class AsyncResource(ConsumedAsyncResource):
     """Asynchronous resource handle retaining its registration outcome."""
+
+    _title = "Registered Async Resource"
 
     def __init__(
         self,

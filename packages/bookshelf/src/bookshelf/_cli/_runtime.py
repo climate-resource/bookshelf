@@ -15,6 +15,7 @@ from typing import Any
 
 import typer
 
+from bookshelf._consume.presentation import human_bytes
 from bookshelf._core import errors
 
 EXIT_OK = 0
@@ -60,16 +61,6 @@ def iso(moment: datetime | None) -> str | None:
     if moment is None:
         return None
     return moment.astimezone(UTC).isoformat().replace("+00:00", "Z")
-
-
-def human_bytes(count: int) -> str:
-    """Render a byte count for the human summaries."""
-    size = float(count)
-    for unit in ("B", "kB", "MB", "GB"):
-        if size < 1000 or unit == "GB":
-            return f"{size:.1f} {unit}" if unit != "B" else f"{int(size)} B"
-        size /= 1000
-    return f"{int(size)} B"  # pragma: no cover - unreachable
 
 
 def _exit_code_for(exc: errors.BookshelfError) -> int:

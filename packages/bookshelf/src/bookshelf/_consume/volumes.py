@@ -5,8 +5,7 @@ from textwrap import shorten
 
 from bookshelf._consume.books import AsyncBook, Book
 from bookshelf._consume.lookup import resolve_book, resolve_book_async
-from bookshelf._consume.memo import default_book_ttl
-from bookshelf._consume.presentation import Describable, Section, Sections
+from bookshelf._consume.presentation import Describable, Section, Sections, human_bytes
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import NotFoundError
 from bookshelf._core.names import book_coordinate, version_key
@@ -15,12 +14,6 @@ from bookshelf.cache import ContentCache
 
 _PUBLISHED = "published"
 _DESCRIPTION_WIDTH = 68
-
-
-def _unwrap_root(value: object) -> str | None:
-    """Unwrap a discovery field, which the generated models wrap in a RootModel."""
-    unwrapped = getattr(value, "root", value)
-    return str(unwrapped) if unwrapped is not None else None
 
 
 def _editions(info: models.VersionInfo) -> tuple[int, ...]:
@@ -41,6 +34,7 @@ class _VolumeBase(Describable):
     """Identity, versions and discovery for one volume, shared by both flavours."""
 
     _title = "Bookshelf Volume"
+    _access = 'volume["{version}"]'
 
     def __init__(
         self,
@@ -48,19 +42,19 @@ class _VolumeBase(Describable):
         cache: ContentCache,
         detail: models.VolumeDetailResponse,
         *,
-        book_ttl: float | None = None,
+        book_ttl: float,
     ) -> None:
         self._client = client
         self._cache = cache
-        self._book_ttl = default_book_ttl() if book_ttl is None else book_ttl
+        self._book_ttl = book_ttl
         self.metadata = detail
         self.name = detail.name
         # Only versions with a published edition, because the rest resolve to no readable book.
-        self._versions = {
-            info.version: info
+        published = (
+            (info.version, _editions(info))
             for info in sorted(detail.versions, key=lambda info: version_key(info.version))
-            if _editions(info)
-        }
+        )
+        self._versions = {version: editions for version, editions in published if editions}
 
     @property
     def versions(self) -> tuple[str, ...]:
@@ -74,7 +68,14 @@ class _VolumeBase(Describable):
 
     def editions(self, version: str) -> tuple[int, ...]:
         """The published editions of one version, oldest first."""
-        return _editions(self._version(version))
+        try:
+            return self._versions[version]
+        except KeyError:
+            available = ", ".join(self._versions) or "(none)"
+            raise NotFoundError(
+                f"volume {self.name!r} has no version {version!r}, available: {available}",
+                status_code=404,
+            ) from None
 
     def __iter__(self) -> Iterator[str]:
         """Iterate over versions, oldest first."""
@@ -85,16 +86,6 @@ class _VolumeBase(Describable):
 
     def __contains__(self, version: str) -> bool:
         return version in self._versions
-
-    def _version(self, version: str) -> models.VersionInfo:
-        try:
-            return self._versions[version]
-        except KeyError:
-            available = ", ".join(self._versions) or "(none)"
-            raise NotFoundError(
-                f"volume {self.name!r} has no version {version!r}, available: {available}",
-                status_code=404,
-            ) from None
 
     def _resolve(self, version: str | None) -> str:
         """Settle which version a lookup means, defaulting to the newest."""
@@ -108,10 +99,6 @@ class _VolumeBase(Describable):
             )
         return latest
 
-    def _access_hint(self, version: str) -> str:
-        """Show how this flavour resolves one version into a book."""
-        raise NotImplementedError
-
     def _summary(self) -> tuple[str, Sections]:
         discovery = self.metadata.discovery
         stats = self.metadata.stats
@@ -120,29 +107,25 @@ class _VolumeBase(Describable):
             "latest": book_coordinate(latest, self.editions(latest)[-1])
             if latest is not None
             else "(nothing published)",
-            "license": _unwrap_root(discovery.license if discovery else None) or "(unstated)",
+            "license": discovery.license.root if discovery and discovery.license else "(unstated)",
             "resources": stats.total_resources,
-            "size": f"{stats.total_size_bytes / 1e6:.1f} MB",
+            "size": human_bytes(stats.total_size_bytes),
         }
-        description = _unwrap_root(discovery.description) if discovery is not None else None
-        if description:
-            volume["description"] = shorten(description, width=_DESCRIPTION_WIDTH)
+        if discovery is not None and discovery.description:
+            volume["description"] = shorten(discovery.description.root, width=_DESCRIPTION_WIDTH)
         sections: dict[str, Section] = {
             "Volume": volume,
             "Versions": {
-                version: _describe_editions(_editions(info))
-                for version, info in self._versions.items()
+                version: _describe_editions(editions)
+                for version, editions in self._versions.items()
             },
-            "Access": [self._access_hint(latest if latest is not None else "<version>")],
+            "Access": [self._access.format(version=latest if latest is not None else "<version>")],
         }
         return f"{self._title} {self.name!r} (versions: {len(self._versions)})", sections
 
 
 class Volume(_VolumeBase):
     """A volume indexed by version, resolving each into a published Book."""
-
-    def _access_hint(self, version: str) -> str:
-        return f'volume["{version}"]'
 
     def book(self, version: str | None = None, *, edition: int | None = None) -> Book:
         """Resolve one published Book, defaulting to the newest version and edition."""
@@ -163,10 +146,8 @@ class AsyncVolume(_VolumeBase):
     """The asynchronous twin of :class:`Volume`."""
 
     _title = "Bookshelf Async Volume"
-
-    def _access_hint(self, version: str) -> str:
-        # An index cannot be awaited, so the hint names the coroutine.
-        return f'await volume.book("{version}")'
+    # An index cannot be awaited, so the hint names the coroutine.
+    _access = 'await volume.book("{version}")'
 
     async def book(self, version: str | None = None, *, edition: int | None = None) -> AsyncBook:
         """Resolve one published Book, defaulting to the newest version and edition."""

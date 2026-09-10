@@ -17,6 +17,7 @@ from bookshelf._generated import models
 from bookshelf.cache import ContentCache
 
 NOW = datetime(2026, 1, 1, tzinfo=UTC)
+TTL = 3600.0
 BOOK_ID = "0193f0f3-0000-7000-8000-000000000001"
 
 
@@ -91,6 +92,7 @@ def volume(cache: ContentCache) -> Volume:
             models.VersionInfo(version="v2.4", editions=[_edition(1), _edition(2)]),
             models.VersionInfo(version="v2.5", editions=[_edition(1)]),
         ),
+        book_ttl=TTL,
     )
 
 
@@ -114,6 +116,7 @@ def test_editions_reports_only_the_published_ones(cache: ContentCache) -> None:
                 editions=[_edition(1), _edition(2, status="draft"), _edition(3)],
             )
         ),
+        book_ttl=TTL,
     )
 
     assert volume.editions("v2.6") == (1, 3)
@@ -144,6 +147,7 @@ def test_a_volume_repr_unwraps_the_discovery_root_models(cache: ContentCache) ->
             models.VersionInfo(version="v2.6", editions=[_edition(1)]),
             description="National greenhouse gas emissions.",
         ),
+        book_ttl=TTL,
     )
 
     printed = repr(volume)
@@ -167,7 +171,7 @@ def test_indexing_a_volume_resolves_that_version(volume: Volume) -> None:
 
 def test_a_volume_with_nothing_published_refuses_to_guess_a_latest(cache: ContentCache) -> None:
     """An empty volume has no newest book, and saying so beats a confusing lookup failure."""
-    empty = Volume(_FakeClient(), cache, _detail())  # type: ignore[arg-type]
+    empty = Volume(_FakeClient(), cache, _detail(), book_ttl=TTL)  # type: ignore[arg-type]
 
     assert empty.latest is None
     assert 'volume["<version>"]' in repr(empty)
@@ -184,6 +188,7 @@ def test_a_version_with_only_drafts_is_not_a_version_you_can_read(cache: Content
             models.VersionInfo(version="v2.6", editions=[_edition(1)]),
             models.VersionInfo(version="v2.7", editions=[_edition(1, status="draft")]),
         ),
+        book_ttl=TTL,
     )
 
     assert volume.versions == ("v2.6",)
@@ -193,8 +198,8 @@ def test_a_version_with_only_drafts_is_not_a_version_you_can_read(cache: Content
 def test_the_async_twin_advertises_a_call_it_actually_has(cache: ContentCache) -> None:
     """An index cannot be awaited, so `volume["v2.6"]` would raise on the async flavour."""
     detail = _detail(models.VersionInfo(version="v2.6", editions=[_edition(1)]))
-    sync_hint = repr(Volume(_FakeClient(), cache, detail))  # type: ignore[arg-type]
-    async_hint = repr(AsyncVolume(_FakeClient(), cache, detail))  # type: ignore[arg-type]
+    sync_hint = repr(Volume(_FakeClient(), cache, detail, book_ttl=TTL))  # type: ignore[arg-type]
+    async_hint = repr(AsyncVolume(_FakeClient(), cache, detail, book_ttl=TTL))  # type: ignore[arg-type]
 
     assert 'volume["v2.6"]' in sync_hint
     assert 'await volume.book("v2.6")' in async_hint
