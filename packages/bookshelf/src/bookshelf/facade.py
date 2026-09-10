@@ -163,7 +163,10 @@ def _one_resource(content_hash: str, items: Sequence[models.ResourceRead]) -> mo
 
 
 class Bookshelf:
-    """Synchronous facade for consuming, cataloguing, and curating resources."""
+    """Synchronous facade for consuming, cataloguing, and curating resources.
+
+    Use it as a context manager, or call ``close()``, so the connection is released.
+    """
 
     def __init__(
         self,
@@ -175,6 +178,15 @@ class Bookshelf:
         # The transport is the test seam: production always leaves it None.
         transport: httpx.BaseTransport | None = None,
     ) -> None:
+        """Configure the client, reading anything left out from the environment.
+
+        Args:
+            base_url: API deployment to talk to, defaulting to ``$BOOKSHELF_URL``.
+            auth: A bearer token, an ``httpx.Auth``, or None for anonymous access.
+                Left out, credentials come from the environment or a stored login.
+            timeout: Seconds to wait for each request.
+            book_ttl: Seconds a remembered pinned edition is trusted before it is checked again.
+        """
         self._client = BookshelfClient(
             base_url,
             auth=auth,
@@ -376,7 +388,10 @@ class Bookshelf:
 
 
 class AsyncBookshelf:
-    """Asynchronous facade for consuming, cataloguing, and curating resources."""
+    """Asynchronous facade for consuming, cataloguing, and curating resources.
+
+    Use it as an async context manager, or await ``aclose()``, so the connection is released.
+    """
 
     def __init__(
         self,
@@ -388,6 +403,15 @@ class AsyncBookshelf:
         # The transport is the test seam: production always leaves it None.
         async_transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
+        """Configure the client, reading anything left out from the environment.
+
+        Args:
+            base_url: API deployment to talk to, defaulting to ``$BOOKSHELF_URL``.
+            auth: A bearer token, an ``httpx.Auth``, or None for anonymous access.
+                Left out, credentials come from the environment or a stored login.
+            timeout: Seconds to wait for each request.
+            book_ttl: Seconds a remembered pinned edition is trusted before it is checked again.
+        """
         self._client = BookshelfClient(
             base_url,
             auth=auth,
@@ -582,7 +606,7 @@ class AsyncBookshelf:
     ) -> AsyncBook:
         """Resolve a published async Book, defaulting to the latest edition.
 
-        The asynchronous twin of :meth:`Bookshelf.book`, with the same memoisation.
+        The asynchronous twin of [`Bookshelf.book`][bookshelf.Bookshelf.book], with the same memoisation.
         """
         return await resolve_book_async(
             self._client, self._cache, volume, version, edition, book_ttl=self._book_ttl

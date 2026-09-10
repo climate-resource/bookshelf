@@ -354,7 +354,7 @@ class Resource(_ResourceHandle):
     def fetch(self) -> bytes:
         """Return verified bytes, using memory proportional to the resource size.
 
-        Use :meth:`as_path` to stream large resources without loading them into memory.
+        Use `as_path()` to stream large resources without loading them into memory.
         """
         return self._ensure_cached().read_bytes()
 
@@ -706,7 +706,7 @@ class AsyncResource(_ResourceHandle):
     async def fetch(self) -> bytes:
         """Return verified bytes, using memory proportional to the resource size.
 
-        Use :meth:`as_path` to stream large resources without loading them into memory.
+        Use `as_path()` to stream large resources without loading them into memory.
         """
         path = await self._ensure_cached()
         return await asyncio.to_thread(path.read_bytes)

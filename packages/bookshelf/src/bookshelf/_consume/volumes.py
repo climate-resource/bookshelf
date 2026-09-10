@@ -48,7 +48,7 @@ class _VolumeBase(Describable):
         self._cache = cache
         self._book_ttl = book_ttl
         self.metadata = detail
-        """The volume's record as the platform returns it."""
+        """The volume's record as the platform lists it."""
         self.name = detail.name
         """The volume's name."""
         # Only versions with a published edition, because the rest resolve to no readable book.
@@ -148,7 +148,7 @@ class Volume(_VolumeBase):
 
 
 class AsyncVolume(_VolumeBase):
-    """The asynchronous twin of :class:`Volume`."""
+    """The asynchronous twin of [`Volume`][bookshelf.Volume]."""
 
     _title = "Bookshelf Async Volume"
     # An index cannot be awaited, so the hint names the coroutine.

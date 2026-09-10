@@ -19,10 +19,11 @@ Import every name from the top-level package, for example `from bookshelf import
 Anything not on these pages can change in any release, even when it is importable.
 This includes:
 
-- underscore-prefixed modules, such as `bookshelf._core`.
-- the producer surface: `Bookshelf.activity`, `Bookshelf.draft_book` and the volume and draft management methods.
-- `bookshelf.publisher`, which drives recording, replaying and publishing bundles.
-- `bookshelf.models`, the generated API models.
+- Underscore-prefixed modules, such as `bookshelf._core`, are internal.
+- The producer surface is not covered yet.
+  That means `Bookshelf.activity`, `Bookshelf.draft_book` and the volume and draft management methods.
+- `bookshelf.publisher` drives recording, replaying and publishing bundles, and is not covered.
+- `bookshelf.models` holds the generated API models.
   Methods above still return some of these, but their fields track the platform API.
-- the `transport` argument to `Bookshelf` and `AsyncBookshelf`, which exists for tests.
-- the `bookshelf` command line interface.
+- The `transport` argument to `Bookshelf` and `AsyncBookshelf` exists for tests.
+- The `bookshelf` command line interface is not covered.
