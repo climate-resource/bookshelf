@@ -66,7 +66,7 @@ def publish_bundle(bundle: Bundle, bs: Bookshelf, *, dry_run: bool = False) -> P
         )
 
     response = replay_bundle_sync(bundle, bs)
-    wrote = any(result.status != models.Status3.skipped for result in response.resources or [])
+    wrote = any(result.status != models.Status4.skipped for result in response.resources or [])
     return PublishOutcome(
         kind="no-op" if response.converged and not wrote else "published",
         edition=None if response.book is None else response.book.edition,

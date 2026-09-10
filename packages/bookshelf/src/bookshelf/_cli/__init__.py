@@ -10,6 +10,7 @@ import typer
 from bookshelf._cli.auth import auth_app
 from bookshelf._cli.cache import cache_app
 from bookshelf._cli.discovery import search, show
+from bookshelf._cli.preview import preview_app
 from bookshelf._cli.producer import discard, publish, record, validate
 from bookshelf._cli.uploads import upload
 from bookshelf._cli.volume import volume_app
@@ -17,6 +18,7 @@ from bookshelf._cli.volume import volume_app
 app = typer.Typer(help="Bookshelf data platform CLI.", no_args_is_help=True)
 app.add_typer(auth_app, name="auth")
 app.add_typer(cache_app, name="cache")
+app.add_typer(preview_app, name="preview")
 app.add_typer(volume_app, name="volume")
 app.command("search")(search)
 app.command("show")(show)
