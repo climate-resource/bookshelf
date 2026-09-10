@@ -6469,17 +6469,7 @@
 </span><span id=__span-0-39><a id=__codelineno-0-39 name=__codelineno-0-39></a>        <span class=n>legacy</span><span class=o>.</span><span class=n>_deprecated</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;bookshelf.</span><span class=si>{</span><span class=n>name</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>,</span> <span class=s2>&quot;bookshelf.Bookshelf&quot;</span><span class=p>)</span>
 </span><span id=__span-0-40><a id=__codelineno-0-40 name=__codelineno-0-40></a>        <span class=k>return</span> <span class=nb>getattr</span><span class=p>(</span><span class=n>legacy</span><span class=p>,</span> <span class=n>name</span><span class=p>)</span>
 </span><span id=__span-0-41><a id=__codelineno-0-41 name=__codelineno-0-41></a>    <span class=k>raise</span> <span class=ne>AttributeError</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;module &#39;bookshelf&#39; has no attribute </span><span class=si>{</span><span class=n>name</span><span class=si>!r}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span></code></pre></div></td></tr></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h3 id=bookshelf.replay_bundle class="doc doc-heading"> <code class="highlight language-python"><span class=n>replay_bundle</span><span class=p>(</span><span class=n>bundle</span><span class=p>,</span> <span class=n>bs</span><span class=p>)</span></code> <span class="doc doc-labels"> <small class="doc doc-label doc-label-async"><code>async</code></small> </span> <a href=#bookshelf.replay_bundle class=headerlink title="Permanent link">#</a></h3> <div class="doc doc-contents "> <p>Replay a recorded bundle through an asynchronous Bookshelf client.</p> <p>Pass a :class:<code>pathlib.Path</code> for the usual publish workflow. The path must name a bundle directory containing its manifest and recorded resource bytes. Pass an already loaded :class:<code>Bundle</code> when the caller needs to inspect, validate, or transport the bundle before replay.</p> <p>The managed bytes are uploaded first, then the whole bundle is sent as one request. The server computes the seal from that request, so replaying the same bundle twice converges on one edition and the second run reports <code>converged</code>. If the manifest marks the book as published, the same request publishes it.</p> <p>Args: bundle: Bundle directory or an already loaded bundle. bs: Open asynchronous client used for the upload and the replay.</p> <p>Returns: What the replay resolved to, the resulting book among it.</p> <p>Raises: ValueError: The bundle contains an invalid resource representation.</p> <details class=quote> <summary>Source code in <code>packages/bookshelf/src/bookshelf/publisher/replay.py</code></summary> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-0-165>165</a></span>
-<span class=normal><a href=#__codelineno-0-166>166</a></span>
-<span class=normal><a href=#__codelineno-0-167>167</a></span>
-<span class=normal><a href=#__codelineno-0-168>168</a></span>
-<span class=normal><a href=#__codelineno-0-169>169</a></span>
-<span class=normal><a href=#__codelineno-0-170>170</a></span>
-<span class=normal><a href=#__codelineno-0-171>171</a></span>
-<span class=normal><a href=#__codelineno-0-172>172</a></span>
-<span class=normal><a href=#__codelineno-0-173>173</a></span>
-<span class=normal><a href=#__codelineno-0-174>174</a></span>
-<span class=normal><a href=#__codelineno-0-175>175</a></span>
+</span></code></pre></div></td></tr></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h3 id=bookshelf.replay_bundle class="doc doc-heading"> <code class="highlight language-python"><span class=n>replay_bundle</span><span class=p>(</span><span class=n>bundle</span><span class=p>,</span> <span class=n>bs</span><span class=p>)</span></code> <span class="doc doc-labels"> <small class="doc doc-label doc-label-async"><code>async</code></small> </span> <a href=#bookshelf.replay_bundle class=headerlink title="Permanent link">#</a></h3> <div class="doc doc-contents "> <p>Replay a recorded bundle through an asynchronous Bookshelf client.</p> <p>Pass a :class:<code>pathlib.Path</code> for the usual publish workflow. The path must name a bundle directory containing its manifest and recorded resource bytes. Pass an already loaded :class:<code>Bundle</code> when the caller needs to inspect, validate, or transport the bundle before replay.</p> <p>The managed bytes are uploaded first, then the whole bundle is sent as one request. The server computes the seal from that request, so replaying the same bundle twice converges on one edition and the second run reports <code>converged</code>. If the manifest marks the book as published, the same request publishes it.</p> <p>Args: bundle: Bundle directory or an already loaded bundle. bs: Open asynchronous client used for the upload and the replay.</p> <p>Returns: What the replay resolved to, the resulting book among it.</p> <p>Raises: ValueError: The bundle contains an invalid resource representation.</p> <details class=quote> <summary>Source code in <code>packages/bookshelf/src/bookshelf/publisher/replay.py</code></summary> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-0-175>175</a></span>
 <span class=normal><a href=#__codelineno-0-176>176</a></span>
 <span class=normal><a href=#__codelineno-0-177>177</a></span>
 <span class=normal><a href=#__codelineno-0-178>178</a></span>
@@ -6497,56 +6487,66 @@
 <span class=normal><a href=#__codelineno-0-190>190</a></span>
 <span class=normal><a href=#__codelineno-0-191>191</a></span>
 <span class=normal><a href=#__codelineno-0-192>192</a></span>
-<span class=normal><a href=#__codelineno-0-193>193</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-0-165><a id=__codelineno-0-165 name=__codelineno-0-165></a><span class=k>async</span> <span class=k>def</span> <span class=nf>replay_bundle</span><span class=p>(</span>
-</span><span id=__span-0-166><a id=__codelineno-0-166 name=__codelineno-0-166></a>    <span class=n>bundle</span><span class=p>:</span> <span class=n>Path</span> <span class=o>|</span> <span class=n>Bundle</span><span class=p>,</span>
-</span><span id=__span-0-167><a id=__codelineno-0-167 name=__codelineno-0-167></a>    <span class=n>bs</span><span class=p>:</span> <span class=n>AsyncBookshelf</span><span class=p>,</span>
-</span><span id=__span-0-168><a id=__codelineno-0-168 name=__codelineno-0-168></a><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>models</span><span class=o>.</span><span class=n>BundleReplayResponse</span><span class=p>:</span>
-</span><span id=__span-0-169><a id=__codelineno-0-169 name=__codelineno-0-169></a><span class=w>    </span><span class=sd>&quot;&quot;&quot;Replay a recorded bundle through an asynchronous Bookshelf client.</span>
-</span><span id=__span-0-170><a id=__codelineno-0-170 name=__codelineno-0-170></a>
-</span><span id=__span-0-171><a id=__codelineno-0-171 name=__codelineno-0-171></a><span class=sd>    Pass a :class:`pathlib.Path` for the usual publish workflow.</span>
-</span><span id=__span-0-172><a id=__codelineno-0-172 name=__codelineno-0-172></a><span class=sd>    The path must name a bundle directory containing its manifest and recorded resource bytes.</span>
-</span><span id=__span-0-173><a id=__codelineno-0-173 name=__codelineno-0-173></a><span class=sd>    Pass an already loaded :class:`Bundle`</span>
-</span><span id=__span-0-174><a id=__codelineno-0-174 name=__codelineno-0-174></a><span class=sd>    when the caller needs to inspect, validate, or transport the bundle before replay.</span>
-</span><span id=__span-0-175><a id=__codelineno-0-175 name=__codelineno-0-175></a>
-</span><span id=__span-0-176><a id=__codelineno-0-176 name=__codelineno-0-176></a><span class=sd>    The managed bytes are uploaded first,</span>
-</span><span id=__span-0-177><a id=__codelineno-0-177 name=__codelineno-0-177></a><span class=sd>    then the whole bundle is sent as one request.</span>
-</span><span id=__span-0-178><a id=__codelineno-0-178 name=__codelineno-0-178></a><span class=sd>    The server computes the seal from that request,</span>
-</span><span id=__span-0-179><a id=__codelineno-0-179 name=__codelineno-0-179></a><span class=sd>    so replaying the same bundle twice converges on one edition</span>
-</span><span id=__span-0-180><a id=__codelineno-0-180 name=__codelineno-0-180></a><span class=sd>    and the second run reports ``converged``.</span>
-</span><span id=__span-0-181><a id=__codelineno-0-181 name=__codelineno-0-181></a><span class=sd>    If the manifest marks the book as published, the same request publishes it.</span>
-</span><span id=__span-0-182><a id=__codelineno-0-182 name=__codelineno-0-182></a>
-</span><span id=__span-0-183><a id=__codelineno-0-183 name=__codelineno-0-183></a><span class=sd>    Args:</span>
-</span><span id=__span-0-184><a id=__codelineno-0-184 name=__codelineno-0-184></a><span class=sd>        bundle: Bundle directory or an already loaded bundle.</span>
-</span><span id=__span-0-185><a id=__codelineno-0-185 name=__codelineno-0-185></a><span class=sd>        bs: Open asynchronous client used for the upload and the replay.</span>
-</span><span id=__span-0-186><a id=__codelineno-0-186 name=__codelineno-0-186></a>
-</span><span id=__span-0-187><a id=__codelineno-0-187 name=__codelineno-0-187></a><span class=sd>    Returns:</span>
-</span><span id=__span-0-188><a id=__codelineno-0-188 name=__codelineno-0-188></a><span class=sd>        What the replay resolved to, the resulting book among it.</span>
-</span><span id=__span-0-189><a id=__codelineno-0-189 name=__codelineno-0-189></a>
-</span><span id=__span-0-190><a id=__codelineno-0-190 name=__codelineno-0-190></a><span class=sd>    Raises:</span>
-</span><span id=__span-0-191><a id=__codelineno-0-191 name=__codelineno-0-191></a><span class=sd>        ValueError: The bundle contains an invalid resource representation.</span>
-</span><span id=__span-0-192><a id=__codelineno-0-192 name=__codelineno-0-192></a><span class=sd>    &quot;&quot;&quot;</span>
-</span><span id=__span-0-193><a id=__codelineno-0-193 name=__codelineno-0-193></a>    <span class=k>return</span> <span class=k>await</span> <span class=n>bs</span><span class=o>.</span><span class=n>replay_bundle</span><span class=p>(</span><span class=n>bundle</span><span class=p>)</span>
-</span></code></pre></div></td></tr></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h3 id=bookshelf.replay_bundle_sync class="doc doc-heading"> <code class="highlight language-python"><span class=n>replay_bundle_sync</span><span class=p>(</span><span class=n>bundle</span><span class=p>,</span> <span class=n>bs</span><span class=p>)</span></code> <a href=#bookshelf.replay_bundle_sync class=headerlink title="Permanent link">#</a></h3> <div class="doc doc-contents "> <p>Replay a recorded bundle through a synchronous Bookshelf client.</p> <p>This is the synchronous counterpart to :func:<code>replay_bundle</code>. It accepts the same path or loaded bundle forms, and it converges the same way.</p> <details class=quote> <summary>Source code in <code>packages/bookshelf/src/bookshelf/publisher/replay.py</code></summary> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-0-196>196</a></span>
+<span class=normal><a href=#__codelineno-0-193>193</a></span>
+<span class=normal><a href=#__codelineno-0-194>194</a></span>
+<span class=normal><a href=#__codelineno-0-195>195</a></span>
+<span class=normal><a href=#__codelineno-0-196>196</a></span>
 <span class=normal><a href=#__codelineno-0-197>197</a></span>
 <span class=normal><a href=#__codelineno-0-198>198</a></span>
 <span class=normal><a href=#__codelineno-0-199>199</a></span>
 <span class=normal><a href=#__codelineno-0-200>200</a></span>
 <span class=normal><a href=#__codelineno-0-201>201</a></span>
 <span class=normal><a href=#__codelineno-0-202>202</a></span>
-<span class=normal><a href=#__codelineno-0-203>203</a></span>
-<span class=normal><a href=#__codelineno-0-204>204</a></span>
-<span class=normal><a href=#__codelineno-0-205>205</a></span>
-<span class=normal><a href=#__codelineno-0-206>206</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-0-196><a id=__codelineno-0-196 name=__codelineno-0-196></a><span class=k>def</span> <span class=nf>replay_bundle_sync</span><span class=p>(</span>
-</span><span id=__span-0-197><a id=__codelineno-0-197 name=__codelineno-0-197></a>    <span class=n>bundle</span><span class=p>:</span> <span class=n>Path</span> <span class=o>|</span> <span class=n>Bundle</span><span class=p>,</span>
-</span><span id=__span-0-198><a id=__codelineno-0-198 name=__codelineno-0-198></a>    <span class=n>bs</span><span class=p>:</span> <span class=n>Bookshelf</span><span class=p>,</span>
-</span><span id=__span-0-199><a id=__codelineno-0-199 name=__codelineno-0-199></a><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>models</span><span class=o>.</span><span class=n>BundleReplayResponse</span><span class=p>:</span>
-</span><span id=__span-0-200><a id=__codelineno-0-200 name=__codelineno-0-200></a><span class=w>    </span><span class=sd>&quot;&quot;&quot;Replay a recorded bundle through a synchronous Bookshelf client.</span>
-</span><span id=__span-0-201><a id=__codelineno-0-201 name=__codelineno-0-201></a>
-</span><span id=__span-0-202><a id=__codelineno-0-202 name=__codelineno-0-202></a><span class=sd>    This is the synchronous counterpart to :func:`replay_bundle`.</span>
-</span><span id=__span-0-203><a id=__codelineno-0-203 name=__codelineno-0-203></a><span class=sd>    It accepts the same path or loaded bundle forms,</span>
-</span><span id=__span-0-204><a id=__codelineno-0-204 name=__codelineno-0-204></a><span class=sd>    and it converges the same way.</span>
-</span><span id=__span-0-205><a id=__codelineno-0-205 name=__codelineno-0-205></a><span class=sd>    &quot;&quot;&quot;</span>
-</span><span id=__span-0-206><a id=__codelineno-0-206 name=__codelineno-0-206></a>    <span class=k>return</span> <span class=n>bs</span><span class=o>.</span><span class=n>replay_bundle</span><span class=p>(</span><span class=n>bundle</span><span class=p>)</span>
+<span class=normal><a href=#__codelineno-0-203>203</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-0-175><a id=__codelineno-0-175 name=__codelineno-0-175></a><span class=k>async</span> <span class=k>def</span> <span class=nf>replay_bundle</span><span class=p>(</span>
+</span><span id=__span-0-176><a id=__codelineno-0-176 name=__codelineno-0-176></a>    <span class=n>bundle</span><span class=p>:</span> <span class=n>Path</span> <span class=o>|</span> <span class=n>Bundle</span><span class=p>,</span>
+</span><span id=__span-0-177><a id=__codelineno-0-177 name=__codelineno-0-177></a>    <span class=n>bs</span><span class=p>:</span> <span class=n>AsyncBookshelf</span><span class=p>,</span>
+</span><span id=__span-0-178><a id=__codelineno-0-178 name=__codelineno-0-178></a><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>models</span><span class=o>.</span><span class=n>BundleReplayResponse</span><span class=p>:</span>
+</span><span id=__span-0-179><a id=__codelineno-0-179 name=__codelineno-0-179></a><span class=w>    </span><span class=sd>&quot;&quot;&quot;Replay a recorded bundle through an asynchronous Bookshelf client.</span>
+</span><span id=__span-0-180><a id=__codelineno-0-180 name=__codelineno-0-180></a>
+</span><span id=__span-0-181><a id=__codelineno-0-181 name=__codelineno-0-181></a><span class=sd>    Pass a :class:`pathlib.Path` for the usual publish workflow.</span>
+</span><span id=__span-0-182><a id=__codelineno-0-182 name=__codelineno-0-182></a><span class=sd>    The path must name a bundle directory containing its manifest and recorded resource bytes.</span>
+</span><span id=__span-0-183><a id=__codelineno-0-183 name=__codelineno-0-183></a><span class=sd>    Pass an already loaded :class:`Bundle`</span>
+</span><span id=__span-0-184><a id=__codelineno-0-184 name=__codelineno-0-184></a><span class=sd>    when the caller needs to inspect, validate, or transport the bundle before replay.</span>
+</span><span id=__span-0-185><a id=__codelineno-0-185 name=__codelineno-0-185></a>
+</span><span id=__span-0-186><a id=__codelineno-0-186 name=__codelineno-0-186></a><span class=sd>    The managed bytes are uploaded first,</span>
+</span><span id=__span-0-187><a id=__codelineno-0-187 name=__codelineno-0-187></a><span class=sd>    then the whole bundle is sent as one request.</span>
+</span><span id=__span-0-188><a id=__codelineno-0-188 name=__codelineno-0-188></a><span class=sd>    The server computes the seal from that request,</span>
+</span><span id=__span-0-189><a id=__codelineno-0-189 name=__codelineno-0-189></a><span class=sd>    so replaying the same bundle twice converges on one edition</span>
+</span><span id=__span-0-190><a id=__codelineno-0-190 name=__codelineno-0-190></a><span class=sd>    and the second run reports ``converged``.</span>
+</span><span id=__span-0-191><a id=__codelineno-0-191 name=__codelineno-0-191></a><span class=sd>    If the manifest marks the book as published, the same request publishes it.</span>
+</span><span id=__span-0-192><a id=__codelineno-0-192 name=__codelineno-0-192></a>
+</span><span id=__span-0-193><a id=__codelineno-0-193 name=__codelineno-0-193></a><span class=sd>    Args:</span>
+</span><span id=__span-0-194><a id=__codelineno-0-194 name=__codelineno-0-194></a><span class=sd>        bundle: Bundle directory or an already loaded bundle.</span>
+</span><span id=__span-0-195><a id=__codelineno-0-195 name=__codelineno-0-195></a><span class=sd>        bs: Open asynchronous client used for the upload and the replay.</span>
+</span><span id=__span-0-196><a id=__codelineno-0-196 name=__codelineno-0-196></a>
+</span><span id=__span-0-197><a id=__codelineno-0-197 name=__codelineno-0-197></a><span class=sd>    Returns:</span>
+</span><span id=__span-0-198><a id=__codelineno-0-198 name=__codelineno-0-198></a><span class=sd>        What the replay resolved to, the resulting book among it.</span>
+</span><span id=__span-0-199><a id=__codelineno-0-199 name=__codelineno-0-199></a>
+</span><span id=__span-0-200><a id=__codelineno-0-200 name=__codelineno-0-200></a><span class=sd>    Raises:</span>
+</span><span id=__span-0-201><a id=__codelineno-0-201 name=__codelineno-0-201></a><span class=sd>        ValueError: The bundle contains an invalid resource representation.</span>
+</span><span id=__span-0-202><a id=__codelineno-0-202 name=__codelineno-0-202></a><span class=sd>    &quot;&quot;&quot;</span>
+</span><span id=__span-0-203><a id=__codelineno-0-203 name=__codelineno-0-203></a>    <span class=k>return</span> <span class=k>await</span> <span class=n>bs</span><span class=o>.</span><span class=n>replay_bundle</span><span class=p>(</span><span class=n>bundle</span><span class=p>)</span>
+</span></code></pre></div></td></tr></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h3 id=bookshelf.replay_bundle_sync class="doc doc-heading"> <code class="highlight language-python"><span class=n>replay_bundle_sync</span><span class=p>(</span><span class=n>bundle</span><span class=p>,</span> <span class=n>bs</span><span class=p>)</span></code> <a href=#bookshelf.replay_bundle_sync class=headerlink title="Permanent link">#</a></h3> <div class="doc doc-contents "> <p>Replay a recorded bundle through a synchronous Bookshelf client.</p> <p>This is the synchronous counterpart to :func:<code>replay_bundle</code>. It accepts the same path or loaded bundle forms, and it converges the same way.</p> <details class=quote> <summary>Source code in <code>packages/bookshelf/src/bookshelf/publisher/replay.py</code></summary> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-0-206>206</a></span>
+<span class=normal><a href=#__codelineno-0-207>207</a></span>
+<span class=normal><a href=#__codelineno-0-208>208</a></span>
+<span class=normal><a href=#__codelineno-0-209>209</a></span>
+<span class=normal><a href=#__codelineno-0-210>210</a></span>
+<span class=normal><a href=#__codelineno-0-211>211</a></span>
+<span class=normal><a href=#__codelineno-0-212>212</a></span>
+<span class=normal><a href=#__codelineno-0-213>213</a></span>
+<span class=normal><a href=#__codelineno-0-214>214</a></span>
+<span class=normal><a href=#__codelineno-0-215>215</a></span>
+<span class=normal><a href=#__codelineno-0-216>216</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-0-206><a id=__codelineno-0-206 name=__codelineno-0-206></a><span class=k>def</span> <span class=nf>replay_bundle_sync</span><span class=p>(</span>
+</span><span id=__span-0-207><a id=__codelineno-0-207 name=__codelineno-0-207></a>    <span class=n>bundle</span><span class=p>:</span> <span class=n>Path</span> <span class=o>|</span> <span class=n>Bundle</span><span class=p>,</span>
+</span><span id=__span-0-208><a id=__codelineno-0-208 name=__codelineno-0-208></a>    <span class=n>bs</span><span class=p>:</span> <span class=n>Bookshelf</span><span class=p>,</span>
+</span><span id=__span-0-209><a id=__codelineno-0-209 name=__codelineno-0-209></a><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>models</span><span class=o>.</span><span class=n>BundleReplayResponse</span><span class=p>:</span>
+</span><span id=__span-0-210><a id=__codelineno-0-210 name=__codelineno-0-210></a><span class=w>    </span><span class=sd>&quot;&quot;&quot;Replay a recorded bundle through a synchronous Bookshelf client.</span>
+</span><span id=__span-0-211><a id=__codelineno-0-211 name=__codelineno-0-211></a>
+</span><span id=__span-0-212><a id=__codelineno-0-212 name=__codelineno-0-212></a><span class=sd>    This is the synchronous counterpart to :func:`replay_bundle`.</span>
+</span><span id=__span-0-213><a id=__codelineno-0-213 name=__codelineno-0-213></a><span class=sd>    It accepts the same path or loaded bundle forms,</span>
+</span><span id=__span-0-214><a id=__codelineno-0-214 name=__codelineno-0-214></a><span class=sd>    and it converges the same way.</span>
+</span><span id=__span-0-215><a id=__codelineno-0-215 name=__codelineno-0-215></a><span class=sd>    &quot;&quot;&quot;</span>
+</span><span id=__span-0-216><a id=__codelineno-0-216 name=__codelineno-0-216></a>    <span class=k>return</span> <span class=n>bs</span><span class=o>.</span><span class=n>replay_bundle</span><span class=p>(</span><span class=n>bundle</span><span class=p>)</span>
 </span></code></pre></div></td></tr></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h3 id=bookshelf.run_record class="doc doc-heading"> <code class="highlight language-python"><span class=n>run_record</span><span class=p>(</span><span class=o>*</span><span class=p>,</span> <span class=n>build_path</span><span class=p>,</span> <span class=n>recipe_path</span><span class=p>,</span> <span class=n>bundle_path</span><span class=p>,</span> <span class=n>version</span><span class=p>,</span> <span class=n>parameters</span><span class=o>=</span><span class=kc>None</span><span class=p>,</span> <span class=n>cwd</span><span class=o>=</span><span class=kc>None</span><span class=p>)</span></code> <a href=#bookshelf.run_record class=headerlink title="Permanent link">#</a></h3> <div class="doc doc-contents "> <p>Execute a standalone Jupytext build file into a reviewable bundle.</p> <p><code>version</code> selects the version from the recipe, and it is the only place a version is stated. It reaches the build through the recording context rather than through <code>parameters</code>, so a build file cannot shadow it with a top-level assignment.</p> <details class=quote> <summary>Source code in <code>packages/bookshelf/src/bookshelf/publisher/record.py</code></summary> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-0-187>187</a></span>
 <span class=normal><a href=#__codelineno-0-188>188</a></span>
 <span class=normal><a href=#__codelineno-0-189>189</a></span>
