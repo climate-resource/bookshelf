@@ -29,8 +29,7 @@ def require_package(module: str, caller: str) -> Any:
     try:
         return importlib.import_module(module)
     except ImportError as exc:
-        package = module.partition(".")[0]
-        raise DataFrameSupportError(f"{caller} requires {package}: pip install {package}") from exc
+        raise DataFrameSupportError(f"{caller} requires {module}: pip install {module}") from exc
 
 
 def require_payload(result: DataPayload | NotModified) -> DataPayload:

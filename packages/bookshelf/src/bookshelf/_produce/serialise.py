@@ -166,7 +166,7 @@ def _to_arrow_table(df: Any) -> pa.Table:
 
 
 def _is_pandas_frame(obj: Any) -> bool:
-    """Return whether ``obj`` is a pandas ``DataFrame`` without importing pandas eagerly."""
+    """Return whether ``obj`` is a pandas ``DataFrame``."""
     import pandas as pd
 
     return isinstance(obj, pd.DataFrame)

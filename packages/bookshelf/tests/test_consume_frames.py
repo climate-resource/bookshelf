@@ -11,7 +11,6 @@ from bookshelf._consume.frames import (
     timeseries_frame,
     wide_timeseries,
 )
-from bookshelf._core.errors import BookshelfError
 from bookshelf._core.frames import DataFrameSupportError
 from bookshelf._generated import models
 
@@ -50,14 +49,13 @@ def test_wide_timeseries_leaves_a_year_only_frame_alone() -> None:
     assert list(wide_timeseries(wide).columns) == ["2000"]
 
 
-def test_a_missing_polars_is_reported_as_a_bookshelf_error(
+def test_a_missing_polars_fails_when_the_converter_is_resolved(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A caller catching BookshelfError should not have to catch ImportError as well."""
+    """The converter is resolved before any request, so a missing polars costs no download."""
     monkeypatch.setitem(sys.modules, "polars", None)
 
     with pytest.raises(DataFrameSupportError) as raised:
         polars_converter()
 
-    assert isinstance(raised.value, BookshelfError)
-    assert "pip install polars" in str(raised.value)
+    assert "as_polars()" in str(raised.value)

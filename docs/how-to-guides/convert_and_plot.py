@@ -58,7 +58,7 @@ entry.as_arrow(**selection).schema.names[:8]
 
 # %% [markdown]
 # The optional imports are resolved before any request is made,
-# so a missing extra fails immediately rather than after downloading data.
+# so a missing Polars fails immediately rather than after downloading data.
 
 # %% [markdown]
 # ## Working in scmdata
