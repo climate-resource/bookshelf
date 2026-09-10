@@ -1,7 +1,5 @@
 """Volume handles, which answer what versions and editions a dataset has published."""
 
-from __future__ import annotations
-
 from collections.abc import Iterator
 from textwrap import shorten
 
@@ -18,7 +16,7 @@ _PUBLISHED = "published"
 _DESCRIPTION_WIDTH = 68
 
 
-def _plain(value: object) -> str | None:
+def _unwrap_root(value: object) -> str | None:
     """Unwrap a discovery field, which the generated models wrap in a RootModel."""
     unwrapped = getattr(value, "root", value)
     return str(unwrapped) if unwrapped is not None else None
@@ -33,8 +31,6 @@ def _editions(info: models.VersionInfo) -> tuple[int, ...]:
 
 def _describe_editions(editions: tuple[int, ...]) -> str:
     """Say which editions a version has, as a range rather than a list."""
-    if not editions:
-        return "no published edition"
     if len(editions) == 1:
         return f"edition {editions[0]:03}"
     return f"editions {editions[0]:03}-{editions[-1]:03}"
@@ -55,9 +51,11 @@ class _VolumeBase:
         self._cache = cache
         self.metadata = detail
         self.name = detail.name
+        # Only versions with a published edition, because the rest resolve to no readable book.
         self._versions = {
             info.version: info
             for info in sorted(detail.versions, key=lambda info: version_key(info.version))
+            if _editions(info)
         }
 
     @property
@@ -106,8 +104,11 @@ class _VolumeBase:
             )
         return latest
 
+    def _access_hint(self, version: str) -> str:
+        """Show how this flavour resolves one version into a book."""
+        raise NotImplementedError
+
     def _summary(self) -> tuple[str, Sections]:
-        """Return the header and sections both reprs render, so the two cannot drift apart."""
         discovery = self.metadata.discovery
         stats = self.metadata.stats
         latest = self.latest
@@ -115,11 +116,11 @@ class _VolumeBase:
             "latest": book_coordinate(latest, max(self.editions(latest), default=None))
             if latest is not None
             else "(nothing published)",
-            "license": _plain(discovery.license if discovery else None) or "(unstated)",
+            "license": _unwrap_root(discovery.license if discovery else None) or "(unstated)",
             "resources": stats.total_resources,
             "size": f"{stats.total_size_bytes / 1e6:.1f} MB",
         }
-        description = _plain(discovery.description) if discovery is not None else None
+        description = _unwrap_root(discovery.description) if discovery is not None else None
         if description:
             volume["description"] = shorten(description, width=_DESCRIPTION_WIDTH)
         sections: dict[str, Section] = {
@@ -128,7 +129,7 @@ class _VolumeBase:
                 version: _describe_editions(_editions(info))
                 for version, info in self._versions.items()
             },
-            "Access": [f'volume["{latest}"]' if latest is not None else 'volume["<version>"]'],
+            "Access": [self._access_hint(latest if latest is not None else "<version>")],
         }
         return f"{self._title} {self.name!r} (versions: {len(self._versions)})", sections
 
@@ -142,6 +143,9 @@ class _VolumeBase:
 class Volume(_VolumeBase):
     """A volume indexed by version, resolving each into a published Book."""
 
+    def _access_hint(self, version: str) -> str:
+        return f'volume["{version}"]'
+
     def book(self, version: str | None = None, *, edition: int | None = None) -> Book:
         """Resolve one published Book, defaulting to the newest version and edition."""
         return resolve_book(self._client, self._cache, self.name, self._resolve(version), edition)
@@ -154,6 +158,10 @@ class AsyncVolume(_VolumeBase):
     """The asynchronous twin of :class:`Volume`."""
 
     _title = "Bookshelf Async Volume"
+
+    def _access_hint(self, version: str) -> str:
+        # No __getitem__ here, because an index cannot be awaited.
+        return f'await volume.book("{version}")'
 
     async def book(self, version: str | None = None, *, edition: int | None = None) -> AsyncBook:
         """Resolve one published Book, defaulting to the newest version and edition."""

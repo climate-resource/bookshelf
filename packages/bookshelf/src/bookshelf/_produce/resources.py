@@ -12,6 +12,22 @@ from bookshelf._generated import models
 from bookshelf.cache import ContentCache
 
 
+def _registered(
+    summary: tuple[str, Sections],
+    name: str | None,
+    status: models.Status2 | None,
+) -> tuple[str, Sections]:
+    """Retitle a consumed summary as a registered one and record how it was resolved."""
+    header, sections = summary
+    return f"Registered {header.removeprefix('Bookshelf ')}", {
+        **sections,
+        "Registration": {
+            "name": name or "(unnamed)",
+            "status": status.value if status is not None else "(none)",
+        },
+    }
+
+
 class Resource(ConsumedResource):
     """Synchronous resource handle retaining its registration outcome."""
 
@@ -45,16 +61,7 @@ class Resource(ConsumedResource):
         return self.registration_outcome.status
 
     def _summary(self) -> tuple[str, Sections]:
-        header, sections = super()._summary()
-        status = self.registration_status
-        kind = header.removeprefix("Bookshelf ")
-        return f"Registered {kind}", {
-            **sections,
-            "Registration": {
-                "name": self.name or "(unnamed)",
-                "status": status.value if status is not None else "(none)",
-            },
-        }
+        return _registered(super()._summary(), self.name, self.registration_status)
 
 
 class AsyncResource(ConsumedAsyncResource):
@@ -90,16 +97,7 @@ class AsyncResource(ConsumedAsyncResource):
         return self.registration_outcome.status
 
     def _summary(self) -> tuple[str, Sections]:
-        header, sections = super()._summary()
-        status = self.registration_status
-        kind = header.removeprefix("Bookshelf ")
-        return f"Registered {kind}", {
-            **sections,
-            "Registration": {
-                "name": self.name or "(unnamed)",
-                "status": status.value if status is not None else "(none)",
-            },
-        }
+        return _registered(super()._summary(), self.name, self.registration_status)
 
 
 __all__ = ["AsyncResource", "Resource"]

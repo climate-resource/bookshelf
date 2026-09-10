@@ -8,7 +8,7 @@ Every decision they share lives in the sibling modules, so the flavours cannot d
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -33,6 +33,7 @@ from bookshelf._consume.integrity import cached_if_verified, require_cached, ver
 from bookshelf._consume.presentation import Section, Sections, summary_table, summary_text
 from bookshelf._consume.query import TimeseriesQuery, constant_columns, timeseries_filters
 from bookshelf._core.client import BookshelfClient
+from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf.cache import ContentCache
 
@@ -47,6 +48,14 @@ _TRIMMING_ON_RESOURCE = "timeseries trimming requires a book entry handle"
 _UNSUPPORTED_TIMESERIES_ARGS = "timeseries entries accept filters, trimming, top_n, and limit"
 
 
+def _reachable[T](read: Callable[[], T]) -> T | None:
+    """Read what only the platform can answer, giving up rather than failing a repr."""
+    try:
+        return read()
+    except BookshelfError:
+        return None
+
+
 def describe_type(resource_type: models.ResourceType | None) -> str:
     """Name a type the handle may not have learned yet."""
     return resource_type.value if resource_type is not None else "unknown"
@@ -56,7 +65,7 @@ def _resource_sections(
     resource_type: models.ResourceType | None,
     identity: dict[str, object],
 ) -> dict[str, Section]:
-    """Build the sections every resource flavour renders, so none of them report different facts."""
+    """Build the sections every resource flavour renders."""
     return {
         "Identity": identity,
         "Read": readers_for(resource_type),
@@ -69,7 +78,7 @@ def _entry_sections(
     resource_type: models.ResourceType | None,
     book_id: UUID,
 ) -> dict[str, Section]:
-    """Build the sections both entry flavours render, so the two report the same facts."""
+    """Build the sections both entry flavours render."""
     return _resource_sections(
         resource_type,
         {
@@ -106,7 +115,7 @@ class _ResourceHandle:
         self._resource_type = resource_type
 
     def _summary(self) -> tuple[str, Sections]:
-        """Return the header and sections both reprs render, so the two cannot drift apart."""
+        """Return the header and sections both reprs render."""
         raise NotImplementedError
 
     def __repr__(self) -> str:
@@ -135,14 +144,16 @@ class Resource(_ResourceHandle):
         return self._resource_type
 
     def _summary(self) -> tuple[str, Sections]:
-        metadata = self.metadata
-        return f"Bookshelf Resource ({metadata.type.value})", _resource_sections(
-            metadata.type,
-            {
-                "tracking_id": self.tracking_id,
-                "hash": metadata.hash,
-                "visibility": metadata.visibility.value,
-            },
+        # A repr resolves the type it was not given, but never fails for want of it.
+        metadata = _reachable(lambda: self.metadata)
+        resource_type = metadata.type if metadata is not None else self._resource_type
+        identity: dict[str, object] = {"tracking_id": self.tracking_id}
+        if metadata is not None:
+            identity["hash"] = metadata.hash
+            identity["visibility"] = metadata.visibility.value
+        return (
+            f"Bookshelf Resource ({describe_type(resource_type)})",
+            _resource_sections(resource_type, identity),
         )
 
     def _frame(
@@ -405,9 +416,11 @@ class BookEntry(Resource):
         return timeseries_frame(response)
 
     def _summary(self) -> tuple[str, Sections]:
-        return _entry_header("Bookshelf Book Entry", self.name_in_book, self.type), _entry_sections(
-            self.entry, self.type, self.book_id
-        )
+        # A repr resolves the type it was not given, but never fails for want of it.
+        resource_type = _reachable(lambda: self.type) or self._resource_type
+        return _entry_header(
+            "Bookshelf Book Entry", self.name_in_book, resource_type
+        ), _entry_sections(self.entry, resource_type, self.book_id)
 
     def as_resource(self) -> Resource:
         """Drop book context and return the lean resource handle."""

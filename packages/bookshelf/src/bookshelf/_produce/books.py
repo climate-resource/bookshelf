@@ -55,8 +55,8 @@ def _attach_request(
     )
 
 
-class _DraftSummary:
-    """The self-description both draft flavours share."""
+class _DraftBookBase:
+    """The attachment record and self-description both draft flavours share."""
 
     _title = "Bookshelf Draft Book"
     metadata: models.BookDetail
@@ -90,7 +90,7 @@ class _DraftSummary:
         return summary_table(*self._summary())
 
 
-class DraftBook(_DraftSummary):
+class DraftBook(_DraftBookBase):
     """Mutable synchronous draft-book handle."""
 
     def __init__(
@@ -207,7 +207,7 @@ class DraftBook(_DraftSummary):
         return self
 
 
-class AsyncDraftBook(_DraftSummary):
+class AsyncDraftBook(_DraftBookBase):
     """Mutable asynchronous draft-book handle."""
 
     _title = "Bookshelf Async Draft Book"

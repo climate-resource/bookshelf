@@ -13,7 +13,8 @@ from uuid import UUID
 import pytest
 
 from bookshelf._consume.books import Book
-from bookshelf._consume.resources import AsyncBookEntry, BookEntry
+from bookshelf._consume.resources import AsyncBookEntry, BookEntry, Resource
+from bookshelf._core.errors import APIError
 from bookshelf._generated import models
 from bookshelf.cache import ContentCache
 
@@ -170,3 +171,31 @@ def test_the_two_reprs_report_the_same_facts(cache: ContentCache) -> None:
     for value in ("by_country", "tabular", str(TRACKING_ID), "as_polars()"):
         assert value in text
         assert value in html
+
+
+class _UnreachableClient:
+    """The platform a debugger session cannot reach, or is not authorised against."""
+
+    def get_resource(self, tracking_id: Any) -> _Metadata:
+        raise APIError("not authorized", status_code=401)
+
+
+def test_a_sync_entry_repr_survives_an_unreachable_platform(cache: ContentCache) -> None:
+    """Printing a handle is what you do when things are already going wrong."""
+    entry = BookEntry(_UnreachableClient(), cache, BOOK_ID, _entry(None))  # type: ignore[arg-type]
+
+    printed = repr(entry)
+
+    assert "unknown" in printed
+    assert "by_country" in printed
+
+
+def test_a_sync_resource_repr_survives_an_unreachable_platform(cache: ContentCache) -> None:
+    """The lean handle knows only its tracking id, and says so rather than raising."""
+    resource = Resource(_UnreachableClient(), cache, TRACKING_ID)  # type: ignore[arg-type]
+
+    printed = repr(resource)
+
+    assert "unknown" in printed
+    assert str(TRACKING_ID) in printed
+    assert "hash" not in printed

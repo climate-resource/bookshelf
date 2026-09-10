@@ -37,7 +37,6 @@ class _BookBase:
         return iter(self._entries)
 
     def _summary(self) -> tuple[str, Sections]:
-        """Return the header and sections both reprs render, so the two cannot drift apart."""
         metadata = self.metadata
         coordinate = book_coordinate(metadata.version, metadata.edition)
         return (

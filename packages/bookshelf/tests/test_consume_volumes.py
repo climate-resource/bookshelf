@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from bookshelf._consume.volumes import Volume
+from bookshelf._consume.volumes import AsyncVolume, Volume
 from bookshelf._core.errors import NotFoundError
 from bookshelf._generated import models
 from bookshelf.cache import ContentCache
@@ -173,3 +173,29 @@ def test_a_volume_with_nothing_published_refuses_to_guess_a_latest(cache: Conten
     assert 'volume["<version>"]' in repr(empty)
     with pytest.raises(NotFoundError, match="published no book"):
         empty.book()
+
+
+def test_a_version_with_only_drafts_is_not_a_version_you_can_read(cache: ContentCache) -> None:
+    """A draft-only version becoming `latest` would make `volume.book()` raise."""
+    volume = Volume(
+        _FakeClient(),  # type: ignore[arg-type]
+        cache,
+        _detail(
+            models.VersionInfo(version="v2.6", editions=[_edition(1)]),
+            models.VersionInfo(version="v2.7", editions=[_edition(1, status="draft")]),
+        ),
+    )
+
+    assert volume.versions == ("v2.6",)
+    assert volume.latest == "v2.6"
+
+
+def test_the_async_twin_advertises_a_call_it_actually_has(cache: ContentCache) -> None:
+    """An index cannot be awaited, so `volume["v2.6"]` would raise on the async flavour."""
+    detail = _detail(models.VersionInfo(version="v2.6", editions=[_edition(1)]))
+    sync_hint = repr(Volume(_FakeClient(), cache, detail))  # type: ignore[arg-type]
+    async_hint = repr(AsyncVolume(_FakeClient(), cache, detail))  # type: ignore[arg-type]
+
+    assert 'volume["v2.6"]' in sync_hint
+    assert 'await volume.book("v2.6")' in async_hint
+    assert not hasattr(AsyncVolume, "__getitem__")

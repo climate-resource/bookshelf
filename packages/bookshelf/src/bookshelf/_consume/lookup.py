@@ -5,8 +5,6 @@ should not have to page through them.
 These walk the pages once so both the facade and a Volume resolve a book the same way.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 from bookshelf._consume.books import AsyncBook, Book
@@ -196,16 +194,9 @@ async def resolve_book_async(
 
 
 __all__ = [
-    "MAX_PAGES",
-    "PAGE_SIZE",
     "all_books",
     "all_books_async",
-    "all_entries",
-    "all_entries_async",
     "book_order",
-    "find_book",
-    "find_book_async",
-    "missing_book",
     "resolve_book",
     "resolve_book_async",
 ]
