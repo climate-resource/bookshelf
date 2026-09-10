@@ -103,16 +103,16 @@ class BookShelf:
 
     def _versions(self, name: str) -> list[str]:
         try:
-            books = self._bookshelf.list_books(name)
+            versions = self._bookshelf.volume(name).versions
         except NotFoundError as exc:
             raise UnknownBook(f"No metadata for {name!r}") from exc
-        if not books:
+        if not versions:
             raise UnknownBook(f"No metadata for {name!r}")
-        return list(dict.fromkeys(book.version for book in books))
+        return list(versions)
 
     def list_versions(self, name: str) -> list[str]:
         """List the published versions of a volume, oldest first."""
-        _deprecated("BookShelf.list_versions()", "Bookshelf.list_books()")
+        _deprecated("BookShelf.list_versions()", "Bookshelf.volume().versions")
         return self._versions(name)
 
     def is_available(

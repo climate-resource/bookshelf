@@ -24,7 +24,6 @@ from bookshelf.cache import ContentCache
 PAGE_SIZE = 100
 MAX_PAGES = 1000
 
-_LISTING_CAP = "book listing exceeded the pagination safety cap"
 _LOOKUP_CAP = "book lookup exceeded the pagination safety cap"
 _ENTRY_CAP = "book entry lookup exceeded the pagination safety cap"
 
@@ -49,40 +48,6 @@ def _chosen(items: list[models.BookListItem], edition: int | None) -> models.Boo
     if edition is None:
         return max(items, key=lambda item: item.edition) if items else None
     return next((item for item in items if item.edition == edition), None)
-
-
-def all_books(client: BookshelfClient, volume: str, *, status: str) -> list[models.BookListItem]:
-    """List every book in one volume, newest edition of each version last."""
-    books: list[models.BookListItem] = []
-    for page in range(MAX_PAGES):
-        response = client.list_books(
-            volume=volume,
-            status=status,
-            limit=PAGE_SIZE,
-            offset=page * PAGE_SIZE,
-        )
-        books.extend(response.items)
-        if not response.has_more:
-            return sorted(books, key=book_order)
-    raise BookshelfError(_LISTING_CAP)
-
-
-async def all_books_async(
-    client: BookshelfClient, volume: str, *, status: str
-) -> list[models.BookListItem]:
-    """The asynchronous twin of :func:`all_books`."""
-    books: list[models.BookListItem] = []
-    for page in range(MAX_PAGES):
-        response = await client.list_books_async(
-            volume=volume,
-            status=status,
-            limit=PAGE_SIZE,
-            offset=page * PAGE_SIZE,
-        )
-        books.extend(response.items)
-        if not response.has_more:
-            return sorted(books, key=book_order)
-    raise BookshelfError(_LISTING_CAP)
 
 
 def all_entries(client: BookshelfClient, book_id: str) -> list[models.BookEntryItem]:
@@ -265,8 +230,6 @@ async def resolve_book_async(
 
 
 __all__ = [
-    "all_books",
-    "all_books_async",
     "book_order",
     "resolve_book",
     "resolve_book_async",

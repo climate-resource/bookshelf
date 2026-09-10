@@ -47,7 +47,7 @@ Book coordinates resolve the latest published edition unless `edition=` pins one
 Indexing a `Book` returns a `BookEntry` with book scoped exploration helpers.
 
 `search_volumes()` finds volumes by free text plus discovery filters,
-and `list_books()` returns every book in one volume with versions ordered numerically.
+and `volume()` resolves one, carrying the versions and editions it has published.
 Both are available on either facade, and neither needs credentials for public data.
 
 ```python
@@ -55,7 +55,8 @@ from bookshelf import Bookshelf
 
 with Bookshelf() as bs:
     found = bs.search_volumes("emissions", deprecated=False)
-    books = bs.list_books("primap-hist")
+    volume = bs.volume("primap-hist")
+    versions, latest = volume.versions, volume.latest
 ```
 
 ```python

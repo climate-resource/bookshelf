@@ -11,6 +11,7 @@ import httpx
 import pytest
 
 from bookshelf._core.hashing import sha256_hex
+from bookshelf._generated import models
 from bookshelf.facade import AsyncBookshelf
 from bookshelf.publisher.bundle import Bundle, BundleActivity, BundleBook
 from bookshelf.publisher.replay import replay_bundle, replay_bundle_sync
@@ -161,11 +162,105 @@ def test_a_pointer_carries_its_target_and_no_storage_path(tmp_path: Path) -> Non
     pointer, managed = replayed(recorded)["resources"]
     assert pointer["kind"] == "pointer"
     assert pointer["external_uri"] == "https://example.invalid/raw.csv"
-    assert pointer["storage_path"] is None
-    assert pointer["size_bytes"] is None
+    assert "storage_path" not in pointer
+    assert "size_bytes" not in pointer
     assert managed["kind"] == "managed"
     assert managed["storage_path"] == "ingest/org_1/abc"
     assert managed["size_bytes"] == len(b"derived payload")
+
+
+def test_a_resource_stating_no_discovery_sends_no_discovery_object(tmp_path: Path) -> None:
+    """An omitted field must stay omitted, because the API refuses an explicit null on it."""
+    bundle = _derived_bundle(tmp_path / "bundle")
+    recorded: list[httpx.Request] = []
+
+    with replay_client(recorded) as client:
+        replay_bundle_sync(bundle, client)
+
+    for resource in replayed(recorded)["resources"]:
+        assert "discovery" not in resource
+
+
+def test_a_resource_sends_only_the_discovery_fields_it_recorded(tmp_path: Path) -> None:
+    """The unstated siblings of a stated field must not travel as nulls either."""
+    bundle = Bundle(tmp_path / "bundle")
+    data = b"described payload"
+    bundle.add_resource(
+        data=data,
+        hash_=sha256_hex(data),
+        type_="tabular",
+        name="derived",
+        discovery=models.ResourceDiscovery(description="What we made."),
+    )
+    bundle.write()
+    recorded: list[httpx.Request] = []
+
+    with replay_client(recorded) as client:
+        replay_bundle_sync(bundle, client)
+
+    (resource,) = replayed(recorded)["resources"]
+    assert resource["discovery"] == {"description": "What we made."}
+
+
+def test_a_book_stating_no_discovery_sends_no_discovery_object(tmp_path: Path) -> None:
+    """The book-level framing omits the same way a resource does."""
+    bundle = Bundle(tmp_path / "bundle")
+    bundle.set_book(BundleBook(volume="example", version="v1.0.0"))
+    data = b"derived payload"
+    bundle.add_resource(data=data, hash_=sha256_hex(data), type_="tabular", name="derived")
+    bundle.add_book_entry(name="derived")
+    bundle.write()
+    recorded: list[httpx.Request] = []
+
+    with replay_client(recorded) as client:
+        replay_bundle_sync(bundle, client)
+
+    assert "discovery" not in replayed(recorded)["book"]
+
+
+def test_a_book_sends_the_discovery_it_states(tmp_path: Path) -> None:
+    """A stated fact still travels, folded into the discovery object the API reads."""
+    bundle = Bundle(tmp_path / "bundle")
+    bundle.set_book(
+        BundleBook(
+            volume="example",
+            version="v1.0.0",
+            license="MIT",
+            discovery={"title": "An example"},
+        )
+    )
+    data = b"derived payload"
+    bundle.add_resource(data=data, hash_=sha256_hex(data), type_="tabular", name="derived")
+    bundle.add_book_entry(name="derived")
+    bundle.write()
+    recorded: list[httpx.Request] = []
+
+    with replay_client(recorded) as client:
+        replay_bundle_sync(bundle, client)
+
+    assert replayed(recorded)["book"]["discovery"] == {"title": "An example", "license": "MIT"}
+
+
+def test_an_entry_without_a_data_dictionary_sends_none(tmp_path: Path) -> None:
+    """Omitting the dictionary keeps an existing one, so the key must not travel as a null."""
+    bundle = _derived_bundle(tmp_path / "bundle")
+    recorded: list[httpx.Request] = []
+
+    with replay_client(recorded) as client:
+        replay_bundle_sync(bundle, client)
+
+    (entry,) = replayed(recorded)["book"]["entries"]
+    assert entry == {"name": "derived"}
+
+
+def test_an_activity_without_a_runner_sends_no_runner(tmp_path: Path) -> None:
+    bundle = _derived_bundle(tmp_path / "bundle")
+    recorded: list[httpx.Request] = []
+
+    with replay_client(recorded) as client:
+        replay_bundle_sync(bundle, client)
+
+    assert "runner" not in replayed(recorded)["activity"]
 
 
 def test_the_managed_bytes_are_uploaded_before_the_replay(tmp_path: Path) -> None:
