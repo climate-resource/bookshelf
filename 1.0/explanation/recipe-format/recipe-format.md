@@ -242,6 +242,27 @@ The reference resolves to the existing resource,
 so `build.use("primap")` hands back the tracking id the platform already assigned
 and `used=[primap]` cites the original rather than a copy of it.
 
+### Building on a file that cannot be checked in
+
+A dataset that is embargoed, or too large for the repository, is uploaded once and named by its digest:
+
+```console
+$ bookshelf upload data/scenario-data.xlsx --type tabular
+bookshelf://sha256/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+```
+
+```yaml
+resources:
+  compass:
+    uri: bookshelf://sha256/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+```
+
+This creates a resource that isn't attached to a book,
+but can be used as a resource and will appear on the provenance graph.
+These files can only be access by an organisation member.
+
+The preference is to use a publicly accessible pointer if possible.
+
 ## Versioning
 
 The bookshelf uses a composite versioning format to support a variety of different use-cases.
