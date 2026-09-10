@@ -8,8 +8,9 @@ Every decision they share lives in the sibling modules, so the flavours cannot d
 from __future__ import annotations
 
 import asyncio
+import queue
+import threading
 from collections.abc import Callable, Mapping
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -116,14 +117,21 @@ class _ResourceHandle(Describable):
 
         A repr is what you reach for when things are already going wrong,
         so it gives up rather than failing or holding a debugger for the client's full timeout.
+        The reader is a daemon, so a read still hanging at the deadline cannot delay exit either.
         """
-        pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="bookshelf-repr")
+        answers: queue.Queue[T | None] = queue.Queue(maxsize=1)
+
+        def attempt() -> None:
+            try:
+                answers.put(read())
+            except BookshelfError:
+                answers.put(None)
+
+        threading.Thread(target=attempt, name="bookshelf-repr", daemon=True).start()
         try:
-            return pool.submit(read).result(timeout=_REPR_TIMEOUT)
-        except (BookshelfError, TimeoutError):
+            return answers.get(timeout=_REPR_TIMEOUT)
+        except queue.Empty:
             return None
-        finally:
-            pool.shutdown(wait=False)
 
     def _recall(self) -> None:
         """Fill in the hash and type from the metadata cache, without a request."""

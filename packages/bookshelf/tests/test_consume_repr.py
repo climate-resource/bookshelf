@@ -238,6 +238,11 @@ def test_a_repr_gives_up_rather_than_holding_a_debugger(
     assert waited < 5, "the repr waited on the platform instead of giving up"
     assert "unknown" in printed
     assert str(TRACKING_ID) in printed
+    readers = [thread for thread in threading.enumerate() if thread.name == "bookshelf-repr"]
+    assert readers, (
+        "the read should still be running, which is what makes the next check mean something"
+    )
+    assert all(thread.daemon for thread in readers), "a hung reader would delay interpreter exit"
 
 
 def test_a_registered_resource_names_itself_once(cache: ContentCache) -> None:
