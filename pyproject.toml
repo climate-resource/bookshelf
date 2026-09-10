@@ -9,7 +9,7 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "bookshelf[scmrun]",
-    "polars>=1.0",
+    "polars>=1.8",
 ]
 
 [tool.uv]
