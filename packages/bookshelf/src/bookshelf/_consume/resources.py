@@ -178,7 +178,6 @@ class Resource(_ResourceHandle):
         return self._content_hash
 
     def _summary(self) -> tuple[str, Sections]:
-        # Resolves the type it was not given, the way the type property does, but never fails for it.
         self._recall()
         metadata = self._metadata or self._reachable(lambda: self.metadata)
         identity: dict[str, object] = {"tracking_id": self.tracking_id}
@@ -453,7 +452,6 @@ class BookEntry(Resource):
         return timeseries_frame(response)
 
     def _summary(self) -> tuple[str, Sections]:
-        # Resolves the type it was not given, the way the type property does, but never fails for it.
         resource_type = self._resource_type or self._reachable(lambda: self.type)
         return _entry_header(self._title, self.name_in_book, resource_type), _entry_sections(
             self.entry, resource_type, self.book_id

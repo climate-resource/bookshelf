@@ -17,9 +17,9 @@ def _registered(
     name: str | None,
     status: models.Status2 | None,
 ) -> tuple[str, Sections]:
-    """Retitle a consumed summary as a registered one and record how it was resolved."""
+    """Record how a registration was resolved, alongside what the resource itself reports."""
     header, sections = summary
-    return f"Registered {header.removeprefix('Bookshelf ')}", {
+    return header, {
         **sections,
         "Registration": {
             "name": name or "(unnamed)",

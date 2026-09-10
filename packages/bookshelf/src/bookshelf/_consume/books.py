@@ -61,8 +61,7 @@ class _BookBase(Describable):
             available = ", ".join(sorted(self._entries)) or "(none)"
             raise KeyError(
                 f"book {book_coordinate(self.metadata.version, self.metadata.edition)} "
-                f"has no entry "
-                f"{name_in_book!r}, available: {available}"
+                f"has no entry {name_in_book!r}, available: {available}"
             ) from None
 
 

@@ -19,6 +19,7 @@ from bookshelf._consume.books import Book
 from bookshelf._consume.resources import AsyncBookEntry, BookEntry, Resource
 from bookshelf._core.errors import APIError
 from bookshelf._generated import models
+from bookshelf._produce import resources as produce
 from bookshelf.cache import ContentCache
 
 TRACKING_ID = UUID("11111111-2222-3333-4444-555555555555")
@@ -237,3 +238,37 @@ def test_a_repr_gives_up_rather_than_holding_a_debugger(
     assert waited < 5, "the repr waited on the platform instead of giving up"
     assert "unknown" in printed
     assert str(TRACKING_ID) in printed
+
+
+def test_a_registered_resource_names_itself_once(cache: ContentCache) -> None:
+    """The producer flavour declares its own title, so nothing rewrites the consumed one."""
+    resource = produce.Resource(
+        _FakeClient(),  # type: ignore[arg-type]
+        cache,
+        TRACKING_ID,
+        resource_type=models.ResourceType.timeseries,
+        name="raw",
+    )
+
+    printed = repr(resource)
+
+    assert printed.startswith("<Registered Resource (timeseries)>")
+    assert "Registered Registered" not in printed
+    assert "Bookshelf" not in printed
+    assert "name    raw" in printed
+
+
+def test_an_async_registered_resource_names_itself_once(cache: ContentCache) -> None:
+    """The async twin declares its own title too."""
+    resource = produce.AsyncResource(
+        _FakeClient(),  # type: ignore[arg-type]
+        cache,
+        TRACKING_ID,
+        resource_type=models.ResourceType.tabular,
+    )
+
+    printed = repr(resource)
+
+    assert printed.startswith("<Registered Async Resource (tabular)>")
+    assert "Registered Registered" not in printed
+    assert "name    (unnamed)" in printed
