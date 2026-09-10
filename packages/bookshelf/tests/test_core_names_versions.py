@@ -12,9 +12,9 @@ import itertools
 import pytest
 
 from bookshelf._cli.discovery import _book_order as cli_order
+from bookshelf._consume.lookup import book_order as sdk_order
 from bookshelf._core.names import version_key
 from bookshelf._generated import models
-from bookshelf.facade import _book_order as sdk_order
 
 
 def _item(version: str, edition: int = 1) -> models.BookListItem:

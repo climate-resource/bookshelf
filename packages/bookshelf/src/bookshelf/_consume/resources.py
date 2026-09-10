@@ -15,6 +15,8 @@ from uuid import UUID
 
 from bookshelf._consume.conversions import (
     UnsupportedConversionError,
+    explorers_for,
+    readers_for,
     require_frame_support,
     require_timeseries_support,
     scmrun_class,
@@ -28,7 +30,7 @@ from bookshelf._consume.frames import (
     timeseries_frame,
 )
 from bookshelf._consume.integrity import cached_if_verified, require_cached, verify_path
-from bookshelf._consume.presentation import summary_table
+from bookshelf._consume.presentation import Section, Sections, summary_table, summary_text
 from bookshelf._consume.query import TimeseriesQuery, constant_columns, timeseries_filters
 from bookshelf._core.client import BookshelfClient
 from bookshelf._generated import models
@@ -43,6 +45,44 @@ if TYPE_CHECKING:
 _FACET_MAX_VALUES = 500
 _TRIMMING_ON_RESOURCE = "timeseries trimming requires a book entry handle"
 _UNSUPPORTED_TIMESERIES_ARGS = "timeseries entries accept filters, trimming, top_n, and limit"
+
+
+def describe_type(resource_type: models.ResourceType | None) -> str:
+    """Name a type the handle may not have learned yet."""
+    return resource_type.value if resource_type is not None else "unknown"
+
+
+def _resource_sections(
+    resource_type: models.ResourceType | None,
+    identity: dict[str, object],
+) -> dict[str, Section]:
+    """Build the sections every resource flavour renders, so none of them report different facts."""
+    return {
+        "Identity": identity,
+        "Read": readers_for(resource_type),
+        "Explore": explorers_for(resource_type),
+    }
+
+
+def _entry_sections(
+    entry: models.BookEntryItem,
+    resource_type: models.ResourceType | None,
+    book_id: UUID,
+) -> dict[str, Section]:
+    """Build the sections both entry flavours render, so the two report the same facts."""
+    return _resource_sections(
+        resource_type,
+        {
+            "tracking_id": entry.tracking_id,
+            "book_id": book_id,
+            "visibility": entry.visibility.value,
+        },
+    )
+
+
+def _entry_header(title: str, name_in_book: str, resource_type: models.ResourceType | None) -> str:
+    """Name an entry and the type that decides which calls it answers."""
+    return f"{title} {name_in_book!r} ({describe_type(resource_type)})"
 
 
 class _ResourceHandle:
@@ -65,6 +105,16 @@ class _ResourceHandle:
         self._metadata = metadata
         self._resource_type = resource_type
 
+    def _summary(self) -> tuple[str, Sections]:
+        """Return the header and sections both reprs render, so the two cannot drift apart."""
+        raise NotImplementedError
+
+    def __repr__(self) -> str:
+        return summary_text(*self._summary())
+
+    def _repr_html_(self) -> str:
+        return summary_table(*self._summary())
+
 
 class Resource(_ResourceHandle):
     """Lean immutable resource handle for machine and provenance reads."""
@@ -84,13 +134,12 @@ class Resource(_ResourceHandle):
             return self.metadata.type
         return self._resource_type
 
-    def _repr_html_(self) -> str:
+    def _summary(self) -> tuple[str, Sections]:
         metadata = self.metadata
-        return summary_table(
-            "Bookshelf Resource",
+        return f"Bookshelf Resource ({metadata.type.value})", _resource_sections(
+            metadata.type,
             {
                 "tracking_id": self.tracking_id,
-                "type": metadata.type.value,
                 "hash": metadata.hash,
                 "visibility": metadata.visibility.value,
             },
@@ -355,15 +404,9 @@ class BookEntry(Resource):
         )
         return timeseries_frame(response)
 
-    def _repr_html_(self) -> str:
-        return summary_table(
-            "Bookshelf Book Entry",
-            {
-                "name": self.name_in_book,
-                "tracking_id": self.tracking_id,
-                "type": self.type.value,
-                "book_id": self.book_id,
-            },
+    def _summary(self) -> tuple[str, Sections]:
+        return _entry_header("Bookshelf Book Entry", self.name_in_book, self.type), _entry_sections(
+            self.entry, self.type, self.book_id
         )
 
     def as_resource(self) -> Resource:
@@ -420,11 +463,10 @@ class AsyncResource(_ResourceHandle):
             return (await self._get_metadata()).type
         return self._resource_type
 
-    def _repr_html_(self) -> str:
-        resource_type = self._resource_type.value if self._resource_type is not None else "unknown"
-        return summary_table(
-            "Bookshelf Async Resource",
-            {"tracking_id": self.tracking_id, "type": resource_type},
+    def _summary(self) -> tuple[str, Sections]:
+        resource_type = self._resource_type
+        return f"Bookshelf Async Resource ({describe_type(resource_type)})", _resource_sections(
+            resource_type, {"tracking_id": self.tracking_id}
         )
 
     async def _frame(
@@ -695,19 +737,13 @@ class AsyncBookEntry(AsyncResource):
         )
         return timeseries_frame(response)
 
-    def _repr_html_(self) -> str:
+    def _summary(self) -> tuple[str, Sections]:
         # Read the handle's own type, not the entry's.
         # A book entry may arrive without one, and only the handle learns it from the metadata.
-        resource_type = self._resource_type.value if self._resource_type is not None else "unknown"
-        return summary_table(
-            "Bookshelf Async Book Entry",
-            {
-                "name": self.name_in_book,
-                "tracking_id": self.tracking_id,
-                "type": resource_type,
-                "book_id": self.book_id,
-            },
-        )
+        resource_type = self._resource_type
+        return _entry_header(
+            "Bookshelf Async Book Entry", self.name_in_book, resource_type
+        ), _entry_sections(self.entry, resource_type, self.book_id)
 
     def as_resource(self) -> AsyncResource:
         """Drop book context and return the lean async resource handle."""
@@ -757,4 +793,5 @@ __all__ = [
     "BookEntry",
     "Resource",
     "UnsupportedConversionError",
+    "describe_type",
 ]

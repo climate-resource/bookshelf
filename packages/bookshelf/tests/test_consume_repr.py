@@ -5,12 +5,14 @@ Only the handle learns it, by fetching the resource metadata,
 so a repr reading the entry instead of the handle reports "unknown" forever.
 """
 
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID
 
 import pytest
 
+from bookshelf._consume.books import Book
 from bookshelf._consume.resources import AsyncBookEntry, BookEntry
 from bookshelf._generated import models
 from bookshelf.cache import ContentCache
@@ -107,3 +109,64 @@ async def test_both_flavours_render_the_same_rows_once_the_type_is_known(
     async_html = async_entry._repr_html_().replace("Bookshelf Async Book Entry", "TITLE")
 
     assert sync_html == async_html
+
+
+def _book(*entries: models.BookEntryItem) -> Book:
+    metadata = models.BookListItem(
+        id=str(BOOK_ID),
+        volume_name="primap-hist",
+        version="v2.6",
+        edition=5,
+        status=models.BookStatus.published,
+        visibility=models.Visibility.public,
+        metadata={},
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+        published_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    return Book(_FakeClient(), ContentCache(), metadata, list(entries))  # type: ignore[arg-type]
+
+
+def test_printing_a_book_names_its_entries_and_their_types(cache: ContentCache) -> None:
+    """The point of the repr: what is in here, and what do I index it by."""
+    book = _book(_entry(models.ResourceType.timeseries))
+
+    printed = repr(book)
+
+    assert "Bookshelf Book 'primap-hist' v2.6_e005 (entries: 1)" in printed
+    assert "Entries:\n    by_country  timeseries" in printed
+    assert 'book["by_country"]' in printed
+
+
+def test_a_book_repr_survives_having_no_entries() -> None:
+    """An empty book still has to print, and the index hint has no name to offer."""
+    assert 'book["<name>"]' in repr(_book())
+
+
+def test_printing_an_entry_names_the_readers_its_type_supports(cache: ContentCache) -> None:
+    """A timeseries entry offers every converter, and a document offers only the byte readers.
+
+    A document answers no exploration call either,
+    and an empty section is left out rather than rendered as "(none)".
+    """
+    timeseries = repr(
+        BookEntry(_FakeClient(), cache, BOOK_ID, _entry(models.ResourceType.timeseries))
+    )  # type: ignore[arg-type]
+    document = repr(BookEntry(_FakeClient(), cache, BOOK_ID, _entry(models.ResourceType.document)))  # type: ignore[arg-type]
+
+    assert "as_scmrun()" in timeseries
+    assert "schema()" in timeseries
+    assert "as_scmrun()" not in document
+    assert "fetch()" in document
+    assert "Explore" not in document
+
+
+def test_the_two_reprs_report_the_same_facts(cache: ContentCache) -> None:
+    """Text and HTML both render one row mapping, so neither can go stale on its own."""
+    entry = BookEntry(_FakeClient(), cache, BOOK_ID, _entry(models.ResourceType.tabular))  # type: ignore[arg-type]
+
+    text = repr(entry)
+    html = entry._repr_html_()
+
+    for value in ("by_country", "tabular", str(TRACKING_ID), "as_polars()"):
+        assert value in text
+        assert value in html

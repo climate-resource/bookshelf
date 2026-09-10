@@ -219,3 +219,16 @@ def test_book_add_refuses_a_handle_that_took_no_name(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="registered under a name"):
         book.add(Mock(name="not-a-resource", spec=[]))
+
+
+def test_printing_a_draft_names_what_has_been_attached(tmp_path: Path) -> None:
+    """A draft under construction has to say what is on it, because nothing else records that."""
+    book = _book(_sink(Bundle(tmp_path / "bundle"), tmp_path / "cache"))
+    book.write("first", b"first", type="document")  # type: ignore[attr-defined]
+    book.write("second", b"second", type="document")  # type: ignore[attr-defined]
+
+    printed = repr(book)
+
+    assert "Bookshelf Draft Book 'my-dataset' v1.0.0_e000 (attached: 2)" in printed
+    assert "Attached:\n    first  second" in printed
+    assert "status      draft" in printed

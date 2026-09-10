@@ -11,6 +11,7 @@ from bookshelf.facade import (
     AsyncBookshelf,
     AsyncDraftBook,
     AsyncResource,
+    AsyncVolume,
     Book,
     BookEntry,
     Bookshelf,
@@ -23,6 +24,7 @@ from bookshelf.facade import (
     Resource,
     UnsupportedConversionError,
     Used,
+    Volume,
 )
 from bookshelf.publisher import replay_bundle, replay_bundle_sync, run_record, setup
 
@@ -48,6 +50,7 @@ __all__ = [
     "AsyncBookshelf",
     "AsyncDraftBook",
     "AsyncResource",
+    "AsyncVolume",
     "Book",
     "BookEntry",
     "Bookshelf",
@@ -62,6 +65,7 @@ __all__ = [
     "Resource",
     "UnsupportedConversionError",
     "Used",
+    "Volume",
     "models",
     "replay_bundle",
     "replay_bundle_sync",

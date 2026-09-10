@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from bookshelf._consume.presentation import Sections
 from bookshelf._consume.resources import AsyncResource as ConsumedAsyncResource
 from bookshelf._consume.resources import Resource as ConsumedResource
 from bookshelf._core.client import BookshelfClient
@@ -43,6 +44,18 @@ class Resource(ConsumedResource):
             return None
         return self.registration_outcome.status
 
+    def _summary(self) -> tuple[str, Sections]:
+        header, sections = super()._summary()
+        status = self.registration_status
+        kind = header.removeprefix("Bookshelf ")
+        return f"Registered {kind}", {
+            **sections,
+            "Registration": {
+                "name": self.name or "(unnamed)",
+                "status": status.value if status is not None else "(none)",
+            },
+        }
+
 
 class AsyncResource(ConsumedAsyncResource):
     """Asynchronous resource handle retaining its registration outcome."""
@@ -75,6 +88,18 @@ class AsyncResource(ConsumedAsyncResource):
         if self.registration_outcome is None:
             return None
         return self.registration_outcome.status
+
+    def _summary(self) -> tuple[str, Sections]:
+        header, sections = super()._summary()
+        status = self.registration_status
+        kind = header.removeprefix("Bookshelf ")
+        return f"Registered {kind}", {
+            **sections,
+            "Registration": {
+                "name": self.name or "(unnamed)",
+                "status": status.value if status is not None else "(none)",
+            },
+        }
 
 
 __all__ = ["AsyncResource", "Resource"]

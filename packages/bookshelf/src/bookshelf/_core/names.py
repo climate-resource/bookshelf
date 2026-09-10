@@ -44,6 +44,11 @@ def flatten_to_resource_name(value: str) -> str:
     return validate_resource_name(flattened)
 
 
+def book_coordinate(version: str, edition: int | None = None) -> str:
+    """Return the ``{version}_e{edition:03}`` label a book is addressed by."""
+    return version if edition is None else f"{version}_e{edition:03}"
+
+
 _LEADING_DIGITS = re.compile(r"^([0-9]+)(.*)$")
 _ASCII_DIGITS = re.compile(r"^[0-9]+$")
 
@@ -93,6 +98,7 @@ def version_key(version: str) -> tuple[Any, ...]:
 
 __all__ = [
     "RESOURCE_NAME_PATTERN",
+    "book_coordinate",
     "flatten_to_resource_name",
     "validate_resource_name",
     "version_key",

@@ -89,38 +89,42 @@ if page.has_more:
     print(f"next page starts at {following.items[0].name}")
 
 # %% [markdown]
-# ## Every book in a volume
+# ## What versions a volume has
 #
 # A volume holds many books, one per version and edition.
-# `list_books()` returns all of them, oldest first,
-# walking the pages itself so you do not have to.
+# `bs.volume()` asks the platform once and hands back a handle that already knows them all.
+# Printing it is the fastest way to see what is there.
 
 # %%
-books = bs.list_books("primap-hist")
-[f"{book.version}_e{book.edition:03}" for book in books]
+volume = bs.volume("primap-hist")
+volume
 
 # %% [markdown]
 # Versions sort component by component, comparing numeric runs as numbers,
 # so `v2.10` lands after `v2.9` instead of before it.
-# The last entry is therefore the newest book, which is what
-# `bs.book(volume, version)` resolves when you leave `edition=` off.
+# `latest` is therefore the newest version rather than the last one published.
 
 # %%
-newest = books[-1]
-newest.version, newest.edition, newest.status
-
-# %% [markdown]
-# Pass `status=` to look at something other than published books.
-# Drafts are only visible to the organisation that owns them.
+volume.versions, volume.latest, volume.editions(volume.latest)
 
 # %% [markdown]
 # ## From discovery to data
 #
-# Discovery hands back coordinates, and [reading a book](read_a_book) takes it from there.
+# Indexing the volume by version resolves the book, defaulting to its newest edition.
+# Leave the version off as well and you get the newest book in the volume.
 
 # %%
-entry = bs.book("primap-hist", newest.version)["by_region"]
+entry = volume.book()["by_region"]
 entry.as_df(year_min=2018, year_max=2020, top_n=5).iloc[:5, :3]
+
+# %% [markdown]
+# `list_books()` is the lower level form, returning the raw catalogue rows oldest first.
+# Pass `status=` to look at something other than published books.
+# Drafts are only visible to the organisation that owns them.
+
+# %%
+books = bs.list_books("primap-hist")
+[f"{book.version}_e{book.edition:03}" for book in books]
 
 # %% [markdown]
 # ## From the command line
