@@ -348,6 +348,7 @@ def test_a_redirect_off_the_api_does_not_carry_the_token() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/v1/resources/r1/data":
+            authorization["api"] = request.headers.get("authorization")
             return httpx.Response(302, headers={"location": "https://store.test/signed"})
         authorization["store"] = request.headers.get("authorization")
         return httpx.Response(200, content=b"PAR1", headers={"content-type": "application/parquet"})
@@ -360,4 +361,6 @@ def test_a_redirect_off_the_api_does_not_carry_the_token() -> None:
     with make_client(handler, auth=Bearer()) as client:
         client.query_resource_data("r1")
 
+    # Both halves matter: dropping auth everywhere would satisfy the second assert alone.
+    assert authorization["api"] == "Bearer secret"
     assert authorization["store"] is None
