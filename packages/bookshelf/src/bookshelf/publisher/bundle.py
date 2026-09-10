@@ -182,11 +182,20 @@ class BundleResource(BaseModel):
     used: list[ResourceName] = Field(default_factory=list)
 
     @property
-    def discovery(self) -> models.ResourceDiscovery:
-        """The catalogue metadata this record holds, nested as the wire carries it."""
-        return models.ResourceDiscovery(
-            **self.model_dump(include=set(models.ResourceDiscovery.model_fields))
-        )
+    def discovery(self) -> models.ResourceDiscovery | None:
+        """The catalogue metadata this record holds, nested as the wire carries it.
+
+        A field the record never stated stays unset, so replay omits it rather than sending a null.
+        ``None`` is a record that states nothing at all.
+        """
+        stated = {
+            name: value
+            for name, value in self.model_dump(
+                include=set(models.ResourceDiscovery.model_fields)
+            ).items()
+            if value is not None and value != []
+        }
+        return models.ResourceDiscovery(**stated) if stated else None
 
     @model_validator(mode="after")
     def _a_pointer_records_its_target(self) -> BundleResource:

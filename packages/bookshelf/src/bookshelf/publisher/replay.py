@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 from bookshelf._core.client import BookshelfClient
 from bookshelf._generated import models
@@ -61,21 +62,31 @@ def _activity(activity: BundleActivity) -> models.ReplayActivity:
     )
 
 
+def _stated(**fields: Any) -> dict[str, Any]:
+    """Keep only the fields the manifest states, so an omission never reaches the wire as a null.
+
+    The request is serialised with ``exclude_unset``, so a field left out here is left out there.
+    """
+    return {name: value for name, value in fields.items() if value is not None}
+
+
 def _book(book: BundleBook) -> models.ReplayBook:
     """Project the recorded framing, folding the editorial fields into discovery."""
     return models.ReplayBook(
         volume=book.volume,
         version=book.version,
         visibility=models.Visibility(book.visibility),
-        discovery=discovery_input(
-            book.discovery,
-            description=book.description,
-            license=book.license,
-            authors=book.authors,
-        ),
         metadata=dict(book.metadata),
         entries=[_entry(entry) for entry in book.entries],
         published=book.published,
+        **_stated(
+            discovery=discovery_input(
+                book.discovery,
+                description=book.description,
+                license=book.license,
+                authors=book.authors,
+            )
+        ),
     )
 
 
@@ -87,16 +98,18 @@ def _resource(resource: BundleResource, storage_path: str | None) -> models.Repl
         hash=resource.hash,
         type=models.ResourceType(resource.type),
         kind=models.Kind3(resource.kind),
-        format=resource.format,
         visibility=models.Visibility(resource.visibility),
-        discovery=resource.discovery,
         metadata=dict(resource.metadata),
         dedupe=resource.dedupe,
-        size_bytes=None if pointer else resource.size,
-        external_uri=resource.external_uri,
-        storage_path=None if pointer else storage_path,
         generated=resource.generated,
         used=list(resource.used),
+        **_stated(
+            format=resource.format,
+            discovery=resource.discovery,
+            size_bytes=None if pointer else resource.size,
+            external_uri=resource.external_uri,
+            storage_path=None if pointer else storage_path,
+        ),
     )
 
 
@@ -104,11 +117,13 @@ def _request(bundle: Bundle, storage_paths: Mapping[str, str]) -> models.BundleR
     """Build the one request a replay sends, in the recorded resource order."""
     manifest = bundle.manifest
     return models.BundleReplayRequest(
-        activity=None if manifest.activity is None else _activity(manifest.activity),
         resources=[
             _resource(resource, storage_paths.get(resource.name)) for resource in manifest.resources
         ],
-        book=None if manifest.book is None else _book(manifest.book),
+        **_stated(
+            activity=None if manifest.activity is None else _activity(manifest.activity),
+            book=None if manifest.book is None else _book(manifest.book),
+        ),
     )
 
 
