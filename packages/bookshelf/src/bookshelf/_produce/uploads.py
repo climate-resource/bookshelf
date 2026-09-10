@@ -4,6 +4,8 @@ The registration surface and the bundle replay both upload before they describe,
 so the two-call upload dance lives here rather than in either of them.
 """
 
+from uuid import UUID
+
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
@@ -29,13 +31,22 @@ def upload_bytes(
     *,
     hash_: str,
     content_type: str,
+    preview_id: UUID | None = None,
 ) -> str:
     """Upload ``data`` and return its managed storage path.
 
     A deployment that already holds the content answers the initiate call with the key,
     so nothing is transferred for it.
+    ``preview_id`` uploads under that preview's own prefix instead of the catalogue's.
     """
-    plan = client.initiate_ingest_upload(_initiate(hash_, data, content_type))
+    request = _initiate(hash_, data, content_type)
+    plan = (
+        client.initiate_ingest_upload(request)
+        if preview_id is None
+        else client.initiate_preview_upload(
+            preview_id, models.PreviewUploadInitiateRequest(**request.model_dump())
+        )
+    )
     if isinstance(plan, models.UploadAlreadyExistsResponse):
         return plan.storage_path
     multipart = plan.upload_id != "single"
@@ -48,7 +59,16 @@ def upload_bytes(
         )
         if multipart:
             completed.append(_part_complete(part, etag))
-    if multipart:
+    if multipart and preview_id is not None:
+        client.complete_preview_upload(
+            preview_id,
+            models.PreviewUploadCompleteRequest(
+                upload_id=plan.upload_id,
+                storage_path=plan.storage_path,
+                parts=completed,
+            ),
+        )
+    elif multipart:
         client.complete_ingest_upload(
             models.IngestUploadCompleteRequest(
                 upload_id=plan.upload_id,
