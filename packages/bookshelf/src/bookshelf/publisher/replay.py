@@ -32,17 +32,20 @@ from bookshelf.publisher.bundle import (
     BundleBook,
     BundleBookEntry,
     BundleResource,
+    stated,
 )
 
 
 def _entry(entry: BundleBookEntry) -> models.ReplayEntry:
-    """Project one recorded membership row, preserving omission versus clearing."""
-    dictionary = (
-        None
-        if entry.data_dictionary is None
-        else [models.DataDictionaryEntry.model_validate(item) for item in entry.data_dictionary]
+    """Project one recorded membership row. An omitted dictionary stays omitted, an empty one clears."""
+    if entry.data_dictionary is None:
+        return models.ReplayEntry(name=entry.name)
+    return models.ReplayEntry(
+        name=entry.name,
+        data_dictionary=[
+            models.DataDictionaryEntry.model_validate(item) for item in entry.data_dictionary
+        ],
     )
-    return models.ReplayEntry(name=entry.name, data_dictionary=dictionary)
 
 
 def _activity(activity: BundleActivity) -> models.ReplayActivity:
@@ -57,7 +60,7 @@ def _activity(activity: BundleActivity) -> models.ReplayActivity:
         code_ref=activity.code_ref,
         config_hash=activity.config_hash,
         parameters=dict(activity.parameters),
-        runner=activity.runner,
+        **stated(runner=activity.runner),
     )
 
 
@@ -67,15 +70,17 @@ def _book(book: BundleBook) -> models.ReplayBook:
         volume=book.volume,
         version=book.version,
         visibility=models.Visibility(book.visibility),
-        discovery=discovery_input(
-            book.discovery,
-            description=book.description,
-            license=book.license,
-            authors=book.authors,
-        ),
         metadata=dict(book.metadata),
         entries=[_entry(entry) for entry in book.entries],
         published=book.published,
+        **stated(
+            discovery=discovery_input(
+                book.discovery,
+                description=book.description,
+                license=book.license,
+                authors=book.authors,
+            )
+        ),
     )
 
 
@@ -87,16 +92,18 @@ def _resource(resource: BundleResource, storage_path: str | None) -> models.Repl
         hash=resource.hash,
         type=models.ResourceType(resource.type),
         kind=models.Kind3(resource.kind),
-        format=resource.format,
         visibility=models.Visibility(resource.visibility),
-        discovery=resource.discovery,
         metadata=dict(resource.metadata),
         dedupe=resource.dedupe,
-        size_bytes=None if pointer else resource.size,
-        external_uri=resource.external_uri,
-        storage_path=None if pointer else storage_path,
         generated=resource.generated,
         used=list(resource.used),
+        **stated(
+            format=resource.format,
+            discovery=resource.discovery,
+            size_bytes=None if pointer else resource.size,
+            external_uri=resource.external_uri,
+            storage_path=None if pointer else storage_path,
+        ),
     )
 
 
@@ -104,11 +111,13 @@ def _request(bundle: Bundle, storage_paths: Mapping[str, str]) -> models.BundleR
     """Build the one request a replay sends, in the recorded resource order."""
     manifest = bundle.manifest
     return models.BundleReplayRequest(
-        activity=None if manifest.activity is None else _activity(manifest.activity),
         resources=[
             _resource(resource, storage_paths.get(resource.name)) for resource in manifest.resources
         ],
-        book=None if manifest.book is None else _book(manifest.book),
+        **stated(
+            activity=None if manifest.activity is None else _activity(manifest.activity),
+            book=None if manifest.book is None else _book(manifest.book),
+        ),
     )
 
 
