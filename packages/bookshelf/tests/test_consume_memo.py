@@ -152,6 +152,7 @@ def test_a_corrupt_record_is_dropped_and_asked_for_again() -> None:
     _sync([], [BOOK_PAGE, ENTRIES_PAGE]).book("example", "v1.0.0", edition=2)
     cache = ContentCache()
     (record,) = cache.metadata.base_dir.rglob("*.json")
+    assert record.name == "v1.0.0_e002.json"
     record.write_text("{not json")
 
     second: list[httpx.Request] = []
@@ -263,6 +264,6 @@ def test_a_bad_ttl_in_the_environment_falls_back_to_the_default(
     monkeypatch.setenv("BOOKSHELF_CACHE_BOOK_TTL", "soon")
 
     with pytest.warns(UserWarning, match="BOOKSHELF_CACHE_BOOK_TTL"):
-        cache = ContentCache()
+        bs = _sync([], [])
 
-    assert cache.book_ttl == 24 * 60 * 60
+    assert bs._book_ttl == 24 * 60 * 60

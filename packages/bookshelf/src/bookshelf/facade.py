@@ -12,7 +12,13 @@ import httpx
 
 from bookshelf._consume.books import AsyncBook, Book
 from bookshelf._consume.integrity import HashMismatchError
-from bookshelf._consume.memo import forget_book, remember_book, remembered_book
+from bookshelf._consume.memo import (
+    confirm_book,
+    default_book_ttl,
+    forget_book,
+    remember_book,
+    remembered_book,
+)
 from bookshelf._consume.resources import (
     AsyncBookEntry,
     AsyncResource,
@@ -196,7 +202,8 @@ class Bookshelf:
             timeout=timeout,
             transport=transport,
         )
-        self._cache = ContentCache(book_ttl=book_ttl)
+        self._cache = ContentCache()
+        self._book_ttl = default_book_ttl() if book_ttl is None else book_ttl
         # A subclass changes these by rebinding them after this runs, not by redefining them.
         sink: ProduceSink = LiveSink(self._client, self._cache)
         self.activity = sink.activity
@@ -399,23 +406,19 @@ class Bookshelf:
         """
         chosen: models.BookListItem | None = None
         if edition is not None:
-            remembered = remembered_book(self._cache, self._client, volume, version, edition)
+            remembered = remembered_book(
+                self._cache, self._client, volume, version, edition, ttl=self._book_ttl
+            )
             if remembered is not None:
-                published = (
-                    None if not remembered.stale else self._still_published(remembered.book.id)
-                )
-                if published:
-                    remember_book(
-                        self._cache,
-                        self._client,
-                        volume,
-                        version,
-                        remembered.book,
-                        remembered.entries,
-                    )
-                if published is not False:
+                if not remembered.stale:
                     return Book(self._client, self._cache, remembered.book, remembered.entries)
-                forget_book(self._cache, self._client, volume, version, edition)
+                published = self._still_published(remembered.book.id)
+                if published is False:
+                    forget_book(self._cache, self._client, volume, version, edition)
+                else:
+                    if published:
+                        confirm_book(self._cache, self._client, volume, version, edition)
+                    return Book(self._client, self._cache, remembered.book, remembered.entries)
         if edition is None:
             response = self._client.list_books(
                 volume=volume,
@@ -487,7 +490,8 @@ class AsyncBookshelf:
             timeout=timeout,
             async_transport=async_transport,
         )
-        self._cache = ContentCache(book_ttl=book_ttl)
+        self._cache = ContentCache()
+        self._book_ttl = default_book_ttl() if book_ttl is None else book_ttl
         sink: AsyncProduceSink = AsyncLiveSink(self._client, self._cache)
         self.activity = sink.activity
         """Open an ambient asynchronous producer activity."""
@@ -694,29 +698,28 @@ class AsyncBookshelf:
         chosen: models.BookListItem | None = None
         if edition is not None:
             remembered = await asyncio.to_thread(
-                remembered_book, self._cache, self._client, volume, version, edition
+                remembered_book,
+                self._cache,
+                self._client,
+                volume,
+                version,
+                edition,
+                ttl=self._book_ttl,
             )
             if remembered is not None:
-                published = (
-                    None
-                    if not remembered.stale
-                    else await self._still_published(remembered.book.id)
-                )
-                if published:
-                    await asyncio.to_thread(
-                        remember_book,
-                        self._cache,
-                        self._client,
-                        volume,
-                        version,
-                        remembered.book,
-                        remembered.entries,
-                    )
-                if published is not False:
+                if not remembered.stale:
                     return AsyncBook(self._client, self._cache, remembered.book, remembered.entries)
-                await asyncio.to_thread(
-                    forget_book, self._cache, self._client, volume, version, edition
-                )
+                published = await self._still_published(remembered.book.id)
+                if published is False:
+                    await asyncio.to_thread(
+                        forget_book, self._cache, self._client, volume, version, edition
+                    )
+                else:
+                    if published:
+                        await asyncio.to_thread(
+                            confirm_book, self._cache, self._client, volume, version, edition
+                        )
+                    return AsyncBook(self._client, self._cache, remembered.book, remembered.entries)
         if edition is None:
             response = await self._client.list_books_async(
                 volume=volume,

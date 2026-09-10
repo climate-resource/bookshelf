@@ -6,18 +6,43 @@ so a remembered edition is trusted for a while and then checked with one request
 Records are scoped by server, because ids differ between deployments.
 """
 
-import hashlib
-import time
+import os
+import warnings
 from dataclasses import dataclass
 from uuid import UUID
 
 from bookshelf._core.client import BookshelfClient
+from bookshelf._core.credentials import normalise_api_url
+from bookshelf._core.hashing import sha256_hex
+from bookshelf._core.names import flatten_to_resource_name
 from bookshelf._generated import models
 from bookshelf.cache import ContentCache
 
+DEFAULT_BOOK_TTL = 24 * 60 * 60.0
+
+
+def default_book_ttl() -> float:
+    """Seconds a remembered book edition is trusted before it is checked again.
+
+    ``$BOOKSHELF_CACHE_BOOK_TTL`` overrides the one day default.
+    """
+    override = os.environ.get("BOOKSHELF_CACHE_BOOK_TTL")
+    if not override:
+        return DEFAULT_BOOK_TTL
+    try:
+        return float(override)
+    except ValueError:
+        warnings.warn(
+            f"ignoring BOOKSHELF_CACHE_BOOK_TTL={override!r}, it is not a number of seconds",
+            stacklevel=2,
+        )
+        return DEFAULT_BOOK_TTL
+
 
 def _scope(client: BookshelfClient) -> str:
-    return hashlib.sha256(client.base_url.encode()).hexdigest()[:16]
+    # Readable on disk, with a digest suffix so flattening two URLs onto one name cannot mix them.
+    url = normalise_api_url(client.base_url)
+    return f"{flatten_to_resource_name(url)}-{sha256_hex(url.encode())[:8]}"
 
 
 def _resource_key(client: BookshelfClient, tracking_id: UUID) -> str:
@@ -25,8 +50,8 @@ def _resource_key(client: BookshelfClient, tracking_id: UUID) -> str:
 
 
 def _book_key(client: BookshelfClient, volume: str, version: str, edition: int) -> str:
-    coordinate = hashlib.sha256(f"{volume}\0{version}\0{edition}".encode()).hexdigest()[:32]
-    return f"{_scope(client)}/books/{coordinate}"
+    label = f"{flatten_to_resource_name(version)}_e{edition:03}"
+    return f"{_scope(client)}/books/{flatten_to_resource_name(volume)}/{label}"
 
 
 def remembered_resource(
@@ -62,19 +87,33 @@ class RememberedBook:
 
 
 def remembered_book(
-    cache: ContentCache, client: BookshelfClient, volume: str, version: str, edition: int
+    cache: ContentCache,
+    client: BookshelfClient,
+    volume: str,
+    version: str,
+    edition: int,
+    *,
+    ttl: float,
 ) -> RememberedBook | None:
     """Return a remembered pinned edition and its entries, if any."""
-    record = cache.metadata.get(_book_key(client, volume, version, edition))
-    if record is None:
+    key = _book_key(client, volume, version, edition)
+    record = cache.metadata.get(key)
+    age = cache.metadata.age(key)
+    if record is None or age is None:
         return None
     try:
         book = models.BookListItem.model_validate(record["book"])
         entries = [models.BookEntryItem.model_validate(item) for item in record["entries"]]
-        resolved_at = float(record["resolved_at"])
     except (KeyError, TypeError, ValueError):
         return None
-    return RememberedBook(book, entries, stale=time.time() - resolved_at > cache.book_ttl)
+    return RememberedBook(book, entries, stale=age > ttl)
+
+
+def confirm_book(
+    cache: ContentCache, client: BookshelfClient, volume: str, version: str, edition: int
+) -> None:
+    """Restart the trust window of a remembered edition the platform still publishes."""
+    cache.metadata.touch(_book_key(client, volume, version, edition))
 
 
 def forget_book(
@@ -92,19 +131,21 @@ def remember_book(
     book: models.BookListItem,
     entries: list[models.BookEntryItem],
 ) -> None:
-    """Remember a resolved or freshly checked pinned edition and its entries."""
+    """Remember a resolved pinned edition and its entries."""
     cache.metadata.put(
         _book_key(client, volume, version, book.edition),
         {
             "book": book.model_dump(mode="json"),
             "entries": [entry.model_dump(mode="json") for entry in entries],
-            "resolved_at": time.time(),
         },
     )
 
 
 __all__ = [
+    "DEFAULT_BOOK_TTL",
     "RememberedBook",
+    "confirm_book",
+    "default_book_ttl",
     "forget_book",
     "remember_book",
     "remember_resource",

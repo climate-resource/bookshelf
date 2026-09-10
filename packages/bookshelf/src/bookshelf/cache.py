@@ -4,7 +4,7 @@ import hashlib
 import json
 import os
 import shutil
-import warnings
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -15,7 +15,6 @@ from uuid import uuid4
 from platformdirs import user_cache_dir
 
 DEFAULT_MAX_BYTES = 5 * 1024**3
-DEFAULT_BOOK_TTL = 24 * 60 * 60.0
 
 _DIGEST_LENGTH = hashlib.sha256().digest_size * 2
 _HEX_DIGITS = frozenset("0123456789abcdef")
@@ -30,6 +29,17 @@ def _is_digest(name: str) -> bool:
     return len(name) == _DIGEST_LENGTH and _HEX_DIGITS.issuperset(name)
 
 
+@contextmanager
+def _staged(path: Path) -> Iterator[Path]:
+    """Yield a unique temporary path beside ``path`` and atomically move it into place on success."""
+    temporary = path.with_name(f"{path.name}.{uuid4().hex}.tmp")
+    try:
+        yield temporary
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def default_cache_dir() -> Path:
     """Return the cache directory: ``$BOOKSHELF_CACHE_DIR``, or the platform default.
 
@@ -39,24 +49,6 @@ def default_cache_dir() -> Path:
     if override:
         return Path(override)
     return Path(user_cache_dir("bookshelf", "climateresource")) / "content"
-
-
-def default_book_ttl() -> float:
-    """Seconds a remembered book edition is trusted before it is checked again.
-
-    ``$BOOKSHELF_CACHE_BOOK_TTL`` overrides the one day default.
-    """
-    override = os.environ.get("BOOKSHELF_CACHE_BOOK_TTL")
-    if not override:
-        return DEFAULT_BOOK_TTL
-    try:
-        return float(override)
-    except ValueError:
-        warnings.warn(
-            f"ignoring BOOKSHELF_CACHE_BOOK_TTL={override!r}, it is not a number of seconds",
-            stacklevel=2,
-        )
-        return DEFAULT_BOOK_TTL
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,12 +91,19 @@ class MetadataCache:
         """Atomically store ``record`` under ``key``."""
         path = self._path_for(key)
         path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = path.with_name(f"{path.name}.{uuid4().hex}.tmp")
-        try:
+        with _staged(path) as temporary:
             temporary.write_text(json.dumps(record))
-            temporary.replace(path)
-        finally:
-            temporary.unlink(missing_ok=True)
+
+    def age(self, key: str) -> float | None:
+        """Seconds since the record under ``key`` was stored or touched, or ``None`` when absent."""
+        try:
+            return time.time() - self._path_for(key).stat().st_mtime
+        except OSError:
+            return None
+
+    def touch(self, key: str) -> None:
+        """Mark the record under ``key`` as freshly confirmed."""
+        self._path_for(key).touch()
 
     def discard(self, key: str) -> None:
         """Remove one record if it exists."""
@@ -126,16 +125,9 @@ class MetadataCache:
 class ContentCache:
     """A small disk cache keyed only by canonical content hash."""
 
-    def __init__(
-        self,
-        base_dir: Path | None = None,
-        *,
-        max_bytes: int = DEFAULT_MAX_BYTES,
-        book_ttl: float | None = None,
-    ) -> None:
+    def __init__(self, base_dir: Path | None = None, *, max_bytes: int = DEFAULT_MAX_BYTES) -> None:
         self.base_dir = Path(base_dir) if base_dir is not None else default_cache_dir()
         self.max_bytes = max_bytes
-        self.book_ttl = default_book_ttl() if book_ttl is None else book_ttl
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self.metadata = MetadataCache(self.base_dir / "metadata")
 
@@ -156,14 +148,9 @@ class ContentCache:
     @contextmanager
     def stage(self, content_hash: str) -> Iterator[Path]:
         """Yield a unique staging path and atomically commit it on success."""
-        path = self._path_for(content_hash)
-        temporary = self.base_dir / f"{path.name}.{uuid4().hex}.tmp"
-        try:
+        with _staged(self._path_for(content_hash)) as temporary:
             yield temporary
-            temporary.replace(path)
-            self.evict_lru()
-        finally:
-            temporary.unlink(missing_ok=True)
+        self.evict_lru()
 
     def discard(self, content_hash: str) -> None:
         """Remove one invalid cache entry if it exists."""

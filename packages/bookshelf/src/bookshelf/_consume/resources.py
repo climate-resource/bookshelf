@@ -66,26 +66,26 @@ class _ResourceHandle:
         self._metadata = metadata
         self._resource_type = resource_type
         self._content_hash: str | None = None if metadata is None else metadata.hash
+        self._recalled = False
 
     def _recall(self) -> None:
         """Fill in the hash and type from the metadata cache, without a request."""
-        if self._content_hash is not None and self._resource_type is not None:
+        if self._recalled:
             return
+        self._recalled = True
         remembered = remembered_resource(self._cache, self._client, self.tracking_id)
-        if remembered is None:
-            return
-        self._content_hash, self._resource_type = remembered
+        if remembered is not None:
+            self._content_hash, self._resource_type = remembered
 
     def _adopt(self, metadata: models.ResourceRead) -> models.ResourceRead:
-        """Adopt a freshly fetched record, ready for :meth:`_remember`."""
+        """Keep a freshly fetched record on the handle."""
         self._metadata = metadata
         self._resource_type = metadata.type
         self._content_hash = metadata.hash
         return metadata
 
-    def _remember(self) -> None:
-        if self._metadata is not None:
-            remember_resource(self._cache, self._client, self._metadata)
+    def _remember(self, metadata: models.ResourceRead) -> None:
+        remember_resource(self._cache, self._client, metadata)
 
 
 class Resource(_ResourceHandle):
@@ -96,9 +96,9 @@ class Resource(_ResourceHandle):
         """Return the generated resource projection."""
         if self._metadata is not None:
             return self._metadata
-        self._adopt(self._client.get_resource(self.tracking_id))
-        self._remember()
-        return self.metadata
+        metadata = self._adopt(self._client.get_resource(self.tracking_id))
+        self._remember(metadata)
+        return metadata
 
     @property
     def type(self) -> models.ResourceType:
@@ -445,9 +445,9 @@ class AsyncResource(_ResourceHandle):
     async def _get_metadata(self) -> models.ResourceRead:
         if self._metadata is not None:
             return self._metadata
-        self._adopt(await self._client.get_resource_async(self.tracking_id))
-        await asyncio.to_thread(self._remember)
-        return await self._get_metadata()
+        metadata = self._adopt(await self._client.get_resource_async(self.tracking_id))
+        await asyncio.to_thread(self._remember, metadata)
+        return metadata
 
     async def _get_type(self) -> models.ResourceType:
         if self._resource_type is None:
