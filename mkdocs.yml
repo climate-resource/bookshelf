@@ -40,11 +40,6 @@ extra_css:
 plugins:
   # https://mkdocstrings.github.io/autorefs/
   - autorefs
-  # Required for auto-generating our documentation stubs
-  # https://oprypin.github.io/mkdocs-gen-files/
-  - gen-files:
-      scripts:
-        - docs/gen_doc_stubs.py
   # Make the navigation easier to handle/auto-generate if we wish
   # https://oprypin.github.io/mkdocs-literate-nav/
   - literate-nav:
@@ -66,7 +61,7 @@ plugins:
       allow_errors: false
       # theme: dark
       include_source: True
-      ignore: ["*.ipynb", "*.md", "docs/gen_doc_stubs.py"]
+      ignore: ["*.ipynb", "*.md"]
       remove_tag_config:
         remove_input_tags:
           - remove_input
@@ -87,9 +82,16 @@ plugins:
             - https://docs.python.org/3/objects.inv
             - https://scmdata.readthedocs.io/en/stable/objects.inv
           options:
-            docstring_style: numpy
+            docstring_style: google
             show_root_heading: true
-            show_source: true
+            show_root_full_path: true
+            show_source: false
+            merge_init_into_class: true
+            separate_signature: true
+            show_signature_annotations: true
+            inherited_members: true
+            filters: ["!^_", "^__getitem__$", "^__iter__$", "^__contains__$", "^__len__$"]
+            members_order: source
   # https://squidfunk.github.io/mkdocs-material/plugins/search/
   - search
   # https://oprypin.github.io/mkdocs-section-index/

@@ -68,7 +68,7 @@ def registered_resource_type(
     requested: models.ResourceType,
 ) -> models.ResourceType | None:
     """Return a trusted local type, or defer canonical alias metadata loading."""
-    if outcome.status is models.Status2.aliased:
+    if outcome.status is models.Status3.aliased:
         return None
     return requested
 

@@ -107,6 +107,7 @@ class _ResourceHandle(Describable):
         self._client = client
         self._cache = cache
         self.tracking_id = UUID(str(tracking_id))
+        """The platform's id for this resource."""
         self._metadata = metadata
         self._resource_type = resource_type
         self._content_hash: str | None = None if metadata is None else metadata.hash
@@ -353,7 +354,7 @@ class Resource(_ResourceHandle):
     def fetch(self) -> bytes:
         """Return verified bytes, using memory proportional to the resource size.
 
-        Use :meth:`as_path` to stream large resources without loading them into memory.
+        Use `as_path()` to stream large resources without loading them into memory.
         """
         return self._ensure_cached().read_bytes()
 
@@ -387,8 +388,10 @@ class BookEntry(Resource):
     ) -> None:
         super().__init__(client, cache, entry.tracking_id, resource_type=entry.type)
         self.book_id = UUID(str(book_id))
+        """The id of the book this entry belongs to."""
         self.entry = entry
         self.name_in_book = entry.name_in_book
+        """The name this entry has in its book."""
 
     def as_df(
         self,
@@ -703,7 +706,7 @@ class AsyncResource(_ResourceHandle):
     async def fetch(self) -> bytes:
         """Return verified bytes, using memory proportional to the resource size.
 
-        Use :meth:`as_path` to stream large resources without loading them into memory.
+        Use `as_path()` to stream large resources without loading them into memory.
         """
         path = await self._ensure_cached()
         return await asyncio.to_thread(path.read_bytes)
@@ -740,8 +743,10 @@ class AsyncBookEntry(AsyncResource):
     ) -> None:
         super().__init__(client, cache, entry.tracking_id, resource_type=entry.type)
         self.book_id = UUID(str(book_id))
+        """The id of the book this entry belongs to."""
         self.entry = entry
         self.name_in_book = entry.name_in_book
+        """The name this entry has in its book."""
 
     async def as_df(
         self,

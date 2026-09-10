@@ -98,7 +98,7 @@ def _resource(resource: BundleResource, storage_path: str | None) -> models.Repl
         name=resource.name,
         hash=resource.hash,
         type=models.ResourceType(resource.type),
-        kind=models.Kind3(resource.kind),
+        kind=models.Kind4(resource.kind),
         visibility=models.Visibility(resource.visibility),
         metadata=dict(resource.metadata),
         dedupe=resource.dedupe,

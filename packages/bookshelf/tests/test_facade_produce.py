@@ -185,7 +185,7 @@ def test_register_file_uploads_then_catalogues_the_bytes(tmp_path: Path) -> None
         resource = client.register_file(type="tabular", path=data, name="raw", tags=["raw"])
 
     assert resource.tracking_id == UUID(TRACKING_ID)
-    assert resource.registration_status is models.Status2.created
+    assert resource.registration_status is models.Status3.created
     initiate, register = recorded
     assert (initiate.method, initiate.url.path) == ("POST", "/v1/resources/uploads")
     digest = hashlib.sha256(data.read_bytes()).hexdigest()

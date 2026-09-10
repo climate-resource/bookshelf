@@ -451,6 +451,76 @@ LIST_RESOURCE_EVENTS = _op(
         response_models=(models.RegistrationEventsResponse,),
     )
 )
+CREATE_PREVIEW = _op(
+    OpSpec(
+        operation_id="previewsCreatePreview",
+        method="POST",
+        path_template="/v1/proposals/{repository}/{pr_number}/previews",
+        success_statuses=(201,),
+        error_statuses=(401, 403, 404, 422),
+        supplied_parameters=(("path", "repository"), ("path", "pr_number")),
+        request_model=models.PreviewCreate,
+        response_models=(models.PreviewDetail,),
+    )
+)
+INITIATE_PREVIEW_UPLOAD = _op(
+    OpSpec(
+        operation_id="previewsInitiatePreviewUpload",
+        method="POST",
+        path_template="/v1/previews/{preview_id}/uploads",
+        success_statuses=(200,),
+        error_statuses=(401, 403, 404, 409, 413, 422),
+        supplied_parameters=(("path", "preview_id"),),
+        request_model=models.PreviewUploadInitiateRequest,
+        response_models=(models.UploadInitiateResponse, models.UploadAlreadyExistsResponse),
+    )
+)
+COMPLETE_PREVIEW_UPLOAD = _op(
+    OpSpec(
+        operation_id="previewsCompletePreviewUpload",
+        method="POST",
+        path_template="/v1/previews/{preview_id}/uploads/complete",
+        success_statuses=(204,),
+        error_statuses=(401, 403, 404, 409, 422),
+        supplied_parameters=(("path", "preview_id"),),
+        request_model=models.PreviewUploadCompleteRequest,
+    )
+)
+ATTACH_PREVIEW_BOOK = _op(
+    OpSpec(
+        operation_id="previewsAttachPreviewBook",
+        method="POST",
+        path_template="/v1/previews/{preview_id}/books/{volume}/{version}",
+        success_statuses=(200,),
+        error_statuses=(401, 403, 404, 409, 422),
+        supplied_parameters=(("path", "preview_id"), ("path", "volume"), ("path", "version")),
+        request_model=models.PreviewBookUpload,
+        response_models=(models.PreviewDetail,),
+    )
+)
+SEAL_PREVIEW = _op(
+    OpSpec(
+        operation_id="previewsSealPreview",
+        method="POST",
+        path_template="/v1/previews/{preview_id}/seal",
+        success_statuses=(200,),
+        error_statuses=(401, 403, 404, 409, 422),
+        supplied_parameters=(("path", "preview_id"),),
+        response_models=(models.PreviewDetail,),
+    )
+)
+FAIL_PREVIEW = _op(
+    OpSpec(
+        operation_id="previewsFailPreview",
+        method="POST",
+        path_template="/v1/previews/{preview_id}/fail",
+        success_statuses=(200,),
+        error_statuses=(401, 403, 404, 409, 422),
+        supplied_parameters=(("path", "preview_id"),),
+        request_model=models.PreviewFailRequest,
+        response_models=(models.PreviewDetail,),
+    )
+)
 
 
 def _segment(value: str | UUID) -> str:
@@ -1173,3 +1243,98 @@ def build_agent_token_revoke(request: models.BodyAgentTokenRevoke) -> ApiRequest
 
 def parse_agent_token_revoke(response: ApiResponse) -> None:
     _check(AGENT_TOKEN_REVOKE, response)
+
+
+def _preview_detail(op: OpSpec, response: ApiResponse) -> models.PreviewDetail:
+    _check(op, response)
+    payload = json.loads(response.content)
+    _restore_utc_fields(payload, ("created_at", "sealed_at"))
+    return models.PreviewDetail.model_validate(payload)
+
+
+def build_create_preview(
+    repository: str, pr_number: int, request: models.PreviewCreate
+) -> ApiRequest:
+    return ApiRequest(
+        method="POST",
+        path=CREATE_PREVIEW.path_template.format(
+            repository=_segment(repository), pr_number=pr_number
+        ),
+        json_body=_json_body(request),
+    )
+
+
+def parse_create_preview(response: ApiResponse) -> models.PreviewDetail:
+    return _preview_detail(CREATE_PREVIEW, response)
+
+
+def build_initiate_preview_upload(
+    preview_id: UUID, request: models.PreviewUploadInitiateRequest
+) -> ApiRequest:
+    return ApiRequest(
+        method="POST",
+        path=INITIATE_PREVIEW_UPLOAD.path_template.format(preview_id=_segment(preview_id)),
+        json_body=_json_body(request),
+    )
+
+
+def parse_initiate_preview_upload(
+    response: ApiResponse,
+) -> models.UploadInitiateResponse | models.UploadAlreadyExistsResponse:
+    _check(INITIATE_PREVIEW_UPLOAD, response)
+    try:
+        return models.UploadAlreadyExistsResponse.model_validate_json(response.content)
+    except ValueError:
+        return models.UploadInitiateResponse.model_validate_json(response.content)
+
+
+def build_complete_preview_upload(
+    preview_id: UUID, request: models.PreviewUploadCompleteRequest
+) -> ApiRequest:
+    return ApiRequest(
+        method="POST",
+        path=COMPLETE_PREVIEW_UPLOAD.path_template.format(preview_id=_segment(preview_id)),
+        json_body=_json_body(request),
+    )
+
+
+def parse_complete_preview_upload(response: ApiResponse) -> None:
+    _check(COMPLETE_PREVIEW_UPLOAD, response)
+
+
+def build_attach_preview_book(
+    preview_id: UUID, volume: str, version: str, request: models.PreviewBookUpload
+) -> ApiRequest:
+    return ApiRequest(
+        method="POST",
+        path=ATTACH_PREVIEW_BOOK.path_template.format(
+            preview_id=_segment(preview_id), volume=_segment(volume), version=_segment(version)
+        ),
+        json_body=_json_body(request),
+    )
+
+
+def parse_attach_preview_book(response: ApiResponse) -> models.PreviewDetail:
+    return _preview_detail(ATTACH_PREVIEW_BOOK, response)
+
+
+def build_seal_preview(preview_id: UUID) -> ApiRequest:
+    return ApiRequest(
+        method="POST", path=SEAL_PREVIEW.path_template.format(preview_id=_segment(preview_id))
+    )
+
+
+def parse_seal_preview(response: ApiResponse) -> models.PreviewDetail:
+    return _preview_detail(SEAL_PREVIEW, response)
+
+
+def build_fail_preview(preview_id: UUID, request: models.PreviewFailRequest) -> ApiRequest:
+    return ApiRequest(
+        method="POST",
+        path=FAIL_PREVIEW.path_template.format(preview_id=_segment(preview_id)),
+        json_body=_json_body(request),
+    )
+
+
+def parse_fail_preview(response: ApiResponse) -> models.PreviewDetail:
+    return _preview_detail(FAIL_PREVIEW, response)

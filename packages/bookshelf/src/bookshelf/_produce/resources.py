@@ -15,7 +15,7 @@ from bookshelf.cache import ContentCache
 def _registered(
     summary: tuple[str, Sections],
     name: str | None,
-    status: models.Status2 | None,
+    status: models.Status3 | None,
 ) -> tuple[str, Sections]:
     """Record how a registration was resolved, alongside what the resource itself reports."""
     header, sections = summary
@@ -56,7 +56,7 @@ class Resource(ConsumedResource):
         """The name this handle registered under, which is what ``book.add`` attaches it as."""
 
     @property
-    def registration_status(self) -> models.Status2 | None:
+    def registration_status(self) -> models.Status3 | None:
         """Return how this handle's producer registration was resolved."""
         if self.registration_outcome is None:
             return None
@@ -94,7 +94,7 @@ class AsyncResource(ConsumedAsyncResource):
         """The name this handle registered under, which is what ``book.add`` attaches it as."""
 
     @property
-    def registration_status(self) -> models.Status2 | None:
+    def registration_status(self) -> models.Status3 | None:
         """Return how this handle's producer registration was resolved."""
         if self.registration_outcome is None:
             return None

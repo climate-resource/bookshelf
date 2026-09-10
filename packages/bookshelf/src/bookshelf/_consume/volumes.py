@@ -48,7 +48,9 @@ class _VolumeBase(Describable):
         self._cache = cache
         self._book_ttl = book_ttl
         self.metadata = detail
+        """The volume's record as the platform lists it."""
         self.name = detail.name
+        """The volume's name."""
         # Only versions with a published edition, because the rest resolve to no readable book.
         published = (
             (info.version, _editions(info))
@@ -82,9 +84,11 @@ class _VolumeBase(Describable):
         return iter(self._versions)
 
     def __len__(self) -> int:
+        """Count the published versions."""
         return len(self._versions)
 
     def __contains__(self, version: str) -> bool:
+        """Whether this volume has published the version."""
         return version in self._versions
 
     def _resolve(self, version: str | None) -> str:
@@ -139,11 +143,12 @@ class Volume(_VolumeBase):
         )
 
     def __getitem__(self, version: str) -> Book:
+        """Resolve the newest edition of one version, the same as ``book(version)``."""
         return self.book(version)
 
 
 class AsyncVolume(_VolumeBase):
-    """The asynchronous twin of :class:`Volume`."""
+    """The asynchronous twin of [`Volume`][bookshelf.Volume]."""
 
     _title = "Bookshelf Async Volume"
     # An index cannot be awaited, so the hint names the coroutine.

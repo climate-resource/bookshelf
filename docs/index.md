@@ -26,4 +26,4 @@ uv add "bookshelf[scmrun,publish]"
 ```
 
 Continue with [Getting started](getting_started.md),
-or browse the [API reference](api/).
+or browse the [API reference](api/index.md).
