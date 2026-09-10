@@ -21,6 +21,12 @@ class BundleFactory(Protocol):
     ) -> Bundle: ...
 
 
+@pytest.fixture(autouse=True)
+def _isolated_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep every test out of the user's real content cache, reads and writes alike."""
+    monkeypatch.setenv("BOOKSHELF_CACHE_DIR", str(tmp_path / "content-cache"))
+
+
 @pytest.fixture
 def make_bundle(tmp_path: Path) -> BundleFactory:
     """Return a factory for a written bundle that satisfies the whole bundle contract.

@@ -30,6 +30,7 @@ from bookshelf._consume.frames import (
     timeseries_frame,
 )
 from bookshelf._consume.integrity import cached_if_verified, require_cached, verify_path
+from bookshelf._consume.memo import remember_resource, remembered_resource
 from bookshelf._consume.presentation import Section, Sections, summary_table, summary_text
 from bookshelf._consume.query import TimeseriesQuery, constant_columns, timeseries_filters
 from bookshelf._core.client import BookshelfClient
@@ -113,6 +114,28 @@ class _ResourceHandle:
         self.tracking_id = UUID(str(tracking_id))
         self._metadata = metadata
         self._resource_type = resource_type
+        self._content_hash: str | None = None if metadata is None else metadata.hash
+        self._recalled = False
+
+    def _recall(self) -> None:
+        """Fill in the hash and type from the metadata cache, without a request."""
+        if self._recalled:
+            return
+        remembered = remembered_resource(self._cache, self._client, self.tracking_id)
+        if remembered is not None:
+            self._content_hash, self._resource_type = remembered
+        # Marked last, so a concurrent caller that sees the flag also sees the fields.
+        self._recalled = True
+
+    def _adopt(self, metadata: models.ResourceRead) -> models.ResourceRead:
+        """Keep a freshly fetched record on the handle."""
+        self._metadata = metadata
+        self._resource_type = metadata.type
+        self._content_hash = metadata.hash
+        return metadata
+
+    def _remember(self, metadata: models.ResourceRead) -> None:
+        remember_resource(self._cache, self._client, metadata)
 
     def _summary(self) -> tuple[str, Sections]:
         """Return the header and sections both reprs render."""
@@ -131,25 +154,39 @@ class Resource(_ResourceHandle):
     @property
     def metadata(self) -> models.ResourceRead:
         """Return the generated resource projection."""
-        if self._metadata is None:
-            self._metadata = self._client.get_resource(self.tracking_id)
-            self._resource_type = self._metadata.type
-        return self._metadata
+        if self._metadata is not None:
+            return self._metadata
+        metadata = self._adopt(self._client.get_resource(self.tracking_id))
+        self._remember(metadata)
+        return metadata
 
     @property
     def type(self) -> models.ResourceType:
         """Return the canonical resource type."""
         if self._resource_type is None:
+            self._recall()
+        if self._resource_type is None:
             return self.metadata.type
         return self._resource_type
 
+    def content_hash(self) -> str:
+        """Return the declared ``sha256:`` digest, from memory or disk before the platform."""
+        if self._content_hash is None:
+            self._recall()
+        if self._content_hash is None:
+            return self.metadata.hash
+        return self._content_hash
+
     def _summary(self) -> tuple[str, Sections]:
-        # A repr resolves the type it was not given, but never fails for want of it.
+        # A repr reads what the memo already knows, and never fails for want of the rest.
+        self._recall()
         metadata = _reachable(lambda: self.metadata)
         resource_type = metadata.type if metadata is not None else self._resource_type
         identity: dict[str, object] = {"tracking_id": self.tracking_id}
+        content_hash = metadata.hash if metadata is not None else self._content_hash
+        if content_hash is not None:
+            identity["hash"] = content_hash
         if metadata is not None:
-            identity["hash"] = metadata.hash
             identity["visibility"] = metadata.visibility.value
         return (
             f"Bookshelf Resource ({describe_type(resource_type)})",
@@ -320,7 +357,7 @@ class Resource(_ResourceHandle):
         return self._ensure_cached()
 
     def _ensure_cached(self) -> Path:
-        content_hash = self.metadata.hash
+        content_hash = self.content_hash()
         cached = cached_if_verified(self._cache, content_hash)
         if cached is not None:
             return cached
@@ -466,20 +503,36 @@ class AsyncResource(_ResourceHandle):
     """Asynchronous lean immutable resource handle."""
 
     async def _get_metadata(self) -> models.ResourceRead:
-        if self._metadata is None:
-            self._metadata = await self._client.get_resource_async(self.tracking_id)
-            self._resource_type = self._metadata.type
-        return self._metadata
+        if self._metadata is not None:
+            return self._metadata
+        metadata = self._adopt(await self._client.get_resource_async(self.tracking_id))
+        await asyncio.to_thread(self._remember, metadata)
+        return metadata
 
     async def _get_type(self) -> models.ResourceType:
+        if self._resource_type is None:
+            await asyncio.to_thread(self._recall)
         if self._resource_type is None:
             return (await self._get_metadata()).type
         return self._resource_type
 
+    async def content_hash(self) -> str:
+        """Return the declared ``sha256:`` digest, from memory or disk before the platform."""
+        if self._content_hash is None:
+            await asyncio.to_thread(self._recall)
+        if self._content_hash is None:
+            return (await self._get_metadata()).hash
+        return self._content_hash
+
     def _summary(self) -> tuple[str, Sections]:
+        # No await here, so this reports only what the handle has already learned.
         resource_type = self._resource_type
-        return f"Bookshelf Async Resource ({describe_type(resource_type)})", _resource_sections(
-            resource_type, {"tracking_id": self.tracking_id}
+        identity: dict[str, object] = {"tracking_id": self.tracking_id}
+        if self._content_hash is not None:
+            identity["hash"] = self._content_hash
+        return (
+            f"Bookshelf Async Resource ({describe_type(resource_type)})",
+            _resource_sections(resource_type, identity),
         )
 
     async def _frame(
@@ -653,7 +706,7 @@ class AsyncResource(_ResourceHandle):
         return await self._ensure_cached()
 
     async def _ensure_cached(self) -> Path:
-        content_hash = (await self._get_metadata()).hash
+        content_hash = await self.content_hash()
         # A cache hit hashes the whole file on disk, so run it off the event loop.
         cached = await asyncio.to_thread(cached_if_verified, self._cache, content_hash)
         if cached is not None:

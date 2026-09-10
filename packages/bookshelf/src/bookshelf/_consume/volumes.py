@@ -5,6 +5,7 @@ from textwrap import shorten
 
 from bookshelf._consume.books import AsyncBook, Book
 from bookshelf._consume.lookup import resolve_book, resolve_book_async
+from bookshelf._consume.memo import default_book_ttl
 from bookshelf._consume.presentation import Section, Sections, summary_table, summary_text
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import NotFoundError
@@ -46,9 +47,12 @@ class _VolumeBase:
         client: BookshelfClient,
         cache: ContentCache,
         detail: models.VolumeDetailResponse,
+        *,
+        book_ttl: float | None = None,
     ) -> None:
         self._client = client
         self._cache = cache
+        self._book_ttl = default_book_ttl() if book_ttl is None else book_ttl
         self.metadata = detail
         self.name = detail.name
         # Only versions with a published edition, because the rest resolve to no readable book.
@@ -148,7 +152,14 @@ class Volume(_VolumeBase):
 
     def book(self, version: str | None = None, *, edition: int | None = None) -> Book:
         """Resolve one published Book, defaulting to the newest version and edition."""
-        return resolve_book(self._client, self._cache, self.name, self._resolve(version), edition)
+        return resolve_book(
+            self._client,
+            self._cache,
+            self.name,
+            self._resolve(version),
+            edition,
+            book_ttl=self._book_ttl,
+        )
 
     def __getitem__(self, version: str) -> Book:
         return self.book(version)
@@ -166,7 +177,12 @@ class AsyncVolume(_VolumeBase):
     async def book(self, version: str | None = None, *, edition: int | None = None) -> AsyncBook:
         """Resolve one published Book, defaulting to the newest version and edition."""
         return await resolve_book_async(
-            self._client, self._cache, self.name, self._resolve(version), edition
+            self._client,
+            self._cache,
+            self.name,
+            self._resolve(version),
+            edition,
+            book_ttl=self._book_ttl,
         )
 
 

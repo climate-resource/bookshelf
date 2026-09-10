@@ -5,9 +5,16 @@ should not have to page through them.
 These walk the pages once so both the facade and a Volume resolve a book the same way.
 """
 
+import asyncio
 from typing import Any
 
 from bookshelf._consume.books import AsyncBook, Book
+from bookshelf._consume.memo import (
+    confirm_book,
+    forget_book,
+    remember_book,
+    remembered_book,
+)
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import BookshelfError, NotFoundError
 from bookshelf._core.names import book_coordinate, version_key
@@ -169,16 +176,60 @@ async def find_book_async(
     return chosen
 
 
+def _still_published(client: BookshelfClient, book_id: str) -> bool | None:
+    """Check a remembered edition, or ``None`` when the platform could not say."""
+    try:
+        return client.get_book(book_id).status is models.BookStatus.published
+    except NotFoundError:
+        return False
+    except BookshelfError:
+        return None
+
+
+async def _still_published_async(client: BookshelfClient, book_id: str) -> bool | None:
+    """The asynchronous twin of :func:`_still_published`."""
+    try:
+        book = await client.get_book_async(book_id)
+    except NotFoundError:
+        return False
+    except BookshelfError:
+        return None
+    return book.status is models.BookStatus.published
+
+
 def resolve_book(
     client: BookshelfClient,
     cache: ContentCache,
     volume: str,
     version: str,
     edition: int | None,
+    *,
+    book_ttl: float,
 ) -> Book:
-    """Resolve a published Book and the entries it indexes."""
+    """Resolve a published Book and the entries it indexes.
+
+    A pinned edition is remembered on disk, so resolving it again makes no request
+    until ``book_ttl`` seconds have passed.
+    After that one request checks it is still published before it is trusted again.
+    The latest edition is always asked for, because a newer one may have been published.
+    """
+    if edition is not None:
+        remembered = remembered_book(cache, client, volume, version, edition, ttl=book_ttl)
+        if remembered is not None:
+            if not remembered.stale:
+                return Book(client, cache, remembered.book, remembered.entries)
+            published = _still_published(client, remembered.book.id)
+            if published is False:
+                forget_book(cache, client, volume, version, edition)
+            else:
+                if published:
+                    confirm_book(cache, client, volume, version, edition)
+                return Book(client, cache, remembered.book, remembered.entries)
     chosen = find_book(client, volume, version, edition)
-    return Book(client, cache, chosen, all_entries(client, chosen.id))
+    entries = all_entries(client, chosen.id)
+    if edition is not None:
+        remember_book(cache, client, volume, version, chosen, entries)
+    return Book(client, cache, chosen, entries)
 
 
 async def resolve_book_async(
@@ -187,10 +238,29 @@ async def resolve_book_async(
     volume: str,
     version: str,
     edition: int | None,
+    *,
+    book_ttl: float,
 ) -> AsyncBook:
     """The asynchronous twin of :func:`resolve_book`."""
+    if edition is not None:
+        remembered = await asyncio.to_thread(
+            remembered_book, cache, client, volume, version, edition, ttl=book_ttl
+        )
+        if remembered is not None:
+            if not remembered.stale:
+                return AsyncBook(client, cache, remembered.book, remembered.entries)
+            published = await _still_published_async(client, remembered.book.id)
+            if published is False:
+                await asyncio.to_thread(forget_book, cache, client, volume, version, edition)
+            else:
+                if published:
+                    await asyncio.to_thread(confirm_book, cache, client, volume, version, edition)
+                return AsyncBook(client, cache, remembered.book, remembered.entries)
     chosen = await find_book_async(client, volume, version, edition)
-    return AsyncBook(client, cache, chosen, await all_entries_async(client, chosen.id))
+    entries = await all_entries_async(client, chosen.id)
+    if edition is not None:
+        await asyncio.to_thread(remember_book, cache, client, volume, version, chosen, entries)
+    return AsyncBook(client, cache, chosen, entries)
 
 
 __all__ = [

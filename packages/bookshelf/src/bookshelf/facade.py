@@ -17,6 +17,12 @@ from bookshelf._consume.lookup import (
     resolve_book,
     resolve_book_async,
 )
+from bookshelf._consume.memo import (
+    book_ttl as _book_ttl,
+)
+from bookshelf._consume.memo import (
+    default_book_ttl,
+)
 from bookshelf._consume.resources import (
     AsyncBookEntry,
     AsyncResource,
@@ -170,6 +176,7 @@ class Bookshelf:
         *,
         auth: AuthInput = UNSET,
         timeout: float = 30.0,
+        book_ttl: float | None = None,
         # The transport is the test seam: production always leaves it None.
         transport: httpx.BaseTransport | None = None,
     ) -> None:
@@ -180,6 +187,7 @@ class Bookshelf:
             transport=transport,
         )
         self._cache = ContentCache()
+        self._book_ttl = default_book_ttl() if book_ttl is None else _book_ttl(book_ttl)
         # A subclass changes these by rebinding them after this runs, not by redefining them.
         sink: ProduceSink = LiveSink(self._client, self._cache)
         self.activity = sink.activity
@@ -261,7 +269,9 @@ class Bookshelf:
 
     def volume(self, name: str) -> Volume:
         """Resolve a volume, carrying the versions and editions it has published."""
-        return Volume(self._client, self._cache, self._client.get_volume(name))
+        return Volume(
+            self._client, self._cache, self._client.get_volume(name), book_ttl=self._book_ttl
+        )
 
     def create_volume(
         self,
@@ -366,8 +376,16 @@ class Bookshelf:
         )
 
     def book(self, volume: str, version: str, *, edition: int | None = None) -> Book:
-        """Resolve a published Book, defaulting to the latest edition."""
-        return resolve_book(self._client, self._cache, volume, version, edition)
+        """Resolve a published Book, defaulting to the latest edition.
+
+        A pinned edition is remembered on disk, so resolving it again makes no request
+        until ``book_ttl`` seconds have passed.
+        After that one request checks it is still published before it is trusted again.
+        The latest edition is always asked for, because a newer one may have been published.
+        """
+        return resolve_book(
+            self._client, self._cache, volume, version, edition, book_ttl=self._book_ttl
+        )
 
 
 class AsyncBookshelf:
@@ -379,6 +397,7 @@ class AsyncBookshelf:
         *,
         auth: AuthInput = UNSET,
         timeout: float = 30.0,
+        book_ttl: float | None = None,
         # The transport is the test seam: production always leaves it None.
         async_transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
@@ -389,6 +408,7 @@ class AsyncBookshelf:
             async_transport=async_transport,
         )
         self._cache = ContentCache()
+        self._book_ttl = default_book_ttl() if book_ttl is None else _book_ttl(book_ttl)
         sink: AsyncProduceSink = AsyncLiveSink(self._client, self._cache)
         self.activity = sink.activity
         """Open an ambient asynchronous producer activity."""
@@ -466,7 +486,12 @@ class AsyncBookshelf:
 
     async def volume(self, name: str) -> AsyncVolume:
         """Resolve a volume, carrying the versions and editions it has published."""
-        return AsyncVolume(self._client, self._cache, await self._client.get_volume_async(name))
+        return AsyncVolume(
+            self._client,
+            self._cache,
+            await self._client.get_volume_async(name),
+            book_ttl=self._book_ttl,
+        )
 
     async def create_volume(
         self,
@@ -577,8 +602,13 @@ class AsyncBookshelf:
         *,
         edition: int | None = None,
     ) -> AsyncBook:
-        """Resolve a published async Book, defaulting to the latest edition."""
-        return await resolve_book_async(self._client, self._cache, volume, version, edition)
+        """Resolve a published async Book, defaulting to the latest edition.
+
+        The asynchronous twin of :meth:`Bookshelf.book`, with the same memoisation.
+        """
+        return await resolve_book_async(
+            self._client, self._cache, volume, version, edition, book_ttl=self._book_ttl
+        )
 
 
 __all__ = [
