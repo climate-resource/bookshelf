@@ -5,15 +5,22 @@ names address the resources, order carries the lineage,
 and the server settles convergence from what it receives.
 """
 
+import json
 from pathlib import Path
+from unittest.mock import Mock
 
 import httpx
+import polars as pl
 import pytest
+from matplotlib.figure import Figure
 
+from bookshelf._core.client import BookshelfClient
 from bookshelf._core.hashing import sha256_hex
 from bookshelf._generated import models
+from bookshelf.cache import ContentCache
 from bookshelf.facade import AsyncBookshelf
 from bookshelf.publisher.bundle import Bundle, BundleActivity, BundleBook
+from bookshelf.publisher.recording import RecordingSink
 from bookshelf.publisher.replay import replay_bundle, replay_bundle_sync
 from tests._replay import BASE_URL, replay_client, replay_response, replayed
 
@@ -336,3 +343,33 @@ async def test_the_async_replay_sends_the_same_request(tmp_path: Path) -> None:
         await replay_bundle(bundle, client)
 
     assert replayed(asynchronous) == replayed(synchronous)
+
+
+def test_a_recorded_figure_replays_as_a_png_drawn_from_its_values(tmp_path: Path) -> None:
+    bundle = Bundle(tmp_path / "bundle")
+    sink = RecordingSink(bundle, Mock(spec=BookshelfClient), ContentCache(tmp_path / "cache"))
+    book = sink.draft_book("example", version="v1.0.0", license="MIT")
+    fig = Figure()
+    fig.add_subplot().plot([1.0, 2.0])
+    book.write("fig", fig, type="figure", data=pl.DataFrame({"y": [1.0, 2.0]}))
+    book.publish()
+    bundle.write()
+    recorded: list[httpx.Request] = []
+
+    with replay_client(recorded) as client:
+        replay_bundle_sync(bundle, client)
+
+    figure = next(
+        resource for resource in replayed(recorded)["resources"] if resource["name"] == "fig"
+    )
+    assert (figure["type"], figure["format"]) == ("figure", "png")
+    assert "fig-data" in json.dumps(figure["used"])
+    uploads = [
+        json.loads(request.content)
+        for request in recorded
+        if request.url.path == "/v1/resources/uploads"
+    ]
+    assert sorted(upload["content_type"] for upload in uploads) == [
+        "application/vnd.apache.parquet",
+        "image/png",
+    ]

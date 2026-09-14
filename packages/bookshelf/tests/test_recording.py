@@ -6,16 +6,18 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 from uuid import uuid4
 
+import polars as pl
 import pytest
+from matplotlib.figure import Figure
 
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf._produce.types import RegisterItem
 from bookshelf.cache import ContentCache
-from bookshelf.publisher.bundle import Bundle
+from bookshelf.publisher.bundle import Bundle, resource_filename
 from bookshelf.publisher.record import _record_processing
-from bookshelf.publisher.recording import RecordingActivity, RecordingSink
+from bookshelf.publisher.recording import RecordedDraftBook, RecordingActivity, RecordingSink
 
 
 def _sink(bundle: Bundle, cache_path: Path) -> RecordingSink:
@@ -223,3 +225,62 @@ def test_a_book_no_activity_generated_carries_an_empty_fingerprint(tmp_path: Pat
     _record_processing(bundle)
 
     assert bundle.manifest.book.processing == []
+
+
+def _figure() -> Figure:
+    fig = Figure()
+    fig.add_subplot().bar(["a", "b"], [1.0, 2.0])
+    return fig
+
+
+def _figure_book(sink: RecordingSink) -> RecordedDraftBook:
+    return sink.draft_book("my-dataset", version="v1.0.0", license="MIT")
+
+
+def test_a_figure_records_its_plotted_values_before_it(tmp_path: Path) -> None:
+    bundle = Bundle(tmp_path / "bundle")
+    book = _figure_book(_sink(bundle, tmp_path / "cache"))
+
+    book.write(
+        "fig", _figure(), type="figure", data=pl.DataFrame({"x": ["a", "b"], "y": [1.0, 2.0]})
+    )
+    book.publish()
+
+    values, figure = bundle.manifest.resources
+    assert (values.name, values.type, values.format) == ("fig-data", "tabular", "parquet")
+    assert (figure.name, figure.type, figure.format) == ("fig", "figure", "png")
+    assert figure.used == ["fig-data"]
+    assert [entry.name for entry in bundle.require_framing().entries] == ["fig-data", "fig"]
+    assert (bundle.resources_dir / resource_filename(figure.hash, "figure")).suffix == ".png"
+    assert (bundle.resources_dir / resource_filename(figure.hash, "figure")).exists()
+    bundle.validate()
+
+
+def test_the_plotted_values_are_not_cited_by_later_resources(tmp_path: Path) -> None:
+    """The values are an output of the build, so only the figure was drawn from them."""
+    bundle = Bundle(tmp_path / "bundle")
+    sink = _sink(bundle, tmp_path / "cache")
+    book = _figure_book(sink)
+    raw = sink.writing_activity().register(b"raw", type="tabular", name="raw")
+
+    book.write("fig", _figure(), type="figure", data=pl.DataFrame({"y": [1.0]}), used=[raw])
+    book.write("later", b"later", type="document")
+    sink.record_document(b"notebook", name="notebook", metadata={})
+
+    recorded = {resource.name: resource.used for resource in bundle.manifest.resources}
+    assert recorded["fig-data"] == ["raw"]
+    assert recorded["fig"] == ["raw", "fig-data"]
+    assert recorded["later"] == ["raw"]
+    assert recorded["notebook"] == ["raw"]
+
+
+def test_plotted_values_for_anything_but_a_figure_record_nothing(tmp_path: Path) -> None:
+    bundle = Bundle(tmp_path / "bundle")
+    book = _figure_book(_sink(bundle, tmp_path / "cache"))
+
+    with pytest.raises(ValueError, match="figure"):
+        book.write(
+            "table", pl.DataFrame({"y": [1.0]}), type="tabular", data=pl.DataFrame({"y": [1.0]})
+        )
+
+    assert bundle.manifest.resources == []

@@ -304,3 +304,7 @@ def test_the_synthesised_pointer_hash_matches_the_backend_seed() -> None:
     assert synthesise_pointer_hash(type_="tabular", external_uri=uri) == (
         "sha256:7cf03fca2d1e24ee4c78e8d6f814e47b60ca5203a001e034bd2c8240e4a90bbe"
     )
+
+
+def test_a_figure_is_stored_as_a_png() -> None:
+    assert resource_filename("sha256:" + "a" * 64, "figure").endswith(".png")
