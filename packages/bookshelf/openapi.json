@@ -3,7 +3,7 @@
   "info": {
     "title": "Bookshelf API",
     "description": "API for Climate Resource's dataset management system",
-    "version": "v1+g585f4487"
+    "version": "v1+g8ec7b504"
   },
   "paths": {
     "/livez": {
@@ -4128,6 +4128,24 @@
               "title": "Fmt"
             },
             "description": "Output format suffix: `.json`, `.csv` or `.parquet` for tabular data, `.png` for a figure."
+          },
+          {
+            "name": "variant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A figure's size: `thumb`, `web`, `web2x` or `master` for `.png` (default `master`), `web` or `web2x` for `.webp` (default `web`). On tabular data it is a column filter like any other.",
+              "title": "Variant"
+            },
+            "description": "A figure's size: `thumb`, `web`, `web2x` or `master` for `.png` (default `master`), `web` or `web2x` for `.webp` (default `web`). On tabular data it is a column filter like any other."
           }
         ],
         "responses": {
