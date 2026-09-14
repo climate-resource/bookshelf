@@ -55,6 +55,20 @@ def _attach_request(
     )
 
 
+def _sidecar_name(name: str) -> str:
+    """Return the entry name the plotted values of figure ``name`` are written under."""
+    return f"{name}-data"
+
+
+def _check_figure_data(type: str | models.ResourceType, data: object | None) -> None:
+    """Refuse plotted values for anything but a figure, before anything is registered."""
+    if data is not None and type != models.ResourceType.figure:
+        raise ValueError(
+            f"data= records the values a figure plots, and this write is type {str(type)!r}. "
+            'Pass type="figure", or write the values as their own entry.'
+        )
+
+
 class _DraftBookBase(Describable):
     """The attachment record and self-description both draft flavours share."""
 
@@ -116,6 +130,7 @@ class DraftBook(_DraftBookBase):
         *,
         type: str | models.ResourceType = DEFAULT_WRITE_TYPE,
         used: Sequence[UsedInput] = (),
+        data: object | None = None,
         data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
@@ -139,7 +154,18 @@ class DraftBook(_DraftBookBase):
 
         The catalogue fields describe this resource rather than the book holding it,
         so a derived output credits whoever produced it and nothing is inherited.
+
+        ``data`` records the values a ``type="figure"`` plots beside it,
+        as a ``tabular`` entry named ``{name}-data`` that the figure was drawn from.
+        The values carry the figure's ``used`` inputs and ``visibility``.
         """
+        _check_figure_data(type, data)
+        sidecar = None
+        if data is not None:
+            sidecar = self.write(
+                _sidecar_name(name), data, type="tabular", used=used, visibility=visibility
+            )
+            used = self._figure_used(used, sidecar)
         resource = self._writing_activity().register(
             obj,
             type=type,
@@ -158,7 +184,16 @@ class DraftBook(_DraftBookBase):
             dedupe=dedupe,
         )
         self.attach(resource, name_in_book=name, data_dictionary=data_dictionary)
+        if sidecar is not None:
+            self._cite_sidecar(resource, sidecar)
         return resource
+
+    def _figure_used(self, used: Sequence[UsedInput], sidecar: UsedInput) -> Sequence[UsedInput]:
+        """The inputs a figure registers with, given the plotted values written beside it."""
+        return [*used, sidecar]
+
+    def _cite_sidecar(self, figure: HasTrackingId, sidecar: HasTrackingId) -> None:
+        """Record that ``figure`` was drawn from ``sidecar``, when registering it did not."""
 
     def add(self, *resources: HasTrackingId) -> Self:
         """Attach already registered resources, each under the name it registered as."""
@@ -233,6 +268,7 @@ class AsyncDraftBook(_DraftBookBase):
         *,
         type: str | models.ResourceType = DEFAULT_WRITE_TYPE,
         used: Sequence[UsedInput] = (),
+        data: object | None = None,
         data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
         visibility: VisibilityInput = INHERIT,
         tags: Sequence[str] = (),
@@ -250,6 +286,12 @@ class AsyncDraftBook(_DraftBookBase):
 
         The asynchronous twin of :meth:`DraftBook.write`, with the same bundle result.
         """
+        _check_figure_data(type, data)
+        if data is not None:
+            sidecar = await self.write(
+                _sidecar_name(name), data, type="tabular", used=used, visibility=visibility
+            )
+            used = [*used, sidecar]
         resource = await self._writing_activity().register(
             obj,
             type=type,

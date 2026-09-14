@@ -1,9 +1,8 @@
 # %% [markdown]
-# # A figure beside the frame it plots
+# # A figure and the values it plots
 #
 # The png is drawn here rather than checked in, so it stays in step with the data.
-# It is written as a `document`, which is the type for something a person reads
-# rather than something a query engine scans.
+# It is written as a `figure`, which records the values it plots beside it.
 
 # %%
 import struct
@@ -12,7 +11,6 @@ import zlib
 import pandas as pd
 
 import bookshelf
-from bookshelf import models
 
 # %%
 bs, book = bookshelf.setup()
@@ -22,7 +20,7 @@ raw = bs.use("raw")
 emissions = pd.read_csv(raw.path)
 
 # %% [markdown]
-# ## The frame the figure plots
+# ## The values the figure plots
 
 # %%
 by_region = emissions.groupby("region", as_index=False)["value"].sum()
@@ -31,8 +29,8 @@ by_region = emissions.groupby("region", as_index=False)["value"].sum()
 # ## Drawing the png
 #
 # The bars are drawn into a pixel buffer with the standard library alone.
-# A plotting library would be the normal choice in a real feedstock.
-# The point here is the entry, not the rendering, and this keeps the bytes identical everywhere.
+# A real feedstock passes a matplotlib figure, which the SDK saves as a png itself.
+# Matplotlib's png bytes differ between platforms, and a golden over them has to hold on every machine.
 
 # %%
 WIDTH, HEIGHT, MARGIN = 240, 120, 10
@@ -85,26 +83,11 @@ def _stored_zlib(raw: bytes) -> bytes:
 figure = bar_chart(by_region["value"].tolist())
 
 # %% [markdown]
-# ## Writing both
+# ## Writing it
 #
-# The frame carries a data dictionary describing its columns.
-# The figure carries none, because a png has no columns to describe.
-# `book.write` attaches each under the name it registered as.
+# `data=` records `by_region` as a `tabular` entry named `by_region_figure-data`,
+# and records that the figure was drawn from it.
 
 # %%
-book.write(
-    "by_region",
-    by_region,
-    used=[raw],
-    data_dictionary=[
-        models.DataDictionaryEntry(name="region", description="The region the total covers."),
-        models.DataDictionaryEntry(
-            name="value",
-            description="Summed emissions.",
-            role="measure",
-            unit="Mt CO2 / yr",
-        ),
-    ],
-)
-book.write("by_region_figure", figure, type="document", used=[raw])
+book.write("by_region_figure", figure, type="figure", data=by_region, used=[raw])
 book.publish()

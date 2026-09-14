@@ -51,7 +51,7 @@ from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
 from bookshelf._core.names import RESOURCE_NAME_PATTERN
 from bookshelf._generated import models
 
-BUNDLE_SCHEMA_VERSION = "3.3"
+BUNDLE_SCHEMA_VERSION = "3.4"
 
 # A newer minor loads because the models ignore unknown fields, and any other major is refused:
 # v2 keys resources by tracking id and v3 by name, which no rule maps without inventing names.
@@ -61,8 +61,8 @@ MANIFEST_NAME = "manifest.lock"
 RESOURCES_DIRNAME = "resources"
 
 # Map a resource ``type`` to the byte-file extension under ``resources/``.
-# Mirrors ``serialise.py``: parquet for the frame types, opaque otherwise.
-_PARQUET_TYPES = frozenset({"timeseries", "tabular"})
+# Mirrors ``serialise.py``: parquet for the frame types, png for a figure, opaque otherwise.
+_EXTENSIONS = {"timeseries": "parquet", "tabular": "parquet", "figure": "png"}
 
 # A canonical resource hash is ``sha256:`` + exactly 64 lowercase hex chars.
 # Validate against this before deriving a byte-file name.
@@ -417,8 +417,7 @@ def resource_filename(hash_: str, type_: str) -> str:
     and a crafted hash cannot escape the directory.
     """
     hex_digest = _sha256_hex(hash_)
-    extension = "parquet" if type_ in _PARQUET_TYPES else "bin"
-    return f"{hex_digest}.{extension}"
+    return f"{hex_digest}.{_EXTENSIONS.get(type_, 'bin')}"
 
 
 def _dump_sorted_yaml(model: BaseModel) -> bytes:
@@ -507,6 +506,23 @@ class Bundle:
         if self.manifest.book is not None:
             raise ValueError("bundle already has a book recorded")
         self.manifest.book = book
+
+    def add_used(self, resource_name: str, input_name: str) -> None:
+        """Cite ``input_name`` as an input of the already recorded ``resource_name``, and of nothing else.
+
+        The input must be recorded before the resource, as the replay contract requires.
+        """
+        position = {resource.name: index for index, resource in enumerate(self.manifest.resources)}
+        if resource_name not in position:
+            raise ValueError(f"resource {resource_name!r} is not recorded in this bundle")
+        if position.get(input_name, len(position)) >= position[resource_name]:
+            raise ValueError(
+                f"resource {resource_name!r} cannot consume {input_name!r}, "
+                "which this bundle does not record before it."
+            )
+        used = self.manifest.resources[position[resource_name]].used
+        if input_name not in used:
+            used.append(input_name)
 
     def add_book_entry(
         self,

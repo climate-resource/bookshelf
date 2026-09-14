@@ -7,7 +7,7 @@ Every write lands in the bundle instead of reaching the platform.
 from __future__ import annotations
 
 import tempfile
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -476,9 +476,11 @@ class RecordedDraftBook(DraftBook):
         metadata: Mapping[str, Any] | None,
         names: dict[UUID, str],
         activity: Callable[[], Activity] | None = None,
+        sidecar_edges: set[tuple[str, str]],
     ) -> None:
         self._bundle = bundle
         self._names = names
+        self._sidecar_edges = sidecar_edges
         super().__init__(
             client,
             models.BookDetail(
@@ -533,6 +535,17 @@ class RecordedDraftBook(DraftBook):
             name_in_book=name_in_book,
         )
 
+    def _figure_used(self, used: Sequence[UsedInput], sidecar: UsedInput) -> Sequence[UsedInput]:
+        # A recorded activity accumulates its inputs, so the sidecar is cited on the figure alone.
+        del sidecar
+        return used
+
+    def _cite_sidecar(self, figure: HasTrackingId, sidecar: HasTrackingId) -> None:
+        figure_name = self._names[UUID(str(figure.tracking_id))]
+        sidecar_name = self._names[UUID(str(sidecar.tracking_id))]
+        self._bundle.add_used(figure_name, sidecar_name)
+        self._sidecar_edges.add((figure_name, sidecar_name))
+
     def publish(self) -> Self:
         """Mark the recorded book for publication during replay."""
         self._bundle.mark_book_published()
@@ -571,6 +584,8 @@ class RecordingSink:
         # so this is what lets ``used=[handle]`` and ``attach(handle)`` resolve to a name.
         self._names: dict[UUID, str] = {}
         self._used_resources: dict[str, ResolvedResource] = {}
+        # (figure, plotted values) citations, which are outputs of this build rather than its inputs.
+        self._sidecar_edges: set[tuple[str, str]] = set()
         self.default_visibility = default_visibility
         """The tier a registration takes when the build file names none.
 
@@ -700,6 +715,7 @@ class RecordingSink:
             metadata=metadata,
             names=self._names,
             activity=self.writing_activity,
+            sidecar_edges=self._sidecar_edges,
         )
 
     def register_external(
@@ -837,7 +853,7 @@ class RecordingSink:
             raise BookshelfError("a recorded build requires an activity before execution documents")
         materialised = serialise(data, type="document")
         resource_id = helpers.uuid7()
-        used = _recorded_activity_used(self.bundle)
+        used = _recorded_activity_used(self.bundle, exclude=self._sidecar_edges)
         self.bundle.add_resource(
             data=materialised.data,
             hash_=materialised.hash,
@@ -1086,14 +1102,21 @@ def _record_file(
     )
 
 
-def _recorded_activity_used(bundle: Bundle) -> _UsedInputs:
-    """Return the ordered union of the inputs recorded by activity outputs."""
+def _recorded_activity_used(
+    bundle: Bundle, *, exclude: Collection[tuple[str, str]] = ()
+) -> _UsedInputs:
+    """Return the ordered union of the inputs recorded by activity outputs.
+
+    ``exclude`` holds ``(resource, input)`` citations that are not inputs of the activity.
+    """
     names: list[str] = []
     digests: list[str] = []
     for resource in bundle.manifest.resources:
         if not resource.generated:
             continue
         for reference in resource.used:
+            if (resource.name, reference) in exclude:
+                continue
             if reference not in names:
                 names.append(reference)
         for digest in resource.used_digests:

@@ -14,26 +14,7 @@ book:
     publisher: Climate Resource
     title: A feedstock that publishes a figure beside its data
   entries:
-  - data_dictionary:
-    - allowed_na: false
-      controlled_vocabulary: null
-      description: The region the total covers.
-      name: region
-      required: true
-      role: dimension
-      title: null
-      type: string
-      unit: null
-    - allowed_na: false
-      controlled_vocabulary: null
-      description: Summed emissions.
-      name: value
-      required: true
-      role: measure
-      title: null
-      type: string
-      unit: Mt CO2 / yr
-    name: by_region
+  - name: by_region_figure-data
   - name: by_region_figure
   license: CC-BY-4.0
   metadata: {}
@@ -64,7 +45,7 @@ resources:
   hash: sha256:e77e41ded09ad93dc961e04fd6d093d929dffa8147346f61fa14f25c7c7aa532
   kind: managed
   metadata: {}
-  name: by_region
+  name: by_region_figure-data
   size: 655
   tags: []
   type: tabular
@@ -73,6 +54,7 @@ resources:
   used_digests: []
   visibility: public
 - dedupe: true
+  format: png
   generated: true
   hash: sha256:c39b5609469a826ffd2cf202752c0de4924b354ed77047e61c8e66bb5a750714
   kind: managed
@@ -80,11 +62,12 @@ resources:
   name: by_region_figure
   size: 86593
   tags: []
-  type: document
+  type: figure
   used:
   - raw
+  - by_region_figure-data
   used_digests: []
   visibility: public
-schema_version: '3.3'
+schema_version: '3.4'
 writer:
   pyarrow: 23.0.0

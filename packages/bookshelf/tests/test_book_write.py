@@ -7,8 +7,8 @@ because anything else would make the convenient path and the explicit path diver
 
 import inspect
 from pathlib import Path
-from unittest.mock import Mock
-from uuid import UUID
+from unittest.mock import AsyncMock, Mock
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -232,3 +232,32 @@ def test_printing_a_draft_names_what_has_been_attached(tmp_path: Path) -> None:
     assert "Bookshelf Draft Book 'my-dataset' v1.0.0_e000 (attached: 2)" in printed
     assert "Attached:\n    first  second" in printed
     assert "status      draft" in printed
+
+
+def test_a_live_figure_registers_with_its_plotted_values_as_an_input() -> None:
+    activity = Mock()
+    values, figure = Mock(tracking_id=uuid4()), Mock(tracking_id=uuid4())
+    activity.register.side_effect = [values, figure]
+    book = DraftBook(Mock(spec=BookshelfClient), Mock(book_id=uuid4()), activity=lambda: activity)
+
+    book.write("fig", b"png", type="figure", data=b"values", used=["raw"])
+
+    registered = activity.register.call_args_list
+    assert [call.kwargs["name"] for call in registered] == ["fig-data", "fig"]
+    assert registered[0].kwargs["used"] == ["raw"]
+    assert registered[1].kwargs["used"] == ["raw", values]
+
+
+async def test_a_live_async_figure_registers_with_its_plotted_values_as_an_input() -> None:
+    activity = Mock()
+    values, figure = Mock(tracking_id=uuid4()), Mock(tracking_id=uuid4())
+    activity.register = AsyncMock(side_effect=[values, figure])
+    client = Mock(spec=BookshelfClient)
+    client.attach_entry_async = AsyncMock()
+    book = AsyncDraftBook(client, Mock(book_id=uuid4()), activity=lambda: activity)
+
+    await book.write("fig", b"png", type="figure", data=b"values", used=["raw"])
+
+    registered = activity.register.call_args_list
+    assert [call.kwargs["name"] for call in registered] == ["fig-data", "fig"]
+    assert registered[1].kwargs["used"] == ["raw", values]

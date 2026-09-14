@@ -6,16 +6,19 @@ The bytes a bundle records therefore hash identically to the bytes replay upload
 Callers must reuse :func:`serialise`
 because a second implementation could drift and break byte parity.
 
-Two shapes are produced from the resource ``type``:
+Three shapes are produced from the resource ``type``:
 
 - ``timeseries`` / ``tabular`` -> **parquet**.
   A polars or pandas ``DataFrame`` is encoded with pinned, deterministic
   writer options (see :func:`_dataframe_to_parquet`).
+- ``figure`` -> **png**.
+  A matplotlib figure is saved as a png master (see :func:`_figure_to_png`).
 - ``document`` / ``binary`` / ``geospatial`` -> **raw bytes**,
   stored exactly as given (a ``.ipynb`` / ``.html`` / arbitrary blob).
 
 Already-serialised ``bytes`` and ``Path`` inputs pass through unchanged.
 An advanced caller can therefore supply pre-encoded parquet.
+A figure only accepts them when they are already a png.
 
 The Parquet writer uses pinned options.
 The same frame therefore produces the same bytes within one environment.
@@ -27,10 +30,12 @@ Bytes are reproducible for a given pyarrow version.
 from __future__ import annotations
 
 import io
+import math
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NamedTuple
 
 from bookshelf._core.hashing import sha256_hex
+from bookshelf._generated import models
 
 if TYPE_CHECKING:
     import pyarrow as pa
@@ -39,7 +44,13 @@ if TYPE_CHECKING:
 _PARQUET_TYPES = frozenset({"timeseries", "tabular"})
 
 _PARQUET_CONTENT_TYPE = "application/vnd.apache.parquet"
+_PNG_CONTENT_TYPE = "image/png"
 _OPAQUE_CONTENT_TYPE = "application/octet-stream"
+
+_PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+# The platform's largest raster size, so the master is never upscaled.
+_MASTER_WIDTH_PX = 2400
+_MIN_FIGURE_DPI = 200
 
 
 class SerialisedObject(NamedTuple):
@@ -76,6 +87,8 @@ def serialise(obj: Any, *, type: str) -> SerialisedObject:
 
 def _materialise(obj: Any, *, type: str) -> tuple[bytes, str, str | None]:
     """Return ``(bytes, content_type, format)`` for ``obj`` under resource ``type``."""
+    if type == models.ResourceType.figure:
+        return _figure_png(obj), content_type_for(type), "png"
     if isinstance(obj, bytes):
         # Already serialised:
         # store verbatim regardless of type.
@@ -113,7 +126,37 @@ def format_from_suffix(name: str) -> str | None:
 
 def content_type_for(type: str) -> str:
     """Content type for already-serialised bytes of resource ``type``."""
+    if type == models.ResourceType.figure:
+        return _PNG_CONTENT_TYPE
     return _PARQUET_CONTENT_TYPE if type in _PARQUET_TYPES else _OPAQUE_CONTENT_TYPE
+
+
+def _figure_png(obj: Any) -> bytes:
+    """Return the png master for a matplotlib figure, or for bytes or a path already holding one."""
+    if isinstance(obj, bytes | Path):
+        data = obj if isinstance(obj, bytes) else obj.read_bytes()
+        if not data.startswith(_PNG_SIGNATURE):
+            raise ValueError("A figure must be a png, and these bytes are not one.")
+        return data
+    # Duck typed, so matplotlib stays out of the import graph for everyone who does not plot.
+    if callable(getattr(obj, "savefig", None)) and callable(getattr(obj, "get_figwidth", None)):
+        return _figure_to_png(obj)
+    raise TypeError(
+        f"Cannot serialise {obj.__class__.__name__!r} for resource type 'figure', "
+        "pass a matplotlib figure, or png bytes or a Path to a png."
+    )
+
+
+def _figure_to_png(fig: Any) -> bytes:
+    """Save a matplotlib figure as a reproducible png at least 2400 px wide.
+
+    ``bbox_inches`` stays unset so the width is exactly the figure width times the dpi.
+    Dropping ``Software`` keeps the matplotlib version out of the bytes.
+    """
+    dpi = max(_MIN_FIGURE_DPI, math.ceil(_MASTER_WIDTH_PX / fig.get_figwidth()))
+    buffer = io.BytesIO()
+    fig.savefig(buffer, format="png", dpi=dpi, metadata={"Software": None})
+    return buffer.getvalue()
 
 
 def _dataframe_to_parquet(df: Any) -> bytes:

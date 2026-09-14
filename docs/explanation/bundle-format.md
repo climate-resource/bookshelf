@@ -13,7 +13,7 @@ This page specifies what is written to disk.
 It is written so that an implementation in another language can produce and read bundles
 without reading the Python that implements this one.
 
-The format in force is manifest schema version **3.3**.
+The format in force is manifest schema version **3.4**.
 
 ## Bundle directory
 
@@ -32,7 +32,9 @@ The filenames of the resources are derived from their hash and type:
 - Take the recorded `hash`, which is always `sha256:` followed by exactly 64 lowercase hex characters.
 - Drop the `sha256:` prefix.
   The 64 hex characters are the file's stem.
-- The extension is `parquet` when the resource `type` is `timeseries` or `tabular`, and `bin` otherwise.
+- The extension is `parquet` when the resource `type` is `timeseries` or `tabular`,
+  `png` when it is `figure`, and `bin` otherwise.
+  A figure's master is always a png, so it is stored as `.png`.
 
 So a `timeseries` resource with hash `sha256:7198...faa0` is stored at
 `resources/7198...faa0.parquet`.
@@ -115,10 +117,11 @@ The `type` values currently in use are:
 - `geospatial`
 - `document`
 - `binary`
+- `figure`
 
 The field is a plain string and the set is not closed,
 so a reader must carry a type it does not recognise rather than refuse the bundle.
-Only `timeseries` and `tabular` change how a byte file is named.
+Only `timeseries`, `tabular` and `figure` change how a byte file is named.
 
 ### `managed` versus `pointer`
 
@@ -410,7 +413,7 @@ resources:
   used:
   - upstream-emissions
   visibility: public
-schema_version: '3.3'
+schema_version: '3.4'
 writer:
   pyarrow: 23.0.0
 ```

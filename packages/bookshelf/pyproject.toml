@@ -30,6 +30,7 @@ bookshelf = "bookshelf._cli:main"
 # Empty alias so older `bookshelf[dataframes]` install lines still resolve.
 dataframes = []
 scmrun = ["scmdata>=0.18"]
+figures = ["matplotlib>=3.10"]
 publish = [
     "nbconvert>=7.0",
     "nbformat>=5.0",
@@ -43,6 +44,7 @@ test = [
     "keyring>=25",
     "typer>=0.12",
     "polars>=1.8",
+    "matplotlib>=3.10",
 ]
 
 [build-system]

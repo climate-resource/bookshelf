@@ -9,13 +9,15 @@ it.
 
 import hashlib
 import io
+import struct
 from pathlib import Path
 
 import polars as pl
 import pyarrow as pa
 import pytest
+from matplotlib.figure import Figure
 
-from bookshelf._produce.serialise import SerialisedObject, serialise
+from bookshelf._produce.serialise import SerialisedObject, content_type_for, serialise
 
 
 def _frame() -> pl.DataFrame:
@@ -186,3 +188,59 @@ def test_serialise_path_infers_format_from_suffix(tmp_path: Path) -> None:
         p = tmp_path / name
         p.write_bytes(b"payload")
         assert serialise(p, type="tabular").format == expected, name
+
+
+def _figure() -> Figure:
+    fig = Figure()
+    fig.add_subplot().bar(["a", "b", "c"], [1.5, 2.5, 3.5])
+    return fig
+
+
+def _png_width(data: bytes) -> int:
+    width: int = struct.unpack(">I", data[16:20])[0]
+    return width
+
+
+def test_serialise_figure_is_deterministic() -> None:
+    fig = _figure()
+
+    assert serialise(fig, type="figure").hash == serialise(fig, type="figure").hash
+
+
+def test_serialise_figure_leaves_the_matplotlib_version_out() -> None:
+    assert b"Matplotlib version" not in serialise(_figure(), type="figure").data
+
+
+def test_serialise_figure_is_a_png_master_2400_px_wide() -> None:
+    result = serialise(_figure(), type="figure")
+
+    assert result.data.startswith(b"\x89PNG\r\n\x1a\n")
+    assert _png_width(result.data) == 2400
+    assert (result.content_type, result.format) == ("image/png", "png")
+
+
+def test_serialise_figure_refuses_bytes_that_are_not_a_png() -> None:
+    with pytest.raises(ValueError, match="png"):
+        serialise(b"not a png", type="figure")
+
+
+def test_serialise_figure_refuses_a_path_that_is_not_a_png(tmp_path: Path) -> None:
+    path = tmp_path / "figure.png"
+    path.write_bytes(b"not a png")
+
+    with pytest.raises(ValueError, match="png"):
+        serialise(path, type="figure")
+
+
+def test_serialise_figure_passes_a_png_path_through(tmp_path: Path) -> None:
+    data = serialise(_figure(), type="figure").data
+    path = tmp_path / "figure.png"
+    path.write_bytes(data)
+
+    result = serialise(path, type="figure")
+
+    assert (result.data, result.format, result.content_type) == (data, "png", "image/png")
+
+
+def test_content_type_for_a_figure_is_png() -> None:
+    assert content_type_for("figure") == "image/png"
