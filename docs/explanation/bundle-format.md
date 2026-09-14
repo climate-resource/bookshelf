@@ -117,10 +117,11 @@ The `type` values currently in use are:
 - `geospatial`
 - `document`
 - `binary`
+- `figure`
 
 The field is a plain string and the set is not closed,
 so a reader must carry a type it does not recognise rather than refuse the bundle.
-Only `timeseries` and `tabular` change how a byte file is named.
+Only `timeseries`, `tabular` and `figure` change how a byte file is named.
 
 ### `managed` versus `pointer`
 
