@@ -160,18 +160,17 @@ class DraftBook(_DraftBookBase):
         The values carry the figure's ``used`` inputs and ``visibility``.
         """
         _check_figure_data(type, data)
-        sidecar = (
-            None
-            if data is None
-            else self.write(
+        sidecar = None
+        if data is not None:
+            sidecar = self.write(
                 _sidecar_name(name), data, type="tabular", used=used, visibility=visibility
             )
-        )
+            used = self._figure_used(used, sidecar)
         resource = self._writing_activity().register(
             obj,
             type=type,
             name=name,
-            used=used if sidecar is None else self._figure_used(used, sidecar),
+            used=used,
             visibility=visibility,
             tags=tags,
             description=description,

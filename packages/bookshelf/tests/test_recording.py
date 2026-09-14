@@ -188,7 +188,7 @@ def test_a_different_config_records_a_different_activity(tmp_path: Path) -> None
     assert bundle.manifest.activity.activity_id != other.manifest.activity.activity_id
 
 
-def _book(sink: RecordingSink) -> object:
+def _book(sink: RecordingSink) -> RecordedDraftBook:
     """Draft the one book these sugar tests frame their outputs into."""
     return sink.draft_book("my-dataset", version="v1.0.0", license="MIT")
 
@@ -233,13 +233,9 @@ def _figure() -> Figure:
     return fig
 
 
-def _figure_book(sink: RecordingSink) -> RecordedDraftBook:
-    return sink.draft_book("my-dataset", version="v1.0.0", license="MIT")
-
-
 def test_a_figure_records_its_plotted_values_before_it(tmp_path: Path) -> None:
     bundle = Bundle(tmp_path / "bundle")
-    book = _figure_book(_sink(bundle, tmp_path / "cache"))
+    book = _book(_sink(bundle, tmp_path / "cache"))
 
     book.write(
         "fig", _figure(), type="figure", data=pl.DataFrame({"x": ["a", "b"], "y": [1.0, 2.0]})
@@ -260,7 +256,7 @@ def test_the_plotted_values_are_not_cited_by_later_resources(tmp_path: Path) -> 
     """The values are an output of the build, so only the figure was drawn from them."""
     bundle = Bundle(tmp_path / "bundle")
     sink = _sink(bundle, tmp_path / "cache")
-    book = _figure_book(sink)
+    book = _book(sink)
     raw = sink.writing_activity().register(b"raw", type="tabular", name="raw")
 
     book.write("fig", _figure(), type="figure", data=pl.DataFrame({"y": [1.0]}), used=[raw])
@@ -276,7 +272,7 @@ def test_the_plotted_values_are_not_cited_by_later_resources(tmp_path: Path) -> 
 
 def test_plotted_values_for_anything_but_a_figure_record_nothing(tmp_path: Path) -> None:
     bundle = Bundle(tmp_path / "bundle")
-    book = _figure_book(_sink(bundle, tmp_path / "cache"))
+    book = _book(_sink(bundle, tmp_path / "cache"))
 
     with pytest.raises(ValueError, match="figure"):
         book.write(

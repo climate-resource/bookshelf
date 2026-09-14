@@ -476,11 +476,11 @@ class RecordedDraftBook(DraftBook):
         metadata: Mapping[str, Any] | None,
         names: dict[UUID, str],
         activity: Callable[[], Activity] | None = None,
-        sidecar_edges: set[tuple[str, str]] | None = None,
+        sidecar_edges: set[tuple[str, str]],
     ) -> None:
         self._bundle = bundle
         self._names = names
-        self._sidecar_edges = set() if sidecar_edges is None else sidecar_edges
+        self._sidecar_edges = sidecar_edges
         super().__init__(
             client,
             models.BookDetail(

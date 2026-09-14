@@ -62,8 +62,7 @@ RESOURCES_DIRNAME = "resources"
 
 # Map a resource ``type`` to the byte-file extension under ``resources/``.
 # Mirrors ``serialise.py``: parquet for the frame types, png for a figure, opaque otherwise.
-_PARQUET_TYPES = frozenset({"timeseries", "tabular"})
-_FIGURE_TYPE = "figure"
+_EXTENSIONS = {"timeseries": "parquet", "tabular": "parquet", "figure": "png"}
 
 # A canonical resource hash is ``sha256:`` + exactly 64 lowercase hex chars.
 # Validate against this before deriving a byte-file name.
@@ -418,13 +417,7 @@ def resource_filename(hash_: str, type_: str) -> str:
     and a crafted hash cannot escape the directory.
     """
     hex_digest = _sha256_hex(hash_)
-    if type_ in _PARQUET_TYPES:
-        extension = "parquet"
-    elif type_ == _FIGURE_TYPE:
-        extension = "png"
-    else:
-        extension = "bin"
-    return f"{hex_digest}.{extension}"
+    return f"{hex_digest}.{_EXTENSIONS.get(type_, 'bin')}"
 
 
 def _dump_sorted_yaml(model: BaseModel) -> bytes:

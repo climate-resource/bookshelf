@@ -35,14 +35,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, NamedTuple
 
 from bookshelf._core.hashing import sha256_hex
+from bookshelf._generated import models
 
 if TYPE_CHECKING:
     import pyarrow as pa
 
 # Resource types whose in-memory frames are encoded to parquet.
 _PARQUET_TYPES = frozenset({"timeseries", "tabular"})
-
-_FIGURE_TYPE = "figure"
 
 _PARQUET_CONTENT_TYPE = "application/vnd.apache.parquet"
 _PNG_CONTENT_TYPE = "image/png"
@@ -88,8 +87,8 @@ def serialise(obj: Any, *, type: str) -> SerialisedObject:
 
 def _materialise(obj: Any, *, type: str) -> tuple[bytes, str, str | None]:
     """Return ``(bytes, content_type, format)`` for ``obj`` under resource ``type``."""
-    if type == _FIGURE_TYPE:
-        return _figure_png(obj), _PNG_CONTENT_TYPE, "png"
+    if type == models.ResourceType.figure:
+        return _figure_png(obj), content_type_for(type), "png"
     if isinstance(obj, bytes):
         # Already serialised:
         # store verbatim regardless of type.
@@ -127,7 +126,7 @@ def format_from_suffix(name: str) -> str | None:
 
 def content_type_for(type: str) -> str:
     """Content type for already-serialised bytes of resource ``type``."""
-    if type == _FIGURE_TYPE:
+    if type == models.ResourceType.figure:
         return _PNG_CONTENT_TYPE
     return _PARQUET_CONTENT_TYPE if type in _PARQUET_TYPES else _OPAQUE_CONTENT_TYPE
 
