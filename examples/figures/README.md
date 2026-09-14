@@ -13,6 +13,10 @@ so the notebook documents recorded at the end of the build do not claim to be de
 
 The values carry no data dictionary, because `data=` writes them without one.
 
+`caption=` says what the figure shows, and `alt_text=` describes it for a reader who cannot see it.
+Both land on the figure alone, and the plotted values carry neither.
+The book is public, so the figure would be refused at write time without an `alt_text`.
+
 A real feedstock passes a matplotlib figure, and the SDK saves it as a png at least 2400 px wide.
 This example passes png bytes instead.
 The bars are drawn into a pixel buffer with the standard library alone,

@@ -280,3 +280,65 @@ def test_plotted_values_for_anything_but_a_figure_record_nothing(tmp_path: Path)
         )
 
     assert bundle.manifest.resources == []
+
+
+def test_a_figure_records_its_words_and_its_plotted_values_carry_none(tmp_path: Path) -> None:
+    bundle = Bundle(tmp_path / "bundle")
+    book = _book(_sink(bundle, tmp_path / "cache"))
+
+    book.write(
+        "fig",
+        _figure(),
+        type="figure",
+        data=pl.DataFrame({"y": [1.0, 2.0]}),
+        caption="Two bars.",
+        alt_text="A bar chart with two bars, the second twice the height of the first.",
+    )
+
+    values, figure = bundle.manifest.resources
+    assert (figure.caption, figure.alt_text) == (
+        "Two bars.",
+        "A bar chart with two bars, the second twice the height of the first.",
+    )
+    assert (values.caption, values.alt_text) == (None, None)
+
+
+def test_a_public_figure_without_alt_text_records_nothing(tmp_path: Path) -> None:
+    """The check runs before the plotted values are written, so a refused figure leaves no sidecar."""
+    bundle = Bundle(tmp_path / "bundle")
+    sink = _sink(bundle, tmp_path / "cache")
+    book = sink.draft_book("my-dataset", version="v1.0.0", license="MIT", visibility="public")
+
+    with pytest.raises(ValueError, match="public figure with no alt text"):
+        book.write("fig", _figure(), type="figure", data=pl.DataFrame({"y": [1.0]}))
+
+    assert bundle.manifest.resources == []
+
+
+def test_a_figure_inherits_the_public_tier_it_is_checked_against(tmp_path: Path) -> None:
+    bundle = Bundle(tmp_path / "bundle")
+    sink = _sink(bundle, tmp_path / "cache")
+    book = sink.draft_book("my-dataset", version="v1.0.0", license="MIT", visibility="public")
+
+    with pytest.raises(ValueError, match="public figure with no alt text"):
+        book.write("fig", _figure(), type="figure")
+    book.write("fig", _figure(), type="figure", alt_text="An empty axis.")
+    book.write("org-fig", _figure(), type="figure", visibility="org")
+
+    assert [resource.name for resource in bundle.manifest.resources] == ["fig", "org-fig"]
+
+
+def test_a_batched_public_figure_without_alt_text_records_nothing(tmp_path: Path) -> None:
+    bundle = Bundle(tmp_path / "bundle")
+    activity = _activity(bundle, tmp_path / "cache")
+    activity.default_visibility = models.Visibility.public
+
+    with activity, pytest.raises(ValueError, match="public figure with no alt text"):
+        activity.register_many(
+            [
+                RegisterItem(obj=b"table", type="tabular", name="table"),
+                RegisterItem(obj=_figure(), type="figure", name="fig"),
+            ]
+        )
+
+    assert bundle.manifest.resources == []

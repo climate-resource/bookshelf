@@ -327,3 +327,30 @@ def test_every_bound_producer_call_carries_a_docstring(facade: str) -> None:
     names = ("activity", "register_external", "register_file", "draft_book")
     assert set(names) <= documented.keys()
     assert all(documented[name].strip() for name in names)
+
+
+def test_a_refused_public_figure_uploads_nothing() -> None:
+    """The alt text check runs before the bytes move, so a refused figure leaves nothing behind."""
+    recorded: list[httpx.Request] = []
+
+    with (
+        _sync(recorded, 200, REGISTERED_ONE) as client,
+        client.activity(kind="build", code_ref="test", config={}) as activity,
+        pytest.raises(ValueError, match="public figure with no alt text"),
+    ):
+        activity.register(b"png", type="figure", name="fig", visibility="public")
+
+    assert recorded == []
+
+
+async def test_a_refused_public_figure_uploads_nothing_asynchronously() -> None:
+    recorded: list[httpx.Request] = []
+
+    async with (
+        _async(recorded, 200, REGISTERED_ONE) as client,
+        client.activity(kind="build", code_ref="test", config={}) as activity,
+    ):
+        with pytest.raises(ValueError, match="public figure with no alt text"):
+            await activity.register(b"png", type="figure", name="fig", visibility="public")
+
+    assert recorded == []

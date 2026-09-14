@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+from pydantic import RootModel
+
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf._produce.provenance import canonical_config_hash, committed_source_url
@@ -104,6 +106,8 @@ def resource_discovery(
     citation: str | None = None,
     license: str | None = None,
     license_url: str | None = None,
+    caption: str | None = None,
+    alt_text: str | None = None,
 ) -> models.ResourceDiscovery:
     """Gather a resource's catalogue metadata into the discovery object it travels in.
 
@@ -120,6 +124,8 @@ def resource_discovery(
         "citation": citation,
         "license": license,
         "license_url": license_url,
+        "caption": caption,
+        "alt_text": alt_text,
     }
     return models.ResourceDiscovery(
         tags=list(tags), **{name: value for name, value in stated.items() if value is not None}
@@ -141,7 +147,60 @@ def item_discovery(entry: RegisterItem) -> models.ResourceDiscovery:
         citation=entry.citation,
         license=entry.license,
         license_url=entry.license_url,
+        caption=entry.caption,
+        alt_text=entry.alt_text,
     )
+
+
+def _contract_limit(model: type[RootModel[str]]) -> int:
+    """Read the character limit the contract puts on one figure fact."""
+    return int(
+        next(
+            bound.max_length
+            for bound in model.model_fields["root"].metadata
+            if hasattr(bound, "max_length")
+        )
+    )
+
+
+def check_figure_facts(
+    type: str | models.ResourceType,
+    visibility: models.Visibility,
+    *,
+    name: str | None,
+    caption: str | None,
+    alt_text: str | None,
+) -> None:
+    """Refuse a caption or alt text the platform would refuse, before any bytes move.
+
+    ``visibility`` is already resolved,
+    so a figure that inherits a public tier from its book
+    is held to the same rule as one that states it.
+    """
+    label = f"resource {name!r}" if name else "this resource"
+    if resource_type(type) is not models.ResourceType.figure:
+        if caption is not None or alt_text is not None:
+            raise ValueError(
+                f"caption= and alt_text= describe a figure, "
+                f"and {label} is type {resource_type(type).value!r}. "
+                'Pass type="figure", or drop them.'
+            )
+        return
+    if visibility is models.Visibility.public and not (alt_text or "").strip():
+        raise ValueError(
+            f"{label} is a public figure with no alt text. "
+            "Pass alt_text= describing what the figure shows, or lower its visibility."
+        )
+    limits = (
+        ("caption", caption, _contract_limit(models.Caption)),
+        ("alt_text", alt_text, _contract_limit(models.AltText)),
+    )
+    for field, value, limit in limits:
+        if value is not None and len(value) > limit:
+            raise ValueError(
+                f"{field}= on {label} is {len(value)} characters, "
+                f"and the platform accepts at most {limit}."
+            )
 
 
 def external_item(
@@ -299,6 +358,7 @@ __all__ = [
     "MAX_REGISTRATION_BATCH",
     "VisibilityInput",
     "activity_envelope",
+    "check_figure_facts",
     "external_item",
     "item_discovery",
     "managed_item",

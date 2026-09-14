@@ -15,6 +15,7 @@ import pytest
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
+from bookshelf._produce import helpers
 from bookshelf.cache import ContentCache
 from bookshelf.publisher import recording as recording_module
 from bookshelf.publisher.bundle import Bundle, BundleResource
@@ -276,3 +277,56 @@ def test_a_direct_registration_puts_the_fields_on_the_wire(tmp_path: Path) -> No
     assert resource.metadata.discovery.authors is not None
     assert resource.metadata.discovery.authors[0].name == "Upstream Modelling Team"
     assert _named(bundle, "raw").license == "CC-BY-SA-4.0"
+
+
+def test_a_figure_states_its_caption_and_alt_text_and_a_table_states_neither() -> None:
+    told = helpers.resource_discovery(caption="What it shows.", alt_text="How it looks.")
+    silent = helpers.resource_discovery()
+
+    assert told.model_dump(exclude_unset=True) == {
+        "tags": [],
+        "caption": "What it shows.",
+        "alt_text": "How it looks.",
+    }
+    assert silent.model_dump(exclude_unset=True) == {"tags": []}
+
+
+@pytest.mark.parametrize(
+    ("visibility", "alt_text"),
+    [(models.Visibility.public, "A bar chart."), (models.Visibility.org, None)],
+)
+def test_a_figure_the_platform_would_accept_passes(
+    visibility: models.Visibility, alt_text: str | None
+) -> None:
+    helpers.check_figure_facts(
+        "figure", visibility, name="fig", caption="Emissions.", alt_text=alt_text
+    )
+
+
+@pytest.mark.parametrize("alt_text", [None, "", "   "], ids=["missing", "empty", "blank"])
+def test_a_public_figure_without_alt_text_is_refused_by_name(alt_text: str | None) -> None:
+    with pytest.raises(ValueError, match=r"resource 'fig' is a public figure with no alt text"):
+        helpers.check_figure_facts(
+            "figure", models.Visibility.public, name="fig", caption=None, alt_text=alt_text
+        )
+
+
+def test_alt_text_over_the_platform_limit_is_refused_before_it_is_sent() -> None:
+    with pytest.raises(ValueError, match="1001 characters, and the platform accepts at most 1000"):
+        helpers.check_figure_facts(
+            "figure", models.Visibility.org, name="fig", caption=None, alt_text="a" * 1001
+        )
+
+
+def test_a_caption_over_the_platform_limit_is_refused_before_it_is_sent() -> None:
+    with pytest.raises(ValueError, match="501 characters, and the platform accepts at most 500"):
+        helpers.check_figure_facts(
+            "figure", models.Visibility.org, name="fig", caption="c" * 501, alt_text="a"
+        )
+
+
+def test_a_caption_on_a_table_is_refused() -> None:
+    with pytest.raises(ValueError, match=r"resource 'totals' is type 'tabular'"):
+        helpers.check_figure_facts(
+            "tabular", models.Visibility.org, name="totals", caption="Not a figure.", alt_text=None
+        )

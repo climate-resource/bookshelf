@@ -10,6 +10,7 @@ from bookshelf._consume.presentation import Describable, Sections
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.names import book_coordinate
 from bookshelf._generated import models
+from bookshelf._produce import helpers
 from bookshelf._produce.types import AuthorInput, HasTrackingId, UsedInput
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
 
@@ -140,6 +141,8 @@ class DraftBook(_DraftBookBase):
         citation: str | None = None,
         license: str | None = None,
         license_url: str | None = None,
+        caption: str | None = None,
+        alt_text: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         format: str | None = None,
         dedupe: bool = True,
@@ -155,18 +158,28 @@ class DraftBook(_DraftBookBase):
         The catalogue fields describe this resource rather than the book holding it,
         so a derived output credits whoever produced it and nothing is inherited.
 
+        ``caption`` and ``alt_text`` are the words a ``type="figure"`` carries on the website,
+        and a public figure is refused here unless it has an ``alt_text``.
         ``data`` records the values a ``type="figure"`` plots beside it,
         as a ``tabular`` entry named ``{name}-data`` that the figure was drawn from.
         The values carry the figure's ``used`` inputs and ``visibility``.
         """
         _check_figure_data(type, data)
+        activity = self._writing_activity()
+        helpers.check_figure_facts(
+            type,
+            helpers.visibility(visibility, activity.default_visibility),
+            name=name,
+            caption=caption,
+            alt_text=alt_text,
+        )
         sidecar = None
         if data is not None:
             sidecar = self.write(
                 _sidecar_name(name), data, type="tabular", used=used, visibility=visibility
             )
             used = self._figure_used(used, sidecar)
-        resource = self._writing_activity().register(
+        resource = activity.register(
             obj,
             type=type,
             name=name,
@@ -179,6 +192,8 @@ class DraftBook(_DraftBookBase):
             citation=citation,
             license=license,
             license_url=license_url,
+            caption=caption,
+            alt_text=alt_text,
             metadata=metadata,
             format=format,
             dedupe=dedupe,
@@ -278,6 +293,8 @@ class AsyncDraftBook(_DraftBookBase):
         citation: str | None = None,
         license: str | None = None,
         license_url: str | None = None,
+        caption: str | None = None,
+        alt_text: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         format: str | None = None,
         dedupe: bool = True,
@@ -287,12 +304,20 @@ class AsyncDraftBook(_DraftBookBase):
         The asynchronous twin of :meth:`DraftBook.write`, with the same bundle result.
         """
         _check_figure_data(type, data)
+        activity = self._writing_activity()
+        helpers.check_figure_facts(
+            type,
+            helpers.visibility(visibility, activity.default_visibility),
+            name=name,
+            caption=caption,
+            alt_text=alt_text,
+        )
         if data is not None:
             sidecar = await self.write(
                 _sidecar_name(name), data, type="tabular", used=used, visibility=visibility
             )
             used = [*used, sidecar]
-        resource = await self._writing_activity().register(
+        resource = await activity.register(
             obj,
             type=type,
             name=name,
@@ -305,6 +330,8 @@ class AsyncDraftBook(_DraftBookBase):
             citation=citation,
             license=license,
             license_url=license_url,
+            caption=caption,
+            alt_text=alt_text,
             metadata=metadata,
             format=format,
             dedupe=dedupe,

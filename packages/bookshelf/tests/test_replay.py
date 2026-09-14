@@ -373,3 +373,32 @@ def test_a_recorded_figure_replays_as_a_png_drawn_from_its_values(tmp_path: Path
         "application/vnd.apache.parquet",
         "image/png",
     ]
+
+
+def test_a_recorded_figure_replays_with_its_caption_and_alt_text(tmp_path: Path) -> None:
+    bundle = Bundle(tmp_path / "bundle")
+    sink = RecordingSink(bundle, Mock(spec=BookshelfClient), ContentCache(tmp_path / "cache"))
+    book = sink.draft_book("example", version="v1.0.0", license="MIT", visibility="public")
+    fig = Figure()
+    fig.add_subplot().plot([1.0, 2.0])
+    book.write(
+        "fig",
+        fig,
+        type="figure",
+        data=pl.DataFrame({"y": [1.0, 2.0]}),
+        caption="A rising line.",
+        alt_text="A line chart climbing from one to two.",
+    )
+    book.publish()
+    bundle.write()
+    recorded: list[httpx.Request] = []
+
+    with replay_client(recorded) as client:
+        replay_bundle_sync(bundle, client)
+
+    sent = {resource["name"]: resource for resource in replayed(recorded)["resources"]}
+    assert sent["fig"]["discovery"] == {
+        "caption": "A rising line.",
+        "alt_text": "A line chart climbing from one to two.",
+    }
+    assert "discovery" not in sent["fig-data"]

@@ -7,6 +7,7 @@ import pytest
 
 from bookshelf._core.errors import BookshelfError
 from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
+from bookshelf._generated import models
 from bookshelf.publisher.bundle import (
     Bundle,
     BundleBook,
@@ -308,3 +309,33 @@ def test_the_synthesised_pointer_hash_matches_the_backend_seed() -> None:
 
 def test_a_figure_is_stored_as_a_png() -> None:
     assert resource_filename("sha256:" + "a" * 64, "figure").endswith(".png")
+
+
+def _add_public_figure(bundle: Bundle, alt_text: str | None) -> None:
+    data = b"png"
+    discovery = None if alt_text is None else models.ResourceDiscovery(alt_text=alt_text)
+    bundle.add_resource(
+        data=data,
+        hash_=sha256_hex(data),
+        type_="figure",
+        name="fig",
+        visibility="public",
+        discovery=discovery,
+    )
+    bundle.add_book_entry(name="fig")
+
+
+def test_a_public_figure_without_alt_text_is_invalid(make_bundle: BundleFactory) -> None:
+    """The platform refuses one at replay, so a hand-edited manifest is refused before upload."""
+    bundle = make_bundle()
+    _add_public_figure(bundle, alt_text=None)
+
+    with pytest.raises(InvalidBundleError, match="public figure 'fig' records no alt_text"):
+        bundle.validate()
+
+
+def test_a_public_figure_with_alt_text_validates(make_bundle: BundleFactory) -> None:
+    bundle = make_bundle()
+    _add_public_figure(bundle, alt_text="A bar chart.")
+
+    bundle.validate()

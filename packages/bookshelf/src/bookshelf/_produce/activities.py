@@ -89,6 +89,8 @@ class Activity:
         citation: str | None = None,
         license: str | None = None,
         license_url: str | None = None,
+        caption: str | None = None,
+        alt_text: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
         format: str | None = None,
@@ -113,6 +115,8 @@ class Activity:
                     citation=citation,
                     license=license,
                     license_url=license_url,
+                    caption=caption,
+                    alt_text=alt_text,
                     metadata=metadata,
                     tracking_id=tracking_id,
                     format=format,
@@ -228,6 +232,14 @@ class Activity:
 
     def _materialise(self, entry: RegisterItem) -> models.RegisterResourceItem:
         resource_type = helpers.resource_type(entry.type)
+        resource_visibility = helpers.visibility(entry.visibility, self.default_visibility)
+        helpers.check_figure_facts(
+            resource_type,
+            resource_visibility,
+            name=entry.name,
+            caption=entry.caption,
+            alt_text=entry.alt_text,
+        )
         serialised = serialise(entry.obj, type=resource_type.value)
         storage_path = upload_bytes(
             self._client,
@@ -241,7 +253,7 @@ class Activity:
             hash=serialised.hash,
             format=entry.format or serialised.format,
             name=entry.name,
-            visibility=helpers.visibility(entry.visibility, self.default_visibility),
+            visibility=resource_visibility,
             discovery=helpers.item_discovery(entry),
             metadata=entry.metadata,
             tracking_id=entry.tracking_id,
@@ -356,6 +368,8 @@ class AsyncActivity:
         citation: str | None = None,
         license: str | None = None,
         license_url: str | None = None,
+        caption: str | None = None,
+        alt_text: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
         format: str | None = None,
@@ -380,6 +394,8 @@ class AsyncActivity:
                     citation=citation,
                     license=license,
                     license_url=license_url,
+                    caption=caption,
+                    alt_text=alt_text,
                     metadata=metadata,
                     tracking_id=tracking_id,
                     format=format,
@@ -498,6 +514,14 @@ class AsyncActivity:
 
     async def _materialise(self, entry: RegisterItem) -> models.RegisterResourceItem:
         resource_type = helpers.resource_type(entry.type)
+        resource_visibility = helpers.visibility(entry.visibility, self.default_visibility)
+        helpers.check_figure_facts(
+            resource_type,
+            resource_visibility,
+            name=entry.name,
+            caption=entry.caption,
+            alt_text=entry.alt_text,
+        )
         serialised = serialise(entry.obj, type=resource_type.value)
         storage_path = await upload_bytes_async(
             self._client,
@@ -511,7 +535,7 @@ class AsyncActivity:
             hash=serialised.hash,
             format=entry.format or serialised.format,
             name=entry.name,
-            visibility=helpers.visibility(entry.visibility, self.default_visibility),
+            visibility=resource_visibility,
             discovery=helpers.item_discovery(entry),
             metadata=entry.metadata,
             tracking_id=entry.tracking_id,

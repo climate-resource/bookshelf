@@ -102,6 +102,6 @@ resources:
   - world
   used_digests: []
   visibility: public
-schema_version: '3.4'
+schema_version: '3.5'
 writer:
   pyarrow: 23.0.0

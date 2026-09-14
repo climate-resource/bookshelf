@@ -87,7 +87,20 @@ figure = bar_chart(by_region["value"].tolist())
 #
 # `data=` records `by_region` as a `tabular` entry named `by_region_figure-data`,
 # and records that the figure was drawn from it.
+# The book is public, so the figure needs an `alt_text` before it can be written.
 
 # %%
-book.write("by_region_figure", figure, type="figure", data=by_region, used=[raw])
+book.write(
+    "by_region_figure",
+    figure,
+    type="figure",
+    data=by_region,
+    used=[raw],
+    caption="Total CO2 emissions by region over 2020 and 2021.",
+    alt_text=(
+        "A bar chart with one bar per region. "
+        "The World bar is tallest, followed by R5ASIA at under half its height, "
+        "then R5OECD, and R5LAM is the shortest."
+    ),
+)
 book.publish()

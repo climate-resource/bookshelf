@@ -13,7 +13,7 @@ This page specifies what is written to disk.
 It is written so that an implementation in another language can produce and read bundles
 without reading the Python that implements this one.
 
-The format in force is manifest schema version **3.4**.
+The format in force is manifest schema version **3.5**.
 
 ## Bundle directory
 
@@ -97,6 +97,8 @@ Every entry in `resources` has these fields.
 | `citation`     | optional     | string                      | absent    | the citation to use for this resource                                   |
 | `license`      | optional     | string                      | absent    | the terms this resource is under                                        |
 | `license_url`  | optional     | string                      | absent    | the full licence text for those terms                                   |
+| `caption`      | figure only  | string                      | absent    | what the figure shows, at most 500 characters                           |
+| `alt_text`     | figure only  | string                      | absent    | the figure described for a reader who cannot see it, at most 1000 characters |
 | `metadata`     | optional     | mapping                     | `{}`      | free-form metadata                                                      |
 | `dedupe`       | optional     | boolean                     | `true`    | whether byte-identical resources may collapse to one canonical resource |
 | `size`         | managed only | integer                     | absent    | the byte length of the stored bytes                                     |
@@ -122,6 +124,10 @@ The `type` values currently in use are:
 The field is a plain string and the set is not closed,
 so a reader must carry a type it does not recognise rather than refuse the bundle.
 Only `timeseries`, `tabular` and `figure` change how a byte file is named.
+
+`caption` and `alt_text` belong to a `figure` alone, and the platform refuses them on any other type.
+A `figure` whose `visibility` is `public` must record an `alt_text`,
+because the website is public and a reader who cannot see the picture still needs to know what it shows.
 
 ### `managed` versus `pointer`
 
@@ -306,10 +312,13 @@ A replayable book contains all the required information to later be streamed to 
 2. That book has `published: true`.
 3. That book has at least one entry.
 4. Every entry's `name` matches a resource recorded in the same manifest.
-5. Every resource with `kind: managed` has a byte file, and those bytes hash to the recorded `hash`.
+5. Every resource with `type: figure` and `visibility: public` records an `alt_text`.
+   The platform refuses a public figure without one,
+   so a replay would fail only after every byte had uploaded.
+6. Every resource with `kind: managed` has a byte file, and those bytes hash to the recorded `hash`.
    A resource whose `hash` is not canonical fails here, because it names no byte file.
 
-Rule 5 re-hashes rather than trusting the manifest.
+Rule 6 re-hashes rather than trusting the manifest.
 A bundle edited between being recorded and being used is refused,
 so what is published is what the reviewer saw.
 
@@ -413,7 +422,7 @@ resources:
   used:
   - upstream-emissions
   visibility: public
-schema_version: '3.4'
+schema_version: '3.5'
 writer:
   pyarrow: 23.0.0
 ```

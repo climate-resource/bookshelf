@@ -51,7 +51,7 @@ from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
 from bookshelf._core.names import RESOURCE_NAME_PATTERN
 from bookshelf._generated import models
 
-BUNDLE_SCHEMA_VERSION = "3.4"
+BUNDLE_SCHEMA_VERSION = "3.5"
 
 # A newer minor loads because the models ignore unknown fields, and any other major is refused:
 # v2 keys resources by tracking id and v3 by name, which no rule maps without inventing names.
@@ -169,9 +169,11 @@ class BundleResource(BaseModel):
       There is no byte file,
       and ``size`` is omitted.
 
-    ``tags`` through ``license_url`` are the catalogue metadata the resource itself carries.
+    ``tags`` through ``alt_text`` are the catalogue metadata the resource itself carries.
     They are the resource's own and are never filled in from the book,
     so a book assembled from other people's data credits them on the thing they made.
+    ``caption`` and ``alt_text`` are the words a figure carries,
+    and a public figure must record an ``alt_text``.
 
     ``extra="ignore"`` keeps each resource record forward-compatible,
     so an older reader still loads a record written by a later client
@@ -193,6 +195,8 @@ class BundleResource(BaseModel):
     citation: str | None = None
     license: str | None = None
     license_url: str | None = None
+    caption: str | None = None
+    alt_text: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     dedupe: bool = True
     size: int | None = None  # byte length of a managed resource, ``None`` for a pointer
@@ -763,6 +767,7 @@ class Bundle:
         - the book has at least one entry
         - every entry names a resource recorded in the same manifest
         - every ``used`` name is recorded earlier in the manifest than what consumes it
+        - every public figure records an ``alt_text``, because the platform refuses one without
         - every managed resource's bytes are present and still hash to the recorded hash,
           which a non-canonical hash cannot satisfy because it names no byte file
 
@@ -793,6 +798,14 @@ class Bundle:
                         "which the manifest does not record before it"
                     )
             seen.add(resource.name)
+
+        for resource in self.manifest.resources:
+            if (
+                resource.type == "figure"
+                and resource.visibility == "public"
+                and not (resource.alt_text or "").strip()
+            ):
+                raise InvalidBundleError(f"public figure {resource.name!r} records no alt_text")
 
         for resource in self.manifest.resources:
             if resource.kind != "managed":
