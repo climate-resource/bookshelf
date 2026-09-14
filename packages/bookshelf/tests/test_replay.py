@@ -19,7 +19,7 @@ from bookshelf._core.hashing import sha256_hex
 from bookshelf._generated import models
 from bookshelf.cache import ContentCache
 from bookshelf.facade import AsyncBookshelf
-from bookshelf.publisher.bundle import Bundle, BundleActivity, BundleBook
+from bookshelf.publisher.bundle import Bundle, BundleActivity, BundleBook, InvalidBundleError
 from bookshelf.publisher.recording import RecordingSink
 from bookshelf.publisher.replay import replay_bundle, replay_bundle_sync
 from tests._replay import BASE_URL, replay_client, replay_response, replayed
@@ -402,3 +402,33 @@ def test_a_recorded_figure_replays_with_its_caption_and_alt_text(tmp_path: Path)
         "alt_text": "A line chart climbing from one to two.",
     }
     assert "discovery" not in sent["fig-data"]
+
+
+@pytest.mark.parametrize(
+    ("resource", "match"),
+    [
+        ("table", "resource 'table' is type 'tabular'"),
+        ("fig", "public figure with no alt text"),
+    ],
+)
+def test_a_hand_edited_bundle_the_platform_would_refuse_uploads_nothing(
+    tmp_path: Path, resource: str, match: str
+) -> None:
+    """A draft replays without validate, so the words are checked before the first upload."""
+    bundle = Bundle(tmp_path / "bundle")
+    sink = RecordingSink(bundle, Mock(spec=BookshelfClient), ContentCache(tmp_path / "cache"))
+    book = sink.draft_book("example", version="v1.0.0", license="MIT", visibility="public")
+    book.write("table", pl.DataFrame({"y": [1.0]}), type="tabular")
+    book.write("fig", Figure(), type="figure", alt_text="An empty axis.")
+    bundle.write()
+    edited = Bundle.read(bundle.root)
+    if resource == "table":
+        edited.manifest.resources[0].caption = "Not a figure."
+    else:
+        edited.manifest.resources[1].alt_text = None
+    recorded: list[httpx.Request] = []
+
+    with replay_client(recorded) as client, pytest.raises(InvalidBundleError, match=match):
+        replay_bundle_sync(edited, client)
+
+    assert recorded == []

@@ -324,7 +324,9 @@ def test_a_public_figure_without_alt_text_is_invalid(make_bundle: BundleFactory)
     bundle = make_bundle()
     _add_public_figure(bundle, alt_text=None)
 
-    with pytest.raises(InvalidBundleError, match="public figure 'fig' records no alt_text"):
+    with pytest.raises(
+        InvalidBundleError, match="resource 'fig' is a public figure with no alt text"
+    ):
         bundle.validate()
 
 
@@ -333,7 +335,9 @@ def test_alt_text_over_the_contract_limit_is_invalid(make_bundle: BundleFactory)
     bundle = make_bundle()
     _add_public_figure(bundle, alt_text="a" * 1001)
 
-    with pytest.raises(InvalidBundleError, match="records a alt_text the contract refuses"):
+    with pytest.raises(
+        InvalidBundleError, match="1001 characters, and the platform accepts at most 1000"
+    ):
         bundle.validate()
 
 

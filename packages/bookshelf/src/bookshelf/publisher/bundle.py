@@ -51,6 +51,7 @@ from bookshelf._core.errors import BookshelfError
 from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
 from bookshelf._core.names import RESOURCE_NAME_PATTERN
 from bookshelf._generated import models
+from bookshelf._produce import helpers
 
 BUNDLE_SCHEMA_VERSION = "3.5"
 
@@ -802,22 +803,7 @@ class Bundle:
                     )
             seen.add(resource.name)
 
-        for resource in self.manifest.resources:
-            if (
-                resource.type == "figure"
-                and resource.visibility == "public"
-                and not (resource.alt_text or "").strip()
-            ):
-                raise InvalidBundleError(f"public figure {resource.name!r} records no alt_text")
-            try:
-                _ = resource.discovery
-            except ValidationError as exc:
-                error = exc.errors()[0]
-                field = ".".join(str(part) for part in error["loc"]) or "discovery"
-                raise InvalidBundleError(
-                    f"resource {resource.name!r} records a {field} the contract refuses: "
-                    f"{error['msg']}"
-                ) from exc
+        self.check_discovery()
 
         for resource in self.manifest.resources:
             if resource.kind != "managed":
@@ -837,6 +823,36 @@ class Bundle:
                 raise InvalidBundleError(
                     f"resource {resource.name!r} has hash {resource.hash}, got {actual}"
                 )
+
+    def check_discovery(self) -> None:
+        """Refuse catalogue metadata the platform would refuse, before any bytes upload.
+
+        A draft or resources-only bundle replays without :meth:`validate`,
+        so replay calls this on its own to keep a hand-edited manifest from uploading first.
+        Raises :class:`InvalidBundleError` naming the first resource that fails.
+        """
+        for resource in self.manifest.resources:
+            words = resource.caption is not None or resource.alt_text is not None
+            if resource.type == "figure" or words:
+                try:
+                    helpers.check_figure_facts(
+                        resource.type,
+                        models.Visibility(resource.visibility),
+                        name=resource.name,
+                        caption=resource.caption,
+                        alt_text=resource.alt_text,
+                    )
+                except ValueError as exc:
+                    raise InvalidBundleError(str(exc)) from exc
+            try:
+                _ = resource.discovery
+            except ValidationError as exc:
+                error = exc.errors()[0]
+                field = ".".join(str(part) for part in error["loc"]) or "discovery"
+                raise InvalidBundleError(
+                    f"resource {resource.name!r} records a {field} the contract refuses: "
+                    f"{error['msg']}"
+                ) from exc
 
     def write(self) -> None:
         """Flush the manifest to ``manifest.lock`` (deterministic YAML)."""
