@@ -203,6 +203,17 @@ def check_figure_facts(
             )
 
 
+def check_item_facts(entry: RegisterItem, default: models.Visibility) -> None:
+    """Hold one batch entry to the figure rules, resolving its tier against ``default``."""
+    check_figure_facts(
+        entry.type,
+        visibility(entry.visibility, default),
+        name=entry.name,
+        caption=entry.caption,
+        alt_text=entry.alt_text,
+    )
+
+
 def external_item(
     *,
     type: str | models.ResourceType,
@@ -359,6 +370,7 @@ __all__ = [
     "VisibilityInput",
     "activity_envelope",
     "check_figure_facts",
+    "check_item_facts",
     "external_item",
     "item_discovery",
     "managed_item",

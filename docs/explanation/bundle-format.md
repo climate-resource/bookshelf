@@ -312,13 +312,15 @@ A replayable book contains all the required information to later be streamed to 
 2. That book has `published: true`.
 3. That book has at least one entry.
 4. Every entry's `name` matches a resource recorded in the same manifest.
-5. Every resource with `type: figure` and `visibility: public` records an `alt_text`.
+5. Every resource with `type: figure` and `visibility: public` records a nonblank `alt_text`.
    The platform refuses a public figure without one,
    so a replay would fail only after every byte had uploaded.
-6. Every resource with `kind: managed` has a byte file, and those bytes hash to the recorded `hash`.
+6. Every resource's catalogue fields are ones the contract accepts.
+   A `caption` over 500 characters or an `alt_text` over 1000 fails here, for the same reason.
+7. Every resource with `kind: managed` has a byte file, and those bytes hash to the recorded `hash`.
    A resource whose `hash` is not canonical fails here, because it names no byte file.
 
-Rule 6 re-hashes rather than trusting the manifest.
+Rule 7 re-hashes rather than trusting the manifest.
 A bundle edited between being recorded and being used is refused,
 so what is published is what the reviewer saw.
 

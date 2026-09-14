@@ -16,6 +16,7 @@ import bookshelf.facade
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf._produce.facade import LiveSink
+from bookshelf._produce.types import RegisterItem
 from bookshelf.facade import AsyncBookshelf, Bookshelf
 from bookshelf.publisher.bundle import Bundle
 from bookshelf.publisher.recording import RecordingBookshelf, RecordingSink
@@ -352,5 +353,24 @@ async def test_a_refused_public_figure_uploads_nothing_asynchronously() -> None:
     ):
         with pytest.raises(ValueError, match="public figure with no alt text"):
             await activity.register(b"png", type="figure", name="fig", visibility="public")
+
+    assert recorded == []
+
+
+def test_a_refused_figure_late_in_a_batch_uploads_nothing_before_it() -> None:
+    """Every entry is checked before the first upload, so a valid earlier entry never lands alone."""
+    recorded: list[httpx.Request] = []
+
+    with (
+        _sync(recorded, 200, REGISTERED_ONE) as client,
+        client.activity(kind="build", code_ref="test", config={}) as activity,
+        pytest.raises(ValueError, match="public figure with no alt text"),
+    ):
+        activity.register_many(
+            [
+                RegisterItem(obj=b"table", type="tabular", name="table"),
+                RegisterItem(obj=b"png", type="figure", name="fig", visibility="public"),
+            ]
+        )
 
     assert recorded == []

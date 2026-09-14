@@ -42,6 +42,7 @@ from pydantic import (
     ConfigDict,
     Field,
     StringConstraints,
+    ValidationError,
     field_validator,
     model_validator,
 )
@@ -767,7 +768,9 @@ class Bundle:
         - the book has at least one entry
         - every entry names a resource recorded in the same manifest
         - every ``used`` name is recorded earlier in the manifest than what consumes it
-        - every public figure records an ``alt_text``, because the platform refuses one without
+        - every public figure records a nonblank ``alt_text``, because the platform refuses one without
+        - every resource's catalogue metadata is one the contract accepts,
+          so a caption or alt text over its limit is refused before any upload
         - every managed resource's bytes are present and still hash to the recorded hash,
           which a non-canonical hash cannot satisfy because it names no byte file
 
@@ -806,6 +809,15 @@ class Bundle:
                 and not (resource.alt_text or "").strip()
             ):
                 raise InvalidBundleError(f"public figure {resource.name!r} records no alt_text")
+            try:
+                _ = resource.discovery
+            except ValidationError as exc:
+                error = exc.errors()[0]
+                field = ".".join(str(part) for part in error["loc"]) or "discovery"
+                raise InvalidBundleError(
+                    f"resource {resource.name!r} records a {field} the contract refuses: "
+                    f"{error['msg']}"
+                ) from exc
 
         for resource in self.manifest.resources:
             if resource.kind != "managed":

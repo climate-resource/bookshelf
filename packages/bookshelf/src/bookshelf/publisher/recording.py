@@ -386,13 +386,7 @@ class RecordingActivity(Activity):
     def _prepare_registration(self, entry: RegisterItem) -> _PreparedRegistration:
         resource_type = helpers.resource_type(entry.type)
         visibility = helpers.visibility(entry.visibility, self.default_visibility)
-        helpers.check_figure_facts(
-            resource_type,
-            visibility,
-            name=entry.name,
-            caption=entry.caption,
-            alt_text=entry.alt_text,
-        )
+        helpers.check_item_facts(entry, self.default_visibility)
         return _PreparedRegistration(
             entry=entry,
             materialised=serialise(entry.obj, type=resource_type.value),

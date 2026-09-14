@@ -7,7 +7,6 @@ import pytest
 
 from bookshelf._core.errors import BookshelfError
 from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
-from bookshelf._generated import models
 from bookshelf.publisher.bundle import (
     Bundle,
     BundleBook,
@@ -313,15 +312,10 @@ def test_a_figure_is_stored_as_a_png() -> None:
 
 def _add_public_figure(bundle: Bundle, alt_text: str | None) -> None:
     data = b"png"
-    discovery = None if alt_text is None else models.ResourceDiscovery(alt_text=alt_text)
-    bundle.add_resource(
-        data=data,
-        hash_=sha256_hex(data),
-        type_="figure",
-        name="fig",
-        visibility="public",
-        discovery=discovery,
+    figure = bundle.add_resource(
+        data=data, hash_=sha256_hex(data), type_="figure", name="fig", visibility="public"
     )
+    figure.alt_text = alt_text
     bundle.add_book_entry(name="fig")
 
 
@@ -331,6 +325,15 @@ def test_a_public_figure_without_alt_text_is_invalid(make_bundle: BundleFactory)
     _add_public_figure(bundle, alt_text=None)
 
     with pytest.raises(InvalidBundleError, match="public figure 'fig' records no alt_text"):
+        bundle.validate()
+
+
+def test_alt_text_over_the_contract_limit_is_invalid(make_bundle: BundleFactory) -> None:
+    """Replay would refuse it while building the request, so the manifest is refused first."""
+    bundle = make_bundle()
+    _add_public_figure(bundle, alt_text="a" * 1001)
+
+    with pytest.raises(InvalidBundleError, match="records a alt_text the contract refuses"):
         bundle.validate()
 
 
