@@ -789,7 +789,7 @@ def test_a_resource_type_the_platform_does_not_register_is_rejected(tmp_path: Pa
 
     with pytest.raises(
         BookshelfError,
-        match="type must be one of binary, document, geospatial, tabular, timeseries",
+        match="type must be one of binary, document, figure, geospatial, tabular, timeseries",
     ):
         load_record_recipe(path)
 

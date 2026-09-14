@@ -3,7 +3,7 @@
   "info": {
     "title": "Bookshelf API",
     "description": "API for Climate Resource's dataset management system",
-    "version": "1.0.2.dev47+g7fc6f93c"
+    "version": "v1+g585f4487"
   },
   "paths": {
     "/livez": {
@@ -3823,7 +3823,7 @@
           "events"
         ],
         "summary": "Get Resource Download",
-        "description": "Resolve a resource tracking id to a downloadable URL.",
+        "description": "Resolve a resource tracking id to a downloadable URL.\n\nA browser cannot follow ``data.{format}`` from script, because the storage origin sends no CORS headers,\nso ``format`` hands it the same signed URL to open instead.",
         "operationId": "eventsGetResourceDownload",
         "security": [
           {},
@@ -3855,6 +3855,25 @@
               "title": "Expires In"
             },
             "description": "URL expiration in seconds"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "csv",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Resolve the stored whole-resource file in this format, which ``data.{format}`` would redirect to, rather than the published bytes. 404 when none is stored, in which case read ``data.{format}`` instead.",
+              "title": "Format"
+            },
+            "description": "Resolve the stored whole-resource file in this format, which ``data.{format}`` would redirect to, rather than the published bytes. 404 when none is stored, in which case read ``data.{format}`` instead."
           }
         ],
         "responses": {
@@ -4104,16 +4123,16 @@
             "required": true,
             "schema": {
               "type": "string",
-              "pattern": "^\\.(json|csv|parquet)$",
-              "description": "Output format suffix: `.json`, `.csv` or `.parquet`.",
+              "pattern": "^\\.(json|csv|parquet|png|webp|svg)$",
+              "description": "Output format suffix: `.json`, `.csv` or `.parquet` for tabular data, `.png` for a figure.",
               "title": "Fmt"
             },
-            "description": "Output format suffix: `.json`, `.csv` or `.parquet`."
+            "description": "Output format suffix: `.json`, `.csv` or `.parquet` for tabular data, `.png` for a figure."
           }
         ],
         "responses": {
           "200": {
-            "description": "Query results serialised in the negotiated media type.",
+            "description": "Query results in the suffix's format, or a figure's image.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4132,6 +4151,24 @@
                 }
               },
               "application/parquet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/svg+xml": {
                 "schema": {
                   "type": "string",
                   "format": "binary"
@@ -4178,6 +4215,12 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "302": {
+            "description": "Redirect to a signed URL for a stored object holding the whole read."
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
@@ -5445,6 +5488,215 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/previews/{preview_id}/books/{volume}/{version}/resources/{name}/diff": {
+      "get": {
+        "tags": [
+          "previews"
+        ],
+        "summary": "Query Preview Resource Diff",
+        "description": "Page through what changed inside one file of a preview book.\n\nColumn filters use the same ``col.op=value`` grammar the data route takes,\non the key columns and the axis column, and they narrow the counts as well as the page.\nA comparison that cannot be made answers 409 with the reason, so the page shows one message.",
+        "operationId": "previewsQueryPreviewResourceDiff",
+        "security": [
+          {},
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "preview_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Preview Id"
+            }
+          },
+          {
+            "name": "volume",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Target volume name.",
+              "title": "Volume"
+            },
+            "description": "Target volume name."
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Target book version.",
+              "title": "Version"
+            },
+            "description": "Target book version."
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "baseline",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "What to compare against: `published` for the book's pinned edition, or `preview:<preview_id>` for another preview.",
+              "default": "published",
+              "title": "Baseline"
+            },
+            "description": "What to compare against: `published` for the book's pinned edition, or `preview:<preview_id>` for another preview."
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "values",
+                "rows"
+              ],
+              "type": "string",
+              "description": "`values` for one row per changed cell, `rows` for one row per series.",
+              "default": "values",
+              "title": "View"
+            },
+            "description": "`values` for one row per changed cell, `rows` for one row per series."
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "values: `abs_rel`, `abs` or `key`. rows: `changed_values`, `abs_rel`, `abs` or `key`.",
+              "title": "Sort"
+            },
+            "description": "values: `abs_rel`, `abs` or `key`. rows: `changed_values`, `abs_rel`, `abs` or `key`."
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "desc",
+                "asc"
+              ],
+              "type": "string",
+              "description": "Sort direction.",
+              "default": "desc",
+              "title": "Order"
+            },
+            "description": "Sort direction."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma list. values: `changed`, `null_to_value`, `value_to_null`, `unchanged`. rows: `added`, `removed`, `modified`, `unchanged`. Everything but `unchanged` by default.",
+              "title": "Status"
+            },
+            "description": "Comma list. values: `changed`, `null_to_value`, `value_to_null`, `unchanged`. rows: `added`, `removed`, `modified`, `unchanged`. Everything but `unchanged` by default."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "Rows per page, at most 100 with `cells=all`.",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Rows per page, at most 100 with `cells=all`."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Rows to skip.",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Rows to skip."
+          },
+          {
+            "name": "cells",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "changed",
+                "all"
+              ],
+              "type": "string",
+              "description": "rows view only: `changed` carries the cells that differ, `all` carries every cell of each row, unchanged ones included.",
+              "default": "changed",
+              "title": "Cells"
+            },
+            "description": "rows view only: `changed` carries the cells that differ, `all` carries every cell of each row, unchanged ones included."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceDiffPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
@@ -8402,11 +8654,24 @@
             "minimum": 0.0,
             "title": "Series Removed",
             "default": 0
+          },
+          "series_modified": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series Modified",
+            "description": "Series both sides hold with at least one cell that changed, appeared or went. The rows view's ``modified`` count with no filter applied. ``null`` when the values were not compared, so it cannot be known."
           }
         },
         "type": "object",
         "title": "CoverageDiff",
-        "description": "What the two sides cover, counted over identities rather than over file rows.\n\nA row is one identity, every non-value column including the axis label.\nA series is that identity with the axis label dropped,\nso a version adding one more year to every series adds rows and no series."
+        "description": "What the two sides cover, counted over identities rather than over file rows.\n\nA row is one identity, every non-value column including the axis label.\nA series is that identity with the axis label dropped,\nso a version adding one more year to every series adds rows and no series.\nA series both sides hold is modified when any cell of it differs,\nso that same version modifies every series it added a year to."
       },
       "DataDictionaryEntry": {
         "properties": {
@@ -9941,6 +10206,39 @@
         "title": "FieldChange",
         "description": "One field that differs, with both sides as they were declared."
       },
+      "FigureImage": {
+        "properties": {
+          "width_px": {
+            "type": "integer",
+            "title": "Width Px",
+            "description": "Width in pixels."
+          },
+          "height_px": {
+            "type": "integer",
+            "title": "Height Px",
+            "description": "Height in pixels."
+          },
+          "dpi": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dpi",
+            "description": "Resolution the PNG declares, when it declares one."
+          }
+        },
+        "type": "object",
+        "required": [
+          "width_px",
+          "height_px"
+        ],
+        "title": "FigureImage",
+        "description": "The pixel size of a figure's master, measured by the platform from its bytes."
+      },
       "FrontendLogEvent": {
         "properties": {
           "level": {
@@ -10679,6 +10977,18 @@
           },
           "state": {
             "$ref": "#/components/schemas/PreviewState"
+          },
+          "failure_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Reason",
+            "description": "Why the preview failed, when it did."
           }
         },
         "type": "object",
@@ -10860,6 +11170,14 @@
             },
             "type": "array",
             "title": "Previews"
+          },
+          "receipts": {
+            "items": {
+              "$ref": "#/components/schemas/PublicationReceipt"
+            },
+            "type": "array",
+            "title": "Receipts",
+            "description": "Every receipt of every preview of this proposal, newest first. Empty until the pull request merges and publication runs."
           }
         },
         "type": "object",
@@ -11108,9 +11426,27 @@
             "title": "Preview Id",
             "description": "The preview that was published."
           },
+          "volume": {
+            "type": "string",
+            "title": "Volume",
+            "description": "The volume the published book belongs to."
+          },
           "version": {
             "type": "string",
             "title": "Version"
+          },
+          "edition": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edition",
+            "description": "The minted or existing edition, ``null`` when the book has been removed."
           },
           "repository": {
             "type": "string",
@@ -11154,6 +11490,7 @@
         "required": [
           "id",
           "preview_id",
+          "volume",
           "version",
           "repository",
           "pr_number",
@@ -11166,7 +11503,7 @@
           "created_at"
         ],
         "title": "PublicationReceipt",
-        "description": "Where one published book came from."
+        "description": "Where one published book came from.\n\n``volume`` and ``edition`` name the book a reader follows to, so the page can link it\nwithout loading the book to find out which edition the merge landed on."
       },
       "ReadinessResponse": {
         "properties": {
@@ -12209,8 +12546,320 @@
         "title": "ResourceCreate",
         "description": "Schema for creating a resource (after upload complete)."
       },
+      "ResourceDiffCell": {
+        "properties": {
+          "before": {
+            "title": "Before"
+          },
+          "after": {
+            "title": "After"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "changed",
+              "null_to_value",
+              "value_to_null",
+              "unchanged",
+              "added",
+              "removed"
+            ],
+            "title": "Kind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "ResourceDiffCell",
+        "description": "One cell of a series row, as the rows view carries it."
+      },
+      "ResourceDiffPage": {
+        "properties": {
+          "view": {
+            "type": "string",
+            "enum": [
+              "values",
+              "rows"
+            ],
+            "title": "View"
+          },
+          "key_columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Key Columns"
+          },
+          "axis_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Axis Column",
+            "description": "``null`` for a file with no axis."
+          },
+          "value_unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Unit",
+            "description": "The unit every compared cell carries, when they all carry one."
+          },
+          "axis_labels": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Axis Labels",
+            "description": "Every axis label in the view, for the rows view only."
+          },
+          "added_axis_labels": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added Axis Labels",
+            "description": "Labels only the preview holds, for the rows view only."
+          },
+          "removed_axis_labels": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Removed Axis Labels",
+            "description": "Labels only the baseline holds, for the rows view only."
+          },
+          "rows": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ResourceDiffValueRow"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceDiffSeriesRow"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Rows"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total",
+            "default": 0
+          },
+          "limit": {
+            "type": "integer",
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "default": 50
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Offset",
+            "default": 0
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Counts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "view"
+        ],
+        "title": "ResourceDiffPage",
+        "description": "One page of a file's diff, in one view.\n\n``counts`` are computed after the column filters and before the status filter,\nso a tick box says how many rows ticking it would add.\n``total`` is the matching rows after both, which is what the page window runs over."
+      },
+      "ResourceDiffSeriesRow": {
+        "properties": {
+          "key": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Key",
+            "description": "The series, one entry per key column."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "added",
+              "removed",
+              "modified",
+              "unchanged"
+            ],
+            "title": "Status"
+          },
+          "changed_values": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Changed Values",
+            "description": "Cells of this series that are not unchanged.",
+            "default": 0
+          },
+          "max_abs": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Abs",
+            "description": "Largest absolute move on this series."
+          },
+          "max_rel": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Rel",
+            "description": "Largest relative move on this series."
+          },
+          "cells": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ResourceDiffCell"
+            },
+            "type": "object",
+            "title": "Cells"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "status"
+        ],
+        "title": "ResourceDiffSeriesRow",
+        "description": "One series, rolled up from the cells it holds.\n\nBy default ``cells`` carries only the axis labels whose kind is not ``unchanged``,\nso an unchanged run of years does not ship per row.\nAn added or a removed series holds nothing unchanged, so every one of its labels is there.\nWith ``cells=all`` it carries every label either side holds for the series."
+      },
+      "ResourceDiffValueRow": {
+        "properties": {
+          "key": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Key",
+            "description": "The series, one entry per key column."
+          },
+          "axis": {
+            "title": "Axis",
+            "description": "The axis label, ``null`` for a file with no axis."
+          },
+          "before": {
+            "title": "Before",
+            "description": "Baseline value."
+          },
+          "after": {
+            "title": "After",
+            "description": "Preview value."
+          },
+          "delta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta",
+            "description": "After minus before, for a numeric measurement."
+          },
+          "rel_delta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rel Delta",
+            "description": "``delta`` over the absolute baseline, ``null`` when the baseline is zero."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "changed",
+              "null_to_value",
+              "value_to_null",
+              "unchanged",
+              "added",
+              "removed"
+            ],
+            "title": "Kind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "kind"
+        ],
+        "title": "ResourceDiffValueRow",
+        "description": "One cell whose value differs, with both sides and the move between them."
+      },
       "ResourceDiscovery": {
         "properties": {
+          "caption": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caption",
+            "description": "What the figure shows"
+          },
+          "alt_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alt Text",
+            "description": "Text alternative for screen readers"
+          },
           "tags": {
             "items": {
               "type": "string"
@@ -12440,6 +13089,17 @@
             "title": "Location Url",
             "description": "Convenience copy of the first entry of ``locations``, or ``null`` when empty. For managed resources this is an opaque storage key, not a fetchable URL. Use ``GET /v1/resources/{tracking_id}/download`` to obtain a presigned URL."
           },
+          "image": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FigureImage"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pixel dimensions read from a figure's master when it was registered. Read-only, and ``null`` for other types or before the bytes have landed."
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -12504,7 +13164,7 @@
               }
             ],
             "title": "Rows",
-            "description": "Rows in the file, ``null`` when the comparison never had to read it."
+            "description": "Rows in the file, ``null`` when the comparison did not read it and no parquet footer records the count."
           }
         },
         "type": "object",
@@ -12615,7 +13275,8 @@
           "geospatial",
           "tabular",
           "document",
-          "binary"
+          "binary",
+          "figure"
         ],
         "title": "ResourceType",
         "description": "Type of resource data."
@@ -14408,6 +15069,16 @@
       },
       "PayloadTooLarge": {
         "description": "Payload Too Large",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "UnsupportedMediaType": {
+        "description": "Unsupported Media Type",
         "content": {
           "application/problem+json": {
             "schema": {
