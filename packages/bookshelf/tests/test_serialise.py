@@ -224,6 +224,14 @@ def test_serialise_figure_refuses_bytes_that_are_not_a_png() -> None:
         serialise(b"not a png", type="figure")
 
 
+def test_serialise_figure_refuses_a_path_that_is_not_a_png(tmp_path: Path) -> None:
+    path = tmp_path / "figure.png"
+    path.write_bytes(b"not a png")
+
+    with pytest.raises(ValueError, match="png"):
+        serialise(path, type="figure")
+
+
 def test_serialise_figure_passes_a_png_path_through(tmp_path: Path) -> None:
     data = serialise(_figure(), type="figure").data
     path = tmp_path / "figure.png"

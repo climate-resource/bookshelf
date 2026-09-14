@@ -151,7 +151,6 @@ def _figure_png(obj: Any) -> bytes:
 def _figure_to_png(fig: Any) -> bytes:
     """Save a matplotlib figure as a reproducible png at least 2400 px wide.
 
-    The platform derives every smaller size from this master and never upscales.
     ``bbox_inches`` stays unset so the width is exactly the figure width times the dpi.
     Dropping ``Software`` keeps the matplotlib version out of the bytes.
     """
