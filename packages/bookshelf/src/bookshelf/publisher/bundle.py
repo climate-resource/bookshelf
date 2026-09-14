@@ -508,7 +508,7 @@ class Bundle:
         self.manifest.book = book
 
     def add_used(self, resource_name: str, input_name: str) -> None:
-        """Cite ``input_name`` as an input of the already recorded ``resource_name`` alone.
+        """Cite ``input_name`` as an input of the already recorded ``resource_name``, and of nothing else.
 
         The input must be recorded before the resource, as the replay contract requires.
         """

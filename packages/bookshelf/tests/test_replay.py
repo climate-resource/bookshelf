@@ -363,7 +363,7 @@ def test_a_recorded_figure_replays_as_a_png_drawn_from_its_values(tmp_path: Path
         resource for resource in replayed(recorded)["resources"] if resource["name"] == "fig"
     )
     assert (figure["type"], figure["format"]) == ("figure", "png")
-    assert "fig-data" in json.dumps(figure["used"])
+    assert figure["used"] == ["fig-data"]
     uploads = [
         json.loads(request.content)
         for request in recorded
