@@ -1,5 +1,6 @@
 """Confirming a client's credential, and logging in when a person can."""
 
+import contextvars
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -9,8 +10,9 @@ import pytest
 
 from bookshelf import AsyncBookshelf, AuthenticationRequiredError, Bookshelf, BookshelfError
 from bookshelf._core import credentials, session
+from bookshelf._core.auth import AnonymousFallback, StaticToken
 from bookshelf._core.credentials import StoredCredentials
-from bookshelf._core.errors import APIError
+from bookshelf._core.errors import APIError, AuthenticationError
 from bookshelf._generated import models
 from tests import _core_payloads as payloads
 
@@ -273,6 +275,21 @@ def test_a_spent_login_still_warns_after_a_refused_check(monkeypatch: pytest.Mon
             pytest.raises(BookshelfError),
         ):
             bs.volume("primap-hist")
+
+
+def test_a_quiet_check_does_not_silence_other_requests() -> None:
+    fallback = AnonymousFallback(StaticToken("unused"), message="continuing anonymously")
+    refused = AuthenticationError("refused", status_code=400)
+
+    with fallback.quieted():
+        with fallback.quieted():
+            pass
+        fallback._degrade(refused)
+        assert not fallback._degraded
+        with pytest.warns(UserWarning, match="continuing anonymously"):
+            contextvars.Context().run(fallback._degrade, refused)
+
+    assert fallback._degraded
 
 
 def test_a_saved_login_reports_the_expiry_it_stored() -> None:
