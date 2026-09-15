@@ -26,7 +26,7 @@ from pathlib import Path
 from bookshelf._core.client import BookshelfClient
 from bookshelf._generated import models
 from bookshelf._produce.facade import discovery_input
-from bookshelf._produce.serialise import content_type_for
+from bookshelf._produce.serialise import SVG_CONTENT_TYPE, content_type_for
 from bookshelf._produce.uploads import upload_bytes, upload_bytes_async
 from bookshelf.facade import AsyncBookshelf, Bookshelf
 from bookshelf.publisher.bundle import (
@@ -87,13 +87,22 @@ def _book(book: BundleBook) -> models.ReplayBook:
     )
 
 
-def _resource(resource: BundleResource, storage_path: str | None) -> models.ReplayResource:
+def _resource(
+    resource: BundleResource,
+    storage_path: str | None,
+    svg_path: str | None = None,
+) -> models.ReplayResource:
     """Project one recorded resource, addressing it and the inputs it carries by name.
 
     An input the platform already holds travels under its digest instead,
     because this request carries no resource for it to name.
+    ``svg_path`` is the key the figure's svg companion was uploaded under,
+    and a record without one sends no ``svg``.
     """
     pointer = resource.kind == "pointer"
+    svg = None
+    if resource.svg_hash is not None and svg_path is not None:
+        svg = models.FigureSvgCompanion(storage_path=svg_path, hash=resource.svg_hash)
     return models.ReplayResource(
         name=resource.name,
         hash=resource.hash,
@@ -113,16 +122,26 @@ def _resource(resource: BundleResource, storage_path: str | None) -> models.Repl
             size_bytes=None if pointer else resource.size,
             external_uri=resource.external_uri,
             storage_path=None if pointer else storage_path,
+            svg=svg,
         ),
     )
 
 
-def _request(bundle: Bundle, storage_paths: Mapping[str, str]) -> models.BundleReplayRequest:
-    """Build the one request a replay sends, in the recorded resource order."""
+def _request(
+    bundle: Bundle,
+    storage_paths: Mapping[str, str],
+    svg_paths: Mapping[str, str] | None = None,
+) -> models.BundleReplayRequest:
+    """Build the one request a replay sends, in the recorded resource order.
+
+    ``storage_paths`` and ``svg_paths`` are the uploaded keys, by resource name.
+    """
     manifest = bundle.manifest
+    svg_paths = svg_paths or {}
     return models.BundleReplayRequest(
         resources=[
-            _resource(resource, storage_paths.get(resource.name)) for resource in manifest.resources
+            _resource(resource, storage_paths.get(resource.name), svg_paths.get(resource.name))
+            for resource in manifest.resources
         ],
         **stated(
             activity=None if manifest.activity is None else _activity(manifest.activity),
@@ -134,6 +153,15 @@ def _request(bundle: Bundle, storage_paths: Mapping[str, str]) -> models.BundleR
 def _managed(bundle: Bundle) -> list[BundleResource]:
     """The recorded resources whose bytes the platform hosts."""
     return [resource for resource in bundle.manifest.resources if resource.kind == "managed"]
+
+
+def _companions(bundle: Bundle) -> list[tuple[BundleResource, str]]:
+    """Each managed resource carrying an svg companion, paired with the companion's hash."""
+    return [
+        (resource, resource.svg_hash)
+        for resource in _managed(bundle)
+        if resource.svg_hash is not None
+    ]
 
 
 def send_bundle(client: BookshelfClient, bundle: Path | Bundle) -> models.BundleReplayResponse:
@@ -154,7 +182,16 @@ def send_bundle(client: BookshelfClient, bundle: Path | Bundle) -> models.Bundle
         )
         for resource in _managed(recorded)
     }
-    return client.replay_bundle(_request(recorded, storage_paths))
+    svg_paths = {
+        resource.name: upload_bytes(
+            client,
+            recorded.svg_bytes(resource),
+            hash_=svg_hash,
+            content_type=SVG_CONTENT_TYPE,
+        )
+        for resource, svg_hash in _companions(recorded)
+    }
+    return client.replay_bundle(_request(recorded, storage_paths, svg_paths))
 
 
 async def send_bundle_async(
@@ -173,7 +210,16 @@ async def send_bundle_async(
         )
         for resource in _managed(recorded)
     }
-    return await client.replay_bundle_async(_request(recorded, storage_paths))
+    svg_paths = {
+        resource.name: await upload_bytes_async(
+            client,
+            recorded.svg_bytes(resource),
+            hash_=svg_hash,
+            content_type=SVG_CONTENT_TYPE,
+        )
+        for resource, svg_hash in _companions(recorded)
+    }
+    return await client.replay_bundle_async(_request(recorded, storage_paths, svg_paths))
 
 
 async def replay_bundle(

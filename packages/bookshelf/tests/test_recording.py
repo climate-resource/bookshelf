@@ -13,9 +13,10 @@ from matplotlib.figure import Figure
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
+from bookshelf._produce.serialise import figure_svg, serialise
 from bookshelf._produce.types import RegisterItem
 from bookshelf.cache import ContentCache
-from bookshelf.publisher.bundle import Bundle, resource_filename
+from bookshelf.publisher.bundle import Bundle, companion_filename, resource_filename
 from bookshelf.publisher.record import _record_processing
 from bookshelf.publisher.recording import RecordedDraftBook, RecordingActivity, RecordingSink
 
@@ -342,3 +343,33 @@ def test_a_batched_public_figure_without_alt_text_records_nothing(tmp_path: Path
         )
 
     assert bundle.manifest.resources == []
+
+
+def test_a_matplotlib_figure_records_its_svg_companion(tmp_path: Path) -> None:
+    bundle = Bundle(tmp_path / "bundle")
+    book = _book(_sink(bundle, tmp_path / "cache"))
+    fig = _figure()
+
+    book.write("fig", fig, type="figure", data=pl.DataFrame({"y": [1.0, 2.0]}))
+    book.publish()
+
+    values, figure = bundle.manifest.resources
+    assert figure.svg_hash is not None
+    companion = bundle.resources_dir / companion_filename(figure.svg_hash)
+    assert companion.suffix == ".svg"
+    assert companion.read_bytes() == figure_svg(fig)
+    assert values.svg_hash is None
+    bundle.validate()
+
+
+def test_png_bytes_record_no_svg_companion(tmp_path: Path) -> None:
+    bundle = Bundle(tmp_path / "bundle")
+    book = _book(_sink(bundle, tmp_path / "cache"))
+    png = serialise(_figure(), type="figure").data
+
+    book.write("fig", png, type="figure")
+    book.publish()
+
+    (figure,) = bundle.manifest.resources
+    assert figure.svg_hash is None
+    assert [path.suffix for path in bundle.resources_dir.iterdir()] == [".png"]

@@ -30,7 +30,12 @@ from bookshelf._produce.provenance import (
     derive_code_ref,
 )
 from bookshelf._produce.resources import Resource
-from bookshelf._produce.serialise import SerialisedObject, format_from_suffix, serialise
+from bookshelf._produce.serialise import (
+    SerialisedObject,
+    figure_svg,
+    format_from_suffix,
+    serialise,
+)
 from bookshelf._produce.types import AuthorInput, HasTrackingId, RegisterItem, UsedInput
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
 from bookshelf.cache import ContentCache
@@ -236,6 +241,8 @@ class RecordingActivity(Activity):
             resource_type, resource_visibility, name=name, caption=caption, alt_text=alt_text
         )
         materialised = serialise(obj, type=resource_type.value)
+        # The original figure is only in hand here, so its svg companion is saved now.
+        svg = figure_svg(obj) if resource_type == models.ResourceType.figure else None
         resource_id = tracking_id or helpers.uuid7()
         discovery = helpers.resource_discovery(
             tags,
@@ -263,6 +270,7 @@ class RecordingActivity(Activity):
             generated=True,
             used=list(self._used.names),
             used_digests=list(self._used.digests),
+            svg=svg,
         )
         self._names[resource_id] = recorded_name
         return RecordedResource(

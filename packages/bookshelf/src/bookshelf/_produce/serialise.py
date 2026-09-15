@@ -20,6 +20,10 @@ Already-serialised ``bytes`` and ``Path`` inputs pass through unchanged.
 An advanced caller can therefore supply pre-encoded parquet.
 A figure only accepts them when they are already a png.
 
+A matplotlib figure also saves to a separate svg companion (see :func:`figure_svg`).
+The recorder stores it beside the png master,
+and the platform serves it as the figure's vector format.
+
 The Parquet writer uses pinned options.
 The same frame therefore produces the same bytes within one environment.
 pyarrow stamps its own library version into the file footer (``created_by``),
@@ -30,6 +34,7 @@ Bytes are reproducible for a given pyarrow version.
 from __future__ import annotations
 
 import io
+import logging
 import math
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NamedTuple
@@ -45,12 +50,17 @@ _PARQUET_TYPES = frozenset({"timeseries", "tabular"})
 
 _PARQUET_CONTENT_TYPE = "application/vnd.apache.parquet"
 _PNG_CONTENT_TYPE = "image/png"
+SVG_CONTENT_TYPE = "image/svg+xml"
 _OPAQUE_CONTENT_TYPE = "application/octet-stream"
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 # The platform's largest raster size, so the master is never upscaled.
 _MASTER_WIDTH_PX = 2400
 _MIN_FIGURE_DPI = 200
+# The platform refuses a larger svg companion, and the figure still publishes as a png.
+MAX_FIGURE_SVG_BYTES = 20 * 1024 * 1024
+
+logger = logging.getLogger(__name__)
 
 
 class SerialisedObject(NamedTuple):
@@ -138,13 +148,49 @@ def _figure_png(obj: Any) -> bytes:
         if not data.startswith(_PNG_SIGNATURE):
             raise ValueError("A figure must be a png, and these bytes are not one.")
         return data
-    # Duck typed, so matplotlib stays out of the import graph for everyone who does not plot.
-    if callable(getattr(obj, "savefig", None)) and callable(getattr(obj, "get_figwidth", None)):
+    if _is_matplotlib_figure(obj):
         return _figure_to_png(obj)
     raise TypeError(
         f"Cannot serialise {obj.__class__.__name__!r} for resource type 'figure', "
         "pass a matplotlib figure, or png bytes or a Path to a png."
     )
+
+
+def _is_matplotlib_figure(obj: Any) -> bool:
+    """Duck typed, so matplotlib stays out of the import graph for everyone who does not plot."""
+    return callable(getattr(obj, "savefig", None)) and callable(getattr(obj, "get_figwidth", None))
+
+
+def figure_svg(obj: Any) -> bytes | None:
+    """Save a matplotlib figure as a reproducible svg, or return ``None``.
+
+    Only a matplotlib figure yields one.
+    Bytes or a path already holding a png carry no vector to save, so they return ``None``.
+    The date is dropped and the hash salt is fixed,
+    so an unchanged figure saves to the same bytes on every rebuild.
+    Text stays drawn as paths, matplotlib's default,
+    so the svg looks the same without the producer's fonts.
+    An svg over :data:`MAX_FIGURE_SVG_BYTES` returns ``None`` with a warning,
+    because the platform refuses it and the figure still publishes as a png.
+    """
+    if not _is_matplotlib_figure(obj):
+        return None
+    # A figure object already proves matplotlib is installed.
+    import matplotlib
+
+    buffer = io.BytesIO()
+    with matplotlib.rc_context({"svg.hashsalt": "bookshelf"}):
+        obj.savefig(buffer, format="svg", metadata={"Date": None})
+    data = buffer.getvalue()
+    if len(data) > MAX_FIGURE_SVG_BYTES:
+        logger.warning(
+            "The svg of this figure is %d bytes, over the %d byte limit, "
+            "so only the png master is recorded.",
+            len(data),
+            MAX_FIGURE_SVG_BYTES,
+        )
+        return None
+    return data
 
 
 def _figure_to_png(fig: Any) -> bytes:
@@ -252,4 +298,12 @@ def _is_pandas_frame(obj: Any) -> bool:
     return isinstance(obj, pd.DataFrame)
 
 
-__all__ = ["SerialisedObject", "content_type_for", "format_from_suffix", "serialise"]
+__all__ = [
+    "MAX_FIGURE_SVG_BYTES",
+    "SVG_CONTENT_TYPE",
+    "SerialisedObject",
+    "content_type_for",
+    "figure_svg",
+    "format_from_suffix",
+    "serialise",
+]
