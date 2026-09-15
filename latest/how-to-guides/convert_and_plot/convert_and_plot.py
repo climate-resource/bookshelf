@@ -32,7 +32,7 @@ entry = bs.book("rcmip-emissions", "v5.1.0")["magicc"]
 # %% [markdown]
 # ## The converter family
 #
-# Every converter takes the same trimming and filter arguments.
+# Every converter reads the whole resource and takes the same local year window and filters.
 # They differ only in what they hand back.
 #
 # - `as_df()` returns wide indexed pandas.
@@ -41,11 +41,11 @@ entry = bs.book("rcmip-emissions", "v5.1.0")["magicc"]
 # - `as_arrow()` returns a PyArrow Table.
 # - `as_scmrun()` returns an `scmdata.ScmRun`.
 #
-# Polars and PyArrow need the `dataframes` extra.
+# `as_polars()` needs Polars installed.
 # `as_scmrun()` needs the `scmrun` extra.
 #
 # ```bash
-# uv add "bookshelf[dataframes,scmrun]"
+# uv add polars "bookshelf[scmrun]"
 # ```
 
 # %%
@@ -58,18 +58,15 @@ entry.as_arrow(**selection).schema.names[:8]
 
 # %% [markdown]
 # The optional imports are resolved before any request is made,
-# so a missing extra fails immediately rather than after downloading data.
+# so a missing Polars fails immediately rather than after downloading data.
 
 # %% [markdown]
 # ## Working in scmdata
 #
 # `as_scmrun()` is the route into the wider Climate Resource tooling.
 # `ScmRun` requires `region`, `unit`, `variable`, `model` and `scenario` to be present,
-# so the query has to leave those index dimensions intact.
-#
-# A year window and row filters are safe.
-# `top_n` and `limit` are not,
-# because the server drops index columns that carry a single value across the trimmed result.
+# so those index dimensions have to be intact.
+# The converters filter locally and never drop a dimension, so that holds.
 
 # %%
 run = entry.as_scmrun(year_min=1900, year_max=2100)
@@ -99,7 +96,7 @@ plt.tight_layout()
 # Pandas works just as well when `scmdata` is not wanted.
 
 # %%
-wide = entry.as_df(
+wide = entry.query(
     region="World",
     variable="Emissions|CO2",
     year_min=1990,
@@ -114,7 +111,7 @@ plt.tight_layout()
 # %% [markdown]
 # ## Files and the content cache
 #
-# The converters go through the query API, which trims and filters on the server.
+# The converters hand back a frame.
 # To get the stored file itself, use `fetch()` for bytes or `as_path()` for a local path.
 #
 # Both verify the declared SHA256 before handing anything back.
@@ -140,12 +137,3 @@ path.stat().st_size
 # bookshelf cache path
 # bookshelf cache clear
 # ```
-
-# %% [markdown]
-# > **Warning: Prefer the book entry for timeseries**
-# >
-# > `entry.as_resource()` drops the book context and returns the lean resource handle.
-# > That handle accepts the richer `col.op` filter grammar,
-# > but `as_df()` on a lean **timeseries** resource does not currently
-# > reassemble the year columns correctly.
-# > Read timeseries through the book entry, as this guide does.

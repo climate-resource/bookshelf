@@ -129,6 +129,7 @@ entry.preview(limit=5)
 # ## Pulling data
 #
 # `as_df()` returns pandas.
+# It always reads the whole resource, so nothing is truncated.
 # For a timeseries entry it is wide indexed:
 # the index carries the metadata dimensions and the columns are years.
 
@@ -140,35 +141,40 @@ frame.shape
 frame.index.names
 
 # %% [markdown]
-# ## Trimming on the server
-#
-# The full entry above is 1683 series across 751 years.
-# Trim it in the request rather than after it arrives.
+# ## Filtering locally
 #
 # `year_min` and `year_max` bound the year window.
-# This is the safest control, because it touches the columns and leaves every index dimension intact.
-
-# %%
-window = entry.as_df(year_min=2020, year_max=2100)
-window.shape
-
-# %% [markdown]
-# Filters select rows.
-# On a book entry a filter is a plain `column=value` keyword,
-# and repeating a column ORs its values together.
+# Any other keyword is a `column=value` filter on the rows.
+# Both apply after the download, so every index dimension stays intact.
+# A filter on a column the resource does not have raises `KeyError`.
 
 # %%
 world = entry.as_df(region="World", year_min=2020, year_max=2100)
 world.shape
 
 # %% [markdown]
+# ## Trimming on the server
+#
+# `query()` sends the trimming to the platform instead,
+# which is quicker for a chart or a first look at a large entry.
+# It accepts the same year window and filters, plus `top_n`, `drop_constant` and `limit`.
+#
+# > **Warning: A server query is a preview**
+# >
+# > The book timeseries endpoint returns at most 10000 rows by default.
+# > Use `as_df()` when the result has to be complete.
+
+# %%
+window = entry.query(region="World", year_min=2020, year_max=2100)
+window.shape
+
+# %% [markdown]
 # > **Warning: Filter syntax differs by path**
 # >
-# > A book entry accepts bare `column=value` filters only.
+# > `query()` on a book entry accepts bare `column=value` filters only.
 # > The richer `col.op` grammar (`region.in`, `variable.neq` and friends)
 # > is **silently ignored** here rather than rejected,
 # > so a mistyped filter returns the full unfiltered result.
-# > Check the row count when a filter is meant to narrow something.
 
 # %% [markdown]
 # `top_n` keeps only the largest series,
@@ -176,7 +182,7 @@ world.shape
 # It is a presentation control, useful for a chart rather than an analysis.
 
 # %%
-top = entry.as_df(top_n=5, year_min=2020, year_max=2100)
+top = entry.query(top_n=5, year_min=2020, year_max=2100)
 top.shape
 
 # %% [markdown]
@@ -197,7 +203,7 @@ top.index.names
 # removing dimensions that carry a single value across the filtered data.
 
 # %%
-entry.as_df(region="World", year_min=2020, year_max=2100, drop_constant=True).index.names
+entry.query(region="World", year_min=2020, year_max=2100, drop_constant=True).index.names
 
 # %% [markdown]
 # ## Long format

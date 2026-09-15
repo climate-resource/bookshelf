@@ -115,7 +115,7 @@ volume.versions, volume.latest, volume.editions(volume.latest)
 
 # %%
 entry = volume.book()["by_region"]
-entry.as_df(year_min=2018, year_max=2020, top_n=5).iloc[:5, :3]
+entry.query(year_min=2018, year_max=2020, top_n=5).iloc[:5, :3]
 
 # %% [markdown]
 # A volume reports only what it has published,
