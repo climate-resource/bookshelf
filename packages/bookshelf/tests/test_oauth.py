@@ -114,8 +114,17 @@ def test_client_id_selection(monkeypatch: pytest.MonkeyPatch) -> None:
     assert _oauth.require_workos_client_id() == "client_custom"
 
 
+def test_client_id_production_host_is_bundled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("BOOKSHELF_WORKOS_CLIENT_ID", raising=False)
+    production_url = "https://bookshelf.climateresource.com.au/v1"
+    assert _oauth.require_workos_client_id(production_url) == _oauth._CLIENT_IDS["production"]
+    # Only the exact host: a subdomain or a look-alike does not get the production client.
+    assert _oauth.resolve_workos_client_id("https://bookshelf.climateresource.com.au.evil/") is None
+    assert _oauth.resolve_workos_client_id("https://x.bookshelf.climateresource.com.au/") is None
+
+
 def test_client_id_production_no_env_raises(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Production login without BOOKSHELF_WORKOS_CLIENT_ID must raise OAuthError."""
+    """Login to an unknown host without BOOKSHELF_WORKOS_CLIENT_ID must raise OAuthError."""
     monkeypatch.delenv("BOOKSHELF_WORKOS_CLIENT_ID", raising=False)
     production_url = "https://api.bookshelf.example/v1"
     with pytest.raises(_oauth.OAuthError, match="BOOKSHELF_WORKOS_CLIENT_ID"):

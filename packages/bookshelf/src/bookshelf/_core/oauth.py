@@ -28,12 +28,12 @@ from bookshelf._core.errors import BookshelfError
 
 # Public WorkOS client IDs are safe to hardcode
 # for PKCE and device-code apps.
-# The production ID is not bundled.
-# It must be supplied via BOOKSHELF_WORKOS_CLIENT_ID.
-_CLIENT_IDS: dict[str, str | None] = {
+_CLIENT_IDS: dict[str, str] = {
     "staging": "client_01M2EV5XYS01J8283Q89M9BHQM",
-    "production": None,
+    "production": "client_01KY695M48CT84XBQ53EDTG8PE",
 }
+
+_PRODUCTION_API_HOST = "bookshelf.climateresource.com.au"
 
 # Tokens carry the issuer of the domain that minted them,
 # and the backends pin the custom-domain issuer,
@@ -166,12 +166,20 @@ def is_staging_api_url(api_url: str) -> bool:
     return any(part == "staging" for label in host.split(".") for part in label.split("-"))
 
 
+def is_production_api_url(api_url: str) -> bool:
+    """Report whether an API URL names the production deployment.
+
+    The match is on the exact host,
+    so a customer domain or a look-alike cannot pull a login onto the production client.
+    """
+    return (urlparse(api_url).hostname or "").lower() == _PRODUCTION_API_HOST
+
+
 def resolve_workos_client_id(api_url: str = "") -> str | None:
     """Return the WorkOS client ID from ``$BOOKSHELF_WORKOS_CLIENT_ID`` or pick one by API URL.
 
-    The staging client ID is bundled.
-    The production client ID is not,
-    so a non-staging URL with no environment variable resolves to ``None``.
+    The staging and production client IDs are bundled.
+    Any other URL with no environment variable resolves to ``None``.
     Callers decide what an unresolvable client ID means:
     :func:`require_workos_client_id` raises,
     the SDK's ambient resolution raises ``AuthConfigurationError`` instead.
@@ -181,6 +189,8 @@ def resolve_workos_client_id(api_url: str = "") -> str | None:
         return env_id
     if is_staging_api_url(api_url):
         return _CLIENT_IDS["staging"]
+    if is_production_api_url(api_url):
+        return _CLIENT_IDS["production"]
     return None
 
 
@@ -190,8 +200,7 @@ def require_workos_client_id(api_url: str = "") -> str:
     if client_id is not None:
         return client_id
     raise OAuthError(
-        "Production login requires setting the BOOKSHELF_WORKOS_CLIENT_ID environment variable. "
-        "The production WorkOS client ID is not bundled in the SDK. "
+        f"No bundled WorkOS client ID matches {api_url or 'the configured API URL'}. "
         "Set BOOKSHELF_WORKOS_CLIENT_ID to your WorkOS client ID and retry."
     )
 
