@@ -346,8 +346,8 @@ class Resource(_ResourceHandle):
         Every timeseries is kept, including one whose values are all missing.
         scmdata rejects rows with duplicate metadata.
         """
-        convert = scmrun_converter()
         require_timeseries_support(self.type, "as_scmrun()")
+        convert = scmrun_converter()
         return convert(self._selected(year_min=year_min, year_max=year_max, filters=filters))
 
     def fetch(self) -> bytes:
@@ -698,8 +698,8 @@ class AsyncResource(_ResourceHandle):
         Every timeseries is kept, including one whose values are all missing.
         scmdata rejects rows with duplicate metadata.
         """
-        convert = scmrun_converter()
         require_timeseries_support(await self._get_type(), "as_scmrun()")
+        convert = scmrun_converter()
         return convert(await self._selected(year_min=year_min, year_max=year_max, filters=filters))
 
     async def fetch(self) -> bytes:

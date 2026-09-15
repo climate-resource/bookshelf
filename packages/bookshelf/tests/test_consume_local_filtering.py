@@ -85,14 +85,28 @@ async def test_the_async_as_scmrun_keeps_timeseries_with_no_values(tmp_path: Pat
     assert run.filter(variable="Emissions|CH4").timeseries().isna().all(axis=None)
 
 
+def _duplicated_first_row() -> pd.DataFrame:
+    return pd.concat([WIDE, WIDE.iloc[:1]], ignore_index=True)
+
+
 def test_as_scmrun_rejects_duplicate_metadata(tmp_path: Path) -> None:
     errors = pytest.importorskip("scmdata.errors")
-    frame = pd.concat([WIDE, WIDE.iloc[:1]], ignore_index=True)
-    bs = Bookshelf(BASE_URL, auth=None, transport=_platform([("v2.6", 1)], frame=frame))
+    transport = _platform([("v2.6", 1)], frame=_duplicated_first_row())
+    bs = Bookshelf(BASE_URL, auth=None, transport=transport)
     bs._cache = ContentCache(tmp_path / "cache")
 
     with pytest.raises(errors.NonUniqueMetadataError):
         bs.book("primap-hist", "v2.6")["by_country"].as_scmrun()
+
+
+async def test_the_async_as_scmrun_rejects_duplicate_metadata(tmp_path: Path) -> None:
+    errors = pytest.importorskip("scmdata.errors")
+    transport = _platform([("v2.6", 1)], frame=_duplicated_first_row())
+    async with AsyncBookshelf(BASE_URL, auth=None, async_transport=transport) as bs:
+        bs._cache = ContentCache(tmp_path / "cache")
+        book = await bs.book("primap-hist", "v2.6")
+        with pytest.raises(errors.NonUniqueMetadataError):
+            await book["by_country"].as_scmrun()
 
 
 def test_an_unknown_filter_column_is_rejected(tmp_path: Path) -> None:
