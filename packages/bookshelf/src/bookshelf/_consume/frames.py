@@ -44,32 +44,30 @@ def wide_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
     return frame
 
 
+def flat_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
+    """Normalize long or wide timeseries data to wide pandas with the dimensions as columns.
+
+    A wide frame of nothing but year columns carries no dimensions,
+    so its positional index is dropped rather than promoted to a column.
+    """
+    wide = wide_timeseries(frame)
+    dimensions = [name for name in wide.index.names if name is not None]
+    return wide.reset_index(drop=not dimensions)
+
+
 def long_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
     """Normalize long or wide timeseries data to tidy pandas."""
     if {"year", "value"} <= set(frame.columns):
         return frame.reset_index(drop=True)
-    wide = wide_timeseries(frame)
-    # A wide frame of nothing but year columns carries no dimensions,
-    # so its positional index is not something to melt on.
-    dimensions = [name for name in wide.index.names if name is not None]
-    long = wide.reset_index(drop=not dimensions).melt(
+    flat = flat_timeseries(frame)
+    dimensions = [column for column in flat.columns if not str(column).isdigit()]
+    long = flat.melt(
         id_vars=dimensions,
         var_name="year",
         value_name="value",
     )
     long["year"] = long["year"].astype(int)
     return long
-
-
-def scmrun_frame(frame: pd.DataFrame) -> pd.DataFrame:
-    """Shape wide timeseries data for the ScmRun constructor.
-
-    scmdata pivots long data and silently drops a timeseries whose values are all missing,
-    so ScmRun is built from the wide frame instead.
-    """
-    wide = wide_timeseries(frame)
-    dimensions = [name for name in wide.index.names if name is not None]
-    return wide.reset_index(drop=not dimensions)
 
 
 def _equal_to(values: pd.Series[Any] | pd.Index[Any], wanted: str) -> Any:
@@ -170,10 +168,10 @@ __all__ = [
     "arrow_converter",
     "filter_rows",
     "filter_years",
+    "flat_timeseries",
     "legacy_long_timeseries",
     "long_timeseries",
     "polars_converter",
-    "scmrun_frame",
     "timeseries_frame",
     "wide_timeseries",
 ]
