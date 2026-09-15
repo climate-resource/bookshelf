@@ -10,6 +10,7 @@ from uuid import UUID
 from pydantic import RootModel
 
 from bookshelf._core.client import BookshelfClient
+from bookshelf._core.session import ensure_authenticated, ensure_authenticated_async
 from bookshelf._generated import models
 from bookshelf._produce import helpers
 from bookshelf._produce.activities import Activity, AsyncActivity
@@ -302,7 +303,12 @@ class LiveSink:
         authors: Sequence[Mapping[str, Any]] | None = None,
         processing: ProcessingInput | None = None,
     ) -> DraftBook:
-        """Create a mutable draft whose membership changes remain intentional calls."""
+        """Create a mutable draft whose membership changes remain intentional calls.
+
+        An ambient credential is confirmed first, logging in interactively when it is missing.
+        """
+        if self._client.uses_ambient_auth:
+            ensure_authenticated(self._client)
         detail = self._client.draft_book(
             _draft_request(
                 volume,
@@ -491,7 +497,12 @@ class AsyncLiveSink:
         authors: Sequence[Mapping[str, Any]] | None = None,
         processing: ProcessingInput | None = None,
     ) -> AsyncDraftBook:
-        """Create an asynchronous mutable draft book handle."""
+        """Create an asynchronous mutable draft book handle.
+
+        An ambient credential is confirmed first, logging in interactively when it is missing.
+        """
+        if self._client.uses_ambient_auth:
+            await ensure_authenticated_async(self._client)
         detail = await self._client.draft_book_async(
             _draft_request(
                 volume,

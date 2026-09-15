@@ -17,6 +17,20 @@ The SDK recognises these environment variables:
 - `BOOKSHELF_CACHE_BOOK_TTL` sets how many seconds a remembered pinned edition is trusted
   before one request checks it is still published. The default is one day.
 
+## Checking authentication from code
+
+`Bookshelf().ensure_authenticated()` confirms the API accepts the ambient credential
+and returns the identity it belongs to.
+Drafting a book runs the same check first.
+
+- In a terminal, a missing or spent stored login opens a browser to log in.
+- In a notebook, it prints a device code to confirm instead.
+- In CI, `BOOKSHELF_CLIENT_ID`, `BOOKSHELF_CLIENT_SECRET` and `BOOKSHELF_TOKEN_URL` are exchanged for a token.
+  Nothing prompts, because `CI` is set.
+- Anywhere else, it raises `AuthenticationRequiredError` naming the fix.
+
+A credential passed through `auth=` or `BOOKSHELF_TOKEN` is checked but never replaced by a login.
+
 ## Where credentials are stored
 
 `bookshelf auth login` writes its record to a `0600` file under the user config directory.

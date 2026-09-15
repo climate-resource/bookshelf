@@ -1,6 +1,6 @@
 """Public facade for the Bookshelf SDK."""
 
-from bookshelf._core.errors import BookshelfError
+from bookshelf._core.errors import AuthenticationRequiredError, BookshelfError
 from bookshelf._generated import OPENAPI_VERSION, models
 from bookshelf.cache import ContentCache
 from bookshelf.facade import (
@@ -51,6 +51,7 @@ __all__ = [
     "AsyncDraftBook",
     "AsyncResource",
     "AsyncVolume",
+    "AuthenticationRequiredError",
     "Book",
     "BookEntry",
     "Bookshelf",

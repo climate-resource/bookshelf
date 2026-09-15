@@ -1,0 +1,197 @@
+"""Confirm a client holds a credential the API accepts, logging a person in when one is present.
+
+Machine credentials (``$BOOKSHELF_TOKEN`` and the client-credentials exchange CI uses)
+are verified but never replaced,
+because nobody is there to answer a login prompt.
+A missing or spent stored login starts the WorkOS login when a person can answer it:
+a browser login from a terminal, a device code from a notebook.
+Anywhere else it raises :class:`~bookshelf._core.errors.AuthenticationRequiredError`.
+"""
+
+import asyncio
+import os
+import sys
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
+from typing import TextIO
+
+from bookshelf._core import config, credentials, oauth
+from bookshelf._core.client import BookshelfClient
+from bookshelf._core.config import CredentialSource
+from bookshelf._core.credentials import CredentialKind, StoredCredentials
+from bookshelf._core.errors import APIError, AuthenticationError, AuthenticationRequiredError
+from bookshelf._generated import models
+
+_LOGIN_REMEDY = (
+    "Run 'bookshelf auth login' in a terminal, "
+    "or in CI set BOOKSHELF_CLIENT_ID, BOOKSHELF_CLIENT_SECRET and BOOKSHELF_TOKEN_URL."
+)
+
+_MACHINE_SOURCES = {
+    CredentialSource.ENV_TOKEN: "$BOOKSHELF_TOKEN",
+    CredentialSource.CLIENT_CREDENTIALS: "the client credentials in $BOOKSHELF_CLIENT_ID",
+}
+
+
+def _isatty(stream: TextIO | None) -> bool:
+    try:
+        return stream is not None and stream.isatty()
+    except (AttributeError, ValueError):
+        return False
+
+
+def in_notebook() -> bool:
+    """Report whether this process is a Jupyter kernel."""
+    ipython = sys.modules.get("IPython")
+    shell = getattr(ipython, "get_ipython", lambda: None)() if ipython is not None else None
+    return type(shell).__name__ == "ZMQInteractiveShell"
+
+
+def is_interactive() -> bool:
+    """Report whether a person is present to answer a login prompt.
+
+    ``$CI`` wins over everything, because runners can allocate a pseudo terminal.
+    """
+    if os.environ.get("CI", "").strip().lower() not in ("", "0", "false"):
+        return False
+    return (_isatty(sys.stdin) and _isatty(sys.stderr)) or in_notebook()
+
+
+def _say(line: str) -> None:
+    print(line, file=sys.stderr, flush=True)
+
+
+def _show_auth_url(url: str) -> None:
+    _say("Opening a browser to log in to Bookshelf. If it does not open, visit:")
+    _say(f"  {url}")
+
+
+def _show_device_code(flow: oauth.DeviceFlowInfo) -> None:
+    _say(f"To log in to Bookshelf, visit {flow.verification_uri_complete}")
+    _say(f"and confirm the code {flow.user_code}. Waiting for approval...")
+
+
+def login_user(
+    api_url: str,
+    *,
+    browser: bool,
+    on_auth_url: Callable[[str], None] = _show_auth_url,
+    on_device_code: Callable[[oauth.DeviceFlowInfo], None] = _show_device_code,
+) -> tuple[models.UserResponse, StoredCredentials]:
+    """Run the WorkOS user login, store the credential and make it active.
+
+    Raises :class:`~bookshelf._core.oauth.OAuthError` when the flow fails.
+    """
+    if browser:
+        token_data = oauth.authorization_code_flow(api_url=api_url, on_auth_url=on_auth_url)
+    else:
+        flow = oauth.start_device_flow(api_url=api_url)
+        on_device_code(flow)
+        token_data = oauth.poll_device_flow(flow, api_url=api_url)
+
+    access_token = str(token_data["access_token"])
+    refresh_token = token_data.get("refresh_token")
+    expires_in = token_data.get("expires_in")
+    with BookshelfClient(api_url, auth=access_token) as client:
+        user = client.get_current_user()
+    record = StoredCredentials(
+        access_token=access_token,
+        token_type="bearer",  # noqa: S106, this is the token type, not a secret
+        expires_at=(
+            datetime.now(UTC) + timedelta(seconds=expires_in) if expires_in is not None else None
+        ),
+        api_url=api_url,
+        refresh_token=str(refresh_token) if refresh_token else None,
+        kind=CredentialKind.USER,
+        subject=user.email,
+        organization_id=user.organization_id,
+    )
+    credentials.save_record(record)
+    return user, record
+
+
+def _is_rejection(exc: APIError) -> bool:
+    return isinstance(exc, AuthenticationError) or exc.status_code == 401
+
+
+def _require_login_allowed(
+    client: BookshelfClient, rejected: APIError | None, interactive: bool | None
+) -> None:
+    """Raise unless a rejected or absent credential may be replaced by an interactive login."""
+    if not client.uses_ambient_auth:
+        raise AuthenticationRequiredError(
+            "This client was given its credential through auth=, and the API did not accept it."
+            if client.has_credential
+            else "This client was created with auth=None, so it cannot authenticate."
+        ) from rejected
+    source, _ = config.resolve_ambient_credential(client.base_url)
+    if source in _MACHINE_SOURCES:
+        raise AuthenticationRequiredError(
+            f"The API rejected {_MACHINE_SOURCES[source]}. Check it is current for {client.base_url}."
+        ) from rejected
+    if not (is_interactive() if interactive is None else interactive):
+        what = "The stored login was rejected" if rejected else "No Bookshelf credential was found"
+        raise AuthenticationRequiredError(
+            f"{what} for {client.base_url}, and there is nobody here to log in. {_LOGIN_REMEDY}"
+        ) from rejected
+
+
+def _finish_login(client: BookshelfClient) -> models.UserResponse:
+    try:
+        user, record = login_user(client.base_url, browser=not in_notebook())
+    except oauth.OAuthError as exc:
+        raise AuthenticationRequiredError(f"Logging in to Bookshelf failed: {exc}") from exc
+    client.set_auth(config.auth_from_stored(record))
+    client.verified_user = user
+    return user
+
+
+def ensure_authenticated(
+    client: BookshelfClient, *, interactive: bool | None = None
+) -> models.UserResponse:
+    """Return the identity the API accepts for ``client``, logging in first when allowed.
+
+    ``interactive`` overrides the terminal and notebook detection.
+    A confirmed identity is remembered on the client, so later calls send no request.
+    """
+    if client.verified_user is not None:
+        return client.verified_user
+    rejected: APIError | None = None
+    if client.has_credential:
+        try:
+            client.verified_user = client.get_current_user()
+            return client.verified_user
+        except APIError as exc:
+            if not _is_rejection(exc):
+                raise
+            rejected = exc
+    _require_login_allowed(client, rejected, interactive)
+    return _finish_login(client)
+
+
+async def ensure_authenticated_async(
+    client: BookshelfClient, *, interactive: bool | None = None
+) -> models.UserResponse:
+    """The asynchronous twin of :func:`ensure_authenticated`, with the login run off the loop."""
+    if client.verified_user is not None:
+        return client.verified_user
+    rejected: APIError | None = None
+    if client.has_credential:
+        try:
+            client.verified_user = await client.get_current_user_async()
+            return client.verified_user
+        except APIError as exc:
+            if not _is_rejection(exc):
+                raise
+            rejected = exc
+    _require_login_allowed(client, rejected, interactive)
+    return await asyncio.to_thread(_finish_login, client)
+
+
+__all__ = [
+    "ensure_authenticated",
+    "ensure_authenticated_async",
+    "in_notebook",
+    "is_interactive",
+    "login_user",
+]

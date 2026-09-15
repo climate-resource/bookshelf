@@ -26,7 +26,7 @@ from bookshelf._cli._runtime import (
     iso,
     note,
 )
-from bookshelf._core import config, credentials, errors, oauth
+from bookshelf._core import config, credentials, errors, oauth, session
 from bookshelf._core.auth import JWT_BEARER_GRANT, TokenProvider, decode_jwt_expiry
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import CredentialSource, resolve_base_url
@@ -111,41 +111,27 @@ def auth_login(
 
 
 def _login_user(base: str, *, no_browser: bool, json_output: bool) -> None:
+    def show_code(flow: oauth.DeviceFlowInfo) -> None:
+        note(field("Your code:", flow.user_code))
+        note(field("Visit", flow.verification_uri_complete))
+        note("")
+        note("Waiting for authorisation...")
+
+    def show_url(url: str) -> None:
+        note("Opening browser for authentication...")
+        note("If the browser does not open, visit this URL (or use --no-browser):")
+        note("")
+        note(f"  {url}")
+        note("")
+
     try:
-        if no_browser:
-            flow = oauth.start_device_flow(api_url=base)
-            note(field("Your code:", flow.user_code))
-            note(field("Visit", flow.verification_uri_complete))
-            note("")
-            note("Waiting for authorisation...")
-            token_data = oauth.poll_device_flow(flow, api_url=base)
-        else:
-
-            def show_url(url: str) -> None:
-                note("Opening browser for authentication...")
-                note("If the browser does not open, visit this URL (or use --no-browser):")
-                note("")
-                note(f"  {url}")
-                note("")
-
-            token_data = oauth.authorization_code_flow(api_url=base, on_auth_url=show_url)
+        me, record = session.login_user(
+            base, browser=not no_browser, on_auth_url=show_url, on_device_code=show_code
+        )
     except oauth.OAuthError as exc:
         raise CliError(f"authentication failed: {exc}", exit_code=EXIT_UNEXPECTED) from exc
 
-    access_token = str(token_data["access_token"])
-    refresh_token = token_data.get("refresh_token")
-    expires_at = _expiry_from(token_data.get("expires_in"))
-    with BookshelfClient(base, auth=access_token) as client:
-        me = client.get_current_user()
-    credentials.save_credentials(
-        access_token,
-        api_url=base,
-        kind=CredentialKind.USER,
-        refresh_token=str(refresh_token) if refresh_token else None,
-        expires_at=expires_at,
-        subject=me.email,
-        organization_id=me.organization_id,
-    )
+    expires_at = record.expires_at
     note(f"Logged in as {me.email}")
     note(field("Organisation", me.organization_id or "none"))
     note(field("Permissions", ", ".join(me.permissions or []) or "none"))
