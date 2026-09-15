@@ -343,7 +343,6 @@ class Resource(_ResourceHandle):
     ) -> ScmRun:
         """Return timeseries data as an scmdata ScmRun.
 
-        scmdata is handed the wide frame, so a timeseries whose values are all missing is kept.
         scmdata rejects rows with duplicate metadata.
         """
         require_timeseries_support(self.type, "as_scmrun()")
@@ -695,7 +694,6 @@ class AsyncResource(_ResourceHandle):
     ) -> ScmRun:
         """Return timeseries data as an scmdata ScmRun.
 
-        scmdata is handed the wide frame, so a timeseries whose values are all missing is kept.
         scmdata rejects rows with duplicate metadata.
         """
         require_timeseries_support(await self._get_type(), "as_scmrun()")
