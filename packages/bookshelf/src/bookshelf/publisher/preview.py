@@ -6,7 +6,7 @@ Once the preview exists, every failure is reported to it with ``fail``,
 so the check run never waits for the platform's timeout.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -17,7 +17,7 @@ from bookshelf._generated import models
 from bookshelf._produce.serialise import content_type_for
 from bookshelf._produce.uploads import upload_bytes
 from bookshelf.publisher.bundle import Bundle, BundleBook, InvalidBundleError
-from bookshelf.publisher.replay import _book
+from bookshelf.publisher.replay import _activity, _book, _resource
 
 # PreviewFailRequest.reason caps at this length.
 _REASON_LIMIT = 500
@@ -93,29 +93,52 @@ def _read_all(paths: Sequence[Path]) -> list[_Candidate]:
     return candidates
 
 
-def _manifest(framing: BundleBook) -> dict[str, Any]:
-    """The book's manifest sections in the API's spelling, as publication reads them."""
+def _manifest(candidate: _Candidate, storage_paths: Mapping[str, str]) -> dict[str, Any]:
+    """The book's manifest sections in the API's spelling, as publication reads them.
+
+    ``activity`` and ``resources`` are the replay projections,
+    so a book published from a preview keeps the provenance a replay would give it.
+    ``storage_paths`` maps a resource name to where its bytes sit under the preview.
+    """
+    framing = candidate.framing
     manifest: dict[str, Any] = _book(framing).model_dump(mode="json", exclude_unset=True)
     if framing.processing is not None:
         manifest["processing"] = [list(pair) for pair in framing.processing]
+    recorded = candidate.bundle.manifest
+    if recorded.activity is not None:
+        manifest["activity"] = _activity(recorded.activity).model_dump(
+            mode="json", exclude_unset=True
+        )
+    manifest["resources"] = [
+        _resource(resource, storage_paths.get(resource.name)).model_dump(
+            mode="json", exclude_unset=True
+        )
+        for resource in recorded.resources
+    ]
     return manifest
 
 
 def _attach(client: BookshelfClient, preview_id: UUID, candidate: _Candidate) -> None:
-    """Upload the book's bytes under the preview, then attach its manifest and files."""
-    by_name = {resource.name: resource for resource in candidate.bundle.manifest.resources}
-    storage_paths: dict[str, str] = {}
+    """Upload every managed resource's bytes under the preview, then attach the manifest and files.
+
+    Inputs that are not book entries travel too,
+    because the platform needs a file for every managed resource the manifest names.
+    """
+    by_hash: dict[str, str] = {}
+    by_name: dict[str, str] = {}
     files: list[models.PreviewResourceUpload] = []
-    for entry in candidate.framing.entries:
-        resource = by_name[entry.name]
-        if resource.hash not in storage_paths:
-            storage_paths[resource.hash] = upload_bytes(
+    for resource in candidate.bundle.manifest.resources:
+        if resource.kind != "managed":
+            continue
+        if resource.hash not in by_hash:
+            by_hash[resource.hash] = upload_bytes(
                 client,
                 candidate.bundle.resource_bytes(resource),
                 hash_=resource.hash,
                 content_type=content_type_for(resource.type),
                 preview_id=preview_id,
             )
+        by_name[resource.name] = by_hash[resource.hash]
         files.append(
             models.PreviewResourceUpload(
                 name=resource.name,
@@ -123,14 +146,14 @@ def _attach(client: BookshelfClient, preview_id: UUID, candidate: _Candidate) ->
                 type=models.ResourceType(resource.type),
                 format=resource.format,
                 size_bytes=resource.size,
-                storage_path=storage_paths[resource.hash],
+                storage_path=by_hash[resource.hash],
             )
         )
     client.attach_preview_book(
         preview_id,
         candidate.framing.volume,
         candidate.framing.version,
-        models.PreviewBookUpload(manifest=_manifest(candidate.framing), resources=files),
+        models.PreviewBookUpload(manifest=_manifest(candidate, by_name), resources=files),
     )
 
 
