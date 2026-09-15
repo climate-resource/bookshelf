@@ -64,25 +64,24 @@ with Bookshelf() as bs:
 ```python
 with Bookshelf() as bs:
     entry = bs.book("rcmip-emissions", "v5.1.0")["magicc"]
-    frame = entry.as_df(
-        year_min=2020,
-        year_max=2100,
-        drop_constant=True,
-        region="World",
-    )
+    frame = entry.as_df(year_min=2020, year_max=2100, region="World")
+    preview = entry.query(year_min=2020, top_n=5, drop_constant=True)
     facets = entry.facets()
 ```
 
-`as_df()` returns pandas and uses wide indexed form for timeseries resources.
+`as_df()` reads the whole resource and returns pandas, using wide indexed form for timeseries resources.
 The converter family also includes `as_long_df()`, `as_scmrun()`, `as_polars()`, and `as_arrow()`.
-Book timeseries queries accept server side year bounds, constant dimension removal, top N selection, and row limits.
-Their filters are bare `column=value` keywords, and repeating a column ORs its values.
-The richer `col.op` grammar is not applied on this path and an unrecognised key is ignored rather than rejected.
-Lean resource and tabular queries accept `select`, `order`, `limit`, and `offset`,
-plus the full `col.op` filter vocabulary.
+They all take `year_min`, `year_max` and `column=value` filters, applied locally after the download.
+An unknown filter column raises `KeyError`.
 
-Note that `top_n` and `limit` let the server drop index columns that carry a single value
-across the trimmed result, which is why `as_scmrun()` needs a year window and filters instead.
+`query()` filters and trims on the server instead.
+It is quicker for a large entry, but the result is a preview:
+
+- Book timeseries queries accept year bounds, constant dimension removal, top N selection, and row limits.
+- They truncate at 10000 rows by default, and `top_n` and `limit` can drop single valued index columns.
+- Their filters are bare `column=value` keywords, and an unrecognised key is ignored rather than rejected.
+- Lean resource and tabular queries accept `select`, `order`, `limit`, and `offset`,
+  plus the full `col.op` filter vocabulary.
 
 Use `bs.resource(tracking_id)` for an exact machine or provenance path.
 `fetch()` verifies the declared SHA256 before storing bytes in the local content cache.

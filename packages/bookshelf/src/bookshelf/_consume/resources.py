@@ -19,9 +19,11 @@ from bookshelf._consume.conversions import (
     UnsupportedConversionError,
     explorers_for,
     readers_for,
+    reject_query_arguments,
     require_frame_support,
     require_timeseries_support,
     scmrun_class,
+    select_frame,
     shape_frame,
 )
 from bookshelf._consume.frames import (
@@ -237,7 +239,7 @@ class Resource(_ResourceHandle):
         )
         return shape_frame(resource_type, frame)
 
-    def as_df(
+    def query(
         self,
         *,
         select: str | None = None,
@@ -250,7 +252,7 @@ class Resource(_ResourceHandle):
         offset: int | None = None,
         **filters: str,
     ) -> pd.DataFrame:
-        """Return pandas data, using wide indexed form for timeseries."""
+        """Return pandas data filtered on the server, using wide indexed form for timeseries."""
         if year_min is not None or year_max is not None or drop_constant or top_n is not None:
             raise TypeError(_TRIMMING_ON_RESOURCE)
         return self._dataframe(
@@ -261,13 +263,35 @@ class Resource(_ResourceHandle):
             filters=filters,
         )
 
+    def _selected(
+        self, *, year_min: int | None, year_max: int | None, filters: Mapping[str, str]
+    ) -> pd.DataFrame:
+        reject_query_arguments(filters)
+        resource_type = self.type
+        require_frame_support(resource_type)
+        whole = self._client.query_resource_dataframe(self.tracking_id)
+        return select_frame(
+            resource_type, whole, year_min=year_min, year_max=year_max, filters=filters
+        )
+
+    def as_df(
+        self,
+        *,
+        year_min: int | None = None,
+        year_max: int | None = None,
+        **filters: str,
+    ) -> pd.DataFrame:
+        """Return the whole resource as pandas, using wide indexed form for timeseries.
+
+        The year window and ``column=value`` filters apply locally, after the download.
+        """
+        return self._selected(year_min=year_min, year_max=year_max, filters=filters)
+
     def as_long_df(
         self,
         *,
-        select: str | None = None,
-        order: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
+        year_min: int | None = None,
+        year_max: int | None = None,
         legacy_columns: bool = False,
         **filters: str,
     ) -> pd.DataFrame:
@@ -277,79 +301,49 @@ class Resource(_ResourceHandle):
         a ``values`` column, a ``year`` column of ``YYYY-01-01 00:00:00`` strings,
         and rows sorted by the dimensions and then the year.
         """
-        long = self._long(select=select, order=order, limit=limit, offset=offset, filters=filters)
+        long = self._long(year_min=year_min, year_max=year_max, filters=filters)
         return legacy_long_timeseries(long) if legacy_columns else long
 
     def _long(
-        self,
-        *,
-        select: str | None,
-        order: str | None,
-        limit: int | None,
-        offset: int | None,
-        filters: Mapping[str, str],
+        self, *, year_min: int | None, year_max: int | None, filters: Mapping[str, str]
     ) -> pd.DataFrame:
         require_timeseries_support(self.type)
         return long_timeseries(
-            self._frame(select=select, order=order, limit=limit, offset=offset, filters=filters)
+            self._selected(year_min=year_min, year_max=year_max, filters=filters)
         )
 
     def as_polars(
         self,
         *,
-        select: str | None = None,
-        order: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
+        year_min: int | None = None,
+        year_max: int | None = None,
         **filters: str,
     ) -> pl.DataFrame:
         """Return the resource as a Polars DataFrame."""
         convert = polars_converter()
-        return convert(
-            self._dataframe(
-                select=select,
-                order=order,
-                limit=limit,
-                offset=offset,
-                filters=filters,
-            )
-        )
+        return convert(self._selected(year_min=year_min, year_max=year_max, filters=filters))
 
     def as_arrow(
         self,
         *,
-        select: str | None = None,
-        order: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
+        year_min: int | None = None,
+        year_max: int | None = None,
         **filters: str,
     ) -> pa.Table:
         """Return the resource as a PyArrow table."""
         convert = arrow_converter()
-        return convert(
-            self._dataframe(
-                select=select,
-                order=order,
-                limit=limit,
-                offset=offset,
-                filters=filters,
-            )
-        )
+        return convert(self._selected(year_min=year_min, year_max=year_max, filters=filters))
 
     def as_scmrun(
         self,
         *,
-        select: str | None = None,
-        order: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
+        year_min: int | None = None,
+        year_max: int | None = None,
         **filters: str,
     ) -> ScmRun:
         """Return timeseries data as an scmdata ScmRun."""
         run = scmrun_class()
-        return run(
-            self._long(select=select, order=order, limit=limit, offset=offset, filters=filters)
-        )
+        return run(self._long(year_min=year_min, year_max=year_max, filters=filters))
 
     def fetch(self) -> bytes:
         """Return verified bytes, using memory proportional to the resource size.
@@ -393,7 +387,7 @@ class BookEntry(Resource):
         self.name_in_book = entry.name_in_book
         """The name this entry has in its book."""
 
-    def as_df(
+    def query(
         self,
         *,
         select: str | None = None,
@@ -406,7 +400,10 @@ class BookEntry(Resource):
         offset: int | None = None,
         **filters: str,
     ) -> pd.DataFrame:
-        """Return book scoped data with optional server side timeseries trimming."""
+        """Return book scoped data filtered and trimmed on the server.
+
+        Timeseries go through the book timeseries endpoint, which truncates at its row limit.
+        """
         return self._dataframe(
             select=select,
             order=order,
@@ -583,7 +580,7 @@ class AsyncResource(_ResourceHandle):
         )
         return shape_frame(resource_type, frame)
 
-    async def as_df(
+    async def query(
         self,
         *,
         select: str | None = None,
@@ -596,7 +593,7 @@ class AsyncResource(_ResourceHandle):
         offset: int | None = None,
         **filters: str,
     ) -> pd.DataFrame:
-        """Return pandas data, using wide indexed form for timeseries."""
+        """Return pandas data filtered on the server, using wide indexed form for timeseries."""
         if year_min is not None or year_max is not None or drop_constant or top_n is not None:
             raise TypeError(_TRIMMING_ON_RESOURCE)
         return await self._dataframe(
@@ -607,13 +604,41 @@ class AsyncResource(_ResourceHandle):
             filters=filters,
         )
 
+    async def _selected(
+        self, *, year_min: int | None, year_max: int | None, filters: Mapping[str, str]
+    ) -> pd.DataFrame:
+        reject_query_arguments(filters)
+        resource_type = await self._get_type()
+        require_frame_support(resource_type)
+        whole = await self._client.query_resource_dataframe_async(self.tracking_id)
+        # Filtering a whole resource can take seconds, so run it off the event loop.
+        return await asyncio.to_thread(
+            select_frame,
+            resource_type,
+            whole,
+            year_min=year_min,
+            year_max=year_max,
+            filters=filters,
+        )
+
+    async def as_df(
+        self,
+        *,
+        year_min: int | None = None,
+        year_max: int | None = None,
+        **filters: str,
+    ) -> pd.DataFrame:
+        """Return the whole resource as pandas, using wide indexed form for timeseries.
+
+        The year window and ``column=value`` filters apply locally, after the download.
+        """
+        return await self._selected(year_min=year_min, year_max=year_max, filters=filters)
+
     async def as_long_df(
         self,
         *,
-        select: str | None = None,
-        order: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
+        year_min: int | None = None,
+        year_max: int | None = None,
         legacy_columns: bool = False,
         **filters: str,
     ) -> pd.DataFrame:
@@ -623,85 +648,49 @@ class AsyncResource(_ResourceHandle):
         a ``values`` column, a ``year`` column of ``YYYY-01-01 00:00:00`` strings,
         and rows sorted by the dimensions and then the year.
         """
-        long = await self._long(
-            select=select, order=order, limit=limit, offset=offset, filters=filters
-        )
+        long = await self._long(year_min=year_min, year_max=year_max, filters=filters)
         return legacy_long_timeseries(long) if legacy_columns else long
 
     async def _long(
-        self,
-        *,
-        select: str | None,
-        order: str | None,
-        limit: int | None,
-        offset: int | None,
-        filters: Mapping[str, str],
+        self, *, year_min: int | None, year_max: int | None, filters: Mapping[str, str]
     ) -> pd.DataFrame:
         require_timeseries_support(await self._get_type())
         return long_timeseries(
-            await self._frame(
-                select=select, order=order, limit=limit, offset=offset, filters=filters
-            )
+            await self._selected(year_min=year_min, year_max=year_max, filters=filters)
         )
 
     async def as_polars(
         self,
         *,
-        select: str | None = None,
-        order: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
+        year_min: int | None = None,
+        year_max: int | None = None,
         **filters: str,
     ) -> pl.DataFrame:
         """Return the resource as a Polars DataFrame."""
         convert = polars_converter()
-        return convert(
-            await self._dataframe(
-                select=select,
-                order=order,
-                limit=limit,
-                offset=offset,
-                filters=filters,
-            )
-        )
+        return convert(await self._selected(year_min=year_min, year_max=year_max, filters=filters))
 
     async def as_arrow(
         self,
         *,
-        select: str | None = None,
-        order: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
+        year_min: int | None = None,
+        year_max: int | None = None,
         **filters: str,
     ) -> pa.Table:
         """Return the resource as a PyArrow table."""
         convert = arrow_converter()
-        return convert(
-            await self._dataframe(
-                select=select,
-                order=order,
-                limit=limit,
-                offset=offset,
-                filters=filters,
-            )
-        )
+        return convert(await self._selected(year_min=year_min, year_max=year_max, filters=filters))
 
     async def as_scmrun(
         self,
         *,
-        select: str | None = None,
-        order: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
+        year_min: int | None = None,
+        year_max: int | None = None,
         **filters: str,
     ) -> ScmRun:
         """Return timeseries data as an scmdata ScmRun."""
         run = scmrun_class()
-        return run(
-            await self._long(
-                select=select, order=order, limit=limit, offset=offset, filters=filters
-            )
-        )
+        return run(await self._long(year_min=year_min, year_max=year_max, filters=filters))
 
     async def fetch(self) -> bytes:
         """Return verified bytes, using memory proportional to the resource size.
@@ -748,7 +737,7 @@ class AsyncBookEntry(AsyncResource):
         self.name_in_book = entry.name_in_book
         """The name this entry has in its book."""
 
-    async def as_df(
+    async def query(
         self,
         *,
         select: str | None = None,
@@ -761,7 +750,10 @@ class AsyncBookEntry(AsyncResource):
         offset: int | None = None,
         **filters: str,
     ) -> pd.DataFrame:
-        """Return book scoped data with optional server side timeseries trimming."""
+        """Return book scoped data filtered and trimmed on the server.
+
+        Timeseries go through the book timeseries endpoint, which truncates at its row limit.
+        """
         return await self._dataframe(
             select=select,
             order=order,

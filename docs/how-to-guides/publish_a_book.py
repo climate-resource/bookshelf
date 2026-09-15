@@ -103,7 +103,6 @@ frame = source.as_df(
     variable="Emissions|CO2",
     year_min=2020,
     year_max=2100,
-    drop_constant=True,
 )
 frame.shape
 
