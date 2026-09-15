@@ -608,8 +608,14 @@ class AsyncResource(_ResourceHandle):
         resource_type = await self._get_type()
         require_frame_support(resource_type)
         whole = await self._client.query_resource_dataframe_async(self.tracking_id)
-        return select_frame(
-            resource_type, whole, year_min=year_min, year_max=year_max, filters=filters
+        # Filtering a whole resource can take seconds, so run it off the event loop.
+        return await asyncio.to_thread(
+            select_frame,
+            resource_type,
+            whole,
+            year_min=year_min,
+            year_max=year_max,
+            filters=filters,
         )
 
     async def as_df(
