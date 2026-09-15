@@ -273,7 +273,7 @@ def authorization_code_flow(
     state = generate_state()
 
     port = _find_available_port()
-    redirect_uri = f"http://127.0.0.1:{port}/auth/callback"
+    redirect_uri = f"http://localhost:{port}/callback"
 
     result: dict[str, str | None] = {"code": None, "error": None, "state": None}
     received = Event()
