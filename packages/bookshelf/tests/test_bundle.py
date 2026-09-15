@@ -11,6 +11,7 @@ from bookshelf.publisher.bundle import (
     Bundle,
     BundleBook,
     InvalidBundleError,
+    companion_filename,
     resource_filename,
     synthesise_pointer_hash,
 )
@@ -346,3 +347,67 @@ def test_a_public_figure_with_alt_text_validates(make_bundle: BundleFactory) -> 
     _add_public_figure(bundle, alt_text="A bar chart.")
 
     bundle.validate()
+
+
+def _add_figure_with_svg(bundle: Bundle, *, type_: str = "figure") -> tuple[Bundle, str]:
+    data, svg = b"png", b"<svg/>"
+    figure = bundle.add_resource(
+        data=data, hash_=sha256_hex(data), type_=type_, name="fig", visibility="org", svg=svg
+    )
+    bundle.add_book_entry(name="fig")
+    assert figure.svg_hash == sha256_hex(svg)
+    return bundle, figure.svg_hash
+
+
+def test_a_figure_with_an_svg_companion_validates_and_reads_back(
+    make_bundle: BundleFactory,
+) -> None:
+    bundle, svg_hash = _add_figure_with_svg(make_bundle())
+
+    bundle.validate()
+
+    assert (bundle.resources_dir / companion_filename(svg_hash)).read_bytes() == b"<svg/>"
+    assert bundle.svg_bytes(bundle.manifest.resources[-1]) == b"<svg/>"
+
+
+def test_a_missing_svg_companion_is_invalid(make_bundle: BundleFactory) -> None:
+    bundle, svg_hash = _add_figure_with_svg(make_bundle())
+    (bundle.resources_dir / companion_filename(svg_hash)).unlink()
+
+    with pytest.raises(InvalidBundleError, match="resource 'fig' has no svg companion bytes"):
+        bundle.validate()
+
+
+def test_a_tampered_svg_companion_is_invalid(make_bundle: BundleFactory) -> None:
+    bundle, svg_hash = _add_figure_with_svg(make_bundle())
+    (bundle.resources_dir / companion_filename(svg_hash)).write_bytes(b"tampered")
+
+    with pytest.raises(InvalidBundleError, match="resource 'fig' has svg hash"):
+        bundle.validate()
+
+
+def test_an_svg_companion_on_a_tabular_resource_is_invalid(make_bundle: BundleFactory) -> None:
+    bundle, _ = _add_figure_with_svg(make_bundle(), type_="tabular")
+
+    with pytest.raises(InvalidBundleError, match="resource 'fig' is a tabular and records an svg"):
+        bundle.validate()
+
+
+def test_a_non_canonical_svg_hash_is_refused_when_read(tmp_path: Path) -> None:
+    """The companion name comes from the hash, so a crafted one is refused before it names a path."""
+    with pytest.raises(ValueError, match="canonical"):
+        _read_manifest_text(
+            tmp_path,
+            "resources:\n"
+            "- name: fig\n"
+            "  hash: sha256:" + "a" * 64 + "\n"
+            "  type: figure\n"
+            "  svg_hash: ../../escape\n",
+        )
+
+
+def test_svg_bytes_refuses_a_record_without_a_companion(make_bundle: BundleFactory) -> None:
+    bundle = make_bundle()
+
+    with pytest.raises(ValueError, match="records no svg companion"):
+        bundle.svg_bytes(bundle.manifest.resources[0])

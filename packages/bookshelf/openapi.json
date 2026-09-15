@@ -3,7 +3,7 @@
   "info": {
     "title": "Bookshelf API",
     "description": "API for Climate Resource's dataset management system",
-    "version": "v1+g8ec7b504"
+    "version": "v1+g5c911878"
   },
   "paths": {
     "/livez": {
@@ -6040,6 +6040,195 @@
         }
       }
     },
+    "/v1/github/installations": {
+      "get": {
+        "tags": [
+          "github-installations"
+        ],
+        "summary": "List Installations",
+        "description": "Every installation this organisation holds, plus the one it just installed.",
+        "operationId": "listGitHubInstallations",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "installation",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Installation the setup redirect named, to be offered for claiming.",
+              "title": "Installation"
+            },
+            "description": "Installation the setup redirect named, to be offered for claiming."
+          },
+          {
+            "name": "X-Bookshelf-Setup-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The setup redirect's proof for that installation.",
+              "title": "X-Bookshelf-Setup-Token"
+            },
+            "description": "The setup redirect's proof for that installation."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstallationsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/github/installations/{installation_id}/claim": {
+      "post": {
+        "tags": [
+          "github-installations"
+        ],
+        "summary": "Claim Installation",
+        "description": "Link an installation to the caller's organisation.",
+        "operationId": "claimGitHubInstallation",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "installation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "GitHub's installation id.",
+              "title": "Installation Id"
+            },
+            "description": "GitHub's installation id."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InstallationClaim"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkedInstallation"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/github/installations/{installation_id}": {
+      "delete": {
+        "tags": [
+          "github-installations"
+        ],
+        "summary": "Unlink Installation",
+        "description": "Unlink an installation. Previews stop at once and published books are untouched.",
+        "operationId": "unlinkGitHubInstallation",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "installation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "GitHub's installation id.",
+              "title": "Installation Id"
+            },
+            "description": "GitHub's installation id."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
     "/links/{token}/{version_edition}/{name_in_book}": {
       "get": {
         "tags": [
@@ -6132,6 +6321,101 @@
         }
       }
     },
+    "/{series_name}/latest/{name_in_book}": {
+      "get": {
+        "tags": [
+          "public-resolver"
+        ],
+        "summary": "Resolve Latest Url",
+        "description": "Resolve the newest published release the caller can read.\n\nReleases are ordered by SemVer precedence across versions, so a new version\nreplaces what the link points at.\nThe entry must exist in that release, and never falls back to an older one.",
+        "operationId": "publicResolverResolveLatestUrl",
+        "security": [
+          {},
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "series_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Series slug.",
+              "title": "Series Name"
+            },
+            "description": "Series slug."
+          },
+          {
+            "name": "name_in_book",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Entry name within the book.",
+              "title": "Name In Book"
+            },
+            "description": "Entry name within the book."
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "png",
+                "webp",
+                "svg"
+              ],
+              "type": "string",
+              "description": "A figure's image format. Ignored for anything but a figure.",
+              "default": "png",
+              "title": "Format"
+            },
+            "description": "A figure's image format. Ignored for anything but a figure."
+          },
+          {
+            "name": "variant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A figure's size: `thumb`, `web`, `web2x` or `master` for `png` (default `master`), `web` or `web2x` for `webp` (default `web`). Ignored for anything but a figure.",
+              "title": "Variant"
+            },
+            "description": "A figure's size: `thumb`, `web`, `web2x` or `master` for `png` (default `master`), `web` or `web2x` for `webp` (default `web`). Ignored for anything but a figure."
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to the resource bytes, or to a figure's inline image.",
+            "headers": {
+              "Location": {
+                "description": "Presigned or pointer URL for the resource bytes.",
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
     "/{series_name}/{version_edition}/{name_in_book}": {
       "get": {
         "tags": [
@@ -6180,11 +6464,46 @@
               "title": "Name In Book"
             },
             "description": "Entry name within the book."
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "png",
+                "webp",
+                "svg"
+              ],
+              "type": "string",
+              "description": "A figure's image format. Ignored for anything but a figure.",
+              "default": "png",
+              "title": "Format"
+            },
+            "description": "A figure's image format. Ignored for anything but a figure."
+          },
+          {
+            "name": "variant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A figure's size: `thumb`, `web`, `web2x` or `master` for `png` (default `master`), `web` or `web2x` for `webp` (default `web`). Ignored for anything but a figure.",
+              "title": "Variant"
+            },
+            "description": "A figure's size: `thumb`, `web`, `web2x` or `master` for `png` (default `master`), `web` or `web2x` for `webp` (default `web`). Ignored for anything but a figure."
           }
         ],
         "responses": {
           "302": {
-            "description": "Redirect to the resource bytes.",
+            "description": "Redirect to the resource bytes, or to a figure's inline image.",
             "headers": {
               "Location": {
                 "description": "Presigned or pointer URL for the resource bytes.",
@@ -9605,6 +9924,14 @@
           "owner_org_id": {
             "type": "string",
             "title": "Owner Org Id"
+          },
+          "renders": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Renders",
+            "description": "The kinds of a figure's active, ready renders, sorted. Empty for every other type, and until a figure's first render lands."
           }
         },
         "type": "object",
@@ -10257,6 +10584,29 @@
         "title": "FigureImage",
         "description": "The pixel size of a figure's master, measured by the platform from its bytes."
       },
+      "FigureSvgCompanion": {
+        "properties": {
+          "storage_path": {
+            "type": "string",
+            "title": "Storage Path",
+            "description": "Managed storage key returned by the earlier upload of the SVG bytes."
+          },
+          "hash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Hash",
+            "description": "Digest of the SVG bytes as ``sha256:<hex>``, refused when it disagrees with them."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "storage_path",
+          "hash"
+        ],
+        "title": "FigureSvgCompanion",
+        "description": "A producer-supplied SVG of a figure, uploaded ahead of the registration."
+      },
       "FrontendLogEvent": {
         "properties": {
           "level": {
@@ -10290,6 +10640,15 @@
         ],
         "title": "FrontendLogEvent",
         "description": "A single log event from the frontend."
+      },
+      "GitHubAccountType": {
+        "type": "string",
+        "enum": [
+          "Organization",
+          "User"
+        ],
+        "title": "GitHubAccountType",
+        "description": "Kind of GitHub account an App installation sits on.\n\nAttributes\n----------\nORGANIZATION\n    A GitHub organisation.\nUSER\n    A single GitHub user account."
       },
       "IndexBaselineTransformStep": {
         "properties": {
@@ -10384,6 +10743,129 @@
         "title": "IngestUploadInitiateRequest",
         "description": "Request to initiate a content-addressed ingest upload.\n\nUsed to re-host raw input bytes before any draft book exists. The server\nderives a content-addressed storage key from ``hash``. The caller never\nchooses the path."
       },
+      "InstallationClaim": {
+        "properties": {
+          "setup_token": {
+            "type": "string",
+            "title": "Setup Token",
+            "description": "Opaque value from the setup redirect's `setup` query parameter. Short lived, single installation, and never to be logged."
+          }
+        },
+        "type": "object",
+        "required": [
+          "setup_token"
+        ],
+        "title": "InstallationClaim",
+        "description": "The proof that the caller is the person who completed the install."
+      },
+      "InstallationRepository": {
+        "properties": {
+          "repo_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repo Id",
+            "description": "GitHub's numeric repository id. Null only while a repository carried over from the hand-seeded table is still waiting for its id to be resolved."
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name",
+            "description": "Current owner/name on GitHub."
+          },
+          "previous_full_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Full Name",
+            "description": "Name the repository carried before its last rename."
+          },
+          "renamed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Renamed At",
+            "description": "When that rename landed."
+          },
+          "last_preview": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LastPreview"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Most recent preview, absent when the repository has produced none."
+          }
+        },
+        "type": "object",
+        "required": [
+          "full_name"
+        ],
+        "title": "InstallationRepository",
+        "description": "One repository an installation covers."
+      },
+      "InstallationsResponse": {
+        "properties": {
+          "installations": {
+            "items": {
+              "$ref": "#/components/schemas/LinkedInstallation"
+            },
+            "type": "array",
+            "title": "Installations"
+          },
+          "pending": {
+            "items": {
+              "$ref": "#/components/schemas/PendingInstallation"
+            },
+            "type": "array",
+            "title": "Pending"
+          },
+          "organization_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Name",
+            "description": "Display name of the caller's organisation, so the page can name what it would link to. Null when WorkOS cannot resolve it."
+          },
+          "install_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Install Url",
+            "description": "Where a GitHub admin installs the App. Null until the operator has set both GITHUB_APP_SLUG and GITHUB_APP_WEBHOOK_SECRET, which is how the page knows an operator has not finished setting the App up. The page hides its install button and says so."
+          }
+        },
+        "type": "object",
+        "title": "InstallationsResponse",
+        "description": "Everything the account repositories page renders from."
+      },
       "InvalidateRequest": {
         "properties": {
           "reason": {
@@ -10466,6 +10948,105 @@
         ],
         "title": "ItemError",
         "description": "Typed per-item failure inside a non-atomic registration/bulk envelope.\n\nReplaces the former ``dict[str, Any]`` error fields so code generators emit\na real model instead of an untyped object. Carries the underlying\n``BookshelfError`` status and detail. The top-level HTTP status stays ``200``\nfor non-atomic batches (callers inspect each item)."
+      },
+      "LastPreview": {
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "When the preview was created."
+          },
+          "pr_number": {
+            "type": "integer",
+            "title": "Pr Number",
+            "description": "Pull request the preview belongs to."
+          },
+          "proposal_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposal Url",
+            "description": "Proposal page for that pull request, when a base URL is configured."
+          }
+        },
+        "type": "object",
+        "required": [
+          "created_at",
+          "pr_number"
+        ],
+        "title": "LastPreview",
+        "description": "The most recent preview a repository produced."
+      },
+      "LinkedInstallation": {
+        "properties": {
+          "installation_id": {
+            "type": "integer",
+            "title": "Installation Id",
+            "description": "GitHub's installation id."
+          },
+          "account_login": {
+            "type": "string",
+            "title": "Account Login",
+            "description": "Login of the account the App is installed on."
+          },
+          "account_type": {
+            "$ref": "#/components/schemas/GitHubAccountType",
+            "description": "Organization or User."
+          },
+          "account_url": {
+            "type": "string",
+            "title": "Account Url",
+            "description": "The account's page on GitHub."
+          },
+          "manage_url": {
+            "type": "string",
+            "title": "Manage Url",
+            "description": "Where on GitHub the installation's repositories are changed."
+          },
+          "suspended": {
+            "type": "boolean",
+            "title": "Suspended",
+            "description": "Whether GitHub currently holds it suspended."
+          },
+          "claimed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claimed At",
+            "description": "When it was linked."
+          },
+          "repositories": {
+            "items": {
+              "$ref": "#/components/schemas/InstallationRepository"
+            },
+            "type": "array",
+            "title": "Repositories",
+            "description": "Repositories the installation still covers."
+          }
+        },
+        "type": "object",
+        "required": [
+          "installation_id",
+          "account_login",
+          "account_type",
+          "account_url",
+          "manage_url",
+          "suspended"
+        ],
+        "title": "LinkedInstallation",
+        "description": "An installation this organisation holds."
       },
       "LiveResponse": {
         "properties": {
@@ -10562,6 +11143,69 @@
         ],
         "title": "OAuthError",
         "description": "OAuth-style error body returned by the agent-auth endpoints.\n\nDistinct from the RFC 7807 problem responses used elsewhere. Mirrors the\n``AgentAuthError`` shape (e.g. ``authorization_pending``, ``invalid_request``,\n``unsupported_grant_type``)."
+      },
+      "PendingInstallation": {
+        "properties": {
+          "installation_id": {
+            "type": "integer",
+            "title": "Installation Id",
+            "description": "GitHub's installation id."
+          },
+          "account_login": {
+            "type": "string",
+            "title": "Account Login",
+            "description": "Login of the account the App is installed on. Blank when claimed elsewhere.",
+            "default": ""
+          },
+          "account_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GitHubAccountType"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Organization or User. Null when claimed elsewhere."
+          },
+          "repository_count": {
+            "type": "integer",
+            "title": "Repository Count",
+            "description": "How many repositories it covers. Zero when claimed elsewhere.",
+            "default": 0
+          },
+          "installed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Installed At",
+            "description": "When the installation was first recorded. Null when claimed elsewhere."
+          },
+          "claimed_elsewhere": {
+            "type": "boolean",
+            "title": "Claimed Elsewhere",
+            "description": "True when another organisation already holds it."
+          },
+          "awaiting_github": {
+            "type": "boolean",
+            "title": "Awaiting Github",
+            "description": "True while GitHub has not yet confirmed who installed the App. The claim is refused until it does, which usually settles within a few seconds, so the page waits rather than sending anyone back to reinstall.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "installation_id",
+          "claimed_elsewhere"
+        ],
+        "title": "PendingInstallation",
+        "description": "An unclaimed installation the caller may be offered.\n\nEverything but the id and the flag is blank once ``claimed_elsewhere`` is true.\nThe organisation holding it is never named, and neither is the account it sits on,\nbecause either would disclose one tenant to another."
       },
       "PreviewBaseline": {
         "properties": {
@@ -11635,6 +12279,17 @@
             "type": "array",
             "title": "Locations",
             "description": "Optional list of ``(shelf, path)`` pointers to attach."
+          },
+          "svg": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FigureSvgCompanion"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "An SVG of the figure the producer drew alongside the PNG master. Only accepted for ``type=figure``. Bound as the figure's ``figure-svg`` render, where the first SVG bound to a master wins."
           }
         },
         "additionalProperties": false,
@@ -11723,6 +12378,17 @@
             "type": "array",
             "title": "Locations",
             "description": "Optional list of ``(shelf, path)`` pointers to attach."
+          },
+          "svg": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FigureSvgCompanion"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "An SVG of the figure the producer drew alongside the PNG master. Only accepted for ``type=figure``. Bound as the figure's ``figure-svg`` render, where the first SVG bound to a master wins."
           },
           "external_uri": {
             "anyOf": [
@@ -12316,6 +12982,17 @@
             ],
             "title": "Storage Path",
             "description": "Managed storage key returned by the earlier upload call. Forbidden for a pointer. May be omitted when the bytes have not landed yet."
+          },
+          "svg": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FigureSvgCompanion"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "An SVG of the figure the producer drew alongside the PNG master, uploaded the way the master was. Only accepted for ``type=figure``."
           },
           "generated": {
             "type": "boolean",

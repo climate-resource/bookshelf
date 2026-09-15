@@ -22,6 +22,7 @@ from bookshelf.facade import AsyncBookshelf
 from bookshelf.publisher.bundle import Bundle, BundleActivity, BundleBook, InvalidBundleError
 from bookshelf.publisher.recording import RecordingSink
 from bookshelf.publisher.replay import replay_bundle, replay_bundle_sync
+from tests import _core_payloads as payloads
 from tests._replay import BASE_URL, replay_client, replay_response, replayed
 
 CONFIG_HASH = "sha256:" + "0" * 64
@@ -372,6 +373,83 @@ def test_a_recorded_figure_replays_as_a_png_drawn_from_its_values(tmp_path: Path
     assert sorted(upload["content_type"] for upload in uploads) == [
         "application/vnd.apache.parquet",
         "image/png",
+        "image/svg+xml",
+    ]
+
+
+def _figure_bundle(tmp_path: Path, obj: object) -> Bundle:
+    """A published book holding one figure written from ``obj``."""
+    bundle = Bundle(tmp_path / "bundle")
+    sink = RecordingSink(bundle, Mock(spec=BookshelfClient), ContentCache(tmp_path / "cache"))
+    book = sink.draft_book("example", version="v1.0.0", license="MIT")
+    book.write("fig", obj, type="figure", alt_text="A line.")
+    book.publish()
+    bundle.write()
+    return bundle
+
+
+def _uploads(recorded: list[httpx.Request]) -> list[dict[str, object]]:
+    return [
+        json.loads(request.content)
+        for request in recorded
+        if request.url.path == "/v1/resources/uploads"
+    ]
+
+
+def test_a_recorded_figure_replays_with_its_svg_companion(tmp_path: Path) -> None:
+    fig = Figure()
+    fig.add_subplot().plot([1.0, 2.0])
+    bundle = _figure_bundle(tmp_path, fig)
+    (figure_record,) = bundle.manifest.resources
+    recorded: list[httpx.Request] = []
+
+    with replay_client(recorded) as client:
+        replay_bundle_sync(bundle, client)
+
+    (figure,) = replayed(recorded)["resources"]
+    assert figure["svg"] == {"storage_path": "ingest/org_1/abc", "hash": figure_record.svg_hash}
+    uploads = _uploads(recorded)
+    assert [upload["content_type"] for upload in uploads] == ["image/png", "image/svg+xml"]
+    assert uploads[1]["hash"] == figure_record.svg_hash
+
+
+def test_a_figure_without_an_svg_companion_sends_no_svg(tmp_path: Path) -> None:
+    fig = Figure()
+    fig.add_subplot().plot([1.0, 2.0])
+    png = _figure_bundle(tmp_path / "source", fig)
+    bundle = _figure_bundle(tmp_path, png.resource_bytes(png.manifest.resources[0]))
+    recorded: list[httpx.Request] = []
+
+    with replay_client(recorded) as client:
+        replay_bundle_sync(bundle, client)
+
+    (figure,) = replayed(recorded)["resources"]
+    assert "svg" not in figure
+    assert [upload["content_type"] for upload in _uploads(recorded)] == ["image/png"]
+
+
+async def test_the_async_replay_uploads_the_svg_companion_too(tmp_path: Path) -> None:
+    fig = Figure()
+    fig.add_subplot().plot([1.0, 2.0])
+    bundle = _figure_bundle(tmp_path, fig)
+    recorded: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        recorded.append(request)
+        if request.url.path == "/v1/resources/uploads":
+            return httpx.Response(200, json=payloads.UPLOAD_EXISTS)
+        return httpx.Response(200, json=replay_response())
+
+    async with AsyncBookshelf(
+        BASE_URL, auth=None, async_transport=httpx.MockTransport(handler)
+    ) as client:
+        await replay_bundle(bundle, client)
+
+    (figure,) = replayed(recorded)["resources"]
+    assert figure["svg"]["hash"] == bundle.manifest.resources[0].svg_hash
+    assert [upload["content_type"] for upload in _uploads(recorded)] == [
+        "image/png",
+        "image/svg+xml",
     ]
 
 

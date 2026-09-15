@@ -53,7 +53,7 @@ from bookshelf._core.names import RESOURCE_NAME_PATTERN
 from bookshelf._generated import models
 from bookshelf._produce import helpers
 
-BUNDLE_SCHEMA_VERSION = "3.5"
+BUNDLE_SCHEMA_VERSION = "3.6"
 
 # A newer minor loads because the models ignore unknown fields, and any other major is refused:
 # v2 keys resources by tracking id and v3 by name, which no rule maps without inventing names.
@@ -176,6 +176,8 @@ class BundleResource(BaseModel):
     so a book assembled from other people's data credits them on the thing they made.
     ``caption`` and ``alt_text`` are the words a figure carries,
     and a public figure must record an ``alt_text``.
+    ``svg_hash`` is the digest of a figure's svg companion at ``resources/<hex>.svg``,
+    which only a ``figure`` may record.
 
     ``extra="ignore"`` keeps each resource record forward-compatible,
     so an older reader still loads a record written by a later client
@@ -206,6 +208,7 @@ class BundleResource(BaseModel):
     generated: bool = False
     used: list[ResourceName] = Field(default_factory=list)
     used_digests: list[str] = Field(default_factory=list)
+    svg_hash: str | None = None  # canonical ``sha256:<hex>`` of the svg companion, figure only
 
     @field_validator("used_digests")
     @classmethod
@@ -213,6 +216,14 @@ class BundleResource(BaseModel):
         """Refuse a digest replay would refuse, at the point it is recorded."""
         for digest in value:
             _sha256_hex(digest)
+        return value
+
+    @field_validator("svg_hash")
+    @classmethod
+    def _svg_hash_is_canonical(cls, value: str | None) -> str | None:
+        """Refuse a companion hash that names no byte file, at the point it is recorded."""
+        if value is not None:
+            _sha256_hex(value)
         return value
 
     @property
@@ -426,6 +437,15 @@ def resource_filename(hash_: str, type_: str) -> str:
     return f"{hex_digest}.{_EXTENSIONS.get(type_, 'bin')}"
 
 
+def companion_filename(hash_: str) -> str:
+    """Return the byte-file name for a figure's svg companion with ``hash_``.
+
+    Validates ``hash_`` the way :func:`resource_filename` does,
+    so a crafted hash cannot escape ``resources/``.
+    """
+    return f"{_sha256_hex(hash_)}.svg"
+
+
 def _dump_sorted_yaml(model: BaseModel) -> bytes:
     """Serialise a manifest model to deterministic YAML bytes (LF, UTF-8).
 
@@ -593,6 +613,7 @@ class Bundle:
         generated: bool = False,
         used: list[str] | None = None,
         used_digests: list[str] | None = None,
+        svg: bytes | None = None,
     ) -> BundleResource:
         """Write ``data`` to ``resources/<hex>`` and append a manifest record.
 
@@ -609,6 +630,9 @@ class Bundle:
         which this bundle records nothing for and so has no name for.
         Both default to the no-lineage case,
         so a plain managed registration retains its earlier shape.
+        ``svg`` is a figure's vector companion.
+        It is written to ``resources/<hex>.svg`` under its own digest,
+        which the record carries as ``svg_hash``.
 
         ``hash_`` must be the canonical ``sha256:<hex>`` of ``data``.
         The digest is recomputed and verified before any write.
@@ -624,6 +648,10 @@ class Bundle:
         self.resources_dir.mkdir(parents=True, exist_ok=True)
         byte_path = self.resources_dir / resource_filename(hash_, type_)
         byte_path.write_bytes(data)
+        svg_hash = None
+        if svg is not None:
+            svg_hash = sha256_hex(svg)
+            (self.resources_dir / companion_filename(svg_hash)).write_bytes(svg)
         return self._append(
             hash_=hash_,
             type_=type_,
@@ -638,6 +666,7 @@ class Bundle:
             generated=generated,
             used=used,
             used_digests=used_digests,
+            svg_hash=svg_hash,
         )
 
     def add_pointer(
@@ -699,10 +728,11 @@ class Bundle:
         format_: str | None = None,
         size: int | None = None,
         external_uri: str | None = None,
+        svg_hash: str | None = None,
     ) -> BundleResource:
         """Build one manifest record and append it, so both variants share one shape.
 
-        ``size`` and ``format_`` stay unset for a pointer,
+        ``size``, ``format_`` and ``svg_hash`` stay unset for a pointer,
         and ``external_uri`` stays unset for a managed resource.
         The name and the ordering rules the replay contract states are asserted here,
         so a bundle that could not be replayed is refused as it is recorded.
@@ -734,6 +764,7 @@ class Bundle:
             generated=generated,
             used=list(used or []),
             used_digests=list(used_digests or []),
+            svg_hash=svg_hash,
         )
         self.manifest.resources.append(record)
         return record
@@ -748,6 +779,17 @@ class Bundle:
         """
         byte_path = self.resources_dir / resource_filename(record.hash, record.type)
         return byte_path.read_bytes()
+
+    def svg_bytes(self, record: BundleResource) -> bytes:
+        """Read back the svg companion for ``record`` from ``resources/``.
+
+        Raises :class:`ValueError` when the record carries no ``svg_hash``,
+        and routes through :func:`companion_filename` for the same traversal guard
+        :meth:`resource_bytes` has.
+        """
+        if record.svg_hash is None:
+            raise ValueError(f"resource {record.name!r} records no svg companion")
+        return (self.resources_dir / companion_filename(record.svg_hash)).read_bytes()
 
     def require_framing(self) -> BundleBook:
         """Return the recorded book framing, or raise :class:`InvalidBundleError`.
@@ -774,6 +816,7 @@ class Bundle:
           so a caption or alt text over its limit is refused before any upload
         - every managed resource's bytes are present and still hash to the recorded hash,
           which a non-canonical hash cannot satisfy because it names no byte file
+        - every recorded ``svg_hash`` sits on a ``figure`` and names companion bytes that still hash to it
 
         The bytes are re-hashed rather than trusted,
         so a bundle edited between record and replay is refused here
@@ -823,6 +866,28 @@ class Bundle:
                 raise InvalidBundleError(
                     f"resource {resource.name!r} has hash {resource.hash}, got {actual}"
                 )
+            self._check_svg(resource)
+
+    def _check_svg(self, resource: BundleResource) -> None:
+        """Refuse a companion the platform would refuse, before any bytes upload."""
+        if resource.svg_hash is None:
+            return
+        if resource.type != "figure":
+            raise InvalidBundleError(
+                f"resource {resource.name!r} is a {resource.type} and records an svg companion, "
+                "which only a figure may carry"
+            )
+        try:
+            data = self.svg_bytes(resource)
+        except OSError as exc:
+            raise InvalidBundleError(
+                f"resource {resource.name!r} has no svg companion bytes in the bundle: {exc}"
+            ) from exc
+        actual = sha256_hex(data)
+        if actual != resource.svg_hash:
+            raise InvalidBundleError(
+                f"resource {resource.name!r} has svg hash {resource.svg_hash}, got {actual}"
+            )
 
     def check_discovery(self) -> None:
         """Refuse catalogue metadata the platform would refuse, before any bytes upload.
@@ -901,6 +966,7 @@ __all__ = [
     "BundleResource",
     "BundleWriter",
     "InvalidBundleError",
+    "companion_filename",
     "resource_filename",
     "stated",
     "synthesise_pointer_hash",

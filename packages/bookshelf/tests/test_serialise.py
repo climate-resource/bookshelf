@@ -17,7 +17,13 @@ import pyarrow as pa
 import pytest
 from matplotlib.figure import Figure
 
-from bookshelf._produce.serialise import SerialisedObject, content_type_for, serialise
+from bookshelf._produce import serialise as serialise_module
+from bookshelf._produce.serialise import (
+    SerialisedObject,
+    content_type_for,
+    figure_svg,
+    serialise,
+)
 
 
 def _frame() -> pl.DataFrame:
@@ -244,3 +250,43 @@ def test_serialise_figure_passes_a_png_path_through(tmp_path: Path) -> None:
 
 def test_content_type_for_a_figure_is_png() -> None:
     assert content_type_for("figure") == "image/png"
+
+
+def test_figure_svg_saves_the_same_bytes_twice() -> None:
+    fig = _figure()
+
+    assert figure_svg(fig) == figure_svg(fig)
+
+
+def test_figure_svg_of_two_equal_figures_agrees() -> None:
+    assert figure_svg(_figure()) == figure_svg(_figure())
+
+
+def test_figure_svg_is_an_svg_without_a_date() -> None:
+    data = figure_svg(_figure())
+
+    assert data is not None
+    assert b"<svg" in data
+    assert b"<dc:date>" not in data
+
+
+def test_figure_svg_returns_none_for_bytes_and_a_path(tmp_path: Path) -> None:
+    data = serialise(_figure(), type="figure").data
+    path = tmp_path / "figure.png"
+    path.write_bytes(data)
+
+    assert figure_svg(data) is None
+    assert figure_svg(path) is None
+
+
+def test_figure_svg_over_the_size_cap_returns_none_with_a_warning(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setattr(serialise_module, "MAX_FIGURE_SVG_BYTES", 10)
+
+    with caplog.at_level("WARNING", logger="bookshelf._produce.serialise"):
+        result = figure_svg(_figure())
+
+    assert result is None
+    assert len(caplog.records) == 1
+    assert "10 byte limit" in caplog.records[0].getMessage()
