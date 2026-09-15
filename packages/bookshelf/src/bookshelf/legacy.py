@@ -11,7 +11,7 @@ import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from bookshelf._consume.conversions import scmrun_class
+from bookshelf._consume.conversions import scmrun_converter
 from bookshelf._core.errors import NotFoundError
 from bookshelf._generated import models
 from bookshelf.cache import ContentCache
@@ -198,10 +198,9 @@ class LocalBook:
     def timeseries(self, timeseries_name: str) -> ScmRun:
         """Return a timeseries resource as an :class:`scmdata.ScmRun`."""
         _deprecated("LocalBook.timeseries()", "BookEntry.as_scmrun()")
-        run = scmrun_class()
+        convert = scmrun_converter()
         # The stored wide file is read whole, which the book scoped timeseries query caps.
-        wide = self._entry(timeseries_name).as_resource().as_df()
-        return run(wide.reset_index())
+        return convert(self._entry(timeseries_name).as_resource().as_df())
 
     def get_long_format_data(self, timeseries_name: str) -> pd.DataFrame:
         """Return a timeseries resource in the 0.4 long format."""

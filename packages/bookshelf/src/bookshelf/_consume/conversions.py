@@ -117,6 +117,7 @@ def scmrun_converter() -> Callable[[pd.DataFrame], ScmRun]:
     run = scmrun_class()
 
     def convert(wide: pd.DataFrame) -> ScmRun:
+        # A frame with no dimensions has only a positional index, which is not a column.
         return run(wide.reset_index(drop=all(name is None for name in wide.index.names)))
 
     return convert

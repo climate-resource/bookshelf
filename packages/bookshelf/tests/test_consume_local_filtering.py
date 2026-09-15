@@ -54,17 +54,44 @@ def test_filters_and_the_year_window_apply_locally(tmp_path: Path) -> None:
     assert long["year"].tolist() == [2000, 2000]
 
 
+def _empty_methane() -> pd.DataFrame:
+    frame = WIDE.copy()
+    frame.loc[frame["variable"] == "Emissions|CH4", ["2000-01-01", "2001-01-01 00:00:00"]] = float(
+        "nan"
+    )
+    return frame
+
+
 def test_as_scmrun_keeps_timeseries_with_no_values(tmp_path: Path) -> None:
     pytest.importorskip("scmdata")
-    frame = WIDE.copy()
-    frame.loc[1, ["2000-01-01", "2001-01-01 00:00:00"]] = float("nan")
-    bs = Bookshelf(BASE_URL, auth=None, transport=_platform([("v2.6", 1)], frame=frame))
+    bs = Bookshelf(BASE_URL, auth=None, transport=_platform([("v2.6", 1)], frame=_empty_methane()))
     bs._cache = ContentCache(tmp_path / "cache")
 
     run = bs.book("primap-hist", "v2.6")["by_country"].as_scmrun()
 
     assert len(run) == 3
     assert run.filter(variable="Emissions|CH4").timeseries().isna().all(axis=None)
+
+
+async def test_the_async_as_scmrun_keeps_timeseries_with_no_values(tmp_path: Path) -> None:
+    pytest.importorskip("scmdata")
+    transport = _platform([("v2.6", 1)], frame=_empty_methane())
+    async with AsyncBookshelf(BASE_URL, auth=None, async_transport=transport) as bs:
+        bs._cache = ContentCache(tmp_path / "cache")
+        book = await bs.book("primap-hist", "v2.6")
+        run = await book["by_country"].as_scmrun()
+
+    assert len(run) == 3
+
+
+def test_as_scmrun_rejects_duplicate_metadata(tmp_path: Path) -> None:
+    errors = pytest.importorskip("scmdata.errors")
+    frame = pd.concat([WIDE, WIDE.iloc[:1]], ignore_index=True)
+    bs = Bookshelf(BASE_URL, auth=None, transport=_platform([("v2.6", 1)], frame=frame))
+    bs._cache = ContentCache(tmp_path / "cache")
+
+    with pytest.raises(errors.NonUniqueMetadataError):
+        bs.book("primap-hist", "v2.6")["by_country"].as_scmrun()
 
 
 def test_an_unknown_filter_column_is_rejected(tmp_path: Path) -> None:
