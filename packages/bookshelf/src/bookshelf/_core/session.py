@@ -9,10 +9,11 @@ Anywhere else it raises :class:`~bookshelf._core.errors.AuthenticationRequiredEr
 """
 
 import asyncio
+import enum
 import os
 import sys
 import webbrowser
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from contextlib import AbstractContextManager, nullcontext
 from typing import TextIO
 
@@ -157,6 +158,35 @@ def _login_and_adopt(client: BookshelfClient) -> models.UserResponse:
     return user
 
 
+class _Step(enum.Enum):
+    """The I/O the authentication flow asks its driver to perform."""
+
+    FETCH_USER = enum.auto()
+    LOG_IN = enum.auto()
+
+
+_Flow = Generator[_Step, models.UserResponse, models.UserResponse]
+
+
+def _authentication_flow(client: BookshelfClient, interactive: bool | None) -> _Flow:
+    """Decide how to confirm the client's identity, yielding each step that needs I/O.
+
+    A rejected ``FETCH_USER`` is thrown back in as :class:`AuthenticationError`.
+    """
+    if client.verified_user is not None:
+        return client.verified_user
+    rejected: AuthenticationError | None = None
+    if client.auth is not None:
+        try:
+            with _quiet_spent_login(client):
+                client.verified_user = yield _Step.FETCH_USER
+            return client.verified_user
+        except AuthenticationError as exc:
+            rejected = exc
+    _require_login_allowed(client, rejected, interactive)
+    return (yield _Step.LOG_IN)
+
+
 def ensure_authenticated(
     client: BookshelfClient, *, interactive: bool | None = None
 ) -> models.UserResponse:
@@ -165,36 +195,44 @@ def ensure_authenticated(
     ``interactive`` overrides the terminal and notebook detection.
     A confirmed identity is remembered on the client, so later calls send no request.
     """
-    if client.verified_user is not None:
-        return client.verified_user
-    rejected: AuthenticationError | None = None
-    if client.auth is not None:
-        try:
-            with _quiet_spent_login(client):
-                client.verified_user = client.get_current_user()
-            return client.verified_user
-        except AuthenticationError as exc:
-            rejected = exc
-    _require_login_allowed(client, rejected, interactive)
-    return _login_and_adopt(client)
+    flow = _authentication_flow(client, interactive)
+    try:
+        step = next(flow)
+        while True:
+            try:
+                if step is _Step.FETCH_USER:
+                    result = client.get_current_user()
+                else:
+                    result = _login_and_adopt(client)
+            except AuthenticationError as exc:
+                step = flow.throw(exc)
+            else:
+                step = flow.send(result)
+    except StopIteration as done:
+        user: models.UserResponse = done.value
+        return user
 
 
 async def ensure_authenticated_async(
     client: BookshelfClient, *, interactive: bool | None = None
 ) -> models.UserResponse:
     """The asynchronous twin of :func:`ensure_authenticated`, with the login run off the loop."""
-    if client.verified_user is not None:
-        return client.verified_user
-    rejected: AuthenticationError | None = None
-    if client.auth is not None:
-        try:
-            with _quiet_spent_login(client):
-                client.verified_user = await client.get_current_user_async()
-            return client.verified_user
-        except AuthenticationError as exc:
-            rejected = exc
-    _require_login_allowed(client, rejected, interactive)
-    return await asyncio.to_thread(_login_and_adopt, client)
+    flow = _authentication_flow(client, interactive)
+    try:
+        step = next(flow)
+        while True:
+            try:
+                if step is _Step.FETCH_USER:
+                    result = await client.get_current_user_async()
+                else:
+                    result = await asyncio.to_thread(_login_and_adopt, client)
+            except AuthenticationError as exc:
+                step = flow.throw(exc)
+            else:
+                step = flow.send(result)
+    except StopIteration as done:
+        user: models.UserResponse = done.value
+        return user
 
 
 def _chose_anonymous(client: BookshelfClient) -> bool:
