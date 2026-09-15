@@ -254,6 +254,37 @@ def test_a_spent_login_is_replaced_without_the_anonymous_warning(
     assert not [w for w in recwarn if "continuing anonymously" in str(w.message)]
 
 
+def test_a_spent_login_still_warns_after_a_refused_check(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BOOKSHELF_WORKOS_CLIENT_ID", "client_test")
+    monkeypatch.setenv("BOOKSHELF_WORKOS_BASE_URL", "https://workos.test")
+    credentials.save_credentials("spent", api_url=BASE_URL, refresh_token="refused")
+    api = _api([], accept="fresh")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "workos.test":
+            return httpx.Response(400, json={"error": "invalid_grant"})
+        return api(request)
+
+    with Bookshelf(BASE_URL, transport=httpx.MockTransport(handler)) as bs:
+        with pytest.raises(AuthenticationRequiredError):
+            bs.ensure_authenticated(interactive=False)
+        with (
+            pytest.warns(UserWarning, match="continuing anonymously"),
+            pytest.raises(BookshelfError),
+        ):
+            bs.volume("primap-hist")
+
+
+def test_a_saved_login_reports_the_expiry_it_stored() -> None:
+    token = "header.eyJleHAiOiAyMDAwMDAwMDAwfQ.signature"
+
+    record = credentials.save_credentials(token, api_url=f"{BASE_URL}/")
+
+    assert record.expires_at is not None
+    assert record.expires_at.timestamp() == 2_000_000_000
+    assert record.api_url == BASE_URL
+
+
 def test_a_failure_other_than_rejection_is_raised(monkeypatch: pytest.MonkeyPatch) -> None:
     credentials.save_credentials("stored", api_url=BASE_URL)
     monkeypatch.setattr(session, "login_user", _fake_login(calls := []))

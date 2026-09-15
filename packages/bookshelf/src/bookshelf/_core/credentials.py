@@ -342,12 +342,11 @@ def save_credentials(
         organization_id=organization_id,
         claimed=claimed,
     )
-    save_record(record)
-    return record
+    return save_record(record)
 
 
-def save_record(record: StoredCredentials) -> None:
-    """Persist one credential record and make it active for its deployment.
+def save_record(record: StoredCredentials) -> StoredCredentials:
+    """Persist one credential record, make it active for its deployment and return what was stored.
 
     A record with no ``expires_at`` takes its expiry from the access token's JWT ``exp`` claim,
     staying open-ended only when the token carries no ``exp``.
@@ -398,6 +397,7 @@ def save_record(record: StoredCredentials) -> None:
     store["active"][api_url] = str(kind)
     store["default_api_url"] = api_url
     _write_store(store)
+    return replace(record, expires_at=expires_at, api_url=api_url)
 
 
 def set_active(api_url: str, kind: CredentialKind) -> StoredCredentials:

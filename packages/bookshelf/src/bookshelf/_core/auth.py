@@ -389,9 +389,11 @@ class AnonymousFallback(httpx.Auth):
             self._quiet = False
 
     def _degrade(self, exc: AuthenticationError) -> None:
+        if self._quiet:
+            # Left unlatched, so the next request retries the exchange and warns if it fails again.
+            return
         self._degraded = True
-        if not self._quiet:
-            warnings.warn(f"{self._message} The exchange failed with: {exc}", stacklevel=3)
+        warnings.warn(f"{self._message} The exchange failed with: {exc}", stacklevel=3)
 
     def sync_auth_flow(
         self, request: httpx.Request
