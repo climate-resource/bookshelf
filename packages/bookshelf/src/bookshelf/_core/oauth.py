@@ -33,8 +33,6 @@ _CLIENT_IDS: dict[str, str] = {
     "production": "client_01KY695M48CT84XBQ53EDTG8PE",
 }
 
-_PRODUCTION_API_HOST = "bookshelf.climateresource.com.au"
-
 # Tokens carry the issuer of the domain that minted them,
 # and the backends pin the custom-domain issuer,
 # so minting through api.workos.com would fail issuer verification.
@@ -172,7 +170,10 @@ def is_production_api_url(api_url: str) -> bool:
     The match is on the exact host,
     so a customer domain or a look-alike cannot pull a login onto the production client.
     """
-    return (urlparse(api_url).hostname or "").lower() == _PRODUCTION_API_HOST
+    # config imports this module, so the host is imported here rather than at the top.
+    from bookshelf._core.config import PRODUCTION_API_HOST
+
+    return (urlparse(api_url).hostname or "").lower() == PRODUCTION_API_HOST
 
 
 def resolve_workos_client_id(api_url: str = "") -> str | None:
