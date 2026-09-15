@@ -31,7 +31,7 @@ help:  ## print short description of each target
 .PHONY: checks
 checks:  ## run all the linting checks of the codebase
 	uv run pre-commit run --all-files
-	(cd packages/bookshelf && uv run --locked --all-extras mypy src)
+	(cd packages/bookshelf && uv run --locked --all-extras --group test mypy src)
 
 .PHONY: ruff-fixes
 ruff-fixes:  ## fix the code using ruff
@@ -43,13 +43,13 @@ ruff-fixes:  ## fix the code using ruff
 
 .PHONY: test-sdk
 test-sdk:  ## run the tests for the SDK package
-	uv run --package bookshelf --locked --all-extras \
+	uv run --package bookshelf --locked --all-extras --group test \
 		pytest packages/bookshelf \
 		-r a -v
 
 .PHONY: test-golden-update
 test-golden-update:  ## rewrite the bundle goldens after an intended format change
-	UPDATE_BUNDLE_GOLDENS=1 uv run --package bookshelf --locked --all-extras --python 3.13 \
+	UPDATE_BUNDLE_GOLDENS=1 uv run --package bookshelf --locked --all-extras --group test --python 3.13 \
 		pytest packages/bookshelf/tests/test_bundle_golden.py \
 		-r a -v
 
