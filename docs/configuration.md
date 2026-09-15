@@ -24,12 +24,13 @@ and returns the identity it belongs to.
 Drafting a book runs the same check first.
 
 - In a terminal, a missing or spent stored login opens a browser to log in.
-- In a notebook, it prints a device code to confirm instead.
+- In a notebook, or a terminal with no browser, it prints a device code to confirm instead.
 - In CI, `BOOKSHELF_CLIENT_ID`, `BOOKSHELF_CLIENT_SECRET` and `BOOKSHELF_TOKEN_URL` are exchanged for a token.
   Nothing prompts, because `CI` is set.
 - Anywhere else, it raises `AuthenticationRequiredError` naming the fix.
 
 A credential passed through `auth=` or `BOOKSHELF_TOKEN` is checked but never replaced by a login.
+A client created with `auth=None` drafts without the check.
 
 ## Where credentials are stored
 

@@ -319,26 +319,26 @@ def save_credentials(
     organization_id: str | None = None,
     claimed: bool | None = None,
     token_type: str = "bearer",  # noqa: S107, this is the token type, not a secret
-) -> None:
-    """Persist one freshly acquired credential and make it active for its deployment.
+) -> StoredCredentials:
+    """Persist one freshly acquired credential, make it active for its deployment and return it.
 
     This is the shape a login has, where there is no prior record to build on.
     """
-    save_record(
-        StoredCredentials(
-            access_token=access_token,
-            token_type=token_type,
-            expires_at=expires_at,
-            api_url=api_url,
-            refresh_token=refresh_token,
-            kind=kind,
-            identity_assertion=identity_assertion,
-            assertion_expires_at=assertion_expires_at,
-            subject=subject,
-            organization_id=organization_id,
-            claimed=claimed,
-        )
+    record = StoredCredentials(
+        access_token=access_token,
+        token_type=token_type,
+        expires_at=expires_at,
+        api_url=api_url,
+        refresh_token=refresh_token,
+        kind=kind,
+        identity_assertion=identity_assertion,
+        assertion_expires_at=assertion_expires_at,
+        subject=subject,
+        organization_id=organization_id,
+        claimed=claimed,
     )
+    save_record(record)
+    return record
 
 
 def save_record(record: StoredCredentials) -> None:

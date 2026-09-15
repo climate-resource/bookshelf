@@ -131,11 +131,10 @@ def _login_user(base: str, *, no_browser: bool, json_output: bool) -> None:
     except oauth.OAuthError as exc:
         raise CliError(f"authentication failed: {exc}", exit_code=EXIT_UNEXPECTED) from exc
 
-    expires_at = record.expires_at
     note(f"Logged in as {me.email}")
     note(field("Organisation", me.organization_id or "none"))
     note(field("Permissions", ", ".join(me.permissions or []) or "none"))
-    note(field("Expires", iso(expires_at) or "never"))
+    note(field("Expires", iso(record.expires_at) or "never"))
     note(field("Stored", str(credentials.credentials_path())))
     if json_output:
         emit_json(
@@ -145,7 +144,7 @@ def _login_user(base: str, *, no_browser: bool, json_output: bool) -> None:
                 "subject": me.email,
                 "organization_id": me.organization_id,
                 "permissions": me.permissions or [],
-                "expires_at": iso(expires_at),
+                "expires_at": iso(record.expires_at),
                 "api_url": base,
             }
         )

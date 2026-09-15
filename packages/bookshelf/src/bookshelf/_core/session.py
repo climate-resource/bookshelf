@@ -4,13 +4,15 @@ Machine credentials (``$BOOKSHELF_TOKEN`` and the client-credentials exchange CI
 are verified but never replaced,
 because nobody is there to answer a login prompt.
 A missing or spent stored login starts the WorkOS login when a person can answer it:
-a browser login from a terminal, a device code from a notebook.
+a browser login from a terminal with a browser, a device code otherwise.
 Anywhere else it raises :class:`~bookshelf._core.errors.AuthenticationRequiredError`.
 """
 
 import asyncio
 import os
 import sys
+import warnings
+import webbrowser
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import TextIO
@@ -57,6 +59,17 @@ def is_interactive() -> bool:
     return (_isatty(sys.stdin) and _isatty(sys.stderr)) or in_notebook()
 
 
+def _has_browser() -> bool:
+    if in_notebook():
+        # The loopback redirect cannot reach a kernel running on another machine.
+        return False
+    try:
+        webbrowser.get()
+    except webbrowser.Error:
+        return False
+    return True
+
+
 def _say(line: str) -> None:
     print(line, file=sys.stderr, flush=True)
 
@@ -94,19 +107,17 @@ def login_user(
     expires_in = token_data.get("expires_in")
     with BookshelfClient(api_url, auth=access_token) as client:
         user = client.get_current_user()
-    record = StoredCredentials(
-        access_token=access_token,
-        token_type="bearer",  # noqa: S106, this is the token type, not a secret
+    record = credentials.save_credentials(
+        access_token,
+        api_url=api_url,
+        kind=CredentialKind.USER,
+        refresh_token=str(refresh_token) if refresh_token else None,
         expires_at=(
             datetime.now(UTC) + timedelta(seconds=expires_in) if expires_in is not None else None
         ),
-        api_url=api_url,
-        refresh_token=str(refresh_token) if refresh_token else None,
-        kind=CredentialKind.USER,
         subject=user.email,
         organization_id=user.organization_id,
     )
-    credentials.save_record(record)
     return user, record
 
 
@@ -136,9 +147,10 @@ def _require_login_allowed(
         ) from rejected
 
 
-def _finish_login(client: BookshelfClient) -> models.UserResponse:
+def _login_and_adopt(client: BookshelfClient) -> models.UserResponse:
+    """Log a person in, then point the client at the new credential."""
     try:
-        user, record = login_user(client.base_url, browser=not in_notebook())
+        user, record = login_user(client.base_url, browser=_has_browser())
     except oauth.OAuthError as exc:
         raise AuthenticationRequiredError(f"Logging in to Bookshelf failed: {exc}") from exc
     client.set_auth(config.auth_from_stored(record))
@@ -159,14 +171,17 @@ def ensure_authenticated(
     rejected: APIError | None = None
     if client.has_credential:
         try:
-            client.verified_user = client.get_current_user()
+            # A spent stored login warns that it is continuing anonymously, but a login follows.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                client.verified_user = client.get_current_user()
             return client.verified_user
         except APIError as exc:
             if not _is_rejection(exc):
                 raise
             rejected = exc
     _require_login_allowed(client, rejected, interactive)
-    return _finish_login(client)
+    return _login_and_adopt(client)
 
 
 async def ensure_authenticated_async(
@@ -178,14 +193,32 @@ async def ensure_authenticated_async(
     rejected: APIError | None = None
     if client.has_credential:
         try:
-            client.verified_user = await client.get_current_user_async()
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                client.verified_user = await client.get_current_user_async()
             return client.verified_user
         except APIError as exc:
             if not _is_rejection(exc):
                 raise
             rejected = exc
     _require_login_allowed(client, rejected, interactive)
-    return await asyncio.to_thread(_finish_login, client)
+    return await asyncio.to_thread(_login_and_adopt, client)
+
+
+def _chose_anonymous(client: BookshelfClient) -> bool:
+    return not client.uses_ambient_auth and not client.has_credential
+
+
+def require_authentication(client: BookshelfClient) -> None:
+    """Confirm the credential before a write, unless the caller chose ``auth=None``."""
+    if not _chose_anonymous(client):
+        ensure_authenticated(client)
+
+
+async def require_authentication_async(client: BookshelfClient) -> None:
+    """The asynchronous twin of :func:`require_authentication`."""
+    if not _chose_anonymous(client):
+        await ensure_authenticated_async(client)
 
 
 __all__ = [
@@ -194,4 +227,6 @@ __all__ = [
     "in_notebook",
     "is_interactive",
     "login_user",
+    "require_authentication",
+    "require_authentication_async",
 ]

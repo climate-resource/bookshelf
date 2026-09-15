@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 import pytest
 
-from bookshelf import AsyncBookshelf, AuthenticationRequiredError, Bookshelf
+from bookshelf import AsyncBookshelf, AuthenticationRequiredError, Bookshelf, BookshelfError
 from bookshelf._core import credentials, session
 from bookshelf._core.credentials import StoredCredentials
 from bookshelf._generated import models
@@ -176,6 +176,52 @@ def test_drafting_without_a_credential_sends_nothing(monkeypatch: pytest.MonkeyP
         bs.draft_book("primap-hist", version="1.0.0")
 
     assert recorded == []
+
+
+def test_an_explicit_token_is_checked_before_drafting() -> None:
+    recorded: list[httpx.Request] = []
+    transport = httpx.MockTransport(_api(recorded, accept="fresh"))
+
+    with (
+        Bookshelf(BASE_URL, auth="stale", transport=transport) as bs,
+        pytest.raises(AuthenticationRequiredError, match="auth="),
+    ):
+        bs.draft_book("primap-hist", version="1.0.0")
+
+    assert [request.method for request in recorded] == ["GET"]
+
+
+def test_an_anonymous_client_drafts_without_the_check() -> None:
+    recorded: list[httpx.Request] = []
+
+    transport = httpx.MockTransport(_api(recorded, accept=None))
+
+    with (
+        Bookshelf(BASE_URL, auth=None, transport=transport) as bs,
+        pytest.raises(BookshelfError),
+    ):
+        bs.draft_book("primap-hist", version="1.0.0")
+
+    assert [request.method for request in recorded] == ["POST"]
+
+
+def test_a_terminal_without_a_browser_gets_a_device_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    def no_browser() -> None:
+        raise session.webbrowser.Error
+
+    monkeypatch.setattr(session.webbrowser, "get", no_browser)
+    chosen: list[bool] = []
+
+    def login(api_url: str, *, browser: bool) -> tuple[models.UserResponse, StoredCredentials]:
+        chosen.append(browser)
+        return _fake_login([])(api_url, browser=browser)
+
+    monkeypatch.setattr(session, "login_user", login)
+
+    with Bookshelf(BASE_URL, transport=httpx.MockTransport(_api([], accept="fresh"))) as bs:
+        bs.ensure_authenticated(interactive=True)
+
+    assert chosen == [False]
 
 
 async def test_the_async_client_logs_in_off_the_loop(monkeypatch: pytest.MonkeyPatch) -> None:
