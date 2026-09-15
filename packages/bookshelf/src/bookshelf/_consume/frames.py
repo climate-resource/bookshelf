@@ -61,6 +61,17 @@ def long_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
     return long
 
 
+def scmrun_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    """Shape wide timeseries data for the ScmRun constructor.
+
+    scmdata pivots long data and silently drops a timeseries whose values are all missing,
+    so ScmRun is built from the wide frame instead.
+    """
+    wide = wide_timeseries(frame)
+    dimensions = [name for name in wide.index.names if name is not None]
+    return wide.reset_index(drop=not dimensions)
+
+
 def _equal_to(values: pd.Series[Any] | pd.Index[Any], wanted: str) -> Any:
     """Compare numeric values as numbers, so ``"1"`` matches ``1`` and ``1.0``."""
     import numpy as np
@@ -162,6 +173,7 @@ __all__ = [
     "legacy_long_timeseries",
     "long_timeseries",
     "polars_converter",
+    "scmrun_frame",
     "timeseries_frame",
     "wide_timeseries",
 ]

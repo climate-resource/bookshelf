@@ -31,6 +31,7 @@ from bookshelf._consume.frames import (
     legacy_long_timeseries,
     long_timeseries,
     polars_converter,
+    scmrun_frame,
     timeseries_frame,
 )
 from bookshelf._consume.integrity import cached_if_verified, require_cached, verify_path
@@ -343,7 +344,9 @@ class Resource(_ResourceHandle):
     ) -> ScmRun:
         """Return timeseries data as an scmdata ScmRun."""
         run = scmrun_class()
-        return run(self._long(year_min=year_min, year_max=year_max, filters=filters))
+        require_timeseries_support(self.type)
+        selected = self._selected(year_min=year_min, year_max=year_max, filters=filters)
+        return run(scmrun_frame(selected))
 
     def fetch(self) -> bytes:
         """Return verified bytes, using memory proportional to the resource size.
@@ -690,7 +693,9 @@ class AsyncResource(_ResourceHandle):
     ) -> ScmRun:
         """Return timeseries data as an scmdata ScmRun."""
         run = scmrun_class()
-        return run(await self._long(year_min=year_min, year_max=year_max, filters=filters))
+        require_timeseries_support(await self._get_type())
+        selected = await self._selected(year_min=year_min, year_max=year_max, filters=filters)
+        return run(scmrun_frame(selected))
 
     async def fetch(self) -> bytes:
         """Return verified bytes, using memory proportional to the resource size.
