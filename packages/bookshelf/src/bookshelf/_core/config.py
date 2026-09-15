@@ -24,6 +24,7 @@ import warnings
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime
+from urllib.parse import urlparse
 
 import httpx
 
@@ -39,7 +40,8 @@ from bookshelf._core.auth import (
 from bookshelf._core.credentials import CredentialKind
 from bookshelf._core.errors import AuthConfigurationError
 
-PRODUCTION_API_URL = "https://api.climateresource.com.au/bookshelf"
+PRODUCTION_API_URL = "https://bookshelf.climateresource.com.au"
+PRODUCTION_API_HOST = urlparse(PRODUCTION_API_URL).hostname or ""
 STAGING_API_URL = "https://bookshelf-staging.ovh.climateresource.com.au"
 
 # Staging is the only deployment serving data today.
@@ -225,6 +227,7 @@ def _rotation_sink(
 
 __all__ = [
     "DEFAULT_API_URL",
+    "PRODUCTION_API_HOST",
     "PRODUCTION_API_URL",
     "STAGING_API_URL",
     "UNSET",
