@@ -82,6 +82,7 @@ async def test_the_async_as_scmrun_keeps_timeseries_with_no_values(tmp_path: Pat
         run = await book["by_country"].as_scmrun()
 
     assert len(run) == 3
+    assert run.filter(variable="Emissions|CH4").timeseries().isna().all(axis=None)
 
 
 def test_as_scmrun_rejects_duplicate_metadata(tmp_path: Path) -> None:
