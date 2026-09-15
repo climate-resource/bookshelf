@@ -70,6 +70,16 @@ def shape_frame(resource_type: models.ResourceType, frame: pd.DataFrame) -> pd.D
     return frame
 
 
+_QUERY_ONLY_ARGUMENTS = ("select", "order", "drop_constant", "top_n", "limit", "offset")
+
+
+def reject_query_arguments(filters: Mapping[str, str]) -> None:
+    """Refuse server side arguments before a converter downloads anything."""
+    passed = [name for name in _QUERY_ONLY_ARGUMENTS if name in filters]
+    if passed:
+        raise TypeError(f"converters filter locally, pass {', '.join(passed)} to query() instead")
+
+
 def select_frame(
     resource_type: models.ResourceType,
     frame: pd.DataFrame,
@@ -102,6 +112,7 @@ __all__ = [
     "UnsupportedConversionError",
     "explorers_for",
     "readers_for",
+    "reject_query_arguments",
     "require_frame_support",
     "require_timeseries_support",
     "scmrun_class",

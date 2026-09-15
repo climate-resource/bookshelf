@@ -60,6 +60,20 @@ def test_an_unknown_filter_column_is_rejected(tmp_path: Path) -> None:
         bs.resource(TRACKING_ID).as_df(regoin="NZL")
 
 
+@pytest.mark.parametrize("argument", ["limit", "top_n", "drop_constant", "select"])
+def test_converters_refuse_query_arguments_before_downloading(
+    tmp_path: Path, argument: str
+) -> None:
+    bs, seen = _shelf(tmp_path)
+    entry = bs.book("primap-hist", "v2.6")["by_country"]
+    before = len(seen)
+
+    with pytest.raises(TypeError, match="query"):
+        entry.as_long_df(**{argument: "1"})
+
+    assert not any(request.url.path.endswith("/data") for request in seen[before:])
+
+
 async def test_the_async_entry_reads_the_whole_file(tmp_path: Path) -> None:
     transport, seen = _requests(_platform([("v2.6", 1)]))
     async with AsyncBookshelf(BASE_URL, auth=None, async_transport=transport) as bs:

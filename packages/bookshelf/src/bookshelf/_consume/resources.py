@@ -19,6 +19,7 @@ from bookshelf._consume.conversions import (
     UnsupportedConversionError,
     explorers_for,
     readers_for,
+    reject_query_arguments,
     require_frame_support,
     require_timeseries_support,
     scmrun_class,
@@ -265,6 +266,7 @@ class Resource(_ResourceHandle):
     def _selected(
         self, *, year_min: int | None, year_max: int | None, filters: Mapping[str, str]
     ) -> pd.DataFrame:
+        reject_query_arguments(filters)
         resource_type = self.type
         require_frame_support(resource_type)
         whole = self._client.query_resource_dataframe(self.tracking_id)
@@ -605,6 +607,7 @@ class AsyncResource(_ResourceHandle):
     async def _selected(
         self, *, year_min: int | None, year_max: int | None, filters: Mapping[str, str]
     ) -> pd.DataFrame:
+        reject_query_arguments(filters)
         resource_type = await self._get_type()
         require_frame_support(resource_type)
         whole = await self._client.query_resource_dataframe_async(self.tracking_id)
