@@ -85,9 +85,16 @@ def test_query_sends_the_trimming_to_the_book_endpoint(tmp_path: Path) -> None:
     assert request.url.params["top_n"] == "1"
 
 
-def test_filter_rows_compares_as_strings() -> None:
-    frame = pd.DataFrame({"category": [1, 2, 1], "value": [1.0, 2.0, 3.0]})
+@pytest.mark.parametrize("category", [[1, 2, 1], [1.0, 2.0, 1.0], ["1", "2", "1"]])
+def test_filter_rows_matches_numbers_by_value(category: list[object]) -> None:
+    frame = pd.DataFrame({"category": category, "value": [1.0, 2.0, 3.0]})
     assert filter_rows(frame, {"category": "1"})["value"].tolist() == [1.0, 3.0]
+    assert filter_rows(frame, {"category": "x"}).empty
+
+
+def test_filters_combine_with_and() -> None:
+    frame = pd.DataFrame({"a": ["x", "x", "y"], "b": ["p", "q", "p"]})
+    assert len(filter_rows(frame, {"a": "x", "b": "p"})) == 1
 
 
 def test_filter_years_keeps_the_inclusive_window() -> None:
