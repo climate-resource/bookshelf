@@ -307,7 +307,7 @@ class Resource(_ResourceHandle):
     def _long(
         self, *, year_min: int | None, year_max: int | None, filters: Mapping[str, str]
     ) -> pd.DataFrame:
-        require_timeseries_support(self.type)
+        require_timeseries_support(self.type, "as_long_df()")
         return long_timeseries(
             self._selected(year_min=year_min, year_max=year_max, filters=filters)
         )
@@ -341,9 +341,13 @@ class Resource(_ResourceHandle):
         year_max: int | None = None,
         **filters: str,
     ) -> ScmRun:
-        """Return timeseries data as an scmdata ScmRun."""
+        """Return timeseries data as an scmdata ScmRun.
+
+        scmdata rejects rows with duplicate metadata.
+        """
+        require_timeseries_support(self.type, "as_scmrun()")
         run = scmrun_class()
-        return run(self._long(year_min=year_min, year_max=year_max, filters=filters))
+        return run(self.as_df(year_min=year_min, year_max=year_max, **filters))
 
     def fetch(self) -> bytes:
         """Return verified bytes, using memory proportional to the resource size.
@@ -654,7 +658,7 @@ class AsyncResource(_ResourceHandle):
     async def _long(
         self, *, year_min: int | None, year_max: int | None, filters: Mapping[str, str]
     ) -> pd.DataFrame:
-        require_timeseries_support(await self._get_type())
+        require_timeseries_support(await self._get_type(), "as_long_df()")
         return long_timeseries(
             await self._selected(year_min=year_min, year_max=year_max, filters=filters)
         )
@@ -688,9 +692,13 @@ class AsyncResource(_ResourceHandle):
         year_max: int | None = None,
         **filters: str,
     ) -> ScmRun:
-        """Return timeseries data as an scmdata ScmRun."""
+        """Return timeseries data as an scmdata ScmRun.
+
+        scmdata rejects rows with duplicate metadata.
+        """
+        require_timeseries_support(await self._get_type(), "as_scmrun()")
         run = scmrun_class()
-        return run(await self._long(year_min=year_min, year_max=year_max, filters=filters))
+        return run(await self.as_df(year_min=year_min, year_max=year_max, **filters))
 
     async def fetch(self) -> bytes:
         """Return verified bytes, using memory proportional to the resource size.

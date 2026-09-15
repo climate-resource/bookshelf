@@ -200,8 +200,7 @@ class LocalBook:
         _deprecated("LocalBook.timeseries()", "BookEntry.as_scmrun()")
         run = scmrun_class()
         # The stored wide file is read whole, which the book scoped timeseries query caps.
-        wide = self._entry(timeseries_name).as_resource().as_df()
-        return run(wide.reset_index())
+        return run(self._entry(timeseries_name).as_resource().as_df())
 
     def get_long_format_data(self, timeseries_name: str) -> pd.DataFrame:
         """Return a timeseries resource in the 0.4 long format."""

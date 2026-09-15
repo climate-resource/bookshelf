@@ -47,10 +47,10 @@ def require_frame_support(resource_type: models.ResourceType) -> None:
         )
 
 
-def require_timeseries_support(resource_type: models.ResourceType) -> None:
+def require_timeseries_support(resource_type: models.ResourceType, caller: str) -> None:
     """Reject resource types that have no tidy timeseries form."""
     if resource_type is not models.ResourceType.timeseries:
-        raise UnsupportedConversionError("as_long_df() requires a timeseries resource")
+        raise UnsupportedConversionError(f"{caller} requires a timeseries resource")
 
 
 def readers_for(resource_type: models.ResourceType | None) -> tuple[str, ...]:
