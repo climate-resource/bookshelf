@@ -22,7 +22,7 @@ from bookshelf._consume.conversions import (
     reject_query_arguments,
     require_frame_support,
     require_timeseries_support,
-    scmrun_converter,
+    scmrun_class,
     select_frame,
     shape_frame,
 )
@@ -343,12 +343,12 @@ class Resource(_ResourceHandle):
     ) -> ScmRun:
         """Return timeseries data as an scmdata ScmRun.
 
-        Every timeseries is kept, including one whose values are all missing.
+        scmdata is handed the wide frame, so a timeseries whose values are all missing is kept.
         scmdata rejects rows with duplicate metadata.
         """
         require_timeseries_support(self.type, "as_scmrun()")
-        convert = scmrun_converter()
-        return convert(self._selected(year_min=year_min, year_max=year_max, filters=filters))
+        run = scmrun_class()
+        return run(self.as_df(year_min=year_min, year_max=year_max, **filters))
 
     def fetch(self) -> bytes:
         """Return verified bytes, using memory proportional to the resource size.
@@ -695,12 +695,12 @@ class AsyncResource(_ResourceHandle):
     ) -> ScmRun:
         """Return timeseries data as an scmdata ScmRun.
 
-        Every timeseries is kept, including one whose values are all missing.
+        scmdata is handed the wide frame, so a timeseries whose values are all missing is kept.
         scmdata rejects rows with duplicate metadata.
         """
         require_timeseries_support(await self._get_type(), "as_scmrun()")
-        convert = scmrun_converter()
-        return convert(await self._selected(year_min=year_min, year_max=year_max, filters=filters))
+        run = scmrun_class()
+        return run(await self.as_df(year_min=year_min, year_max=year_max, **filters))
 
     async def fetch(self) -> bytes:
         """Return verified bytes, using memory proportional to the resource size.
