@@ -31,7 +31,7 @@ from bookshelf._core.errors import BookshelfError
 # The production ID is not bundled.
 # It must be supplied via BOOKSHELF_WORKOS_CLIENT_ID.
 _CLIENT_IDS: dict[str, str | None] = {
-    "staging": "client_01KABZE0E62YS9H7BMV6YZGMD1",
+    "staging": "client_01M2EV5XYS01J8283Q89M9BHQM",
     "production": None,
 }
 
