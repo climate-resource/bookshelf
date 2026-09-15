@@ -13,7 +13,7 @@ This page specifies what is written to disk.
 It is written so that an implementation in another language can produce and read bundles
 without reading the Python that implements this one.
 
-The format in force is manifest schema version **3.5**.
+The format in force is manifest schema version **3.6**.
 
 ## Bundle directory
 
@@ -35,6 +35,10 @@ The filenames of the resources are derived from their hash and type:
 - The extension is `parquet` when the resource `type` is `timeseries` or `tabular`,
   `png` when it is `figure`, and `bin` otherwise.
   A figure's master is always a png, so it is stored as `.png`.
+
+A `figure` may also carry an svg companion, a vector drawing of the same figure.
+Its bytes live at `resources/<hex>.svg`, where the stem is the 64 hex characters of the record's `svg_hash`.
+The companion is keyed on its own content, so it sits beside the png master rather than replacing it.
 
 So a `timeseries` resource with hash `sha256:7198...faa0` is stored at
 `resources/7198...faa0.parquet`.
@@ -106,6 +110,7 @@ Every entry in `resources` has these fields.
 | `generated`    | optional     | boolean                     | `false`   | whether an activity produced this resource                              |
 | `used`         | optional     | list of names               | `[]`      | what this resource was derived from                                     |
 | `used_digests` | optional     | list of digests             | `[]`      | inputs it was derived from that the bundle does not carry               |
+| `svg_hash`     | figure only  | string                      | absent    | the `sha256:<hex>` of the svg companion at `resources/<hex>.svg`        |
 
 `name` is local to the bundle that registers it, and it carries no hierarchy.
 It matches `^[a-z0-9][a-z0-9._-]{0,199}$`, it is unique within the manifest,
@@ -128,6 +133,13 @@ Only `timeseries`, `tabular` and `figure` change how a byte file is named.
 `caption` and `alt_text` belong to a `figure` alone, and the platform refuses them on any other type.
 A `figure` whose `visibility` is `public` must record an `alt_text`,
 because the website is public and a reader who cannot see the picture still needs to know what it shows.
+
+`svg_hash` belongs to a `managed` `figure` alone.
+It is written when the producer handed over a matplotlib figure,
+so the recorder could draw a vector beside the png master.
+A figure supplied as png bytes records none, and the figure is complete without one.
+The platform serves the companion as the figure's vector format,
+and it keeps the first companion bound to a given master.
 
 ### `managed` versus `pointer`
 
@@ -319,8 +331,10 @@ A replayable book contains all the required information to later be streamed to 
    A `caption` over 500 characters or an `alt_text` over 1000 fails here, for the same reason.
 7. Every resource with `kind: managed` has a byte file, and those bytes hash to the recorded `hash`.
    A resource whose `hash` is not canonical fails here, because it names no byte file.
+8. Every resource recording an `svg_hash` has `type: figure`,
+   and `resources/<hex>.svg` holds bytes that hash to it.
 
-Rule 7 re-hashes rather than trusting the manifest.
+Rules 7 and 8 re-hash rather than trusting the manifest.
 A bundle edited between being recorded and being used is refused,
 so what is published is what the reviewer saw.
 
@@ -424,7 +438,7 @@ resources:
   used:
   - upstream-emissions
   visibility: public
-schema_version: '3.5'
+schema_version: '3.6'
 writer:
   pyarrow: 23.0.0
 ```
