@@ -7,7 +7,7 @@ and ``--agent`` selects which.
 
 import os
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -47,12 +47,6 @@ auth_app = typer.Typer(help="Manage authentication for the Bookshelf API.", no_a
 
 def _now() -> datetime:
     return datetime.now(UTC)
-
-
-def _expiry_from(expires_in: int | None) -> datetime | None:
-    if expires_in is None:
-        return None
-    return _now() + timedelta(seconds=expires_in)
 
 
 def _relative(moment: datetime | None) -> str:
@@ -164,7 +158,7 @@ def _login_agent_anonymous(base: str, *, json_output: bool) -> None:
         )
     assertion = grant.identity_assertion or registration.identity_assertion
     assertion_expires = grant.assertion_expires or registration.assertion_expires
-    expires_at = _expiry_from(grant.expires_in)
+    expires_at = credentials.expiry_from(grant.expires_in)
     subject = f"agent:{registration.registration_id}"
     scopes = grant.scope.split()
     credentials.save_credentials(
@@ -226,7 +220,7 @@ def _login_agent_claim(base: str, *, email: str, json_output: bool) -> None:
             expires_in=ceremony.expires_in,
         )
         me = _identity_for_token(base, grant.access_token)
-    expires_at = _expiry_from(grant.expires_in)
+    expires_at = credentials.expiry_from(grant.expires_in)
     subject = me.email or email
     credentials.save_credentials(
         grant.access_token,

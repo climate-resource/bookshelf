@@ -26,7 +26,7 @@ import json
 import os
 import stat
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -306,6 +306,11 @@ def active_kinds() -> dict[str, CredentialKind]:
     return {key: kind for key, kind in parsed.items() if kind is not None}
 
 
+def expiry_from(expires_in: float | None) -> datetime | None:
+    """Turn a token response's ``expires_in`` seconds into the moment it expires."""
+    return None if expires_in is None else datetime.now(UTC) + timedelta(seconds=expires_in)
+
+
 def save_credentials(
     access_token: str,
     *,
@@ -466,6 +471,7 @@ __all__ = [
     "active_kinds",
     "clear_credentials",
     "credentials_path",
+    "expiry_from",
     "keychain_enabled",
     "list_credentials",
     "load_credentials",

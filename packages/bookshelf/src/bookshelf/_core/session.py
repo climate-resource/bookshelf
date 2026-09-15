@@ -14,7 +14,6 @@ import sys
 import webbrowser
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from datetime import UTC, datetime, timedelta
 from typing import TextIO
 
 from bookshelf._core import config, credentials, oauth
@@ -22,7 +21,7 @@ from bookshelf._core.auth import AnonymousFallback
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import CredentialSource
 from bookshelf._core.credentials import CredentialKind, StoredCredentials
-from bookshelf._core.errors import APIError, AuthenticationError, AuthenticationRequiredError
+from bookshelf._core.errors import AuthenticationError, AuthenticationRequiredError
 from bookshelf._generated import models
 
 _LOGIN_REMEDY = (
@@ -43,7 +42,7 @@ def _isatty(stream: TextIO | None) -> bool:
         return False
 
 
-def in_notebook() -> bool:
+def _in_notebook() -> bool:
     """Report whether this process is a Jupyter kernel."""
     ipython = sys.modules.get("IPython")
     shell = getattr(ipython, "get_ipython", lambda: None)() if ipython is not None else None
@@ -57,12 +56,12 @@ def is_interactive() -> bool:
     """
     if os.environ.get("CI", "").strip().lower() not in ("", "0", "false"):
         return False
-    return (_isatty(sys.stdin) and _isatty(sys.stderr)) or in_notebook()
+    return (_isatty(sys.stdin) and _isatty(sys.stderr)) or _in_notebook()
 
 
 def _has_browser() -> bool:
     """Report whether a browser login can redirect back to this process."""
-    if in_notebook() or os.environ.get("SSH_CONNECTION") or os.environ.get("SSH_TTY"):
+    if _in_notebook() or os.environ.get("SSH_CONNECTION") or os.environ.get("SSH_TTY"):
         return False
     try:
         browser = webbrowser.get()
@@ -76,14 +75,13 @@ def _has_browser() -> bool:
 def _quiet_spent_login(client: BookshelfClient) -> Iterator[None]:
     """Drop the spent-login warning while checking, because a login is offered in its place."""
     fallback = client.auth if isinstance(client.auth, AnonymousFallback) else None
-    if fallback is None:
-        yield
-        return
-    fallback.quiet = True
+    if fallback is not None:
+        fallback.quiet = True
     try:
         yield
     finally:
-        fallback.quiet = False
+        if fallback is not None:
+            fallback.quiet = False
 
 
 def _say(line: str) -> None:
@@ -120,7 +118,6 @@ def login_user(
 
     access_token = str(token_data["access_token"])
     refresh_token = token_data.get("refresh_token")
-    expires_in = token_data.get("expires_in")
     with BookshelfClient(api_url, auth=access_token) as client:
         user = client.get_current_user()
     record = credentials.save_credentials(
@@ -128,27 +125,21 @@ def login_user(
         api_url=api_url,
         kind=CredentialKind.USER,
         refresh_token=str(refresh_token) if refresh_token else None,
-        expires_at=(
-            datetime.now(UTC) + timedelta(seconds=expires_in) if expires_in is not None else None
-        ),
+        expires_at=credentials.expiry_from(token_data.get("expires_in")),
         subject=user.email,
         organization_id=user.organization_id,
     )
     return user, record
 
 
-def _is_rejection(exc: APIError) -> bool:
-    return isinstance(exc, AuthenticationError) or exc.status_code == 401
-
-
 def _require_login_allowed(
-    client: BookshelfClient, rejected: APIError | None, interactive: bool | None
+    client: BookshelfClient, rejected: AuthenticationError | None, interactive: bool | None
 ) -> None:
     """Raise unless a rejected or absent credential may be replaced by an interactive login."""
     if not client.uses_ambient_auth:
         raise AuthenticationRequiredError(
             "This client was given its credential through auth=, and the API did not accept it."
-            if client.has_credential
+            if client.auth is not None
             else "This client was created with auth=None, so it cannot authenticate."
         ) from rejected
     source, _ = config.resolve_ambient_credential(client.base_url)
@@ -184,15 +175,13 @@ def ensure_authenticated(
     """
     if client.verified_user is not None:
         return client.verified_user
-    rejected: APIError | None = None
-    if client.has_credential:
+    rejected: AuthenticationError | None = None
+    if client.auth is not None:
         try:
             with _quiet_spent_login(client):
                 client.verified_user = client.get_current_user()
             return client.verified_user
-        except APIError as exc:
-            if not _is_rejection(exc):
-                raise
+        except AuthenticationError as exc:
             rejected = exc
     _require_login_allowed(client, rejected, interactive)
     return _login_and_adopt(client)
@@ -204,22 +193,20 @@ async def ensure_authenticated_async(
     """The asynchronous twin of :func:`ensure_authenticated`, with the login run off the loop."""
     if client.verified_user is not None:
         return client.verified_user
-    rejected: APIError | None = None
-    if client.has_credential:
+    rejected: AuthenticationError | None = None
+    if client.auth is not None:
         try:
             with _quiet_spent_login(client):
                 client.verified_user = await client.get_current_user_async()
             return client.verified_user
-        except APIError as exc:
-            if not _is_rejection(exc):
-                raise
+        except AuthenticationError as exc:
             rejected = exc
     _require_login_allowed(client, rejected, interactive)
     return await asyncio.to_thread(_login_and_adopt, client)
 
 
 def _chose_anonymous(client: BookshelfClient) -> bool:
-    return not client.uses_ambient_auth and not client.has_credential
+    return client.auth is None and not client.uses_ambient_auth
 
 
 def require_authentication(client: BookshelfClient) -> None:
@@ -237,7 +224,6 @@ async def require_authentication_async(client: BookshelfClient) -> None:
 __all__ = [
     "ensure_authenticated",
     "ensure_authenticated_async",
-    "in_notebook",
     "is_interactive",
     "login_user",
     "require_authentication",
