@@ -7,7 +7,7 @@ and ``--agent`` selects which.
 
 import os
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -26,7 +26,7 @@ from bookshelf._cli._runtime import (
     iso,
     note,
 )
-from bookshelf._core import config, credentials, errors, oauth
+from bookshelf._core import config, credentials, errors, oauth, session
 from bookshelf._core.auth import JWT_BEARER_GRANT, TokenProvider, decode_jwt_expiry
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import CredentialSource, resolve_base_url
@@ -47,12 +47,6 @@ auth_app = typer.Typer(help="Manage authentication for the Bookshelf API.", no_a
 
 def _now() -> datetime:
     return datetime.now(UTC)
-
-
-def _expiry_from(expires_in: int | None) -> datetime | None:
-    if expires_in is None:
-        return None
-    return _now() + timedelta(seconds=expires_in)
 
 
 def _relative(moment: datetime | None) -> str:
@@ -111,45 +105,30 @@ def auth_login(
 
 
 def _login_user(base: str, *, no_browser: bool, json_output: bool) -> None:
+    def show_code(flow: oauth.DeviceFlowInfo) -> None:
+        note(field("Your code:", flow.user_code))
+        note(field("Visit", flow.verification_uri_complete))
+        note("")
+        note("Waiting for authorisation...")
+
+    def show_url(url: str) -> None:
+        note("Opening browser for authentication...")
+        note("If the browser does not open, visit this URL (or use --no-browser):")
+        note("")
+        note(f"  {url}")
+        note("")
+
     try:
-        if no_browser:
-            flow = oauth.start_device_flow(api_url=base)
-            note(field("Your code:", flow.user_code))
-            note(field("Visit", flow.verification_uri_complete))
-            note("")
-            note("Waiting for authorisation...")
-            token_data = oauth.poll_device_flow(flow, api_url=base)
-        else:
-
-            def show_url(url: str) -> None:
-                note("Opening browser for authentication...")
-                note("If the browser does not open, visit this URL (or use --no-browser):")
-                note("")
-                note(f"  {url}")
-                note("")
-
-            token_data = oauth.authorization_code_flow(api_url=base, on_auth_url=show_url)
+        me, record = session.login_user(
+            base, browser=not no_browser, on_auth_url=show_url, on_device_code=show_code
+        )
     except oauth.OAuthError as exc:
         raise CliError(f"authentication failed: {exc}", exit_code=EXIT_UNEXPECTED) from exc
 
-    access_token = str(token_data["access_token"])
-    refresh_token = token_data.get("refresh_token")
-    expires_at = _expiry_from(token_data.get("expires_in"))
-    with BookshelfClient(base, auth=access_token) as client:
-        me = client.get_current_user()
-    credentials.save_credentials(
-        access_token,
-        api_url=base,
-        kind=CredentialKind.USER,
-        refresh_token=str(refresh_token) if refresh_token else None,
-        expires_at=expires_at,
-        subject=me.email,
-        organization_id=me.organization_id,
-    )
     note(f"Logged in as {me.email}")
     note(field("Organisation", me.organization_id or "none"))
     note(field("Permissions", ", ".join(me.permissions or []) or "none"))
-    note(field("Expires", iso(expires_at) or "never"))
+    note(field("Expires", iso(record.expires_at) or "never"))
     note(field("Stored", str(credentials.credentials_path())))
     if json_output:
         emit_json(
@@ -159,7 +138,7 @@ def _login_user(base: str, *, no_browser: bool, json_output: bool) -> None:
                 "subject": me.email,
                 "organization_id": me.organization_id,
                 "permissions": me.permissions or [],
-                "expires_at": iso(expires_at),
+                "expires_at": iso(record.expires_at),
                 "api_url": base,
             }
         )
@@ -179,7 +158,7 @@ def _login_agent_anonymous(base: str, *, json_output: bool) -> None:
         )
     assertion = grant.identity_assertion or registration.identity_assertion
     assertion_expires = grant.assertion_expires or registration.assertion_expires
-    expires_at = _expiry_from(grant.expires_in)
+    expires_at = credentials.expiry_from(grant.expires_in)
     subject = f"agent:{registration.registration_id}"
     scopes = grant.scope.split()
     credentials.save_credentials(
@@ -241,7 +220,7 @@ def _login_agent_claim(base: str, *, email: str, json_output: bool) -> None:
             expires_in=ceremony.expires_in,
         )
         me = _identity_for_token(base, grant.access_token)
-    expires_at = _expiry_from(grant.expires_in)
+    expires_at = credentials.expiry_from(grant.expires_in)
     subject = me.email or email
     credentials.save_credentials(
         grant.access_token,

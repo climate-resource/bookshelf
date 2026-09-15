@@ -26,7 +26,7 @@ import json
 import os
 import stat
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -306,6 +306,11 @@ def active_kinds() -> dict[str, CredentialKind]:
     return {key: kind for key, kind in parsed.items() if kind is not None}
 
 
+def expiry_from(expires_in: float | None) -> datetime | None:
+    """Turn a token response's ``expires_in`` seconds into the moment it expires."""
+    return None if expires_in is None else datetime.now(UTC) + timedelta(seconds=expires_in)
+
+
 def save_credentials(
     access_token: str,
     *,
@@ -319,30 +324,29 @@ def save_credentials(
     organization_id: str | None = None,
     claimed: bool | None = None,
     token_type: str = "bearer",  # noqa: S107, this is the token type, not a secret
-) -> None:
-    """Persist one freshly acquired credential and make it active for its deployment.
+) -> StoredCredentials:
+    """Persist one freshly acquired credential, make it active for its deployment and return it.
 
     This is the shape a login has, where there is no prior record to build on.
     """
-    save_record(
-        StoredCredentials(
-            access_token=access_token,
-            token_type=token_type,
-            expires_at=expires_at,
-            api_url=api_url,
-            refresh_token=refresh_token,
-            kind=kind,
-            identity_assertion=identity_assertion,
-            assertion_expires_at=assertion_expires_at,
-            subject=subject,
-            organization_id=organization_id,
-            claimed=claimed,
-        )
+    record = StoredCredentials(
+        access_token=access_token,
+        token_type=token_type,
+        expires_at=expires_at,
+        api_url=api_url,
+        refresh_token=refresh_token,
+        kind=kind,
+        identity_assertion=identity_assertion,
+        assertion_expires_at=assertion_expires_at,
+        subject=subject,
+        organization_id=organization_id,
+        claimed=claimed,
     )
+    return save_record(record)
 
 
-def save_record(record: StoredCredentials) -> None:
-    """Persist one credential record and make it active for its deployment.
+def save_record(record: StoredCredentials) -> StoredCredentials:
+    """Persist one credential record, make it active for its deployment and return what was stored.
 
     A record with no ``expires_at`` takes its expiry from the access token's JWT ``exp`` claim,
     staying open-ended only when the token carries no ``exp``.
@@ -393,6 +397,7 @@ def save_record(record: StoredCredentials) -> None:
     store["active"][api_url] = str(kind)
     store["default_api_url"] = api_url
     _write_store(store)
+    return replace(record, expires_at=expires_at, api_url=api_url)
 
 
 def set_active(api_url: str, kind: CredentialKind) -> StoredCredentials:
@@ -466,6 +471,7 @@ __all__ = [
     "active_kinds",
     "clear_credentials",
     "credentials_path",
+    "expiry_from",
     "keychain_enabled",
     "list_credentials",
     "load_credentials",

@@ -29,6 +29,7 @@ from bookshelf._consume.volumes import AsyncVolume, Volume
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import UNSET, AuthInput
 from bookshelf._core.errors import BookshelfError, NotFoundError
+from bookshelf._core.session import ensure_authenticated, ensure_authenticated_async
 from bookshelf._generated import models
 from bookshelf._produce import (
     Activity,
@@ -217,6 +218,26 @@ class Bookshelf:
     def close(self) -> None:
         """Close the sync transport if it was opened."""
         self._client.close()
+
+    def ensure_authenticated(self, *, interactive: bool | None = None) -> models.UserResponse:
+        """Confirm the API accepts this client's credential, logging in first when it can.
+
+        A missing or rejected stored login starts a browser login from a local terminal,
+        and a device code login from a notebook, an SSH session or a terminal with no browser.
+        Machine credentials such as ``$BOOKSHELF_TOKEN`` or CI client credentials
+        are verified but never replaced.
+
+        Args:
+            interactive: Whether a person can answer a login prompt.
+                Left out, a terminal or a notebook counts, unless ``$CI`` is set.
+
+        Returns:
+            The identity the API confirmed.
+
+        Raises:
+            AuthenticationRequiredError: No accepted credential, and no way to log in here.
+        """
+        return ensure_authenticated(self._client, interactive=interactive)
 
     def resource(self, tracking_id: str | UUID) -> Resource:
         """Resolve an exact tracking id into a lean Resource."""
@@ -443,6 +464,14 @@ class AsyncBookshelf:
     async def aclose(self) -> None:
         """Close both transport surfaces if either was opened."""
         await self._client.aclose()
+
+    async def ensure_authenticated(self, *, interactive: bool | None = None) -> models.UserResponse:
+        """Confirm the API accepts this client's credential, logging in first when it can.
+
+        The asynchronous twin of
+        [`Bookshelf.ensure_authenticated`][bookshelf.Bookshelf.ensure_authenticated].
+        """
+        return await ensure_authenticated_async(self._client, interactive=interactive)
 
     async def resource(self, tracking_id: str | UUID) -> AsyncResource:
         """Resolve an exact tracking id into a lean async Resource."""

@@ -63,6 +63,9 @@ class BookshelfClient:
     ) -> None:
         self._base_url = resolve_base_url(base_url)
         self._auth = resolve_auth(auth, base_url=self._base_url)
+        self._ambient_auth = auth is UNSET
+        self.verified_user: models.UserResponse | None = None
+        """The identity the API last confirmed for this client's credential."""
         self._timeout = timeout
         self._retry = RetryPolicy()
         self._transport = transport
@@ -78,6 +81,24 @@ class BookshelfClient:
     def base_url(self) -> str:
         """The resolved API root this client talks to."""
         return self._base_url
+
+    @property
+    def uses_ambient_auth(self) -> bool:
+        """Whether the credential came from the environment or a stored login, not ``auth=``."""
+        return self._ambient_auth
+
+    @property
+    def auth(self) -> httpx.Auth | None:
+        """The credential requests carry, or ``None`` when they go out anonymously."""
+        return self._auth
+
+    def set_auth(self, auth: httpx.Auth) -> None:
+        """Replace the credential on both surfaces, including transports already opened."""
+        self._auth = auth
+        self.verified_user = None
+        for opened in (self._sync, self._async):
+            if opened is not None:
+                opened.auth = auth
 
     @property
     def _sync_client(self) -> httpx.Client:

@@ -28,7 +28,9 @@ import json
 import threading
 import time
 import warnings
-from collections.abc import AsyncGenerator, Callable, Generator
+from collections.abc import AsyncGenerator, Callable, Generator, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 
 import httpx
 
@@ -376,8 +378,22 @@ class AnonymousFallback(httpx.Auth):
         self.inner = inner
         self._message = message
         self._degraded = False
+        # Task and thread local, so requests running beside a quiet check still latch and warn.
+        self._quiet: ContextVar[bool] = ContextVar("anonymous_fallback_quiet", default=False)
+
+    @contextmanager
+    def quieted(self) -> Iterator[None]:
+        """Drop the degradation warning inside the block, for a caller about to offer a login."""
+        token = self._quiet.set(True)
+        try:
+            yield
+        finally:
+            self._quiet.reset(token)
 
     def _degrade(self, exc: AuthenticationError) -> None:
+        if self._quiet.get():
+            # Left unlatched, so the next request retries the exchange and warns if it fails again.
+            return
         self._degraded = True
         warnings.warn(f"{self._message} The exchange failed with: {exc}", stacklevel=3)
 
