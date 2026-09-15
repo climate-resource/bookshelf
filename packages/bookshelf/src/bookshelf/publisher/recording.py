@@ -220,6 +220,8 @@ class RecordingActivity(Activity):
         citation: str | None = None,
         license: str | None = None,
         license_url: str | None = None,
+        caption: str | None = None,
+        alt_text: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
         format: str | None = None,
@@ -230,6 +232,9 @@ class RecordingActivity(Activity):
         recorded_name = _recorded_name(name)
         resource_type = helpers.resource_type(type)
         resource_visibility = helpers.visibility(visibility, self.default_visibility)
+        helpers.check_figure_facts(
+            resource_type, resource_visibility, name=name, caption=caption, alt_text=alt_text
+        )
         materialised = serialise(obj, type=resource_type.value)
         resource_id = tracking_id or helpers.uuid7()
         discovery = helpers.resource_discovery(
@@ -240,6 +245,8 @@ class RecordingActivity(Activity):
             citation=citation,
             license=license,
             license_url=license_url,
+            caption=caption,
+            alt_text=alt_text,
         )
         self._merge_used(used)
         self._bundle.set_activity(self._bundle_activity())
@@ -301,6 +308,8 @@ class RecordingActivity(Activity):
                     citation=entry.citation,
                     license=entry.license,
                     license_url=entry.license_url,
+                    caption=entry.caption,
+                    alt_text=entry.alt_text,
                     metadata=entry.metadata,
                     tracking_id=entry.tracking_id,
                     format=entry.format,
@@ -377,6 +386,7 @@ class RecordingActivity(Activity):
     def _prepare_registration(self, entry: RegisterItem) -> _PreparedRegistration:
         resource_type = helpers.resource_type(entry.type)
         visibility = helpers.visibility(entry.visibility, self.default_visibility)
+        helpers.check_item_facts(entry, self.default_visibility)
         return _PreparedRegistration(
             entry=entry,
             materialised=serialise(entry.obj, type=resource_type.value),

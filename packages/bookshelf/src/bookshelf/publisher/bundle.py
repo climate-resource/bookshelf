@@ -42,6 +42,7 @@ from pydantic import (
     ConfigDict,
     Field,
     StringConstraints,
+    ValidationError,
     field_validator,
     model_validator,
 )
@@ -50,8 +51,9 @@ from bookshelf._core.errors import BookshelfError
 from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
 from bookshelf._core.names import RESOURCE_NAME_PATTERN
 from bookshelf._generated import models
+from bookshelf._produce import helpers
 
-BUNDLE_SCHEMA_VERSION = "3.4"
+BUNDLE_SCHEMA_VERSION = "3.5"
 
 # A newer minor loads because the models ignore unknown fields, and any other major is refused:
 # v2 keys resources by tracking id and v3 by name, which no rule maps without inventing names.
@@ -169,9 +171,11 @@ class BundleResource(BaseModel):
       There is no byte file,
       and ``size`` is omitted.
 
-    ``tags`` through ``license_url`` are the catalogue metadata the resource itself carries.
+    ``tags`` through ``alt_text`` are the catalogue metadata the resource itself carries.
     They are the resource's own and are never filled in from the book,
     so a book assembled from other people's data credits them on the thing they made.
+    ``caption`` and ``alt_text`` are the words a figure carries,
+    and a public figure must record an ``alt_text``.
 
     ``extra="ignore"`` keeps each resource record forward-compatible,
     so an older reader still loads a record written by a later client
@@ -193,6 +197,8 @@ class BundleResource(BaseModel):
     citation: str | None = None
     license: str | None = None
     license_url: str | None = None
+    caption: str | None = None
+    alt_text: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     dedupe: bool = True
     size: int | None = None  # byte length of a managed resource, ``None`` for a pointer
@@ -763,6 +769,9 @@ class Bundle:
         - the book has at least one entry
         - every entry names a resource recorded in the same manifest
         - every ``used`` name is recorded earlier in the manifest than what consumes it
+        - every public figure records a nonblank ``alt_text``, because the platform refuses one without
+        - every resource's catalogue metadata is one the contract accepts,
+          so a caption or alt text over its limit is refused before any upload
         - every managed resource's bytes are present and still hash to the recorded hash,
           which a non-canonical hash cannot satisfy because it names no byte file
 
@@ -794,6 +803,8 @@ class Bundle:
                     )
             seen.add(resource.name)
 
+        self.check_discovery()
+
         for resource in self.manifest.resources:
             if resource.kind != "managed":
                 continue
@@ -812,6 +823,36 @@ class Bundle:
                 raise InvalidBundleError(
                     f"resource {resource.name!r} has hash {resource.hash}, got {actual}"
                 )
+
+    def check_discovery(self) -> None:
+        """Refuse catalogue metadata the platform would refuse, before any bytes upload.
+
+        A draft or resources-only bundle replays without :meth:`validate`,
+        so replay calls this on its own to keep a hand-edited manifest from uploading first.
+        Raises :class:`InvalidBundleError` naming the first resource that fails.
+        """
+        for resource in self.manifest.resources:
+            words = resource.caption is not None or resource.alt_text is not None
+            if resource.type == "figure" or words:
+                try:
+                    helpers.check_figure_facts(
+                        resource.type,
+                        models.Visibility(resource.visibility),
+                        name=resource.name,
+                        caption=resource.caption,
+                        alt_text=resource.alt_text,
+                    )
+                except ValueError as exc:
+                    raise InvalidBundleError(str(exc)) from exc
+            try:
+                _ = resource.discovery
+            except ValidationError as exc:
+                error = exc.errors()[0]
+                field = ".".join(str(part) for part in error["loc"]) or "discovery"
+                raise InvalidBundleError(
+                    f"resource {resource.name!r} records a {field} the contract refuses: "
+                    f"{error['msg']}"
+                ) from exc
 
     def write(self) -> None:
         """Flush the manifest to ``manifest.lock`` (deterministic YAML)."""

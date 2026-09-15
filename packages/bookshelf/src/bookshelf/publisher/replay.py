@@ -140,8 +140,11 @@ def send_bundle(client: BookshelfClient, bundle: Path | Bundle) -> models.Bundle
     """Upload the managed bytes and send the whole bundle as one request.
 
     This is the seam the facade drives, so the transport stays behind it.
+    The catalogue metadata is checked before the first upload,
+    because a draft replays without :meth:`Bundle.validate`.
     """
     recorded = Bundle.read(bundle) if isinstance(bundle, Path) else bundle
+    recorded.check_discovery()
     storage_paths = {
         resource.name: upload_bytes(
             client,
@@ -160,6 +163,7 @@ async def send_bundle_async(
 ) -> models.BundleReplayResponse:
     """Asynchronous counterpart to :func:`send_bundle`."""
     recorded = Bundle.read(bundle) if isinstance(bundle, Path) else bundle
+    recorded.check_discovery()
     storage_paths = {
         resource.name: await upload_bytes_async(
             client,

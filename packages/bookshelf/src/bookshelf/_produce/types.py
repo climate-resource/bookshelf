@@ -56,6 +56,8 @@ class RegisterItem:
     citation: str | None = None
     license: str | None = None
     license_url: str | None = None
+    caption: str | None = None
+    alt_text: str | None = None
     metadata: Mapping[str, Any] | None = None
     tracking_id: UUID | None = None
     format: str | None = None

@@ -89,6 +89,8 @@ class Activity:
         citation: str | None = None,
         license: str | None = None,
         license_url: str | None = None,
+        caption: str | None = None,
+        alt_text: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
         format: str | None = None,
@@ -113,6 +115,8 @@ class Activity:
                     citation=citation,
                     license=license,
                     license_url=license_url,
+                    caption=caption,
+                    alt_text=alt_text,
                     metadata=metadata,
                     tracking_id=tracking_id,
                     format=format,
@@ -132,12 +136,16 @@ class Activity:
         """Materialise many outputs, splitting only a non atomic oversized batch.
 
         ``used=`` records the inputs consumed by every output in this call.
+        Every entry is checked before the first upload,
+        so a refused figure late in the batch leaves no earlier bytes behind.
         """
         self._require_entered()
         if atomic and len(entries) > helpers.MAX_REGISTRATION_BATCH:
             raise ValueError(
                 f"atomic registrations are limited to {helpers.MAX_REGISTRATION_BATCH} items"
             )
+        for entry in entries:
+            helpers.check_item_facts(entry, self.default_visibility)
         items = [self._materialise(entry) for entry in entries]
         try:
             outcomes = self._register_items(items, used=used, atomic=atomic)
@@ -228,6 +236,8 @@ class Activity:
 
     def _materialise(self, entry: RegisterItem) -> models.RegisterResourceItem:
         resource_type = helpers.resource_type(entry.type)
+        resource_visibility = helpers.visibility(entry.visibility, self.default_visibility)
+        helpers.check_item_facts(entry, self.default_visibility)
         serialised = serialise(entry.obj, type=resource_type.value)
         storage_path = upload_bytes(
             self._client,
@@ -241,7 +251,7 @@ class Activity:
             hash=serialised.hash,
             format=entry.format or serialised.format,
             name=entry.name,
-            visibility=helpers.visibility(entry.visibility, self.default_visibility),
+            visibility=resource_visibility,
             discovery=helpers.item_discovery(entry),
             metadata=entry.metadata,
             tracking_id=entry.tracking_id,
@@ -356,6 +366,8 @@ class AsyncActivity:
         citation: str | None = None,
         license: str | None = None,
         license_url: str | None = None,
+        caption: str | None = None,
+        alt_text: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
         format: str | None = None,
@@ -380,6 +392,8 @@ class AsyncActivity:
                     citation=citation,
                     license=license,
                     license_url=license_url,
+                    caption=caption,
+                    alt_text=alt_text,
                     metadata=metadata,
                     tracking_id=tracking_id,
                     format=format,
@@ -400,12 +414,16 @@ class AsyncActivity:
         """Materialise many outputs, splitting only a non atomic oversized batch.
 
         ``used=`` records the inputs consumed by every output in this call.
+        Every entry is checked before the first upload,
+        so a refused figure late in the batch leaves no earlier bytes behind.
         """
         self._require_entered()
         if atomic and len(entries) > helpers.MAX_REGISTRATION_BATCH:
             raise ValueError(
                 f"atomic registrations are limited to {helpers.MAX_REGISTRATION_BATCH} items"
             )
+        for entry in entries:
+            helpers.check_item_facts(entry, self.default_visibility)
         items: list[models.RegisterResourceItem] = []
         for entry in entries:
             items.append(await self._materialise(entry))
@@ -498,6 +516,8 @@ class AsyncActivity:
 
     async def _materialise(self, entry: RegisterItem) -> models.RegisterResourceItem:
         resource_type = helpers.resource_type(entry.type)
+        resource_visibility = helpers.visibility(entry.visibility, self.default_visibility)
+        helpers.check_item_facts(entry, self.default_visibility)
         serialised = serialise(entry.obj, type=resource_type.value)
         storage_path = await upload_bytes_async(
             self._client,
@@ -511,7 +531,7 @@ class AsyncActivity:
             hash=serialised.hash,
             format=entry.format or serialised.format,
             name=entry.name,
-            visibility=helpers.visibility(entry.visibility, self.default_visibility),
+            visibility=resource_visibility,
             discovery=helpers.item_discovery(entry),
             metadata=entry.metadata,
             tracking_id=entry.tracking_id,

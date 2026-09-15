@@ -308,3 +308,41 @@ def test_the_synthesised_pointer_hash_matches_the_backend_seed() -> None:
 
 def test_a_figure_is_stored_as_a_png() -> None:
     assert resource_filename("sha256:" + "a" * 64, "figure").endswith(".png")
+
+
+def _add_public_figure(bundle: Bundle, alt_text: str | None) -> None:
+    data = b"png"
+    figure = bundle.add_resource(
+        data=data, hash_=sha256_hex(data), type_="figure", name="fig", visibility="public"
+    )
+    figure.alt_text = alt_text
+    bundle.add_book_entry(name="fig")
+
+
+def test_a_public_figure_without_alt_text_is_invalid(make_bundle: BundleFactory) -> None:
+    """The platform refuses one at replay, so a hand-edited manifest is refused before upload."""
+    bundle = make_bundle()
+    _add_public_figure(bundle, alt_text=None)
+
+    with pytest.raises(
+        InvalidBundleError, match="resource 'fig' is a public figure with no alt text"
+    ):
+        bundle.validate()
+
+
+def test_alt_text_over_the_contract_limit_is_invalid(make_bundle: BundleFactory) -> None:
+    """Replay would refuse it while building the request, so the manifest is refused first."""
+    bundle = make_bundle()
+    _add_public_figure(bundle, alt_text="a" * 1001)
+
+    with pytest.raises(
+        InvalidBundleError, match="1001 characters, and the platform accepts at most 1000"
+    ):
+        bundle.validate()
+
+
+def test_a_public_figure_with_alt_text_validates(make_bundle: BundleFactory) -> None:
+    bundle = make_bundle()
+    _add_public_figure(bundle, alt_text="A bar chart.")
+
+    bundle.validate()
