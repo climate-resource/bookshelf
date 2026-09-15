@@ -64,14 +64,17 @@ def long_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
 def _equal_to(values: pd.Series[Any] | pd.Index[Any], wanted: str) -> Any:
     """Compare numeric values as numbers, so ``"1"`` matches ``1`` and ``1.0``."""
     import numpy as np
-    from pandas.api.types import is_numeric_dtype
+    import pandas as pd
+    from pandas.api.types import is_bool_dtype, is_numeric_dtype
 
-    if is_numeric_dtype(values.dtype):
+    series = pd.Series(values)
+    if is_numeric_dtype(series.dtype) and not is_bool_dtype(series.dtype):
         try:
-            return np.asarray(values == float(wanted))
+            number = float(wanted)
         except ValueError:
-            return np.zeros(len(values), dtype=bool)
-    return np.asarray(values.astype(str) == wanted)
+            return np.zeros(len(series), dtype=bool)
+        return (series == number).fillna(False).to_numpy(dtype=bool)
+    return (series.astype(str) == wanted).to_numpy(dtype=bool)
 
 
 def filter_rows(frame: pd.DataFrame, filters: Mapping[str, str]) -> pd.DataFrame:

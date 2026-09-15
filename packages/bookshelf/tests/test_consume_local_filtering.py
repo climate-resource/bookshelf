@@ -92,6 +92,13 @@ def test_filter_rows_matches_numbers_by_value(category: list[object]) -> None:
     assert filter_rows(frame, {"category": "x"}).empty
 
 
+def test_filter_rows_handles_booleans_and_nullable_numbers() -> None:
+    flags = pd.DataFrame({"flag": [True, False, True]})
+    assert len(filter_rows(flags, {"flag": "True"})) == 2
+    counts = pd.DataFrame({"count": pd.array([1, None, 1], dtype="Int64")})
+    assert len(filter_rows(counts, {"count": "1"})) == 2
+
+
 def test_filters_combine_with_and() -> None:
     frame = pd.DataFrame({"a": ["x", "x", "y"], "b": ["p", "q", "p"]})
     assert len(filter_rows(frame, {"a": "x", "b": "p"})) == 1
