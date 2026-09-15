@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import math
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING
 
 from bookshelf._core.frames import require_package
@@ -60,6 +61,35 @@ def long_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
     return long
 
 
+def filter_rows(frame: pd.DataFrame, filters: Mapping[str, str]) -> pd.DataFrame:
+    """Keep the rows whose columns or index levels equal every filter value.
+
+    Values compare as strings, so a filter matches an integer column such as ``category``.
+    """
+    import numpy as np
+
+    names = [name for name in frame.index.names if name is not None]
+    mask = np.ones(len(frame), dtype=bool)
+    for column, wanted in filters.items():
+        if column in frame.columns:
+            mask &= (frame[column].astype(str) == wanted).to_numpy()
+        elif column in names:
+            mask &= frame.index.get_level_values(column).astype(str) == wanted
+        else:
+            known = ", ".join(map(str, [*names, *frame.columns]))
+            raise KeyError(f"cannot filter on {column!r}, the columns are: {known}")
+    return frame[mask]
+
+
+def filter_years(wide: pd.DataFrame, *, year_min: int | None, year_max: int | None) -> pd.DataFrame:
+    """Keep the year columns of a wide frame that fall inside the window."""
+    if year_min is None and year_max is None:
+        return wide
+    low = year_min if year_min is not None else -math.inf
+    high = year_max if year_max is not None else math.inf
+    return wide[[column for column in wide.columns if low <= int(column) <= high]]
+
+
 def legacy_long_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
     """Shape tidy timeseries data the way the 0.4 long format files were written.
 
@@ -108,6 +138,8 @@ def arrow_converter() -> Callable[[pd.DataFrame], pa.Table]:
 
 __all__ = [
     "arrow_converter",
+    "filter_rows",
+    "filter_years",
     "legacy_long_timeseries",
     "long_timeseries",
     "polars_converter",

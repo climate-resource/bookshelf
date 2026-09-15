@@ -6,9 +6,10 @@ The handles themselves only choose how to fetch the data.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
-from bookshelf._consume.frames import wide_timeseries
+from bookshelf._consume.frames import filter_rows, filter_years, wide_timeseries
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 
@@ -20,7 +21,7 @@ _FRAME_TYPES = frozenset({models.ResourceType.timeseries, models.ResourceType.ta
 _BYTE_READERS = ("fetch()", "as_path()")
 _FRAME_READERS = ("as_df()", "as_polars()", "as_arrow()")
 _TIMESERIES_READERS = ("as_df()", "as_long_df()", "as_scmrun()", "as_polars()", "as_arrow()")
-_FRAME_EXPLORERS = ("facets()", "preview()")
+_FRAME_EXPLORERS = ("query()", "facets()", "preview()")
 _TIMESERIES_EXPLORERS = ("schema()",)
 
 # What each resource type answers, so a handle describing itself names only calls that work.
@@ -69,6 +70,23 @@ def shape_frame(resource_type: models.ResourceType, frame: pd.DataFrame) -> pd.D
     return frame
 
 
+def select_frame(
+    resource_type: models.ResourceType,
+    frame: pd.DataFrame,
+    *,
+    year_min: int | None,
+    year_max: int | None,
+    filters: Mapping[str, str],
+) -> pd.DataFrame:
+    """Shape a whole resource and apply the year window and filters locally."""
+    if resource_type is not models.ResourceType.timeseries:
+        if year_min is not None or year_max is not None:
+            raise TypeError("year_min and year_max require a timeseries resource")
+        return filter_rows(frame, filters)
+    wide = filter_rows(wide_timeseries(frame), filters)
+    return filter_years(wide, year_min=year_min, year_max=year_max)
+
+
 def scmrun_class() -> type[ScmRun]:
     """Return the ScmRun class, reporting the missing optional extra as a conversion error."""
     try:
@@ -87,5 +105,6 @@ __all__ = [
     "require_frame_support",
     "require_timeseries_support",
     "scmrun_class",
+    "select_frame",
     "shape_frame",
 ]
