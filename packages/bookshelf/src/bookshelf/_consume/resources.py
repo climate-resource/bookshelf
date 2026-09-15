@@ -22,13 +22,12 @@ from bookshelf._consume.conversions import (
     reject_query_arguments,
     require_frame_support,
     require_timeseries_support,
-    scmrun_class,
+    scmrun_converter,
     select_frame,
     shape_frame,
 )
 from bookshelf._consume.frames import (
     arrow_converter,
-    flat_timeseries,
     legacy_long_timeseries,
     long_timeseries,
     polars_converter,
@@ -308,7 +307,7 @@ class Resource(_ResourceHandle):
     def _long(
         self, *, year_min: int | None, year_max: int | None, filters: Mapping[str, str]
     ) -> pd.DataFrame:
-        require_timeseries_support(self.type)
+        require_timeseries_support(self.type, "as_long_df()")
         return long_timeseries(
             self._selected(year_min=year_min, year_max=year_max, filters=filters)
         )
@@ -347,10 +346,9 @@ class Resource(_ResourceHandle):
         Every timeseries is kept, including one whose values are all missing.
         scmdata rejects rows with duplicate metadata.
         """
-        require_timeseries_support(self.type)
-        run = scmrun_class()
-        selected = self._selected(year_min=year_min, year_max=year_max, filters=filters)
-        return run(flat_timeseries(selected))
+        convert = scmrun_converter()
+        require_timeseries_support(self.type, "as_scmrun()")
+        return convert(self._selected(year_min=year_min, year_max=year_max, filters=filters))
 
     def fetch(self) -> bytes:
         """Return verified bytes, using memory proportional to the resource size.
@@ -661,7 +659,7 @@ class AsyncResource(_ResourceHandle):
     async def _long(
         self, *, year_min: int | None, year_max: int | None, filters: Mapping[str, str]
     ) -> pd.DataFrame:
-        require_timeseries_support(await self._get_type())
+        require_timeseries_support(await self._get_type(), "as_long_df()")
         return long_timeseries(
             await self._selected(year_min=year_min, year_max=year_max, filters=filters)
         )
@@ -700,10 +698,9 @@ class AsyncResource(_ResourceHandle):
         Every timeseries is kept, including one whose values are all missing.
         scmdata rejects rows with duplicate metadata.
         """
-        require_timeseries_support(await self._get_type())
-        run = scmrun_class()
-        selected = await self._selected(year_min=year_min, year_max=year_max, filters=filters)
-        return run(flat_timeseries(selected))
+        convert = scmrun_converter()
+        require_timeseries_support(await self._get_type(), "as_scmrun()")
+        return convert(await self._selected(year_min=year_min, year_max=year_max, filters=filters))
 
     async def fetch(self) -> bytes:
         """Return verified bytes, using memory proportional to the resource size.

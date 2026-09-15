@@ -6,7 +6,7 @@ The handles themselves only choose how to fetch the data.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING
 
 from bookshelf._consume.frames import filter_rows, filter_years, wide_timeseries
@@ -47,10 +47,10 @@ def require_frame_support(resource_type: models.ResourceType) -> None:
         )
 
 
-def require_timeseries_support(resource_type: models.ResourceType) -> None:
+def require_timeseries_support(resource_type: models.ResourceType, caller: str) -> None:
     """Reject resource types that have no tidy timeseries form."""
     if resource_type is not models.ResourceType.timeseries:
-        raise UnsupportedConversionError("as_long_df() requires a timeseries resource")
+        raise UnsupportedConversionError(f"{caller} requires a timeseries resource")
 
 
 def readers_for(resource_type: models.ResourceType | None) -> tuple[str, ...]:
@@ -108,6 +108,20 @@ def scmrun_class() -> type[ScmRun]:
     return ScmRun
 
 
+def scmrun_converter() -> Callable[[pd.DataFrame], ScmRun]:
+    """Return a converter from a wide indexed frame to an ScmRun.
+
+    scmdata pivots long data and drops any timeseries whose values are all missing,
+    so the constructor is handed the wide frame with its dimensions as columns.
+    """
+    run = scmrun_class()
+
+    def convert(wide: pd.DataFrame) -> ScmRun:
+        return run(wide.reset_index(drop=all(name is None for name in wide.index.names)))
+
+    return convert
+
+
 __all__ = [
     "UnsupportedConversionError",
     "explorers_for",
@@ -116,6 +130,7 @@ __all__ = [
     "require_frame_support",
     "require_timeseries_support",
     "scmrun_class",
+    "scmrun_converter",
     "select_frame",
     "shape_frame",
 ]
