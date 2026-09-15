@@ -222,8 +222,8 @@ class Bookshelf:
     def ensure_authenticated(self, *, interactive: bool | None = None) -> models.UserResponse:
         """Confirm the API accepts this client's credential, logging in first when it can.
 
-        A missing or rejected stored login starts a browser login from a terminal
-        and a device code login from a notebook.
+        A missing or rejected stored login starts a browser login from a local terminal,
+        and a device code login from a notebook, an SSH session or a terminal with no browser.
         Machine credentials such as ``$BOOKSHELF_TOKEN`` or CI client credentials
         are verified but never replaced.
 

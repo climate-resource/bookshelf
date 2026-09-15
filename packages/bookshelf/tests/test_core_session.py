@@ -10,6 +10,7 @@ import pytest
 from bookshelf import AsyncBookshelf, AuthenticationRequiredError, Bookshelf, BookshelfError
 from bookshelf._core import credentials, session
 from bookshelf._core.credentials import StoredCredentials
+from bookshelf._core.errors import APIError
 from bookshelf._generated import models
 from tests import _core_payloads as payloads
 
@@ -32,6 +33,8 @@ def isolated_credentials(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
         "BOOKSHELF_USE_KEYCHAIN",
         "BOOKSHELF_URL",
         "CI",
+        "SSH_CONNECTION",
+        "SSH_TTY",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -222,6 +225,49 @@ def test_a_terminal_without_a_browser_gets_a_device_code(monkeypatch: pytest.Mon
         bs.ensure_authenticated(interactive=True)
 
     assert chosen == [False]
+
+
+def test_an_ssh_session_gets_a_device_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SSH_CONNECTION", "10.0.0.1 22 10.0.0.2 22")
+
+    assert not session._has_browser()
+
+
+def test_a_spent_login_is_replaced_without_the_anonymous_warning(
+    monkeypatch: pytest.MonkeyPatch, recwarn: pytest.WarningsRecorder
+) -> None:
+    monkeypatch.setenv("BOOKSHELF_WORKOS_CLIENT_ID", "client_test")
+    monkeypatch.setenv("BOOKSHELF_WORKOS_BASE_URL", "https://workos.test")
+    credentials.save_credentials("spent", api_url=BASE_URL, refresh_token="refused")
+    monkeypatch.setattr(session, "login_user", _fake_login(calls := []))
+    api = _api([], accept="fresh")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "workos.test":
+            return httpx.Response(400, json={"error": "invalid_grant"})
+        return api(request)
+
+    with Bookshelf(BASE_URL, transport=httpx.MockTransport(handler)) as bs:
+        bs.ensure_authenticated(interactive=True)
+
+    assert calls == [BASE_URL]
+    assert not [w for w in recwarn if "continuing anonymously" in str(w.message)]
+
+
+def test_a_failure_other_than_rejection_is_raised(monkeypatch: pytest.MonkeyPatch) -> None:
+    credentials.save_credentials("stored", api_url=BASE_URL)
+    monkeypatch.setattr(session, "login_user", _fake_login(calls := []))
+    transport = httpx.MockTransport(lambda _request: httpx.Response(403, json={"detail": "no"}))
+
+    with (
+        Bookshelf(BASE_URL, transport=transport) as bs,
+        pytest.raises(APIError) as raised,
+    ):
+        bs.ensure_authenticated(interactive=True)
+
+    assert raised.value.status_code == 403
+    assert not isinstance(raised.value, AuthenticationRequiredError)
+    assert calls == []
 
 
 async def test_the_async_client_logs_in_off_the_loop(monkeypatch: pytest.MonkeyPatch) -> None:

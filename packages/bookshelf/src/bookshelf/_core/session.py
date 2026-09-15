@@ -4,20 +4,21 @@ Machine credentials (``$BOOKSHELF_TOKEN`` and the client-credentials exchange CI
 are verified but never replaced,
 because nobody is there to answer a login prompt.
 A missing or spent stored login starts the WorkOS login when a person can answer it:
-a browser login from a terminal with a browser, a device code otherwise.
+a browser login from a local terminal with a browser, a device code otherwise.
 Anywhere else it raises :class:`~bookshelf._core.errors.AuthenticationRequiredError`.
 """
 
 import asyncio
 import os
 import sys
-import warnings
 import webbrowser
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from typing import TextIO
 
 from bookshelf._core import config, credentials, oauth
+from bookshelf._core.auth import AnonymousFallback
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import CredentialSource
 from bookshelf._core.credentials import CredentialKind, StoredCredentials
@@ -60,14 +61,29 @@ def is_interactive() -> bool:
 
 
 def _has_browser() -> bool:
-    if in_notebook():
-        # The loopback redirect cannot reach a kernel running on another machine.
+    """Report whether a browser login can redirect back to this process."""
+    if in_notebook() or os.environ.get("SSH_CONNECTION") or os.environ.get("SSH_TTY"):
         return False
     try:
-        webbrowser.get()
+        browser = webbrowser.get()
     except webbrowser.Error:
         return False
-    return True
+    # A console browser such as lynx cannot run the WorkOS sign-in page.
+    return type(browser) is not webbrowser.GenericBrowser
+
+
+@contextmanager
+def _quiet_spent_login(client: BookshelfClient) -> Iterator[None]:
+    """Drop the spent-login warning while checking, because a login is offered in its place."""
+    fallback = client.auth if isinstance(client.auth, AnonymousFallback) else None
+    if fallback is None:
+        yield
+        return
+    fallback.quiet = True
+    try:
+        yield
+    finally:
+        fallback.quiet = False
 
 
 def _say(line: str) -> None:
@@ -171,9 +187,7 @@ def ensure_authenticated(
     rejected: APIError | None = None
     if client.has_credential:
         try:
-            # A spent stored login warns that it is continuing anonymously, but a login follows.
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
+            with _quiet_spent_login(client):
                 client.verified_user = client.get_current_user()
             return client.verified_user
         except APIError as exc:
@@ -193,8 +207,7 @@ async def ensure_authenticated_async(
     rejected: APIError | None = None
     if client.has_credential:
         try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
+            with _quiet_spent_login(client):
                 client.verified_user = await client.get_current_user_async()
             return client.verified_user
         except APIError as exc:

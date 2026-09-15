@@ -88,6 +88,11 @@ class BookshelfClient:
         return self._ambient_auth
 
     @property
+    def auth(self) -> httpx.Auth | None:
+        """The credential requests carry, or ``None`` when they go out anonymously."""
+        return self._auth
+
+    @property
     def has_credential(self) -> bool:
         """Whether requests carry any credential at all."""
         return self._auth is not None

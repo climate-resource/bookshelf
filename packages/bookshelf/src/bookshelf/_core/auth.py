@@ -370,16 +370,19 @@ class AnonymousFallback(httpx.Auth):
 
     The first degradation warns with ``message``, and the wrapper stays anonymous
     afterwards so one dead credential costs one doomed exchange per provider.
+    Setting ``quiet`` drops that warning, for a caller about to offer a fresh login instead.
     """
 
     def __init__(self, inner: httpx.Auth, *, message: str) -> None:
         self.inner = inner
+        self.quiet = False
         self._message = message
         self._degraded = False
 
     def _degrade(self, exc: AuthenticationError) -> None:
         self._degraded = True
-        warnings.warn(f"{self._message} The exchange failed with: {exc}", stacklevel=3)
+        if not self.quiet:
+            warnings.warn(f"{self._message} The exchange failed with: {exc}", stacklevel=3)
 
     def sync_auth_flow(
         self, request: httpx.Request
