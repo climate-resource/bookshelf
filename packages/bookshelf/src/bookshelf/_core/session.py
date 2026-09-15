@@ -12,8 +12,8 @@ import asyncio
 import os
 import sys
 import webbrowser
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from collections.abc import Callable
+from contextlib import AbstractContextManager, nullcontext
 from typing import TextIO
 
 from bookshelf._core import config, credentials, oauth
@@ -71,17 +71,9 @@ def _has_browser() -> bool:
     return type(browser) is not webbrowser.GenericBrowser
 
 
-@contextmanager
-def _quiet_spent_login(client: BookshelfClient) -> Iterator[None]:
+def _quiet_spent_login(client: BookshelfClient) -> AbstractContextManager[None]:
     """Drop the spent-login warning while checking, because a login is offered in its place."""
-    fallback = client.auth if isinstance(client.auth, AnonymousFallback) else None
-    if fallback is not None:
-        fallback.quiet = True
-    try:
-        yield
-    finally:
-        if fallback is not None:
-            fallback.quiet = False
+    return client.auth.quieted() if isinstance(client.auth, AnonymousFallback) else nullcontext()
 
 
 def _say(line: str) -> None:
