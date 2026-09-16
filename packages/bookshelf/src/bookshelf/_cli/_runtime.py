@@ -17,6 +17,7 @@ import typer
 
 from bookshelf._consume.presentation import human_bytes
 from bookshelf._core import errors
+from bookshelf._core.config import resolve_base_url
 
 EXIT_OK = 0
 EXIT_UNEXPECTED = 1
@@ -34,6 +35,25 @@ class CliError(Exception):
     def __init__(self, message: str, *, exit_code: int = EXIT_UNEXPECTED) -> None:
         super().__init__(message)
         self.exit_code = exit_code
+
+
+_api_url: str | None = None
+
+
+def set_api_url(value: str | None) -> None:
+    """Record the deployment the top-level ``--api-url`` names, for :func:`base_url`."""
+    global _api_url
+    _api_url = value
+
+
+def base_url() -> str:
+    """Resolve the deployment to act against, honouring the top-level ``--api-url``."""
+    return resolve_base_url(_api_url)
+
+
+def requested_api_url() -> str | None:
+    """Return ``--api-url`` as given, for a command that narrows only when it was passed."""
+    return _api_url
 
 
 def emit(payload: str) -> None:
@@ -178,6 +198,7 @@ __all__ = [
     "EXIT_UNEXPECTED",
     "EXIT_USAGE",
     "CliError",
+    "base_url",
     "command_errors",
     "emit",
     "emit_document",
@@ -187,4 +208,6 @@ __all__ = [
     "human_bytes",
     "iso",
     "note",
+    "requested_api_url",
+    "set_api_url",
 ]

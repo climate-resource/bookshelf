@@ -13,11 +13,11 @@ import typer
 from bookshelf._cli._runtime import (
     EXIT_USAGE,
     CliError,
+    base_url,
     command_errors,
     emit_payload,
     iso,
 )
-from bookshelf._core.config import resolve_base_url
 from bookshelf._generated import models
 from bookshelf.facade import Bookshelf
 
@@ -95,7 +95,6 @@ def volume_create(
     metadata: Path | None = typer.Option(
         None, "--metadata", help="JSON file holding arbitrary volume metadata."
     ),
-    api_url: str | None = typer.Option(None, "--api-url", help="Deployment to create in."),
     json_output: bool = typer.Option(False, "--json", help="Emit the volume as JSON."),
 ) -> None:
     """Create a volume, which a first publish into a new collection needs.
@@ -105,7 +104,7 @@ def volume_create(
     """
     with command_errors():
         document = _metadata(metadata)
-        with Bookshelf(resolve_base_url(api_url)) as client:
+        with Bookshelf(base_url()) as client:
             created = client.create_volume(
                 name,
                 license=licence,
@@ -130,7 +129,6 @@ def volume_update(
     metadata: Path | None = typer.Option(
         None, "--metadata", help="JSON file holding arbitrary volume metadata."
     ),
-    api_url: str | None = typer.Option(None, "--api-url", help="Deployment to update in."),
     json_output: bool = typer.Option(False, "--json", help="Emit the volume as JSON."),
 ) -> None:
     """Update a volume's metadata. Each field given replaces what is there, and the licence is fixed."""
@@ -145,7 +143,7 @@ def volume_update(
                 "Run 'bookshelf volume update NAME --description TEXT', or --help for the rest.",
                 exit_code=EXIT_USAGE,
             )
-        with Bookshelf(resolve_base_url(api_url)) as client:
+        with Bookshelf(base_url()) as client:
             updated = client.update_volume(
                 name,
                 description=description,
@@ -160,7 +158,6 @@ def volume_update(
 def volume_delete(
     name: str = typer.Argument(help="Volume to delete, with every book in it."),
     yes: bool = typer.Option(False, "--yes", help="Confirm the deletion, which is not reversible."),
-    api_url: str | None = typer.Option(None, "--api-url", help="Deployment to delete from."),
     json_output: bool = typer.Option(False, "--json", help="Emit the outcome as JSON."),
 ) -> None:
     """Delete a volume and every book in it. This needs ADMIN, where creation needs WRITE."""
@@ -171,7 +168,7 @@ def volume_delete(
                 f"Run 'bookshelf volume delete {name} --yes' to confirm.",
                 exit_code=EXIT_USAGE,
             )
-        with Bookshelf(resolve_base_url(api_url)) as client:
+        with Bookshelf(base_url()) as client:
             client.delete_volume(name)
         emit_payload({"outcome": "deleted", "volume": name}, json_output=json_output)
 

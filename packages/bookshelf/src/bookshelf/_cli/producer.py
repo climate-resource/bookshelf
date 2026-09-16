@@ -30,11 +30,11 @@ from bookshelf._cli._runtime import (
     EXIT_UNEXPECTED,
     EXIT_USAGE,
     CliError,
+    base_url,
     command_errors,
     emit_payload,
 )
 from bookshelf._core.client import BookshelfClient
-from bookshelf._core.config import resolve_base_url
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf.facade import Bookshelf
@@ -240,7 +240,6 @@ def validate(
 
 def publish(
     bundle: Path = typer.Argument(Path("bundle"), help="Bundle directory to replay."),
-    api_url: str | None = typer.Option(None, "--api-url", help="Deployment to publish to."),
     dry_run: bool = typer.Option(
         False,
         "--dry-run",
@@ -258,7 +257,7 @@ def publish(
             loaded = Bundle.read(bundle)
             framing = loaded.require_framing()
 
-        with Bookshelf(resolve_base_url(api_url)) as client:
+        with Bookshelf(base_url()) as client:
             outcome = publish_bundle(loaded, client, dry_run=dry_run)
 
         summary = {
@@ -275,7 +274,6 @@ def publish(
 
 def discard(
     address: str = typer.Argument(help="Draft edition to discard, as volume@version_eNNN."),
-    api_url: str | None = typer.Option(None, "--api-url", help="Deployment to discard in."),
     json_output: bool = typer.Option(False, "--json", help="Emit the outcome as JSON."),
 ) -> None:
     """Delete a draft edition, so a publish that failed validation leaves no debris.
@@ -298,7 +296,7 @@ def discard(
                 f"'bookshelf discard {parsed.volume}@VERSION_eNNN'.",
                 exit_code=EXIT_USAGE,
             )
-        with BookshelfClient(resolve_base_url(api_url)) as client:
+        with BookshelfClient(base_url()) as client:
             book = _resolve_draft(client, parsed)
             client.delete_book(book.id)
         emit_payload(

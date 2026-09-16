@@ -19,6 +19,7 @@ from bookshelf._cli._runtime import (
     EXIT_UNEXPECTED,
     EXIT_USAGE,
     CliError,
+    base_url,
     command_errors,
     emit,
     emit_json,
@@ -26,11 +27,12 @@ from bookshelf._cli._runtime import (
     field,
     iso,
     note,
+    requested_api_url,
 )
 from bookshelf._core import config, credentials, errors, oauth
 from bookshelf._core.auth import JWT_BEARER_GRANT, TokenProvider, decode_jwt_expiry
 from bookshelf._core.client import BookshelfClient
-from bookshelf._core.config import CredentialSource, resolve_base_url
+from bookshelf._core.config import CredentialSource
 from bookshelf._core.credentials import CredentialKind
 from bookshelf._generated import models
 
@@ -70,13 +72,10 @@ def auth_login(
     no_browser: bool = typer.Option(
         False, "--no-browser", help="For a box that cannot open a browser."
     ),
-    api_url: str | None = typer.Option(
-        None, "--api-url", help="Deployment to log in to. Defaults to $BOOKSHELF_URL."
-    ),
     json_output: bool = typer.Option(False, "--json", help="Emit the credential summary as JSON."),
 ) -> None:
     """Log in: through WorkOS as a human, or as an agent with --agent."""
-    base = resolve_base_url(api_url)
+    base = base_url()
     with command_errors():
         if not agent:
             if claim or email is not None:
@@ -299,13 +298,9 @@ def _identity_for_token(base: str, access_token: str) -> models.UserResponse:
 
 
 @auth_app.command("token")
-def auth_token(
-    api_url: str | None = typer.Option(
-        None, "--api-url", help="Deployment whose credential to print."
-    ),
-) -> None:
+def auth_token() -> None:
     """Print the current access token to stdout and nothing else."""
-    base = resolve_base_url(api_url)
+    base = base_url()
     with command_errors():
         source, stored = config.resolve_ambient_credential(base)
         if source is CredentialSource.ENV_TOKEN:
@@ -362,11 +357,10 @@ def auth_whoami(
     offline: bool = typer.Option(
         False, "--offline", help="Report the stored credential without calling the API."
     ),
-    api_url: str | None = typer.Option(None, "--api-url", help="Deployment to report against."),
     json_output: bool = typer.Option(False, "--json", help="Emit the report as JSON."),
 ) -> None:
     """Report the identity in play and which resolution step supplied it."""
-    base = resolve_base_url(api_url)
+    base = base_url()
     with command_errors():
         source, stored = config.resolve_ambient_credential(base)
         if source in (CredentialSource.ENV_TOKEN, CredentialSource.CLIENT_CREDENTIALS):
@@ -468,16 +462,13 @@ def auth_logout(
     all_deployments: bool = typer.Option(
         False, "--all", help="Clear every stored identity for every deployment."
     ),
-    api_url: str | None = typer.Option(
-        None, "--api-url", help="Deployment whose credentials to clear."
-    ),
     no_revoke: bool = typer.Option(
         False, "--no-revoke", help="Skip server-side revocation and only clear local state."
     ),
 ) -> None:
     """Revoke and clear stored credentials. Local state is cleared even when revocation fails."""
     with command_errors():
-        base = None if all_deployments else resolve_base_url(api_url)
+        base = None if all_deployments else base_url()
         records = [
             record
             for record in credentials.list_credentials()
@@ -542,17 +533,14 @@ def auth_list(
 @auth_app.command("switch")
 def auth_switch(
     identity: str = typer.Argument(help="The identity to make active, as shown by 'auth list'."),
-    api_url: str | None = typer.Option(
-        None, "--api-url", help="Disambiguate when the identity exists on several deployments."
-    ),
 ) -> None:
     """Make a stored identity active without re-authenticating."""
     with command_errors():
         records = [
             record for record in credentials.list_credentials() if record.subject == identity
         ]
-        if api_url is not None:
-            base = resolve_base_url(api_url)
+        if requested_api_url() is not None:
+            base = base_url()
             records = [record for record in records if record.api_url == base]
         if not records:
             raise CliError(

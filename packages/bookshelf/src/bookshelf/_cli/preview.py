@@ -16,6 +16,7 @@ from bookshelf._cli._runtime import (
     EXIT_INVALID_BUNDLE,
     EXIT_USAGE,
     CliError,
+    base_url,
     command_errors,
     emit_payload,
     note,
@@ -23,7 +24,6 @@ from bookshelf._cli._runtime import (
 from bookshelf._core.actions_oidc import ActionsTokenError, fetch_actions_token
 from bookshelf._core.auth import StaticToken
 from bookshelf._core.client import BookshelfClient
-from bookshelf._core.config import resolve_base_url
 from bookshelf._generated import models
 from bookshelf.publisher.bundle import InvalidBundleError
 from bookshelf.publisher.preview import PreviewIdentity, upload_preview
@@ -55,7 +55,6 @@ def upload(
     ),
     tree: str = typer.Option(..., "--tree", help="Tree hash of the candidate build."),
     run_id: str = typer.Option(..., "--run-id", help="GitHub Actions run producing the upload."),
-    api_url: str | None = typer.Option(None, "--api-url", help="Deployment to upload to."),
     json_output: bool = typer.Option(False, "--json", help="Emit the summary as JSON."),
 ) -> None:
     """Create a preview for a pull request, upload every candidate book and seal it.
@@ -86,7 +85,7 @@ def upload(
             raise CliError(str(exc), exit_code=EXIT_AUTH_REQUIRED) from exc
 
         # The OIDC token is the only credential, so the ambient chain is never consulted.
-        with BookshelfClient(resolve_base_url(api_url), auth=StaticToken(token)) as client:
+        with BookshelfClient(base_url(), auth=StaticToken(token)) as client:
             try:
                 outcome = upload_preview(bundles, client, identity)
             except InvalidBundleError as exc:

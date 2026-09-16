@@ -8,13 +8,13 @@ from bookshelf._cli._address import Address, parse_address
 from bookshelf._cli._runtime import (
     EXIT_NOT_FOUND,
     CliError,
+    base_url,
     command_errors,
     emit_payload,
     iso,
 )
 from bookshelf._consume.lookup import book_order
 from bookshelf._core.client import BookshelfClient
-from bookshelf._core.config import resolve_base_url
 from bookshelf._generated import models
 
 
@@ -41,12 +41,11 @@ def search(
     facets: bool = typer.Option(
         False, "--facets", help="List the valid filter values instead of searching."
     ),
-    api_url: str | None = typer.Option(None, "--api-url", help="Deployment to search."),
     json_output: bool = typer.Option(False, "--json", help="One JSON object per result."),
 ) -> None:
     """Search volumes with free text and filters, which combine with AND."""
     with command_errors():
-        with BookshelfClient(resolve_base_url(api_url)) as client:
+        with BookshelfClient(base_url()) as client:
             if facets:
                 _emit_facets(client.get_catalogue_facets(), json_output)
                 return
@@ -96,13 +95,12 @@ def _emit_facets(catalogue: models.VolumeFacets, json_output: bool) -> None:
 
 def show(
     address: str = typer.Argument(help="volume[@version[_eNNN]][/file]"),
-    api_url: str | None = typer.Option(None, "--api-url", help="Deployment to resolve against."),
     json_output: bool = typer.Option(False, "--json", help="Emit the description as JSON."),
 ) -> None:
     """Resolve one address and describe what is there, at whatever depth it is given."""
     with command_errors():
         parsed = parse_address(address)
-        with BookshelfClient(resolve_base_url(api_url)) as client:
+        with BookshelfClient(base_url()) as client:
             if parsed.version is None and parsed.entry is None:
                 _show_volume(client, parsed, json_output)
             else:

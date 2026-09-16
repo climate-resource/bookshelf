@@ -9,8 +9,7 @@ from pathlib import Path
 
 import typer
 
-from bookshelf._cli._runtime import command_errors, emit_payload
-from bookshelf._core.config import resolve_base_url
+from bookshelf._cli._runtime import base_url, command_errors, emit_payload
 from bookshelf._core.hashing import sha256_path
 from bookshelf._core.names import flatten_to_resource_name
 from bookshelf._generated import models
@@ -30,7 +29,6 @@ def upload(
     ),
     description: str | None = typer.Option(None, "--description", help="What the file is."),
     tag: list[str] = typer.Option([], "--tag", help="Catalogue tag. Repeatable."),
-    api_url: str | None = typer.Option(None, "--api-url", help="Deployment to upload to."),
     json_output: bool = typer.Option(False, "--json", help="Emit the outcome as JSON."),
 ) -> None:
     """Upload a file as a standalone input and print the bookshelf URI that names it.
@@ -40,7 +38,7 @@ def upload(
     """
     with command_errors():
         content_hash = sha256_path(file)
-        with Bookshelf(resolve_base_url(api_url)) as client:
+        with Bookshelf(base_url()) as client:
             resource = client.register_file(
                 type=type,
                 path=file,

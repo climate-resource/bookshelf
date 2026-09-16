@@ -266,3 +266,21 @@ def test_switch_to_unknown_identity_names_list_command() -> None:
 
     assert result.exit_code == 2
     assert "bookshelf auth list" in result.stderr
+
+
+def test_api_url_is_read_from_the_top_level_option() -> None:
+    """--api-url sits on the app, so it reaches a command that never declares it."""
+    result = runner.invoke(
+        app, ["--api-url", "http://127.0.0.1:8", "auth", "whoami", "--offline", "--json"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["api_url"] == "http://127.0.0.1:8"
+
+
+def test_api_url_after_the_subcommand_is_a_usage_error() -> None:
+    """The flag moved ahead of the subcommand at 1.0, so the old position must fail loudly."""
+    result = runner.invoke(app, ["auth", "whoami", "--offline", "--api-url", "http://127.0.0.1:8"])
+
+    assert result.exit_code == 2
+    assert "No such option: --api-url" in result.output
