@@ -526,9 +526,7 @@ def auth_logout(
             for record in credentials.list_credentials()
             if base is None or record.api_url == base
         ]
-        # A record the file cannot serve still has to be cleared, so it counts here too.
         cleared = {record.api_url for record in records}
-        cleared.update(d for d, _ in credentials.records_needing_migration(base))
         if not cleared:
             note("Not logged in." if base is None else f"Not logged in to {base}.")
             return
