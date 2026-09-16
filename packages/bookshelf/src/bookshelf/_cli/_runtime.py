@@ -76,17 +76,23 @@ def field(label: str, value: str) -> str:
     return f"{label:<13} {value}"
 
 
+def _byte_count_stem(key: str) -> str | None:
+    """Return what a byte-count key is counting, or ``None`` when it counts something else.
+
+    A payload spells a byte count three ways, so the spellings are recognised in one place.
+    """
+    if key == "bytes":
+        return key
+    if key.endswith("_bytes"):
+        return key.removesuffix("_bytes")
+    if key.startswith("bytes_"):
+        return key.removeprefix("bytes_")
+    return None
+
+
 def _label(key: str) -> str:
     """Turn a payload key into its display label."""
-    if key.endswith("_bytes"):
-        key = key.removesuffix("_bytes")
-    elif key.startswith("bytes_"):
-        key = key.removeprefix("bytes_")
-    return key.replace("_", " ").capitalize()
-
-
-def _is_bytes(key: str) -> bool:
-    return key == "bytes" or key.endswith("_bytes") or key.startswith("bytes_")
+    return (_byte_count_stem(key) or key).replace("_", " ").capitalize()
 
 
 def _scalar(key: str, value: object) -> str:
@@ -94,9 +100,17 @@ def _scalar(key: str, value: object) -> str:
         return "-"
     if isinstance(value, bool):
         return "yes" if value else "no"
-    if isinstance(value, int) and _is_bytes(key):
+    if isinstance(value, int) and _byte_count_stem(key) is not None:
         return human_bytes(value)
     return str(value)
+
+
+def _blocks(value: object) -> list[Mapping[str, Any]] | None:
+    """Return the mappings that render as an indented block, or ``None`` for a plain row."""
+    items = [value] if isinstance(value, Mapping) else value
+    if isinstance(items, list) and any(isinstance(item, Mapping) for item in items):
+        return [item for item in items if isinstance(item, Mapping)]
+    return None
 
 
 def _rows(document: Mapping[str, Any]) -> Generator[str]:
@@ -107,11 +121,11 @@ def _rows(document: Mapping[str, Any]) -> Generator[str]:
     width = max((len(_label(key)) for key in document), default=0)
     for key, value in document.items():
         label = _label(key)
-        nested = [value] if isinstance(value, Mapping) else value
-        if isinstance(nested, list) and any(isinstance(item, Mapping) for item in nested):
+        blocks = _blocks(value)
+        if blocks is not None:
             yield label
-            for item in nested:
-                yield from (f"  {line}" for line in _rows(item))
+            for block in blocks:
+                yield from (f"  {line}" for line in _rows(block))
         elif isinstance(value, list):
             yield f"{label:<{width}} {', '.join(str(item) for item in value) or '-'}"
         else:

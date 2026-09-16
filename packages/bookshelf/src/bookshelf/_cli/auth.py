@@ -515,7 +515,11 @@ def auth_list(
         if not records:
             note("No stored identities. Run 'bookshelf auth login' to add one.")
             return
-        for record in records:
+        for position, record in enumerate(records):
+            # One JSON document per line, but a blank line between the human blocks,
+            # so consecutive identities do not run together.
+            if position and not json_output:
+                emit("")
             emit_payload(
                 {
                     "kind": str(record.kind),

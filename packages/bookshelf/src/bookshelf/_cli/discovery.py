@@ -10,6 +10,7 @@ from bookshelf._cli._runtime import (
     CliError,
     base_url,
     command_errors,
+    emit,
     emit_payload,
     iso,
 )
@@ -62,7 +63,11 @@ def search(
                 limit=limit,
                 offset=offset,
             )
-        for item in volumes.items:
+        for position, item in enumerate(volumes.items):
+            # One JSON document per line, but a blank line between the human blocks,
+            # so consecutive results do not run together.
+            if position and not json_output:
+                emit("")
             emit_payload(_volume_row(item), json_output=json_output)
 
 

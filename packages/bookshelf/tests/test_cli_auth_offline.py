@@ -268,6 +268,33 @@ def test_switch_to_unknown_identity_names_list_command() -> None:
     assert "bookshelf auth list" in result.stderr
 
 
+def _store_two_identities() -> None:
+    credentials.save_credentials("one", api_url=API_URL, subject="a@example.com")
+    credentials.save_credentials("two", api_url="http://127.0.0.1:8", subject="b@example.com")
+
+
+def test_list_separates_the_human_blocks() -> None:
+    """One identity reads as one block, so consecutive ones need a blank line between them."""
+    _store_two_identities()
+
+    result = runner.invoke(app, ["auth", "list"])
+
+    assert result.exit_code == 0, result.output
+    assert "\n\n" in result.stdout
+
+
+def test_list_json_stays_one_document_per_line() -> None:
+    """A blank line would break a reader taking one JSON document per line."""
+    _store_two_identities()
+
+    result = runner.invoke(app, ["auth", "list", "--json"])
+
+    assert result.exit_code == 0, result.output
+    lines = [line for line in result.stdout.splitlines() if line]
+    assert len(lines) == len(result.stdout.strip().splitlines())
+    assert [json.loads(line)["id"] for line in lines] == ["a@example.com", "b@example.com"]
+
+
 def test_api_url_is_read_from_the_top_level_option() -> None:
     """--api-url sits on the app, so it reaches a command that never declares it."""
     result = runner.invoke(

@@ -25,7 +25,7 @@ def main_options(
         None, "--api-url", help="Deployment to act against. Defaults to $BOOKSHELF_URL."
     ),
 ) -> None:
-    """Bookshelf data platform CLI."""
+    """Options every command shares, read before the subcommand runs."""
     set_api_url(api_url)
 
 
