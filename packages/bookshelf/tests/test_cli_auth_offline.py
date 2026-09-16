@@ -1,6 +1,7 @@
 """Offline CLI authentication tests that do not require the private backend."""
 
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from bookshelf._core import credentials
 
 API_URL = "http://127.0.0.1:9"
 runner = CliRunner()
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
 @pytest.fixture(autouse=True)
@@ -310,4 +312,5 @@ def test_api_url_after_the_subcommand_is_a_usage_error() -> None:
     result = runner.invoke(app, ["auth", "whoami", "--offline", "--api-url", "http://127.0.0.1:8"])
 
     assert result.exit_code == 2
-    assert "No such option: --api-url" in result.output
+    # Typer colours the option name, so the styling comes off before the message is read.
+    assert "No such option: --api-url" in _ANSI.sub("", result.output)
