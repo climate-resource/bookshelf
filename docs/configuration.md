@@ -1,40 +1,48 @@
 # Configuration
 
-Constructor arguments take precedence over ambient configuration.
-The SDK recognises these environment variables:
+Constructor arguments take precedence over ambient configuration,
+so a value passed to `Bookshelf`, `AsyncBookshelf` or `BookshelfClient`
+always beats the matching environment variable.
 
-- `BOOKSHELF_URL` selects the API deployment.
-  `BOOKSHELF_API_URL` is accepted as an alias.
-- `BOOKSHELF_TOKEN` supplies a static bearer token.
-- `BOOKSHELF_CLIENT_ID` and `BOOKSHELF_CLIENT_SECRET`
-  enable OAuth client credentials.
-  `BOOKSHELF_TOKEN_URL` must name the token endpoint.
-- `BOOKSHELF_WORKOS_CLIENT_ID` configures interactive user login.
-- `BOOKSHELF_WORKOS_BASE_URL` overrides the WorkOS API base URL.
-- `BOOKSHELF_CACHE_DIR` moves the local content cache.
-  `BOOKSHELF_CACHE_LOCATION` is accepted as an alias.
-- `BOOKSHELF_CACHE_BOOK_TTL` sets how many seconds a remembered pinned edition is trusted
-  before one request checks it is still published. The default is one day.
+## Choosing a deployment
 
-## Checking authentication from code
+`base_url=` names the API deployment a client talks to.
+Pass it when the deployment must be explicit, for example in a script that runs against staging.
+Without it, the SDK reads `$BOOKSHELF_URL`, then falls back to a built-in default.
 
-`Bookshelf().ensure_authenticated()` confirms the API accepts the ambient credential
-and returns the identity it belongs to.
-Drafting a book runs the same check first.
+| Variable        | Effect                                                                  |
+| --------------- | ----------------------------------------------------------------------- |
+| `BOOKSHELF_URL` | The API deployment to use. `BOOKSHELF_API_URL` is accepted as an alias. |
 
-- In a terminal, a missing or spent stored login opens a browser to log in.
-- In a notebook, an SSH session or a terminal with no browser, it prints a device code to confirm instead.
-- In CI, `BOOKSHELF_CLIENT_ID`, `BOOKSHELF_CLIENT_SECRET` and `BOOKSHELF_TOKEN_URL` are exchanged for a token.
-  Nothing prompts, because `CI` is set.
-- Anywhere else, it raises `AuthenticationRequiredError` naming the fix.
+Stored credentials are scoped to a deployment,
+so pointing a client at staging never sends it a production login.
 
-A credential passed through `auth=` or `BOOKSHELF_TOKEN` is checked but never replaced by a login.
-A client created with `auth=None` drafts without the check.
+## Credentials
 
-## Where credentials are stored
+These select which credential the client sends.
+[Authentication](authentication.md) explains what each one is for
+and the order they are tried in.
 
-`bookshelf auth login` writes its record to a `0600` file under the user config directory.
+| Variable                     | Effect                                                                                         |
+| ---------------------------- | ---------------------------------------------------------------------------------------------- |
+| `BOOKSHELF_TOKEN`            | A bearer token, sent exactly as given and never refreshed.                                     |
+| `BOOKSHELF_CLIENT_ID`        | An OAuth client ID, paired with `BOOKSHELF_CLIENT_SECRET`. Climate Resource's CI uses this.    |
+| `BOOKSHELF_CLIENT_SECRET`    | The matching client secret.                                                                    |
+| `BOOKSHELF_TOKEN_URL`        | The token endpoint the client credentials are exchanged at. Required alongside the pair above. |
 
-The default API URL is the production Bookshelf deployment.
-Pass `base_url=` to `Bookshelf`, `AsyncBookshelf`, or `BookshelfClient`
-when a particular deployment must be explicit.
+`auth=` on the client overrides every one of these,
+and `auth=None` stays unauthenticated even when a credential is present.
+
+Credentials written by `bookshelf auth login` live on disk rather than in the environment.
+See [where credentials are stored](authentication.md#where-credentials-are-stored).
+
+## Caching
+
+Downloaded resources are cached by content hash, so a repeated read costs no download.
+
+| Variable                   | Effect                                                                             |
+| -------------------------- | ---------------------------------------------------------------------------------- |
+| `BOOKSHELF_CACHE_DIR`      | Moves the local content cache. `BOOKSHELF_CACHE_LOCATION` is accepted as an alias. |
+| `BOOKSHELF_CACHE_BOOK_TTL` | Lifetime of the local cache for a book. The default is one day.                    |
+
+`bookshelf cache` inspects and clears the cache.

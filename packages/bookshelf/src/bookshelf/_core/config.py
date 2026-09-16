@@ -71,7 +71,7 @@ AuthInput = httpx.Auth | str | None | _Unset
 class CredentialSource(enum.StrEnum):
     """Which step of the ambient resolution chain supplied the credential."""
 
-    ENV_TOKEN = "env_token"
+    ENV_TOKEN = "env_token"  # noqa: S105
     CLIENT_CREDENTIALS = "client_credentials"
     STORED_LOGIN = "stored_login"
     NONE = "none"
@@ -106,7 +106,7 @@ def resolve_auth(auth: AuthInput, *, base_url: str | None = None) -> httpx.Auth 
     so a staging client never sends a production login.
     """
     if isinstance(auth, _Unset):
-        return _auth_from_environment(base_url)
+        return ambient_auth(base_url)[1]
     if isinstance(auth, str):
         return StaticToken(auth)
     return auth
@@ -130,15 +130,18 @@ def resolve_ambient_credential(
     return CredentialSource.NONE, None
 
 
-def _auth_from_environment(base_url: str | None) -> httpx.Auth | None:
+def ambient_auth(base_url: str | None) -> tuple[CredentialSource, httpx.Auth | None]:
+    """Walk the ambient chain once, returning the winning step with the credential it supplies."""
     source, stored = resolve_ambient_credential(base_url)
     if source is CredentialSource.ENV_TOKEN:
-        return StaticToken(os.environ["BOOKSHELF_TOKEN"])
+        return source, StaticToken(os.environ["BOOKSHELF_TOKEN"])
     if source is CredentialSource.CLIENT_CREDENTIALS:
-        return client_credentials_from_environment()
+        return source, client_credentials_from_environment()
     if stored is not None:
-        return AnonymousFallback(auth_from_stored(stored), message=_SPENT_CREDENTIAL_MESSAGE)
-    return None
+        return source, AnonymousFallback(
+            auth_from_stored(stored), message=_SPENT_CREDENTIAL_MESSAGE
+        )
+    return source, None
 
 
 def client_credentials_from_environment() -> ClientCredentials:
@@ -233,6 +236,7 @@ __all__ = [
     "UNSET",
     "AuthInput",
     "CredentialSource",
+    "ambient_auth",
     "auth_from_stored",
     "client_credentials_from_environment",
     "resolve_ambient_credential",

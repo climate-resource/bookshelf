@@ -1,8 +1,9 @@
 """Unified client for the Bookshelf SDK.
 
-Every method is a logic-free shell over the I/O-free ``build_*``/``parse_*`` pair for its operation, so the two surfaces cannot drift.
+Every method is a logic-free shell over the I/O-free ``build_*``/``parse_*`` pair for its operation.
+This keeps the sync and async implementations in sync.
 Each surface owns a real httpx transport, created lazily on first use, and the client is long-lived by design.
-The client is designed to be reused across multiple operations, so the transport is not closed after each request.
+The client is designed to be reused across multiple operations so the transport is kept open while in scope.
 """
 
 import asyncio
@@ -20,7 +21,14 @@ if TYPE_CHECKING:
     import pandas as pd
 
 from bookshelf._core import ops
-from bookshelf._core.config import UNSET, AuthInput, resolve_auth, resolve_base_url
+from bookshelf._core.config import (
+    UNSET,
+    AuthInput,
+    CredentialSource,
+    ambient_auth,
+    resolve_auth,
+    resolve_base_url,
+)
 from bookshelf._core.errors import TransportError
 from bookshelf._core.frames import require_payload, to_pandas
 from bookshelf._core.retry import RetryPolicy
@@ -62,8 +70,11 @@ class BookshelfClient:
         async_transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self._base_url = resolve_base_url(base_url)
-        self._auth = resolve_auth(auth, base_url=self._base_url)
-        self._ambient_auth = auth is UNSET
+        self._credential_source: CredentialSource | None = None
+        if auth is UNSET:
+            self._credential_source, self._auth = ambient_auth(self._base_url)
+        else:
+            self._auth = resolve_auth(auth, base_url=self._base_url)
         self.verified_user: models.UserResponse | None = None
         """The identity the API last confirmed for this client's credential."""
         self._timeout = timeout
@@ -83,9 +94,14 @@ class BookshelfClient:
         return self._base_url
 
     @property
+    def credential_source(self) -> CredentialSource | None:
+        """Which ambient step supplied the credential, or ``None`` when ``auth=`` was given."""
+        return self._credential_source
+
+    @property
     def uses_ambient_auth(self) -> bool:
         """Whether the credential came from the environment or a stored login, not ``auth=``."""
-        return self._ambient_auth
+        return self._credential_source is not None
 
     @property
     def auth(self) -> httpx.Auth | None:
