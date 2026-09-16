@@ -31,9 +31,7 @@ from bookshelf._cli._runtime import (
     EXIT_USAGE,
     CliError,
     command_errors,
-    emit,
-    emit_json,
-    field,
+    emit_payload,
 )
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import resolve_base_url
@@ -173,41 +171,6 @@ def _bundle_errors(root: Path) -> Generator[None]:
         ) from exc
 
 
-def _emit_summary(summary: dict[str, Any], labels: dict[str, str], *, json_output: bool) -> None:
-    """Emit one summary, as JSON for a machine caller or aligned rows for a human."""
-    if json_output:
-        emit_json(summary)
-        return
-    emit("\n".join(field(labels[key], str(summary[key])) for key in labels))
-
-
-_RECORD_LABELS = {
-    "bundle_path": "Bundle",
-    "manifest_path": "Manifest",
-    "resources": "Resources",
-    "book_entries": "Entries",
-    "published": "Publishes",
-}
-
-_VALIDATE_LABELS = {
-    "bundle_path": "Bundle",
-    "resources": "Resources",
-    "book_entries": "Entries",
-    "published": "Publishes",
-    "processing": "Processing",
-}
-
-_PUBLISH_LABELS = {
-    "outcome": "Outcome",
-    "volume": "Volume",
-    "version": "Version",
-    "edition": "Edition",
-    "resources": "Resources",
-    "dedupe_hits": "Dedupe hits",
-    "converged": "Converged",
-}
-
-
 def record(
     build: Path | None = typer.Argument(
         None,
@@ -253,7 +216,7 @@ def record(
             version=selected,
             parameters=_parameters(parameter),
         )
-        _emit_summary(summary, _RECORD_LABELS, json_output=json_output)
+        emit_payload(summary, json_output=json_output)
 
 
 def validate(
@@ -272,7 +235,7 @@ def validate(
             "published": framing.published,
             "processing": [list(pair) for pair in framing.processing or ()],
         }
-        _emit_summary(summary, _VALIDATE_LABELS, json_output=json_output)
+        emit_payload(summary, json_output=json_output)
 
 
 def publish(
@@ -307,7 +270,7 @@ def publish(
             "dedupe_hits": outcome.dedupe_hits,
             "converged": outcome.converged,
         }
-        _emit_summary(summary, _PUBLISH_LABELS, json_output=json_output)
+        emit_payload(summary, json_output=json_output)
 
 
 def discard(
@@ -338,10 +301,10 @@ def discard(
         with BookshelfClient(resolve_base_url(api_url)) as client:
             book = _resolve_draft(client, parsed)
             client.delete_book(book.id)
-        if json_output:
-            emit_json({"outcome": "discarded", "book_id": book.id, "address": str(parsed)})
-            return
-        emit(field("Discarded", f"{parsed} ({book.id})"))
+        emit_payload(
+            {"outcome": "discarded", "book_id": book.id, "address": str(parsed)},
+            json_output=json_output,
+        )
 
 
 def _resolve_draft(client: BookshelfClient, parsed: Address) -> models.BookListItem:

@@ -14,9 +14,7 @@ from bookshelf._cli._runtime import (
     EXIT_USAGE,
     CliError,
     command_errors,
-    emit,
-    emit_json,
-    field,
+    emit_payload,
     iso,
 )
 from bookshelf._core.config import resolve_base_url
@@ -67,34 +65,20 @@ def _emit_volume(volume: models.VolumeResponse, *, json_output: bool) -> None:
         if discovery and discovery.maintainers
         else []
     )
-    if json_output:
-        emit_json(
-            {
-                "id": volume.id,
-                "name": volume.name,
-                "license": license_,
-                "description": description,
-                "authors": authors,
-                "maintainers": maintainers,
-                "metadata": volume.metadata,
-                "created_at": iso(volume.created_at),
-                "updated_at": iso(volume.updated_at),
-            }
-        )
-        return
-    lines = [
-        volume.name,
-        field("Id", volume.id),
-        field("Licence", license_ or "-"),
-    ]
-    if description is not None:
-        lines.append(field("Description", description))
-    if authors:
-        lines.append(field("Authors", ", ".join(authors)))
-    if maintainers:
-        lines.append(field("Maintainers", ", ".join(maintainers)))
-    lines.append(field("Updated", iso(volume.updated_at) or "-"))
-    emit("\n".join(lines))
+    emit_payload(
+        {
+            "id": volume.id,
+            "name": volume.name,
+            "license": license_,
+            "description": description,
+            "authors": authors,
+            "maintainers": maintainers,
+            "metadata": volume.metadata,
+            "created_at": iso(volume.created_at),
+            "updated_at": iso(volume.updated_at),
+        },
+        json_output=json_output,
+    )
 
 
 @volume_app.command("create")
@@ -189,10 +173,7 @@ def volume_delete(
             )
         with Bookshelf(resolve_base_url(api_url)) as client:
             client.delete_volume(name)
-        if json_output:
-            emit_json({"outcome": "deleted", "volume": name})
-            return
-        emit(field("Deleted", name))
+        emit_payload({"outcome": "deleted", "volume": name}, json_output=json_output)
 
 
 __all__ = ["volume_app"]

@@ -9,10 +9,7 @@ from bookshelf._cli._runtime import (
     EXIT_NOT_FOUND,
     CliError,
     command_errors,
-    emit,
-    emit_json,
-    field,
-    human_bytes,
+    emit_payload,
     iso,
 )
 from bookshelf._consume.lookup import book_order
@@ -67,20 +64,7 @@ def search(
                 offset=offset,
             )
         for item in volumes.items:
-            if json_output:
-                emit_json(_volume_row(item))
-            else:
-                title = item.discovery.title.root if item.discovery and item.discovery.title else ""
-                latest = _latest_label(item.latest_version, item.latest_edition)
-                emit(f"{item.name:<24} {title:<40} {latest}")
-
-
-def _latest_label(version: str | None, edition: int | None) -> str:
-    if version is None:
-        return "-"
-    if edition is None:
-        return version
-    return f"{version}_e{edition:03d}"
+            emit_payload(_volume_row(item), json_output=json_output)
 
 
 def _volume_row(item: models.VolumeListItem) -> dict[str, Any]:
@@ -107,20 +91,7 @@ def _emit_facets(catalogue: models.VolumeFacets, json_output: bool) -> None:
         "coverage_start_year": catalogue.coverage_start_year,
         "coverage_end_year": catalogue.coverage_end_year,
     }
-    if json_output:
-        emit_json(document)
-        return
-    for label in ("topics", "keywords", "regions", "publishers", "licences", "types"):
-        values = document[label]
-        assert isinstance(values, list)
-        emit(field(label.removesuffix("s"), ", ".join(values)))
-    if catalogue.coverage_start_year is not None or catalogue.coverage_end_year is not None:
-        emit(
-            field(
-                "coverage",
-                f"{catalogue.coverage_start_year or '?'}-{catalogue.coverage_end_year or '?'}",
-            )
-        )
+    emit_payload(document, json_output=json_output)
 
 
 def show(
@@ -147,54 +118,32 @@ def show(
 def _show_volume(client: BookshelfClient, parsed: Address, json_output: bool) -> None:
     volume = client.get_volume(parsed.volume)
     discovery = volume.discovery
-    if json_output:
-        emit_json(
-            {
-                "name": volume.name,
-                "title": discovery.title.root if discovery and discovery.title else None,
-                "publisher": (
-                    discovery.publisher.root if discovery and discovery.publisher else None
-                ),
-                "license": discovery.license.root if discovery and discovery.license else None,
-                "topics": (discovery.topics if discovery else None) or [],
-                "regions": (discovery.spatial_coverage if discovery else None) or [],
-                "versions": [
-                    {
-                        "version": version.version,
-                        "editions": [
-                            {"edition": e.edition, "status": e.status} for e in version.editions
-                        ],
-                    }
-                    for version in volume.versions
-                ],
-                "stats": {
-                    "total_versions": volume.stats.total_versions,
-                    "total_editions": volume.stats.total_editions,
-                    "total_resources": volume.stats.total_resources,
-                    "total_size_bytes": volume.stats.total_size_bytes,
-                },
-            }
-        )
-        return
-    title = discovery.title.root if discovery and discovery.title else ""
-    lines = [f"{volume.name}   {title}".rstrip()]
-    if discovery and discovery.publisher:
-        lines.append(field("Publisher", discovery.publisher.root))
-    license_ = discovery.license.root if discovery and discovery.license else None
-    lines.append(field("Licence", license_ or "-"))
-    if discovery and discovery.topics:
-        lines.append(field("Topics", ", ".join(discovery.topics)))
-    if discovery and discovery.spatial_coverage:
-        lines.append(field("Regions", ", ".join(discovery.spatial_coverage)))
-    lines.append("")
-    lines.append("Versions")
-    for version in volume.versions:
-        editions = "  ".join(
-            f"e{e.edition:03d}" + (" (draft)" if e.status != "published" else "")
-            for e in version.editions
-        )
-        lines.append(f"  {version.version:<7}{editions}")
-    emit("\n".join(lines))
+    emit_payload(
+        {
+            "name": volume.name,
+            "title": discovery.title.root if discovery and discovery.title else None,
+            "publisher": (discovery.publisher.root if discovery and discovery.publisher else None),
+            "license": discovery.license.root if discovery and discovery.license else None,
+            "topics": (discovery.topics if discovery else None) or [],
+            "regions": (discovery.spatial_coverage if discovery else None) or [],
+            "versions": [
+                {
+                    "version": version.version,
+                    "editions": [
+                        {"edition": e.edition, "status": e.status} for e in version.editions
+                    ],
+                }
+                for version in volume.versions
+            ],
+            "stats": {
+                "total_versions": volume.stats.total_versions,
+                "total_editions": volume.stats.total_editions,
+                "total_resources": volume.stats.total_resources,
+                "total_size_bytes": volume.stats.total_size_bytes,
+            },
+        },
+        json_output=json_output,
+    )
 
 
 def _resolve_book(client: BookshelfClient, parsed: Address) -> models.BookListItem:
@@ -219,41 +168,26 @@ def _resolve_book(client: BookshelfClient, parsed: Address) -> models.BookListIt
 
 def _show_book(detail: models.BookResponse, label: str, json_output: bool) -> None:
     resources = detail.resources or []
-    if json_output:
-        emit_json(
-            {
-                "address": label,
-                "book_id": detail.id,
-                "status": str(detail.status),
-                "visibility": str(detail.visibility),
-                "published_at": iso(detail.published_at),
-                "resources": [
-                    {
-                        "name": resource.name,
-                        "type": resource.type,
-                        "format": resource.format,
-                        "bytes": resource.size_bytes,
-                        "content_hash": resource.content_hash,
-                    }
-                    for resource in resources
-                ],
-            }
-        )
-        return
-    lines = [
-        label,
-        field("Status", str(detail.status)),
-        field("Published", iso(detail.published_at) or "not published"),
-        field("Visibility", str(detail.visibility)),
-        "",
-        "Resources",
-    ]
-    for resource in resources:
-        size = human_bytes(resource.size_bytes) if resource.size_bytes is not None else "-"
-        lines.append(
-            f"  {resource.name:<20} {resource.type:<12} {size:<10} {resource.content_hash or ''}"
-        )
-    emit("\n".join(lines))
+    emit_payload(
+        {
+            "address": label,
+            "book_id": detail.id,
+            "status": str(detail.status),
+            "visibility": str(detail.visibility),
+            "published_at": iso(detail.published_at),
+            "resources": [
+                {
+                    "name": resource.name,
+                    "type": resource.type,
+                    "format": resource.format,
+                    "bytes": resource.size_bytes,
+                    "content_hash": resource.content_hash,
+                }
+                for resource in resources
+            ],
+        },
+        json_output=json_output,
+    )
 
 
 def _show_entry(detail: models.BookResponse, label: str, entry: str, json_output: bool) -> None:
@@ -266,30 +200,17 @@ def _show_entry(detail: models.BookResponse, label: str, entry: str, json_output
             f"{label} has no file named {entry!r}. Run 'bookshelf show {label}' to list its files.",
             exit_code=EXIT_NOT_FOUND,
         )
-    if json_output:
-        emit_json(
-            {
-                "tracking_id": match.id,
-                "name": match.name,
-                "type": match.type,
-                "format": match.format,
-                "bytes": match.size_bytes,
-                "content_hash": match.content_hash,
-                "book": label,
-            }
-        )
-        return
-    size = human_bytes(match.size_bytes) if match.size_bytes is not None else "-"
-    emit(
-        "\n".join(
-            [
-                f"{label}/{match.name}",
-                field("Type", match.type),
-                field("Format", match.format or "-"),
-                field("Size", size),
-                field("Hash", match.content_hash or "-"),
-            ]
-        )
+    emit_payload(
+        {
+            "tracking_id": match.id,
+            "name": match.name,
+            "type": match.type,
+            "format": match.format,
+            "bytes": match.size_bytes,
+            "content_hash": match.content_hash,
+            "book": label,
+        },
+        json_output=json_output,
     )
 
 

@@ -72,8 +72,8 @@ def test_upload_prints_the_uri_first(monkeypatch: pytest.MonkeyPatch, workbook: 
 
     assert result.exit_code == EXIT_OK, result.output
     lines = result.stdout.splitlines()
-    assert lines[0] == f"bookshelf://sha256/{digest}"
-    assert lines[1].split() == ["Tracking", "id", TRACKING_ID]
+    assert lines[0].split() == ["Uri", f"bookshelf://sha256/{digest}"]
+    assert lines[2].split() == ["Tracking", "id", TRACKING_ID]
     assert "created" in result.stdout
     assert [request.url.path for request in recorded] == [
         "/v1/resources/uploads",
@@ -118,7 +118,7 @@ def test_upload_says_when_the_bytes_were_already_held(
     result = runner.invoke(app, ["upload", str(workbook), "--type", "binary"])
 
     assert result.exit_code == EXIT_OK, result.output
-    assert "already held" in result.stdout
+    assert "aliased" in result.stdout
     # The canonical row may not be the type that was asked for, so it is read back.
     assert "timeseries" in result.stdout
 

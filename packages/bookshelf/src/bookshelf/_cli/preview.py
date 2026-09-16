@@ -17,9 +17,7 @@ from bookshelf._cli._runtime import (
     EXIT_USAGE,
     CliError,
     command_errors,
-    emit,
-    emit_json,
-    field,
+    emit_payload,
     note,
 )
 from bookshelf._core.actions_oidc import ActionsTokenError, fetch_actions_token
@@ -43,24 +41,6 @@ def _summary(preview: models.PreviewDetail) -> dict[str, Any]:
         "state": preview.state.value,
         "books": [target.model_dump(mode="json") for target in preview.targets],
     }
-
-
-def _emit(summary: dict[str, Any], *, json_output: bool) -> None:
-    if json_output:
-        emit_json(summary)
-        return
-    rows = [
-        field("Preview", summary["preview_id"]),
-        field("State", summary["state"]),
-        field("Proposal", summary["proposal_url"]),
-        field("Preview URL", summary["preview_url"]),
-    ]
-    for book in summary["books"]:
-        baseline = book["baseline"]
-        against = baseline if isinstance(baseline, str) else f"edition {baseline['edition']}"
-        uploaded = "uploaded" if book["uploaded"] else "not uploaded"
-        rows.append(field("Book", f"{book['volume']} {book['version']}, {uploaded}, {against}"))
-    emit("\n".join(rows))
 
 
 @preview_app.command("upload")
@@ -112,7 +92,7 @@ def upload(
             except InvalidBundleError as exc:
                 raise CliError(str(exc), exit_code=EXIT_INVALID_BUNDLE) from exc
 
-        _emit(_summary(outcome.preview), json_output=json_output)
+        emit_payload(_summary(outcome.preview), json_output=json_output)
         if outcome.refused:
             for path, problem in outcome.refused.items():
                 note(f"Refused {path}: {problem}")

@@ -8,7 +8,7 @@ The callers are scripts and agents, so:
 """
 
 import json
-from collections.abc import Generator
+from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any
@@ -54,6 +54,64 @@ def note(message: str) -> None:
 def field(label: str, value: str) -> str:
     """Render an aligned ``label  value`` row."""
     return f"{label:<13} {value}"
+
+
+def _label(key: str) -> str:
+    """Turn a payload key into its display label."""
+    if key.endswith("_bytes"):
+        key = key.removesuffix("_bytes")
+    elif key.startswith("bytes_"):
+        key = key.removeprefix("bytes_")
+    return key.replace("_", " ").capitalize()
+
+
+def _is_bytes(key: str) -> bool:
+    return key == "bytes" or key.endswith("_bytes") or key.startswith("bytes_")
+
+
+def _scalar(key: str, value: object) -> str:
+    if value is None:
+        return "-"
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    if isinstance(value, int) and _is_bytes(key):
+        return human_bytes(value)
+    return str(value)
+
+
+def _rows(document: Mapping[str, Any]) -> Generator[str]:
+    """Yield one aligned row per entry, indenting whatever nests under it.
+
+    Each mapping aligns to its own widest label, so a nested block reads as its own column.
+    """
+    width = max((len(_label(key)) for key in document), default=0)
+    for key, value in document.items():
+        label = _label(key)
+        nested = [value] if isinstance(value, Mapping) else value
+        if isinstance(nested, list) and any(isinstance(item, Mapping) for item in nested):
+            yield label
+            for item in nested:
+                yield from (f"  {line}" for line in _rows(item))
+        elif isinstance(value, list):
+            yield f"{label:<{width}} {', '.join(str(item) for item in value) or '-'}"
+        else:
+            yield f"{label:<{width}} {_scalar(key, value)}"
+
+
+def emit_document(document: Mapping[str, Any]) -> None:
+    """Write the payload to stdout as aligned rows, keyed by the same names ``--json`` uses.
+
+    One renderer over the JSON document, so the two outputs can never drift apart.
+    """
+    emit("\n".join(_rows(document)))
+
+
+def emit_payload(document: Mapping[str, Any], *, json_output: bool) -> None:
+    """Write one payload, as a JSON document or as aligned rows."""
+    if json_output:
+        emit_json(document)
+    else:
+        emit_document(document)
 
 
 def iso(moment: datetime | None) -> str | None:
@@ -122,7 +180,9 @@ __all__ = [
     "CliError",
     "command_errors",
     "emit",
+    "emit_document",
     "emit_json",
+    "emit_payload",
     "field",
     "human_bytes",
     "iso",

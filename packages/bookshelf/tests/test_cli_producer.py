@@ -71,7 +71,7 @@ def test_validate_human_output_names_every_field(make_bundle: BundleFactory) -> 
     result = runner.invoke(app, ["validate", str(bundle.root)])
 
     assert result.exit_code == EXIT_OK
-    for label in ("Bundle", "Resources", "Entries", "Publishes", "Processing"):
+    for label in ("Bundle path", "Resources", "Book entries", "Published", "Processing"):
         assert label in result.stdout
 
 

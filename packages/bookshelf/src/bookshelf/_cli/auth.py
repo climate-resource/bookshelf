@@ -22,6 +22,7 @@ from bookshelf._cli._runtime import (
     command_errors,
     emit,
     emit_json,
+    emit_payload,
     field,
     iso,
     note,
@@ -53,19 +54,6 @@ def _expiry_from(expires_in: int | None) -> datetime | None:
     if expires_in is None:
         return None
     return _now() + timedelta(seconds=expires_in)
-
-
-def _relative(moment: datetime | None) -> str:
-    if moment is None:
-        return "never"
-    seconds = (moment - _now()).total_seconds()
-    if seconds <= 0:
-        return "expired"
-    if seconds < 3600:
-        return f"in {int(seconds // 60)}m"
-    if seconds < 86400:
-        return f"in {int(seconds // 3600)}h"
-    return f"in {int(seconds // 86400)}d"
 
 
 @auth_app.command("login")
@@ -407,22 +395,11 @@ def auth_whoami(
         else:
             _fill_online(report, base, source, stored)
 
-        if json_output:
-            emit_json(report)
-        else:
-            _emit_whoami_human(report)
+        emit_payload(report, json_output=json_output)
         if shadows is not None and source is CredentialSource.ENV_TOKEN:
             note("")
             note(f"Note: $BOOKSHELF_TOKEN overrides your stored login for {shadows['id']}.")
             note("      Unset it to use that instead.")
-
-
-_SOURCE_LABELS = {
-    CredentialSource.ENV_TOKEN: "$BOOKSHELF_TOKEN",
-    CredentialSource.CLIENT_CREDENTIALS: "client credentials ($BOOKSHELF_CLIENT_ID)",
-    CredentialSource.STORED_LOGIN: "stored login",
-    CredentialSource.NONE: "none",
-}
 
 
 def _fill_offline(
@@ -484,26 +461,6 @@ def _fill_online(
             report["reaches"] = "public"
     if source is CredentialSource.STORED_LOGIN and stored is not None:
         report["expires_at"] = iso(stored.expires_at)
-
-
-def _emit_whoami_human(report: dict[str, Any]) -> None:
-    kind = report["kind"]
-    if kind == "agent":
-        kind = "agent, claimed" if report.get("claimed") else "agent, unclaimed"
-    lines = [
-        field("Source", _SOURCE_LABELS[CredentialSource(report["source"])]),
-        field("Kind", kind),
-    ]
-    if report["id"] is not None:
-        lines.append(field("Id", str(report["id"])))
-    lines.append(field("Organisation", report["organization_id"] or "none"))
-    lines.append(field("Permissions", ", ".join(report["permissions"]) or "none"))
-    if report.get("reaches") == "public":
-        lines.append(field("Reaches", "public books only"))
-    if report["expires_at"] is not None:
-        lines.append(field("Expires", str(report["expires_at"])))
-    lines.append(field("API", report["api_url"]))
-    emit("\n".join(lines))
 
 
 @auth_app.command("logout")
@@ -568,28 +525,17 @@ def auth_list(
             note("No stored identities. Run 'bookshelf auth login' to add one.")
             return
         for record in records:
-            is_active = active.get(record.api_url) == record.kind
-            if json_output:
-                emit_json(
-                    {
-                        "kind": str(record.kind),
-                        "id": record.subject,
-                        "api_url": record.api_url,
-                        "active": is_active,
-                        "claimed": record.claimed,
-                        "expires_at": iso(record.expires_at),
-                        "assertion_expires_at": iso(record.assertion_expires_at),
-                    }
-                )
-                continue
-            marker = "*" if is_active else " "
-            expiry = (
-                f"assertion {_relative(record.assertion_expires_at)}"
-                if record.kind is CredentialKind.AGENT
-                else f"expires {_relative(record.expires_at)}"
-            )
-            emit(
-                f"{marker} {record.kind:<6} {record.subject or '-':<40} {record.api_url}   {expiry}"
+            emit_payload(
+                {
+                    "kind": str(record.kind),
+                    "id": record.subject,
+                    "api_url": record.api_url,
+                    "active": active.get(record.api_url) == record.kind,
+                    "claimed": record.claimed,
+                    "expires_at": iso(record.expires_at),
+                    "assertion_expires_at": iso(record.assertion_expires_at),
+                },
+                json_output=json_output,
             )
 
 

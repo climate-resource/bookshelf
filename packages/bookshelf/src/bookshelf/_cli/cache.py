@@ -9,11 +9,8 @@ from bookshelf._cli._runtime import (
     CliError,
     command_errors,
     emit,
-    emit_json,
-    field,
-    human_bytes,
+    emit_payload,
     iso,
-    note,
 )
 from bookshelf.cache import DEFAULT_MAX_BYTES, ContentCache, default_cache_dir
 
@@ -33,33 +30,15 @@ def cache_info(
     """Show cache size, entry count, age range and the configured cap."""
     with command_errors():
         summary = ContentCache().summary()
-        if json_output:
-            emit_json(
-                {
-                    "path": str(summary.path),
-                    "entries": summary.entries,
-                    "total_bytes": summary.total_bytes,
-                    "max_bytes": summary.max_bytes,
-                    "oldest": _iso_mtime(summary.oldest_mtime),
-                    "newest": _iso_mtime(summary.newest_mtime),
-                }
-            )
-            return
-        lines = [
-            field("Path", str(summary.path)),
-            field("Entries", str(summary.entries)),
-            field(
-                "Size",
-                f"{human_bytes(summary.total_bytes)} of {human_bytes(summary.max_bytes)}",
-            ),
-        ]
-        oldest = _iso_mtime(summary.oldest_mtime)
-        if oldest is not None:
-            lines.append(field("Oldest", oldest))
-        newest = _iso_mtime(summary.newest_mtime)
-        if newest is not None:
-            lines.append(field("Newest", newest))
-        emit("\n".join(lines))
+        document = {
+            "path": str(summary.path),
+            "entries": summary.entries,
+            "total_bytes": summary.total_bytes,
+            "max_bytes": summary.max_bytes,
+            "oldest": _iso_mtime(summary.oldest_mtime),
+            "newest": _iso_mtime(summary.newest_mtime),
+        }
+        emit_payload(document, json_output=json_output)
 
 
 @cache_app.command("prune")
@@ -74,18 +53,13 @@ def cache_prune(
         cache = ContentCache()
         freed = cache.evict_lru(max_bytes=max_bytes)
         summary = cache.summary()
-        if json_output:
-            emit_json(
-                {
-                    "bytes_freed": freed,
-                    "total_bytes": summary.total_bytes,
-                    "max_bytes": max_bytes,
-                }
-            )
-            return
-        emit(
-            f"Evicted down to {human_bytes(max_bytes)}: freed {human_bytes(freed)}. "
-            f"Cache now {human_bytes(summary.total_bytes)}."
+        emit_payload(
+            {
+                "bytes_freed": freed,
+                "total_bytes": summary.total_bytes,
+                "max_bytes": max_bytes,
+            },
+            json_output=json_output,
         )
 
 
@@ -103,10 +77,7 @@ def cache_clear(
                 exit_code=EXIT_USAGE,
             )
         freed = ContentCache().clear()
-        if json_output:
-            emit_json({"bytes_freed": freed})
-        else:
-            note(f"Cleared cache, freed {human_bytes(freed)}.")
+        emit_payload({"bytes_freed": freed}, json_output=json_output)
 
 
 @cache_app.command("path")
