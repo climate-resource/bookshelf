@@ -118,7 +118,7 @@ def resolve_ambient_credential(
     """Walk the ambient resolution chain once.
 
     Returns the winning step and, for the stored-login step, the record it found,
-    so callers need no second store or keychain read.
+    so callers need no second store read.
     """
     if os.environ.get("BOOKSHELF_TOKEN"):
         return CredentialSource.ENV_TOKEN, None

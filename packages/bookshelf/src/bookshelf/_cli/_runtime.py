@@ -8,7 +8,7 @@ The callers are scripts and agents, so:
 """
 
 import json
-from collections.abc import Generator
+from collections.abc import Generator, Iterable, Mapping
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any
@@ -17,6 +17,7 @@ import typer
 
 from bookshelf._consume.presentation import human_bytes
 from bookshelf._core import errors
+from bookshelf._core.config import resolve_base_url
 
 EXIT_OK = 0
 EXIT_UNEXPECTED = 1
@@ -34,6 +35,25 @@ class CliError(Exception):
     def __init__(self, message: str, *, exit_code: int = EXIT_UNEXPECTED) -> None:
         super().__init__(message)
         self.exit_code = exit_code
+
+
+_api_url: str | None = None
+
+
+def set_api_url(value: str | None) -> None:
+    """Record the deployment the top-level ``--api-url`` names, for :func:`base_url`."""
+    global _api_url
+    _api_url = value
+
+
+def base_url() -> str:
+    """Resolve the deployment to act against, honouring the top-level ``--api-url``."""
+    return resolve_base_url(_api_url)
+
+
+def requested_api_url() -> str | None:
+    """Return ``--api-url`` as given, for a command that narrows only when it was passed."""
+    return _api_url
 
 
 def emit(payload: str) -> None:
@@ -54,6 +74,92 @@ def note(message: str) -> None:
 def field(label: str, value: str) -> str:
     """Render an aligned ``label  value`` row."""
     return f"{label:<13} {value}"
+
+
+def _byte_count_stem(key: str) -> str | None:
+    """Return what a byte-count key is counting, or ``None`` when it counts something else.
+
+    A payload spells a byte count three ways, so the spellings are recognised in one place.
+    """
+    if key == "bytes":
+        return key
+    if key.endswith("_bytes"):
+        return key.removesuffix("_bytes")
+    if key.startswith("bytes_"):
+        return key.removeprefix("bytes_")
+    return None
+
+
+def _label(key: str) -> str:
+    """Turn a payload key into its display label."""
+    return (_byte_count_stem(key) or key).replace("_", " ").capitalize()
+
+
+def _scalar(key: str, value: object) -> str:
+    if value is None:
+        return "-"
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    if isinstance(value, int) and _byte_count_stem(key) is not None:
+        return human_bytes(value)
+    return str(value)
+
+
+def _blocks(value: object) -> list[Mapping[str, Any]] | None:
+    """Return the mappings that render as an indented block, or ``None`` for a plain row.
+
+    Every item has to be a mapping, because a mixed list renders as one row and keeps the rest.
+    """
+    items = [value] if isinstance(value, Mapping) else value
+    if isinstance(items, list) and items and all(isinstance(item, Mapping) for item in items):
+        return items
+    return None
+
+
+def _rows(document: Mapping[str, Any]) -> Generator[str]:
+    """Yield one aligned row per entry, indenting whatever nests under it.
+
+    Each mapping aligns to its own widest label, so a nested block reads as its own column.
+    """
+    width = max((len(_label(key)) for key in document), default=0)
+    for key, value in document.items():
+        label = _label(key)
+        blocks = _blocks(value)
+        if blocks is not None:
+            yield label
+            for block in blocks:
+                yield from (f"  {line}" for line in _rows(block))
+        elif isinstance(value, list):
+            yield f"{label:<{width}} {', '.join(str(item) for item in value) or '-'}"
+        else:
+            yield f"{label:<{width}} {_scalar(key, value)}"
+
+
+def emit_document(document: Mapping[str, Any]) -> None:
+    """Write the payload to stdout as aligned rows, keyed by the same names ``--json`` uses.
+
+    One renderer over the JSON document, so the two outputs can never drift apart.
+    """
+    emit("\n".join(_rows(document)))
+
+
+def emit_payload(document: Mapping[str, Any], *, json_output: bool) -> None:
+    """Write one payload, as a JSON document or as aligned rows."""
+    if json_output:
+        emit_json(document)
+    else:
+        emit_document(document)
+
+
+def emit_payloads(documents: Iterable[Mapping[str, Any]], *, json_output: bool) -> None:
+    """Write a listing: one JSON document per line, or blocks with a blank line between them.
+
+    A block runs to several lines, so without the separator consecutive results read as one.
+    """
+    for position, document in enumerate(documents):
+        if position and not json_output:
+            emit("")
+        emit_payload(document, json_output=json_output)
 
 
 def iso(moment: datetime | None) -> str | None:
@@ -120,11 +226,15 @@ __all__ = [
     "EXIT_UNEXPECTED",
     "EXIT_USAGE",
     "CliError",
+    "base_url",
     "command_errors",
     "emit",
     "emit_json",
+    "emit_payload",
+    "emit_payloads",
     "field",
-    "human_bytes",
     "iso",
     "note",
+    "requested_api_url",
+    "set_api_url",
 ]

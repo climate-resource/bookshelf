@@ -106,7 +106,7 @@ def test_volume_create_human_output_names_the_volume(monkeypatch: pytest.MonkeyP
 
     assert result.exit_code == EXIT_OK
     assert "example" in result.stdout
-    assert "Licence" in result.stdout
+    assert "License" in result.stdout
 
 
 def test_volume_create_requires_a_licence(monkeypatch: pytest.MonkeyPatch) -> None:

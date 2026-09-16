@@ -19,17 +19,21 @@ from bookshelf._cli._runtime import (
     EXIT_UNEXPECTED,
     EXIT_USAGE,
     CliError,
+    base_url,
     command_errors,
     emit,
     emit_json,
+    emit_payload,
+    emit_payloads,
     field,
     iso,
     note,
+    requested_api_url,
 )
 from bookshelf._core import config, credentials, errors, oauth
 from bookshelf._core.auth import JWT_BEARER_GRANT, TokenProvider, decode_jwt_expiry
 from bookshelf._core.client import BookshelfClient
-from bookshelf._core.config import CredentialSource, resolve_base_url
+from bookshelf._core.config import CredentialSource
 from bookshelf._core.credentials import CredentialKind
 from bookshelf._generated import models
 
@@ -55,19 +59,6 @@ def _expiry_from(expires_in: int | None) -> datetime | None:
     return _now() + timedelta(seconds=expires_in)
 
 
-def _relative(moment: datetime | None) -> str:
-    if moment is None:
-        return "never"
-    seconds = (moment - _now()).total_seconds()
-    if seconds <= 0:
-        return "expired"
-    if seconds < 3600:
-        return f"in {int(seconds // 60)}m"
-    if seconds < 86400:
-        return f"in {int(seconds // 3600)}h"
-    return f"in {int(seconds // 86400)}d"
-
-
 @auth_app.command("login")
 def auth_login(
     agent: bool = typer.Option(
@@ -82,13 +73,10 @@ def auth_login(
     no_browser: bool = typer.Option(
         False, "--no-browser", help="For a box that cannot open a browser."
     ),
-    api_url: str | None = typer.Option(
-        None, "--api-url", help="Deployment to log in to. Defaults to $BOOKSHELF_URL."
-    ),
     json_output: bool = typer.Option(False, "--json", help="Emit the credential summary as JSON."),
 ) -> None:
     """Log in: through WorkOS as a human, or as an agent with --agent."""
-    base = resolve_base_url(api_url)
+    base = base_url()
     with command_errors():
         if not agent:
             if claim or email is not None:
@@ -311,13 +299,9 @@ def _identity_for_token(base: str, access_token: str) -> models.UserResponse:
 
 
 @auth_app.command("token")
-def auth_token(
-    api_url: str | None = typer.Option(
-        None, "--api-url", help="Deployment whose credential to print."
-    ),
-) -> None:
+def auth_token() -> None:
     """Print the current access token to stdout and nothing else."""
-    base = resolve_base_url(api_url)
+    base = base_url()
     with command_errors():
         source, stored = config.resolve_ambient_credential(base)
         if source is CredentialSource.ENV_TOKEN:
@@ -374,11 +358,10 @@ def auth_whoami(
     offline: bool = typer.Option(
         False, "--offline", help="Report the stored credential without calling the API."
     ),
-    api_url: str | None = typer.Option(None, "--api-url", help="Deployment to report against."),
     json_output: bool = typer.Option(False, "--json", help="Emit the report as JSON."),
 ) -> None:
     """Report the identity in play and which resolution step supplied it."""
-    base = resolve_base_url(api_url)
+    base = base_url()
     with command_errors():
         source, stored = config.resolve_ambient_credential(base)
         if source in (CredentialSource.ENV_TOKEN, CredentialSource.CLIENT_CREDENTIALS):
@@ -407,22 +390,11 @@ def auth_whoami(
         else:
             _fill_online(report, base, source, stored)
 
-        if json_output:
-            emit_json(report)
-        else:
-            _emit_whoami_human(report)
+        emit_payload(report, json_output=json_output)
         if shadows is not None and source is CredentialSource.ENV_TOKEN:
             note("")
             note(f"Note: $BOOKSHELF_TOKEN overrides your stored login for {shadows['id']}.")
             note("      Unset it to use that instead.")
-
-
-_SOURCE_LABELS = {
-    CredentialSource.ENV_TOKEN: "$BOOKSHELF_TOKEN",
-    CredentialSource.CLIENT_CREDENTIALS: "client credentials ($BOOKSHELF_CLIENT_ID)",
-    CredentialSource.STORED_LOGIN: "stored login",
-    CredentialSource.NONE: "none",
-}
 
 
 def _fill_offline(
@@ -486,33 +458,10 @@ def _fill_online(
         report["expires_at"] = iso(stored.expires_at)
 
 
-def _emit_whoami_human(report: dict[str, Any]) -> None:
-    kind = report["kind"]
-    if kind == "agent":
-        kind = "agent, claimed" if report.get("claimed") else "agent, unclaimed"
-    lines = [
-        field("Source", _SOURCE_LABELS[CredentialSource(report["source"])]),
-        field("Kind", kind),
-    ]
-    if report["id"] is not None:
-        lines.append(field("Id", str(report["id"])))
-    lines.append(field("Organisation", report["organization_id"] or "none"))
-    lines.append(field("Permissions", ", ".join(report["permissions"]) or "none"))
-    if report.get("reaches") == "public":
-        lines.append(field("Reaches", "public books only"))
-    if report["expires_at"] is not None:
-        lines.append(field("Expires", str(report["expires_at"])))
-    lines.append(field("API", report["api_url"]))
-    emit("\n".join(lines))
-
-
 @auth_app.command("logout")
 def auth_logout(
     all_deployments: bool = typer.Option(
         False, "--all", help="Clear every stored identity for every deployment."
-    ),
-    api_url: str | None = typer.Option(
-        None, "--api-url", help="Deployment whose credentials to clear."
     ),
     no_revoke: bool = typer.Option(
         False, "--no-revoke", help="Skip server-side revocation and only clear local state."
@@ -520,15 +469,13 @@ def auth_logout(
 ) -> None:
     """Revoke and clear stored credentials. Local state is cleared even when revocation fails."""
     with command_errors():
-        base = None if all_deployments else resolve_base_url(api_url)
+        base = None if all_deployments else base_url()
         records = [
             record
             for record in credentials.list_credentials()
             if base is None or record.api_url == base
         ]
-        # A record the file cannot serve still has to be cleared, so it counts here too.
         cleared = {record.api_url for record in records}
-        cleared.update(d for d, _ in credentials.records_needing_migration(base))
         if not cleared:
             note("Not logged in." if base is None else f"Not logged in to {base}.")
             return
@@ -569,46 +516,34 @@ def auth_list(
         if not records:
             note("No stored identities. Run 'bookshelf auth login' to add one.")
             return
-        for record in records:
-            is_active = active.get(record.api_url) == record.kind
-            if json_output:
-                emit_json(
-                    {
-                        "kind": str(record.kind),
-                        "id": record.subject,
-                        "api_url": record.api_url,
-                        "active": is_active,
-                        "claimed": record.claimed,
-                        "expires_at": iso(record.expires_at),
-                        "assertion_expires_at": iso(record.assertion_expires_at),
-                    }
-                )
-                continue
-            marker = "*" if is_active else " "
-            expiry = (
-                f"assertion {_relative(record.assertion_expires_at)}"
-                if record.kind is CredentialKind.AGENT
-                else f"expires {_relative(record.expires_at)}"
-            )
-            emit(
-                f"{marker} {record.kind:<6} {record.subject or '-':<40} {record.api_url}   {expiry}"
-            )
+        emit_payloads(
+            (
+                {
+                    "kind": str(record.kind),
+                    "id": record.subject,
+                    "api_url": record.api_url,
+                    "active": active.get(record.api_url) == record.kind,
+                    "claimed": record.claimed,
+                    "expires_at": iso(record.expires_at),
+                    "assertion_expires_at": iso(record.assertion_expires_at),
+                }
+                for record in records
+            ),
+            json_output=json_output,
+        )
 
 
 @auth_app.command("switch")
 def auth_switch(
     identity: str = typer.Argument(help="The identity to make active, as shown by 'auth list'."),
-    api_url: str | None = typer.Option(
-        None, "--api-url", help="Disambiguate when the identity exists on several deployments."
-    ),
 ) -> None:
     """Make a stored identity active without re-authenticating."""
     with command_errors():
         records = [
             record for record in credentials.list_credentials() if record.subject == identity
         ]
-        if api_url is not None:
-            base = resolve_base_url(api_url)
+        if requested_api_url() is not None:
+            base = base_url()
             records = [record for record in records if record.api_url == base]
         if not records:
             raise CliError(

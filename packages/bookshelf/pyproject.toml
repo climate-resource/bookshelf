@@ -12,9 +12,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "gitpython>=3.1",
     "httpx>=0.27,<1",
-    "keyring>=25",
     "pandas>=2.3",
     "pydantic>=2.7",
     "platformdirs>=4",
@@ -32,19 +30,9 @@ dataframes = []
 scmrun = ["scmdata>=0.18"]
 figures = ["matplotlib>=3.10"]
 publish = [
+    "gitpython>=3.1",
     "nbconvert>=7.0",
     "nbformat>=5.0",
-]
-test = [
-    "pytest>=8",
-    "pytest-asyncio>=0.23",
-    "pytest-cov>=6",
-    "pyyaml>=6.0",
-    "types-PyYAML>=6.0",
-    "keyring>=25",
-    "typer>=0.12",
-    "polars>=1.8",
-    "matplotlib>=3.10",
 ]
 
 [build-system]
@@ -102,7 +90,6 @@ plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
 module = [
-    "keyring.*",
     "nbconvert.*",
     "nbformat.*",
     "pandas",
@@ -116,6 +103,16 @@ ignore_missing_imports = true
 dev = [
     "mypy>=1.13.0",
     "pandas-stubs>=2.2",
+]
+test = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=6",
+    "pyyaml>=6.0",
+    "types-PyYAML>=6.0",
+    "typer>=0.12",
+    "polars>=1.8",
+    "matplotlib>=3.10",
 ]
 codegen = [
     "datamodel-code-generator==0.68.1",

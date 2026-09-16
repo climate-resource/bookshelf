@@ -53,9 +53,6 @@ def test_wheel_metadata_uses_public_distribution_identity(wheel: Path) -> None:
     assert any(
         requirement.startswith("typer>=0.12") for requirement in metadata.get_all("Requires-Dist")
     )
-    assert any(
-        requirement.startswith("keyring>=25") for requirement in metadata.get_all("Requires-Dist")
-    )
     # The distribution keeps the ``bookshelf`` console script for the CLI.
     assert "bookshelf = bookshelf._cli:main" in entry_points
 
