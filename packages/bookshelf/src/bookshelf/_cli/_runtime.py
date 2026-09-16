@@ -106,10 +106,13 @@ def _scalar(key: str, value: object) -> str:
 
 
 def _blocks(value: object) -> list[Mapping[str, Any]] | None:
-    """Return the mappings that render as an indented block, or ``None`` for a plain row."""
+    """Return the mappings that render as an indented block, or ``None`` for a plain row.
+
+    Every item has to be a mapping, because a mixed list renders as one row and keeps the rest.
+    """
     items = [value] if isinstance(value, Mapping) else value
-    if isinstance(items, list) and any(isinstance(item, Mapping) for item in items):
-        return [item for item in items if isinstance(item, Mapping)]
+    if isinstance(items, list) and items and all(isinstance(item, Mapping) for item in items):
+        return items
     return None
 
 

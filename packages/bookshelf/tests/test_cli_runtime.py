@@ -64,6 +64,15 @@ def test_emit_document_repeats_a_block_per_item(capsys: pytest.CaptureFixture[st
     assert capsys.readouterr().out.rstrip("\n") == "Books\n  Volume a\n  Volume b"
 
 
+def test_emit_document_keeps_every_item_of_a_mixed_list(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Arbitrary volume metadata can hold one, so dropping the odd item would lose data."""
+    emit_document({"metadata": [{"name": "a"}, "legacy"]})
+
+    assert "legacy" in capsys.readouterr().out
+
+
 def test_emit_payload_writes_the_same_keys_either_way(capsys: pytest.CaptureFixture[str]) -> None:
     """The two outputs read one document, so they cannot describe different things."""
     document = {"outcome": "created", "size_bytes": 2048}
