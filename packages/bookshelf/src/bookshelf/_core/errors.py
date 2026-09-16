@@ -27,6 +27,10 @@ class AuthConfigurationError(BookshelfError):
     """Ambient credential configuration is inconsistent or incomplete."""
 
 
+class AuthenticationRequiredError(BookshelfError):
+    """No credential the API accepts is available, and none can be obtained here."""
+
+
 class APIError(BookshelfError):
     """An HTTP error response from the API.
 

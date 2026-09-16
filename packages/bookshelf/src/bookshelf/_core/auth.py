@@ -28,7 +28,9 @@ import json
 import threading
 import time
 import warnings
-from collections.abc import AsyncGenerator, Callable, Generator
+from collections.abc import AsyncGenerator, Callable, Generator, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 
 import httpx
 
@@ -358,18 +360,24 @@ class BsatAssertion(_RefreshingAuth):
             self._on_rotate(self._access_token, self._assertion, self._expires_at)
 
 
+# Task and thread local, so requests running beside a quiet check still latch and warn.
+_QUIET: ContextVar["AnonymousFallback | None"] = ContextVar(
+    "anonymous_fallback_quiet", default=None
+)
+
+
 class AnonymousFallback(httpx.Auth):
     """Wrap a provider so a rejected token exchange degrades to unauthenticated requests.
 
-    A stored login whose refresh the issuer rejects is spent, and there is nothing
-    the process can do about it, so insisting on it would deny the caller the public
-    data that needs no credential at all.
+    A stored login whose refresh the issuer rejects is spent,
+    and there is nothing the process can do about it,
+    so insisting on it would deny the caller the public data that needs no credential at all.
     Only the exchange that runs before the wrapped request goes out is covered.
-    Once a request has been sent under a token, a later rejection is a real failure
-    and is raised.
+    Once a request has been sent under a token,
+    a later rejection is a real failure and is raised.
 
-    The first degradation warns with ``message``, and the wrapper stays anonymous
-    afterwards so one dead credential costs one doomed exchange per provider.
+    The first degradation warns with ``message``,
+    and the wrapper stays anonymous afterwards.
     """
 
     def __init__(self, inner: httpx.Auth, *, message: str) -> None:
@@ -377,7 +385,19 @@ class AnonymousFallback(httpx.Auth):
         self._message = message
         self._degraded = False
 
+    @contextmanager
+    def quieted(self) -> Iterator[None]:
+        """Drop the degradation warning inside the block, for a caller about to offer a login."""
+        token = _QUIET.set(self)
+        try:
+            yield
+        finally:
+            _QUIET.reset(token)
+
     def _degrade(self, exc: AuthenticationError) -> None:
+        if _QUIET.get() is self:
+            # Left unlatched, so the next request retries the exchange and warns if it fails again.
+            return
         self._degraded = True
         warnings.warn(f"{self._message} The exchange failed with: {exc}", stacklevel=3)
 
