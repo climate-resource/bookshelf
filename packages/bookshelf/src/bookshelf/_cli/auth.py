@@ -24,6 +24,7 @@ from bookshelf._cli._runtime import (
     emit,
     emit_json,
     emit_payload,
+    emit_payloads,
     field,
     iso,
     note,
@@ -515,12 +516,8 @@ def auth_list(
         if not records:
             note("No stored identities. Run 'bookshelf auth login' to add one.")
             return
-        for position, record in enumerate(records):
-            # One JSON document per line, but a blank line between the human blocks,
-            # so consecutive identities do not run together.
-            if position and not json_output:
-                emit("")
-            emit_payload(
+        emit_payloads(
+            (
                 {
                     "kind": str(record.kind),
                     "id": record.subject,
@@ -529,9 +526,11 @@ def auth_list(
                     "claimed": record.claimed,
                     "expires_at": iso(record.expires_at),
                     "assertion_expires_at": iso(record.assertion_expires_at),
-                },
-                json_output=json_output,
-            )
+                }
+                for record in records
+            ),
+            json_output=json_output,
+        )
 
 
 @auth_app.command("switch")

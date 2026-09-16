@@ -8,7 +8,7 @@ The callers are scripts and agents, so:
 """
 
 import json
-from collections.abc import Generator, Mapping
+from collections.abc import Generator, Iterable, Mapping
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any
@@ -148,6 +148,17 @@ def emit_payload(document: Mapping[str, Any], *, json_output: bool) -> None:
         emit_document(document)
 
 
+def emit_payloads(documents: Iterable[Mapping[str, Any]], *, json_output: bool) -> None:
+    """Write a listing: one JSON document per line, or blocks with a blank line between them.
+
+    A block runs to several lines, so without the separator consecutive results read as one.
+    """
+    for position, document in enumerate(documents):
+        if position and not json_output:
+            emit("")
+        emit_payload(document, json_output=json_output)
+
+
 def iso(moment: datetime | None) -> str | None:
     """Render a datetime as UTC ISO-8601 with a ``Z`` suffix."""
     if moment is None:
@@ -215,11 +226,10 @@ __all__ = [
     "base_url",
     "command_errors",
     "emit",
-    "emit_document",
     "emit_json",
     "emit_payload",
+    "emit_payloads",
     "field",
-    "human_bytes",
     "iso",
     "note",
     "requested_api_url",

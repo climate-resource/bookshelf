@@ -320,13 +320,13 @@ def clear_credentials(api_url: str | None = None, kind: CredentialKind | None = 
     With ``api_url`` only that deployment's records are removed,
     narrowed further to one identity kind when ``kind`` is given.
     """
-    store = _read_store()
     if api_url is None:
         creds_path = credentials_path()
         if creds_path.exists():
             creds_path.unlink()
         return
 
+    store = _read_store()
     api_url = normalise_api_url(api_url)
     kinds = [kind] if kind is not None else list(CredentialKind)
     for target_kind in kinds:

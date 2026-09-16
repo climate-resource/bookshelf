@@ -10,8 +10,8 @@ from bookshelf._cli._runtime import (
     CliError,
     base_url,
     command_errors,
-    emit,
     emit_payload,
+    emit_payloads,
     iso,
 )
 from bookshelf._consume.lookup import book_order
@@ -63,12 +63,7 @@ def search(
                 limit=limit,
                 offset=offset,
             )
-        for position, item in enumerate(volumes.items):
-            # One JSON document per line, but a blank line between the human blocks,
-            # so consecutive results do not run together.
-            if position and not json_output:
-                emit("")
-            emit_payload(_volume_row(item), json_output=json_output)
+        emit_payloads((_volume_row(item) for item in volumes.items), json_output=json_output)
 
 
 def _volume_row(item: models.VolumeListItem) -> dict[str, Any]:
