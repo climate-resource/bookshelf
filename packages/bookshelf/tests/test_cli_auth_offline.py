@@ -1,12 +1,11 @@
 """Offline CLI authentication tests that do not require the private backend."""
 
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
-import keyring
-import keyring.backend
 import pytest
 from typer.testing import CliRunner
 
@@ -15,29 +14,13 @@ from bookshelf._core import credentials
 
 API_URL = "http://127.0.0.1:9"
 runner = CliRunner()
-
-
-class _MemoryKeyring(keyring.backend.KeyringBackend):
-    priority = 1
-
-    def __init__(self) -> None:
-        self._values: dict[tuple[str, str], str] = {}
-
-    def set_password(self, service: str, username: str, password: str) -> None:
-        self._values[(service, username)] = password
-
-    def get_password(self, service: str, username: str) -> str | None:
-        return self._values.get((service, username))
-
-    def delete_password(self, service: str, username: str) -> None:
-        self._values.pop((service, username), None)
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
 @pytest.fixture(autouse=True)
 def isolated_credentials(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     path = tmp_path / "credentials.json"
     monkeypatch.setattr(credentials, "credentials_path", lambda: path)
-    keyring.set_keyring(_MemoryKeyring())
     monkeypatch.setenv("BOOKSHELF_URL", API_URL)
     for name in (
         "BOOKSHELF_TOKEN",
@@ -45,7 +28,6 @@ def isolated_credentials(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
         "BOOKSHELF_CLIENT_SECRET",
         "BOOKSHELF_TOKEN_URL",
         "BOOKSHELF_WORKOS_CLIENT_ID",
-        "BOOKSHELF_USE_KEYCHAIN",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -288,45 +270,47 @@ def test_switch_to_unknown_identity_names_list_command() -> None:
     assert "bookshelf auth list" in result.stderr
 
 
-def _store_a_keychain_only_record(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Log in with the keychain on, then turn it off, as an upgrade does."""
-    monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", "1")
-    credentials.save_credentials("at", api_url=API_URL, refresh_token="rt")
-    monkeypatch.delenv("BOOKSHELF_USE_KEYCHAIN", raising=False)
-    assert credentials.load_credentials(API_URL) is None
+def _store_two_identities() -> None:
+    credentials.save_credentials("one", api_url=API_URL, subject="a@example.com")
+    credentials.save_credentials("two", api_url="http://127.0.0.1:8", subject="b@example.com")
 
 
-def test_logout_clears_a_secret_left_in_the_keychain(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The record no longer loads, so logout has to clear it without one to work from."""
-    _store_a_keychain_only_record(monkeypatch)
+def test_list_separates_the_human_blocks() -> None:
+    """One identity reads as one block, so consecutive ones need a blank line between them."""
+    _store_two_identities()
 
-    result = runner.invoke(app, ["auth", "logout"])
+    result = runner.invoke(app, ["auth", "list"])
 
-    assert result.exit_code == 0
-    assert "Cleared credentials" in result.output
-    monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", "1")
-    assert credentials.load_credentials(API_URL) is None
+    assert result.exit_code == 0, result.output
+    assert "\n\n" in result.stdout
 
 
-def test_logout_all_reports_a_record_it_could_not_read(monkeypatch: pytest.MonkeyPatch) -> None:
-    """--all clears a stranded record, so it has to say so rather than pass in silence."""
-    _store_a_keychain_only_record(monkeypatch)
+def test_list_json_stays_one_document_per_line() -> None:
+    """A blank line would break a reader taking one JSON document per line."""
+    _store_two_identities()
 
-    result = runner.invoke(app, ["auth", "logout", "--all"])
+    result = runner.invoke(app, ["auth", "list", "--json"])
 
-    assert result.exit_code == 0
-    assert f"Cleared credentials for {API_URL}" in result.output
+    assert result.exit_code == 0, result.output
+    lines = [line for line in result.stdout.splitlines() if line]
+    assert len(lines) == len(result.stdout.strip().splitlines())
+    assert [json.loads(line)["id"] for line in lines] == ["a@example.com", "b@example.com"]
 
 
-def test_a_re_login_takes_the_secret_out_of_the_keychain(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The advice says logging in moves the secret, so it has to leave no copy behind."""
-    _store_a_keychain_only_record(monkeypatch)
+def test_api_url_is_read_from_the_top_level_option() -> None:
+    """--api-url sits on the app, so it reaches a command that never declares it."""
+    result = runner.invoke(
+        app, ["--api-url", "http://127.0.0.1:8", "auth", "whoami", "--offline", "--json"]
+    )
 
-    credentials.save_credentials("fresh", api_url=API_URL, refresh_token="fresh-rt")
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["api_url"] == "http://127.0.0.1:8"
 
-    assert credentials.records_needing_migration() == []
-    monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", "1")
-    reloaded = credentials.load_credentials(API_URL)
-    assert reloaded is not None
-    assert reloaded.access_token == "fresh"
-    assert reloaded.refresh_token == "fresh-rt"
+
+def test_api_url_after_the_subcommand_is_a_usage_error() -> None:
+    """The flag moved ahead of the subcommand at 1.0, so the old position must fail loudly."""
+    result = runner.invoke(app, ["auth", "whoami", "--offline", "--api-url", "http://127.0.0.1:8"])
+
+    assert result.exit_code == 2
+    # Typer colours the option name, so the styling comes off before the message is read.
+    assert "No such option: --api-url" in _ANSI.sub("", result.output)

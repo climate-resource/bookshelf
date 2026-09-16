@@ -4,21 +4,8 @@ The store holds several records at once, keyed by deployment plus identity kind
 (``user`` for a WorkOS login, ``agent`` for a Bookshelf agent identity).
 One record per deployment is active, and one deployment is the default.
 
-Secrets have two possible homes:
-
-1. **JSON file** (the default) at the ``platformdirs`` user-config path
-   ``bookshelf/credentials.json``, readable only by the current user.
-2. **OS keychain** (opt in with ``$BOOKSHELF_USE_KEYCHAIN``) under service name
-   ``"bookshelf"``, with one username per record secret
-   (``"<key>:access_token"`` and friends).
-   On read the keychain value takes precedence over the file copy.
-
-The file is the default because macOS keys a keychain item's access control list to the code
-signature of the reading process.
-The interpreters this SDK runs under are ad-hoc signed, so the list never holds,
-and the unlock prompt never stops.
-
-When no keychain backend is available every keychain call degrades silently to the file-only path.
+Secrets live in a JSON file at the ``platformdirs`` user-config path
+``bookshelf/credentials.json``, readable only by the current user.
 """
 
 import enum
@@ -34,11 +21,7 @@ from platformdirs import user_config_dir
 
 from bookshelf._core.auth import decode_jwt_expiry
 
-_KEYCHAIN_SERVICE = "bookshelf"
-
 STORE_VERSION = 2
-
-_SECRET_FIELDS = ("access_token", "refresh_token", "identity_assertion")
 
 
 class CredentialKind(enum.StrEnum):
@@ -114,50 +97,6 @@ def credentials_path() -> Path:
     return Path(user_config_dir("bookshelf")) / "credentials.json"
 
 
-def keychain_enabled() -> bool:
-    """Report whether ``$BOOKSHELF_USE_KEYCHAIN`` opts in to the OS keychain."""
-    return os.environ.get("BOOKSHELF_USE_KEYCHAIN", "").strip().lower() not in (
-        "",
-        "0",
-        "false",
-        "no",
-    )
-
-
-def _keychain_call(operation: str, *args: str) -> str | None:
-    """Invoke a keyring operation, swallowing every backend failure.
-
-    A missing or broken keychain backend must never break login, load, or logout,
-    so the caller falls back to the file copy.
-    """
-    try:
-        import keyring
-
-        result = getattr(keyring, operation)(_KEYCHAIN_SERVICE, *args)
-        return None if result is None else str(result)
-    except Exception:
-        return None
-
-
-def _keychain_set(username: str, value: str) -> bool:
-    """Store one secret and confirm it can be read back."""
-    if not keychain_enabled():
-        return False
-    _keychain_call("set_password", username, value)
-    return _keychain_get(username) == value
-
-
-def _keychain_get(username: str) -> str | None:
-    if not keychain_enabled():
-        return None
-    return _keychain_call("get_password", username)
-
-
-def _keychain_delete(username: str) -> None:
-    """Delete whether or not the keychain is opted in to, so a logout reaches every secret."""
-    _keychain_call("delete_password", username)
-
-
 def _parse_kind(value: Any) -> CredentialKind | None:
     try:
         return CredentialKind(value)
@@ -213,8 +152,8 @@ def _write_store(store: dict[str, Any]) -> None:
         temporary.unlink(missing_ok=True)
 
 
-def _record_to_credentials(key: str, record: dict[str, Any]) -> StoredCredentials | None:
-    access_token = _keychain_get(f"{key}:access_token") or record.get("access_token")
+def _record_to_credentials(record: dict[str, Any]) -> StoredCredentials | None:
+    access_token = record.get("access_token")
     if not isinstance(access_token, str) or not access_token:
         return None
     if not isinstance(record.get("api_url"), str):
@@ -228,11 +167,9 @@ def _record_to_credentials(key: str, record: dict[str, Any]) -> StoredCredential
         token_type=str(record.get("token_type", "bearer")),
         expires_at=_parse_datetime(record.get("expires_at")),
         api_url=record["api_url"],
-        refresh_token=_keychain_get(f"{key}:refresh_token") or record.get("refresh_token"),
+        refresh_token=record.get("refresh_token"),
         kind=kind,
-        identity_assertion=(
-            _keychain_get(f"{key}:identity_assertion") or record.get("identity_assertion")
-        ),
+        identity_assertion=record.get("identity_assertion"),
         assertion_expires_at=_parse_datetime(record.get("assertion_expires_at")),
         subject=record.get("subject"),
         organization_id=record.get("organization_id"),
@@ -261,39 +198,16 @@ def load_credentials(api_url: str | None = None) -> StoredCredentials | None:
     record = store.get("records", {}).get(key)
     if not isinstance(record, dict):
         return None
-    return _record_to_credentials(key, record)
-
-
-def records_needing_migration(api_url: str | None = None) -> list[tuple[str, CredentialKind]]:
-    """Return the identities the file indexes but holds no token for, narrowed by ``api_url``.
-
-    A record written while the keychain held the secrets reads as a missing login,
-    rather than as one waiting to be moved.
-    Nothing needs moving while the keychain is switched on, so the list is then empty.
-    """
-    if keychain_enabled():
-        return []
-    target = normalise_api_url(api_url) if api_url is not None else None
-    stranded = []
-    for record in _read_store().get("records", {}).values():
-        if not isinstance(record, dict) or record.get("access_token"):
-            continue
-        deployment = record.get("api_url")
-        kind = _parse_kind(record.get("kind", CredentialKind.USER))
-        if not isinstance(deployment, str) or kind is None:
-            continue
-        if target is None or deployment == target:
-            stranded.append((deployment, kind))
-    return stranded
+    return _record_to_credentials(record)
 
 
 def list_credentials() -> list[StoredCredentials]:
     """Return every stored credential record."""
     store = _read_store()
     found: list[StoredCredentials] = []
-    for key, record in store.get("records", {}).items():
+    for record in store.get("records", {}).values():
         if isinstance(record, dict):
-            credentials = _record_to_credentials(key, record)
+            credentials = _record_to_credentials(record)
             if credentials is not None:
                 found.append(credentials)
     return found
@@ -361,34 +275,16 @@ def save_record(record: StoredCredentials) -> StoredCredentials:
     kind = record.kind
     key = record_key(api_url, kind)
 
-    secrets: dict[str, str | None] = {
-        "access_token": record.access_token,
-        "refresh_token": record.refresh_token,
-        "identity_assertion": record.identity_assertion,
-    }
     store = _read_store()
-    previous = store.get("records", {}).get(key)
-    if not isinstance(previous, dict):
-        previous = {}
-    # A secret reaches the file only when the keychain could not take it,
-    # and only a keychain-homed record can still be shadowed by a copy worth deleting.
-    keychain_homed = bool(previous) and not previous.get("access_token")
-    for field in _SECRET_FIELDS:
-        value = secrets[field]
-        if value is not None and _keychain_set(f"{key}:{field}", value):
-            secrets[field] = None
-        elif keychain_homed and not previous.get(field):
-            _keychain_delete(f"{key}:{field}")
-
     assertion_expiry = record.assertion_expires_at
     store["records"][key] = {
-        "access_token": secrets["access_token"],
+        "access_token": record.access_token,
         "token_type": record.token_type,
         "expires_at": expires_at.isoformat() if expires_at else None,
         "api_url": api_url,
-        "refresh_token": secrets["refresh_token"],
+        "refresh_token": record.refresh_token,
         "kind": str(kind),
-        "identity_assertion": secrets["identity_assertion"],
+        "identity_assertion": record.identity_assertion,
         "assertion_expires_at": assertion_expiry.isoformat() if assertion_expiry else None,
         "subject": record.subject,
         "organization_id": record.organization_id,
@@ -413,7 +309,7 @@ def set_active(api_url: str, kind: CredentialKind) -> StoredCredentials:
     record = store.get("records", {}).get(key)
     if not isinstance(record, dict):
         raise KeyError(key)
-    credentials = _record_to_credentials(key, record)
+    credentials = _record_to_credentials(record)
     if credentials is None:
         raise KeyError(key)
     store["active"][api_url] = str(kind)
@@ -422,40 +318,24 @@ def set_active(api_url: str, kind: CredentialKind) -> StoredCredentials:
     return credentials
 
 
-def _delete_record_secrets(key: str) -> None:
-    for secret in _SECRET_FIELDS:
-        _keychain_delete(f"{key}:{secret}")
-
-
 def clear_credentials(api_url: str | None = None, kind: CredentialKind | None = None) -> None:
-    """Delete stored credentials from both the keychain and the file.
+    """Delete stored credentials from the file.
 
     Without arguments every record for every deployment is removed.
     With ``api_url`` only that deployment's records are removed,
     narrowed further to one identity kind when ``kind`` is given.
     """
-    # Fixed keychain names written by the old single-slot store.
-    # Delete them,
-    # so stale secrets do not linger after a full logout.
     if api_url is None:
-        _keychain_delete("access_token")
-        _keychain_delete("refresh_token")
-
-    store = _read_store()
-    if api_url is None:
-        for key in store.get("records", {}):
-            _delete_record_secrets(key)
         creds_path = credentials_path()
         if creds_path.exists():
             creds_path.unlink()
         return
 
+    store = _read_store()
     api_url = normalise_api_url(api_url)
     kinds = [kind] if kind is not None else list(CredentialKind)
     for target_kind in kinds:
-        key = record_key(api_url, target_kind)
-        if store["records"].pop(key, None) is not None:
-            _delete_record_secrets(key)
+        store["records"].pop(record_key(api_url, target_kind), None)
     active_kind = store.get("active", {}).get(api_url)
     if kind is None or active_kind == kind:
         store["active"].pop(api_url, None)
@@ -472,12 +352,10 @@ __all__ = [
     "clear_credentials",
     "credentials_path",
     "expiry_from",
-    "keychain_enabled",
     "list_credentials",
     "load_credentials",
     "normalise_api_url",
     "record_key",
-    "records_needing_migration",
     "save_credentials",
     "save_record",
     "set_active",

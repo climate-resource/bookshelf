@@ -95,9 +95,12 @@ def test_upload_human_output_names_the_links(make_bundle: BundleFactory) -> None
     result = runner.invoke(app, _arguments(bundle.root))
 
     assert result.exit_code == EXIT_OK, result.output
-    for label in ("Preview", "State", "Proposal", "Preview URL", "Book"):
+    for label in ("Preview id", "State", "Proposal url", "Preview url", "Books"):
         assert label in result.stdout
-    assert "example v1.0.0, uploaded, absent" in result.stdout
+    # The book block is indented under Books, one row per field.
+    assert "Volume" in result.stdout
+    assert "example" in result.stdout
+    assert "v1.0.0" in result.stdout
 
 
 @pytest.mark.usefixtures("oidc_token", "deployment")

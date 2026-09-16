@@ -1,2 +1,0 @@
-formats = "ipynb,py:percent"
-cell_metadata_filter = "-pycharm"

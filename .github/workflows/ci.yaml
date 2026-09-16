@@ -28,7 +28,7 @@ jobs:
           key: ${{ runner.os }}-pre-commit
       - name: mypy
         run: |
-          (cd packages/bookshelf && uv run --locked --all-extras mypy src)
+          (cd packages/bookshelf && uv run --locked --all-extras --group test mypy src)
           # Runs ruff, uv lock and various sanity checks
           uv run pre-commit run --all-files
 
@@ -91,11 +91,11 @@ jobs:
       - name: Run SDK tests
         run: |
           uv run --python ${{ matrix.python-version }} --locked \
-            --package bookshelf --all-extras \
+            --package bookshelf --all-extras --group test \
             pytest packages/bookshelf -r a -v \
             --cov=packages/bookshelf/src --cov-report=term
           uv run --python ${{ matrix.python-version }} --locked \
-            --package bookshelf --all-extras \
+            --package bookshelf --all-extras --group test \
             coverage xml
       - name: Upload coverage reports to Codecov with GitHub Action
         uses: codecov/codecov-action@v4.2.0
