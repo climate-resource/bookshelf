@@ -30,11 +30,8 @@
 # and replaying the same bundle twice converges on one published edition.
 
 # %%
-import os
 import tempfile
 from pathlib import Path
-
-os.environ.setdefault("BOOKSHELF_URL", "https://bookshelf-staging.ovh.climateresource.com.au")
 
 from bookshelf.publisher import Bundle, RecordingBookshelf
 

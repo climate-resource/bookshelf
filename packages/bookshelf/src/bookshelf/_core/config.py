@@ -44,9 +44,7 @@ PRODUCTION_API_URL = "https://bookshelf.climateresource.com.au"
 PRODUCTION_API_HOST = urlparse(PRODUCTION_API_URL).hostname or ""
 STAGING_API_URL = "https://bookshelf-staging.ovh.climateresource.com.au"
 
-# Staging is the only deployment serving data today.
-# The 1.0.0 release moves this to PRODUCTION_API_URL.
-DEFAULT_API_URL = STAGING_API_URL
+DEFAULT_API_URL = PRODUCTION_API_URL
 
 _SPENT_CREDENTIAL_MESSAGE = (
     "The stored Bookshelf login could not be refreshed, "
