@@ -33,6 +33,5 @@ The [how-to guides](how-to-guides/index.md) go further on both sides.
 Each one is a notebook executed against a live deployment when these docs are built,
 so its output is real.
 
-See the repository's
-[package README](https://github.com/climate-resource/bookshelf/tree/main/packages/bookshelf#readme)
-for authentication and code generation.
+Reading a public book needs no credential.
+For private books and for publishing, see [Authentication](authentication.md).

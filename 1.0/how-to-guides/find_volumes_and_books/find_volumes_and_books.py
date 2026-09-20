@@ -21,10 +21,6 @@
 # because private volumes belonging to your organisation join the results.
 
 # %%
-import os
-
-os.environ.setdefault("BOOKSHELF_URL", "https://bookshelf-staging.ovh.climateresource.com.au")
-
 from bookshelf import Bookshelf
 
 bs = Bookshelf()

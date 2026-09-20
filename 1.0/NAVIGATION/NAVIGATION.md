@@ -5,6 +5,7 @@ See https://oprypin.github.io/mkdocs-literate-nav/
 -->
 * [Bookshelf](index.md)
 * [Getting Started](getting_started.md)
+* [Authentication](authentication.md)
 * [Configuration](configuration.md)
 * [How-to guides](how-to-guides/index.md)
     * [Finding volumes and books](how-to-guides/find_volumes_and_books.py)

@@ -26,11 +26,8 @@
 # Replay is the half that writes.
 
 # %%
-import os
 import tempfile
 from pathlib import Path
-
-os.environ.setdefault("BOOKSHELF_URL", "https://bookshelf-staging.ovh.climateresource.com.au")
 
 import pandas as pd
 import yaml
