@@ -64,9 +64,6 @@
 
 # %%
 import asyncio
-import os
-
-os.environ.setdefault("BOOKSHELF_URL", "https://bookshelf-staging.ovh.climateresource.com.au")
 
 from bookshelf import AsyncBookshelf
 

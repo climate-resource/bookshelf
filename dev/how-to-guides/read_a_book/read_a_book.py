@@ -25,13 +25,8 @@
 # `Bookshelf` provides a number of high-level functions on top of the bookshelf API.
 # The deployment it talks to resolves from the `base_url` argument,
 # then `$BOOKSHELF_URL`, then the production URL.
-# These guides pin the staging deployment so they are reproducible.
 
 # %%
-import os
-
-os.environ.setdefault("BOOKSHELF_URL", "https://bookshelf-staging.ovh.climateresource.com.au")
-
 from bookshelf import Bookshelf
 
 bs = Bookshelf()
