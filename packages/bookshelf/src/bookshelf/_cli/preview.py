@@ -21,14 +21,16 @@ from bookshelf._cli._runtime import (
     emit_payload,
     note,
 )
-from bookshelf._core.actions_oidc import ActionsTokenError, fetch_actions_token
+from bookshelf._core.actions_oidc import (
+    PREVIEW_AUDIENCE,
+    ActionsTokenError,
+    fetch_actions_token,
+)
 from bookshelf._core.auth import StaticToken
 from bookshelf._core.client import BookshelfClient
 from bookshelf._generated import models
 from bookshelf.publisher.bundle import InvalidBundleError
 from bookshelf.publisher.preview import PreviewIdentity, upload_preview
-
-AUDIENCE = "bookshelf"
 
 preview_app = typer.Typer(help="Store pull request previews.", no_args_is_help=True)
 
@@ -80,7 +82,7 @@ def upload(
             run_id=run_id,
         )
         try:
-            token = fetch_actions_token(AUDIENCE)
+            token = fetch_actions_token(PREVIEW_AUDIENCE)
         except ActionsTokenError as exc:
             raise CliError(str(exc), exit_code=EXIT_AUTH_REQUIRED) from exc
 

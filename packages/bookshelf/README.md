@@ -272,9 +272,10 @@ When `auth=` is omitted, ambient credentials resolve in this order
 (explicit beats ambient, machine beats human):
 
 1. `$BOOKSHELF_TOKEN` as a static bearer
-2. `$BOOKSHELF_CLIENT_ID` + `$BOOKSHELF_CLIENT_SECRET`, minted at `$BOOKSHELF_TOKEN_URL`
-3. stored `bookshelf auth login` credentials
-4. unauthenticated (public reads)
+2. a GitHub Actions OIDC token, only when `$BOOKSHELF_AUTH=github-actions`
+3. `$BOOKSHELF_CLIENT_ID` + `$BOOKSHELF_CLIENT_SECRET`, minted at `$BOOKSHELF_TOKEN_URL`
+4. stored `bookshelf auth login` credentials
+5. unauthenticated (public reads)
 
 `auth=` also accepts a provider instance or a bare token string,
 and an explicit `auth=None` stays unauthenticated.

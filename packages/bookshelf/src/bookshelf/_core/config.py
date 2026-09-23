@@ -4,14 +4,18 @@ Resolution when ``auth=`` is omitted follows the binding chain
 (explicit beats ambient, machine beats human):
 
 1. ``$BOOKSHELF_TOKEN`` as a static bearer
-2. ``$BOOKSHELF_CLIENT_ID`` + ``$BOOKSHELF_CLIENT_SECRET`` as client credentials,
+2. a GitHub Actions OIDC token, only when ``$BOOKSHELF_AUTH`` asks for one
+3. ``$BOOKSHELF_CLIENT_ID`` + ``$BOOKSHELF_CLIENT_SECRET`` as client credentials,
    minted at ``$BOOKSHELF_TOKEN_URL``
-3. the stored active credential for the deployment, refreshed by kind:
+4. the stored active credential for the deployment, refreshed by kind:
    a WorkOS user pair through the refresh-token grant,
    an agent record through its identity assertion
-4. unauthenticated (public reads)
+5. unauthenticated (public reads)
 
-A stored credential the issuer refuses to refresh falls through to step 4 with a warning,
+Step 2 is opt-in rather than ambient,
+because a job holding ``id-token: write`` for something else must never mint for Bookshelf.
+
+A stored credential the issuer refuses to refresh falls through to step 5 with a warning,
 because a spent login must not cost the caller the public data it never needed a login for.
 
 ``auth=`` also accepts a provider instance or a bare token string,
@@ -29,7 +33,9 @@ from urllib.parse import urlparse
 import httpx
 
 from bookshelf._core import credentials, oauth
+from bookshelf._core.actions_oidc import READ_AUDIENCE
 from bookshelf._core.auth import (
+    ActionsOidcToken,
     AnonymousFallback,
     BsatAssertion,
     ClientCredentials,
@@ -45,6 +51,9 @@ PRODUCTION_API_HOST = urlparse(PRODUCTION_API_URL).hostname or ""
 STAGING_API_URL = "https://bookshelf-staging.ovh.climateresource.com.au"
 
 DEFAULT_API_URL = PRODUCTION_API_URL
+
+AUTH_MODE_VAR = "BOOKSHELF_AUTH"
+GITHUB_ACTIONS_AUTH_MODE = "github-actions"
 
 _SPENT_CREDENTIAL_MESSAGE = (
     "The stored Bookshelf login could not be refreshed, "
@@ -70,6 +79,7 @@ class CredentialSource(enum.StrEnum):
     """Which step of the ambient resolution chain supplied the credential."""
 
     ENV_TOKEN = "env_token"  # noqa: S105
+    ACTIONS_OIDC = "actions_oidc"
     CLIENT_CREDENTIALS = "client_credentials"
     STORED_LOGIN = "stored_login"
     NONE = "none"
@@ -110,6 +120,22 @@ def resolve_auth(auth: AuthInput, *, base_url: str | None = None) -> httpx.Auth 
     return auth
 
 
+def github_actions_requested() -> bool:
+    """Report whether ``$BOOKSHELF_AUTH`` asks for the job's GitHub Actions OIDC token.
+
+    Any other value is a mistake worth naming rather than silently ignoring.
+    """
+    mode = os.environ.get(AUTH_MODE_VAR, "").strip().lower()
+    if not mode:
+        return False
+    if mode != GITHUB_ACTIONS_AUTH_MODE:
+        raise AuthConfigurationError(
+            f"${AUTH_MODE_VAR} is set to {mode!r}, "
+            f"and the only value it takes is {GITHUB_ACTIONS_AUTH_MODE!r}."
+        )
+    return True
+
+
 def resolve_ambient_credential(
     base_url: str | None = None,
 ) -> tuple[CredentialSource, credentials.StoredCredentials | None]:
@@ -120,6 +146,8 @@ def resolve_ambient_credential(
     """
     if os.environ.get("BOOKSHELF_TOKEN"):
         return CredentialSource.ENV_TOKEN, None
+    if github_actions_requested():
+        return CredentialSource.ACTIONS_OIDC, None
     if os.environ.get("BOOKSHELF_CLIENT_ID") and os.environ.get("BOOKSHELF_CLIENT_SECRET"):
         return CredentialSource.CLIENT_CREDENTIALS, None
     stored = credentials.load_credentials(base_url)
@@ -133,6 +161,8 @@ def ambient_auth(base_url: str | None) -> tuple[CredentialSource, httpx.Auth | N
     source, stored = resolve_ambient_credential(base_url)
     if source is CredentialSource.ENV_TOKEN:
         return source, StaticToken(os.environ["BOOKSHELF_TOKEN"])
+    if source is CredentialSource.ACTIONS_OIDC:
+        return source, ActionsOidcToken(READ_AUDIENCE)
     if source is CredentialSource.CLIENT_CREDENTIALS:
         return source, client_credentials_from_environment()
     if stored is not None:
@@ -227,7 +257,9 @@ def _rotation_sink(
 
 
 __all__ = [
+    "AUTH_MODE_VAR",
     "DEFAULT_API_URL",
+    "GITHUB_ACTIONS_AUTH_MODE",
     "PRODUCTION_API_HOST",
     "PRODUCTION_API_URL",
     "STAGING_API_URL",
@@ -237,6 +269,7 @@ __all__ = [
     "ambient_auth",
     "auth_from_stored",
     "client_credentials_from_environment",
+    "github_actions_requested",
     "resolve_ambient_credential",
     "resolve_auth",
     "resolve_base_url",
