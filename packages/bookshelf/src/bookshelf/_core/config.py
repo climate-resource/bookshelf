@@ -144,9 +144,11 @@ def resolve_ambient_credential(
     Returns the winning step and, for the stored-login step, the record it found,
     so callers need no second store read.
     """
+    # Checked first, so a mistyped mode is named even when a token wins the chain.
+    github_actions = github_actions_requested()
     if os.environ.get("BOOKSHELF_TOKEN"):
         return CredentialSource.ENV_TOKEN, None
-    if github_actions_requested():
+    if github_actions:
         return CredentialSource.ACTIONS_OIDC, None
     if os.environ.get("BOOKSHELF_CLIENT_ID") and os.environ.get("BOOKSHELF_CLIENT_SECRET"):
         return CredentialSource.CLIENT_CREDENTIALS, None

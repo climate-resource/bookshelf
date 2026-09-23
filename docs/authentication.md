@@ -108,7 +108,7 @@ env:
 
 The opt-in is deliberate.
 A job that holds `id-token: write` for something else never sends its token to Bookshelf
-unless it asks to.
+unless the workflow explicitly opts in.
 
 The token is read-only, and every write is refused,
 so a job that publishes still needs a credential of its own.

@@ -125,6 +125,16 @@ def test_an_unknown_auth_mode_is_an_error(monkeypatch: pytest.MonkeyPatch) -> No
         config.resolve_auth(config.UNSET)
 
 
+def test_an_unknown_auth_mode_is_an_error_even_with_a_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A mistyped mode is named rather than swallowed by the step that wins the chain."""
+    monkeypatch.setenv("BOOKSHELF_AUTH", "gitlab")
+    monkeypatch.setenv("BOOKSHELF_TOKEN", "env-tok")
+    with pytest.raises(AuthConfigurationError, match="github-actions"):
+        config.resolve_auth(config.UNSET)
+
+
 def test_client_credentials_without_token_url_is_an_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
