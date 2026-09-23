@@ -20,6 +20,7 @@ Pick the method that matches who is calling.
 | Anonymous agent         | a program that only reads public books       | `bookshelf auth login --agent`                             |
 | Claimed agent           | a program acting for a person's organisation | `bookshelf auth login --agent --claim --email you@org.com` |
 | Bearer token            | a script handed a token by something else    | `$BOOKSHELF_TOKEN`, or `Bookshelf(auth="...")`             |
+| GitHub Actions          | a workflow reading its organisation's books  | `$BOOKSHELF_AUTH=github-actions`                           |
 
 ## Log in as a person
 
@@ -89,14 +90,39 @@ with Bookshelf(auth="...") as bs:
 `auth=None` stays unauthenticated even when a stored login exists,
 which is the way to guarantee a client only ever sees public data.
 
+## Read from GitHub Actions
+
+A workflow job reads its organisation's books with the token GitHub mints for it,
+so the repository holds no Bookshelf secret.
+The repository has to be enrolled,
+which is what the Bookshelf GitHub App installation does.
+
+Give the job the permission and set the opt-in variable:
+
+```yaml
+permissions:
+  id-token: write
+env:
+  BOOKSHELF_AUTH: github-actions
+```
+
+The opt-in is deliberate.
+A job that holds `id-token: write` for something else never sends its token to Bookshelf
+unless the workflow explicitly opts in.
+
+The token is read-only, and every write is refused,
+so a job that publishes still needs a credential of its own.
+Tokens last minutes, so the client mints a fresh one and replaces it whenever the API refuses one.
+
 ## Credential precedence
 
 With `auth=` omitted, the client walks this chain and takes the first step that answers.
 
 1. `$BOOKSHELF_TOKEN`
-2. `$BOOKSHELF_CLIENT_ID` with `$BOOKSHELF_CLIENT_SECRET`
-3. the stored identity that is active for that deployment
-4. unauthenticated
+2. the job's GitHub Actions OIDC token, when `$BOOKSHELF_AUTH` is `github-actions`
+3. `$BOOKSHELF_CLIENT_ID` with `$BOOKSHELF_CLIENT_SECRET`
+4. the stored identity that is active for that deployment
+5. unauthenticated
 
 Passing `auth=` skips the chain entirely.
 Any credentials are scoped to a single bookshelf deployment.
