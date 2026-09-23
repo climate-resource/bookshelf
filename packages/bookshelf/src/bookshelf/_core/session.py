@@ -31,6 +31,7 @@ _LOGIN_REMEDY = (
 
 _MACHINE_SOURCES = {
     CredentialSource.ENV_TOKEN: "$BOOKSHELF_TOKEN",
+    CredentialSource.ACTIONS_OIDC: "the job's GitHub Actions OIDC token",
     CredentialSource.CLIENT_CREDENTIALS: "the client credentials in $BOOKSHELF_CLIENT_ID",
 }
 

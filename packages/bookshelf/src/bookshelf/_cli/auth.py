@@ -31,7 +31,12 @@ from bookshelf._cli._runtime import (
     requested_api_url,
 )
 from bookshelf._core import config, credentials, errors, oauth, session
-from bookshelf._core.auth import JWT_BEARER_GRANT, TokenProvider, decode_jwt_expiry
+from bookshelf._core.auth import (
+    JWT_BEARER_GRANT,
+    ActionsOidcToken,
+    TokenProvider,
+    decode_jwt_expiry,
+)
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import CredentialSource
 from bookshelf._core.credentials import CredentialKind
@@ -282,6 +287,17 @@ def auth_token() -> None:
         if source is CredentialSource.ENV_TOKEN:
             emit(os.environ["BOOKSHELF_TOKEN"])
             return
+        if source is CredentialSource.ACTIONS_OIDC:
+            try:
+                emit(
+                    _current_token(
+                        ActionsOidcToken(),
+                        remedy="Give the job the 'id-token: write' permission.",
+                    )
+                )
+            except errors.AuthConfigurationError as exc:
+                raise CliError(str(exc), exit_code=EXIT_USAGE) from exc
+            return
         if source is CredentialSource.CLIENT_CREDENTIALS:
             try:
                 machine = config.client_credentials_from_environment()
@@ -339,7 +355,11 @@ def auth_whoami(
     base = base_url()
     with command_errors():
         source, stored = config.resolve_ambient_credential(base)
-        if source in (CredentialSource.ENV_TOKEN, CredentialSource.CLIENT_CREDENTIALS):
+        if source in (
+            CredentialSource.ENV_TOKEN,
+            CredentialSource.ACTIONS_OIDC,
+            CredentialSource.CLIENT_CREDENTIALS,
+        ):
             stored = credentials.load_credentials(base)
         shadows: dict[str, str] | None = None
         if source is not CredentialSource.STORED_LOGIN and stored is not None:
@@ -383,6 +403,9 @@ def _fill_offline(
         exp = decode_jwt_expiry(token)
         if exp is not None:
             report["expires_at"] = iso(datetime.fromtimestamp(exp, tz=UTC))
+        return
+    if source is CredentialSource.ACTIONS_OIDC:
+        report["kind"] = "machine"
         return
     if source is CredentialSource.CLIENT_CREDENTIALS:
         report["kind"] = "user"

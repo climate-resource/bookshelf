@@ -15,8 +15,10 @@ from typing import Any
 import httpx
 import pytest
 
+from bookshelf._core.actions_oidc import READ_AUDIENCE, ActionsTokenError
 from bookshelf._core.auth import (
     REFRESH_LEEWAY,
+    ActionsOidcToken,
     AnonymousFallback,
     BsatAssertion,
     ClientCredentials,
@@ -485,3 +487,89 @@ async def test_anonymous_fallback_raises_after_an_async_request_has_been_sent() 
         issuer.rejected_tokens.update({"tok-1", "tok-2"})
         with pytest.raises(AuthenticationError):
             await client.get(API_URL)
+
+
+ACTIONS_REQUEST_URL = "https://actions.test/token?api-version=2.0"
+
+
+class ActionsRuntime:
+    """A MockTransport handler pairing the Actions token endpoint with a bearer-checking API."""
+
+    def __init__(self, *, rejections: int = 0) -> None:
+        self.minted = 0
+        self.audiences: list[str] = []
+        self.api_tokens: list[str] = []
+        self._rejections = rejections
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        if request.url.host == "actions.test":
+            self.minted += 1
+            self.audiences.append(request.url.params["audience"])
+            return httpx.Response(200, json={"value": f"oidc-{self.minted}"})
+        self.api_tokens.append(request.headers.get("authorization", "").removeprefix("Bearer "))
+        if self._rejections:
+            self._rejections -= 1
+            return httpx.Response(401, json={"detail": "expired"})
+        return httpx.Response(200, json={"ok": True})
+
+
+@pytest.fixture
+def actions_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ACTIONS_ID_TOKEN_REQUEST_URL", ACTIONS_REQUEST_URL)
+    monkeypatch.setenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "runtime-bearer")
+
+
+def actions_client(runtime: ActionsRuntime, auth: httpx.Auth) -> httpx.Client:
+    return httpx.Client(transport=httpx.MockTransport(runtime), auth=auth)
+
+
+@pytest.mark.usefixtures("actions_env")
+def test_actions_token_is_minted_once_for_the_audience() -> None:
+    runtime = ActionsRuntime()
+    with actions_client(runtime, ActionsOidcToken(READ_AUDIENCE)) as client:
+        client.get(API_URL)
+        client.get(API_URL)
+    assert runtime.audiences == ["bookshelf-read"]
+    assert runtime.api_tokens == ["oidc-1", "oidc-1"]
+
+
+@pytest.mark.usefixtures("actions_env")
+def test_actions_token_is_reminted_when_the_api_refuses_it() -> None:
+    runtime = ActionsRuntime(rejections=1)
+    with actions_client(runtime, ActionsOidcToken(READ_AUDIENCE)) as client:
+        response = client.get(API_URL)
+    assert response.status_code == 200
+    assert runtime.minted == 2
+    assert runtime.api_tokens == ["oidc-1", "oidc-2"]
+
+
+@pytest.mark.usefixtures("actions_env")
+def test_a_second_refusal_raises() -> None:
+    runtime = ActionsRuntime(rejections=2)
+    with (
+        actions_client(runtime, ActionsOidcToken(READ_AUDIENCE)) as client,
+        pytest.raises(AuthenticationError),
+    ):
+        client.get(API_URL)
+
+
+@pytest.mark.usefixtures("actions_env")
+async def test_actions_token_on_the_async_surface() -> None:
+    runtime = ActionsRuntime(rejections=1)
+    auth = ActionsOidcToken(READ_AUDIENCE)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(runtime), auth=auth) as client:
+        response = await client.get(API_URL)
+    assert response.status_code == 200
+    assert runtime.api_tokens == ["oidc-1", "oidc-2"]
+
+
+def test_outside_a_job_the_missing_runtime_variables_are_named(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("ACTIONS_ID_TOKEN_REQUEST_URL", raising=False)
+    monkeypatch.delenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", raising=False)
+    with (
+        actions_client(ActionsRuntime(), ActionsOidcToken(READ_AUDIENCE)) as client,
+        pytest.raises(ActionsTokenError, match="id-token: write"),
+    ):
+        client.get(API_URL)

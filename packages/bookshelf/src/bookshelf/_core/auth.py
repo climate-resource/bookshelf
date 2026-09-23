@@ -34,6 +34,12 @@ from contextvars import ContextVar
 
 import httpx
 
+from bookshelf._core.actions_oidc import (
+    READ_AUDIENCE,
+    REQUEST_URL_VAR,
+    build_token_request,
+    token_from_response,
+)
 from bookshelf._core.errors import AuthenticationError
 
 # Refresh proactively when the access token expires within this window (seconds).
@@ -314,6 +320,28 @@ class ClientCredentials(_RefreshingAuth):
         )
 
 
+class ActionsOidcToken(_RefreshingAuth):
+    """A GitHub Actions OIDC token, minted by the job's own runtime for one audience.
+
+    An Actions token lives for minutes, so nothing is gained by refreshing it ahead of expiry.
+    One is minted on first use and re-minted after the API refuses it.
+    """
+
+    def __init__(self, audience: str = READ_AUDIENCE) -> None:
+        super().__init__()
+        self._audience = audience
+        self._token_url = f"${REQUEST_URL_VAR}"
+
+    def _needs_refresh(self) -> bool:
+        return self._access_token is None
+
+    def _refresh_request(self) -> httpx.Request:
+        return build_token_request(self._audience)
+
+    def _apply_token_response(self, response: httpx.Response) -> None:
+        self._access_token = token_from_response(response)
+
+
 class BsatAssertion(_RefreshingAuth):
     """An agent identity assertion exchanged via the ``jwt-bearer`` grant.
 
@@ -462,6 +490,7 @@ def error_detail(response: httpx.Response) -> str:
 
 __all__ = [
     "REFRESH_LEEWAY",
+    "ActionsOidcToken",
     "AnonymousFallback",
     "BsatAssertion",
     "ClientCredentials",

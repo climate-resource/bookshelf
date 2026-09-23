@@ -9,6 +9,7 @@ import pytest
 
 from bookshelf._core import config, credentials, oauth
 from bookshelf._core.auth import (
+    ActionsOidcToken,
     AnonymousFallback,
     ClientCredentials,
     RefreshTokenExchange,
@@ -22,6 +23,7 @@ from bookshelf._core.errors import AuthConfigurationError
 def clean_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in (
         "BOOKSHELF_TOKEN",
+        "BOOKSHELF_AUTH",
         "BOOKSHELF_CLIENT_ID",
         "BOOKSHELF_CLIENT_SECRET",
         "BOOKSHELF_TOKEN_URL",
@@ -93,6 +95,44 @@ def test_client_credentials_beat_stored_credentials(monkeypatch: pytest.MonkeyPa
     monkeypatch.setenv("BOOKSHELF_TOKEN_URL", "https://issuer.test/token")
     auth = config.resolve_auth(config.UNSET)
     assert isinstance(auth, ClientCredentials)
+
+
+def test_actions_oidc_is_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ACTIONS_ID_TOKEN_REQUEST_URL", "https://actions.test/token")
+    monkeypatch.setenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "runtime-bearer")
+    assert config.resolve_ambient_credential()[0] is config.CredentialSource.NONE
+
+
+def test_actions_oidc_beats_client_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    stored(monkeypatch)
+    monkeypatch.setenv("BOOKSHELF_AUTH", "github-actions")
+    monkeypatch.setenv("BOOKSHELF_CLIENT_ID", "cid")
+    monkeypatch.setenv("BOOKSHELF_CLIENT_SECRET", "secret")
+    auth = config.resolve_auth(config.UNSET)
+    assert isinstance(auth, ActionsOidcToken)
+    assert auth._audience == "bookshelf-read"
+
+
+def test_env_token_beats_actions_oidc(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BOOKSHELF_AUTH", "github-actions")
+    monkeypatch.setenv("BOOKSHELF_TOKEN", "env-tok")
+    assert isinstance(config.resolve_auth(config.UNSET), StaticToken)
+
+
+def test_an_unknown_auth_mode_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BOOKSHELF_AUTH", "gitlab")
+    with pytest.raises(AuthConfigurationError, match="github-actions"):
+        config.resolve_auth(config.UNSET)
+
+
+def test_an_unknown_auth_mode_is_an_error_even_with_a_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A mistyped mode is named rather than swallowed by the step that wins the chain."""
+    monkeypatch.setenv("BOOKSHELF_AUTH", "gitlab")
+    monkeypatch.setenv("BOOKSHELF_TOKEN", "env-tok")
+    with pytest.raises(AuthConfigurationError, match="github-actions"):
+        config.resolve_auth(config.UNSET)
 
 
 def test_client_credentials_without_token_url_is_an_error(

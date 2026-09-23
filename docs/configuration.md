@@ -26,6 +26,7 @@ and the order they are tried in.
 | Variable                     | Effect                                                                                         |
 | ---------------------------- | ---------------------------------------------------------------------------------------------- |
 | `BOOKSHELF_TOKEN`            | A bearer token, sent exactly as given and never refreshed.                                     |
+| `BOOKSHELF_AUTH`             | Set to `github-actions` to read with the job's GitHub Actions OIDC token.                      |
 | `BOOKSHELF_CLIENT_ID`        | An OAuth client ID, paired with `BOOKSHELF_CLIENT_SECRET`. Climate Resource's CI uses this.    |
 | `BOOKSHELF_CLIENT_SECRET`    | The matching client secret.                                                                    |
 | `BOOKSHELF_TOKEN_URL`        | The token endpoint the client credentials are exchanged at. Required alongside the pair above. |
