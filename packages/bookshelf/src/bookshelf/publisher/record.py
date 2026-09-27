@@ -66,11 +66,12 @@ class Build:
         """Unpack as ``bs, book``, which is how a build file opens."""
         return iter((self.bs, self.book))
 
-    def use(self, name: str) -> ResolvedResource:
+    def use(self, name: str) -> ResolvedResource | dict[str, ResolvedResource]:
         """Fetch, verify, cache and register a resource the recipe declares.
 
         Only a recorded build can do this.
         A direct build has no recipe, so there is nothing to resolve a name against.
+        A ``whole_book: true`` reference returns resolved resources keyed by entry name.
         """
         if not isinstance(self.bs, RecordingBookshelf):
             raise BookshelfError(

@@ -40,6 +40,21 @@ with Bookshelf() as bs:
 See the [package README](packages/bookshelf/README.md) for consuming,
 publishing, authentication, and code generation.
 
+## Minting tracking ids
+
+Use `bookshelf.uuid7()` to generate a tracking id before writing a resource,
+for example to store the id in a Zarr store's attributes:
+
+```python
+from bookshelf import uuid7
+
+tracking_id = uuid7()
+# Store str(tracking_id) in the data, then pass tracking_id=tracking_id when registering it.
+```
+
+The function returns a `uuid.UUID` with RFC 9562 version 7 bits.
+Ids generated within the same millisecond have no additional ordering guarantee.
+
 ## Development
 
 ```bash

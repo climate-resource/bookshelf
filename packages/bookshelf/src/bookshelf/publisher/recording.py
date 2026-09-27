@@ -601,7 +601,7 @@ class RecordingSink:
         # A handle carries a tracking id, and the manifest is keyed by name,
         # so this is what lets ``used=[handle]`` and ``attach(handle)`` resolve to a name.
         self._names: dict[UUID, str] = {}
-        self._used_resources: dict[str, ResolvedResource] = {}
+        self._used_resources: dict[str, ResolvedResource | dict[str, ResolvedResource]] = {}
         # (figure, plotted values) citations, which are outputs of this build rather than its inputs.
         self._sidecar_edges: set[tuple[str, str]] = set()
         self.default_visibility = default_visibility
@@ -826,12 +826,13 @@ class RecordingSink:
             dedupe=dedupe,
         )
 
-    def use(self, name: str) -> ResolvedResource:
+    def use(self, name: str) -> ResolvedResource | dict[str, ResolvedResource]:
         """Resolve the named resource of the recorded version.
 
         A fetched or checked-in resource is verified, cached and registered as a pointer.
         A ``bookshelf://`` resource is looked up instead, and registers nothing,
         because the platform already holds it.
+        A whole-book reference returns a dictionary keyed by entry name.
         """
         if self._resolved is None:
             raise BookshelfError("this recording carries no version, so it declares no resources")
@@ -936,7 +937,7 @@ class RecordingBookshelf(Bookshelf):
         self.register_file = self.recording_sink.register_file
         self.draft_book = self.recording_sink.draft_book
 
-    def use(self, name: str) -> ResolvedResource:
+    def use(self, name: str) -> ResolvedResource | dict[str, ResolvedResource]:
         """Resolve one resource the recorded version declares."""
         return self.recording_sink.use(name)
 

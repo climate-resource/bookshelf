@@ -12,7 +12,7 @@ The shape is ``bookshelf://<volume>/<version>_e<edition>/<entry>``:
 
 - ``bookshelf://primap-hist/v2.7_e002/by_country`` names one entry of one edition.
 - ``bookshelf://primap-hist/v2.7_e002`` names the edition, and resolves only when it holds
-  exactly one entry.
+  exactly one entry, unless the recipe opts into all entries with ``whole_book: true``.
 - ``bookshelf://primap-hist/v2.7`` leaves the edition to the platform, which answers with the
   newest. A recipe that wants the same bytes every time states the edition.
 
@@ -82,7 +82,7 @@ class BookshelfReference:
             raise ValueError(
                 f"{uri!r} is not a bookshelf reference. "
                 f"Write {SCHEME}<volume>/<version>_e<edition>/<entry>, "
-                "leaving the entry off only where the book holds one"
+                "leaving the entry off where the book holds one or whole_book is true"
             )
         volume, coordinate, *rest = segments
         matched = _EDITION_RE.match(coordinate)

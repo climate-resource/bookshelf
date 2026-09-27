@@ -710,6 +710,47 @@ def test_a_resource_that_is_fetched_carries_no_reference(tmp_path: Path) -> None
     )
 
 
+@pytest.mark.parametrize(
+    "location",
+    [
+        "uri: bookshelf://primap-hist/v2.7_e002/by_country",
+        f"uri: bookshelf://sha256/{'a' * 64}",
+        f"uri: https://x.invalid/a\nsha256: {'a' * 64}\ntype: tabular",
+        "path: data.csv\ntype: tabular",
+    ],
+)
+def test_whole_book_requires_a_book_coordinate(tmp_path: Path, location: str) -> None:
+    body = "resources:\n  raw:\n" + textwrap.indent(location + "\nwhole_book: true", "    ")
+    with pytest.raises(BookshelfError, match="whole_book requires"):
+        load_record_recipe(_one_book(tmp_path, body))
+
+
+@pytest.mark.parametrize("override", [None, False])
+def test_whole_book_is_inherited_from_resource_defaults(
+    tmp_path: Path, override: bool | None
+) -> None:
+    body = "resources:\n  raw:\n    uri: bookshelf://primap-hist/v2.7_e002"
+    if override is not None:
+        body += "\n    whole_book: false"
+    path = _one_book(
+        tmp_path,
+        body,
+        defaults="defaults:\n  resources:\n    raw:\n      whole_book: true\n",
+    )
+    assert load_record_recipe(path).resolve("v1.0").resources["raw"].whole_book is (
+        override is None
+    )
+
+
+@pytest.mark.parametrize("value", ['"true"', "1", "null"])
+def test_whole_book_requires_a_boolean(tmp_path: Path, value: str) -> None:
+    body = (
+        f"resources:\n  raw:\n    uri: bookshelf://primap-hist/v2.7_e002\n    whole_book: {value}\n"
+    )
+    with pytest.raises(BookshelfError, match="whole_book"):
+        load_record_recipe(_one_book(tmp_path, body))
+
+
 def test_a_bookshelf_resource_that_states_a_digest_is_rejected(tmp_path: Path) -> None:
     body = (
         "resources:\n  raw:\n"
