@@ -52,6 +52,7 @@ from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
 from bookshelf._core.names import RESOURCE_NAME_PATTERN
 from bookshelf._generated import models
 from bookshelf._produce import helpers
+from bookshelf._produce.types import Role
 
 BUNDLE_SCHEMA_VERSION = "3.7"
 
@@ -210,7 +211,7 @@ class BundleResource(BaseModel):
     generated: bool = False
     used: list[ResourceName] = Field(default_factory=list)
     used_digests: list[str] = Field(default_factory=list)
-    role: Literal["plan"] | None = None
+    role: Role | None = None
     svg_hash: str | None = None  # canonical ``sha256:<hex>`` of the svg companion, figure only
 
     @field_validator("used_digests")
@@ -617,7 +618,7 @@ class Bundle:
         used: list[str] | None = None,
         used_digests: list[str] | None = None,
         svg: bytes | None = None,
-        role: Literal["plan"] | None = None,
+        role: Role | None = None,
     ) -> BundleResource:
         """Write ``data`` to ``resources/<hex>`` and append a manifest record.
 
@@ -735,7 +736,7 @@ class Bundle:
         size: int | None = None,
         external_uri: str | None = None,
         svg_hash: str | None = None,
-        role: Literal["plan"] | None = None,
+        role: Role | None = None,
     ) -> BundleResource:
         """Build one manifest record and append it, so both variants share one shape.
 
