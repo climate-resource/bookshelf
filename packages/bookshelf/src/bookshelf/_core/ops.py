@@ -218,6 +218,18 @@ GET_BOOK = _op(
         response_models=(models.BookResponse,),
     )
 )
+CORRECT_BOOK = _op(
+    OpSpec(
+        operation_id="bookActionsCorrectBook",
+        method="POST",
+        path_template="/v1/books/{book_id}/corrections",
+        success_statuses=(200,),
+        error_statuses=(401, 403, 404, 409, 422),
+        supplied_parameters=(("path", "book_id"),),
+        request_model=models.BookCorrection,
+        response_models=(models.BookCorrectionResponse,),
+    )
+)
 UPDATE_BOOK = _op(
     OpSpec(
         operation_id="booksUpdateBook",
@@ -893,6 +905,21 @@ def parse_get_book(response: ApiResponse) -> models.BookResponse:
     payload = json.loads(response.content)
     _restore_utc_fields(payload, ("created_at", "updated_at", "published_at", "invalidated_at"))
     return models.BookResponse.model_validate(payload)
+
+
+def build_correct_book(book_id: str, request: models.BookCorrection) -> ApiRequest:
+    return ApiRequest(
+        method="POST",
+        path=CORRECT_BOOK.path_template.format(book_id=_segment(book_id)),
+        json_body=_json_body(request),
+    )
+
+
+def parse_correct_book(response: ApiResponse) -> models.BookCorrectionResponse:
+    _check(CORRECT_BOOK, response)
+    payload = json.loads(response.content)
+    _restore_utc_fields(payload, ("corrected_at",))
+    return models.BookCorrectionResponse.model_validate(payload)
 
 
 def build_update_book(book_id: str, request: models.BookUpdate) -> ApiRequest:

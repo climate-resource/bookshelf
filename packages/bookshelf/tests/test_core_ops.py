@@ -15,8 +15,8 @@ TRACKING_ID = UUID("0197a000-0000-7000-8000-000000000001")
 
 
 def test_registry_covers_the_used_surface() -> None:
-    assert len(ops.OP_REGISTRY) == 38
-    assert len({(op.method, op.path_template) for op in ops.OP_REGISTRY.values()}) == 38
+    assert len(ops.OP_REGISTRY) == 39
+    assert len({(op.method, op.path_template) for op in ops.OP_REGISTRY.values()}) == 39
 
 
 def test_build_register_resources_dumps_set_fields_only() -> None:
@@ -209,6 +209,17 @@ def test_build_put_presigned_is_absolute_and_registry_free() -> None:
             ),
         ),
         (
+            ops.build_correct_book(
+                "book/one",
+                models.BookCorrection(metadata=None, reason=models.Reason("retracted")),
+            ),
+            ApiRequest(
+                method="POST",
+                path="/v1/books/book%2Fone/corrections",
+                json_body={"metadata": None, "reason": "retracted"},
+            ),
+        ),
+        (
             ops.build_delete_book("book/one"),
             ApiRequest(method="DELETE", path="/v1/books/book%2Fone"),
         ),
@@ -301,6 +312,7 @@ _PARSE_PAIR_CASES: list[tuple[Any, int, dict[str, Any], type[Any]]] = [
     (ops.parse_list_books, 200, payloads.BOOK_LIST, models.BookListResponse),
     (ops.parse_get_book, 200, payloads.BOOK_RESPONSE, models.BookResponse),
     (ops.parse_update_book, 200, payloads.BOOK_RESPONSE, models.BookResponse),
+    (ops.parse_correct_book, 200, payloads.BOOK_CORRECTED, models.BookCorrectionResponse),
     (ops.parse_create_volume, 201, payloads.VOLUME, models.VolumeResponse),
     (ops.parse_update_volume, 200, payloads.VOLUME, models.VolumeResponse),
     (ops.parse_list_book_entries, 200, payloads.BOOK_ENTRIES, models.BookEntriesResponse),

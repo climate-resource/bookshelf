@@ -34,6 +34,14 @@ BOOK_RESPONSE: dict[str, Any] = {
     "published_at": None,
 }
 
+BOOK_CORRECTED: dict[str, Any] = {
+    "book_id": "0197a000-0000-7000-8000-0000000000b1",
+    "corrected_at": TS,
+    "corrected": ["metadata"],
+    "discovery": {"title": "Emissions"},
+    "metadata": {"maturity": "approved"},
+}
+
 BOOK_LIST: dict[str, Any] = {
     "items": [],
     "total": 0,

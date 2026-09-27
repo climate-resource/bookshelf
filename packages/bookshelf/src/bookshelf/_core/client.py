@@ -381,6 +381,18 @@ class BookshelfClient:
             await self._send_async(ops.build_complete_preview_upload(preview_id, request))
         )
 
+    def correct_book(
+        self, book_id: str, request: models.BookCorrection
+    ) -> models.BookCorrectionResponse:
+        return ops.parse_correct_book(self._send(ops.build_correct_book(book_id, request)))
+
+    async def correct_book_async(
+        self, book_id: str, request: models.BookCorrection
+    ) -> models.BookCorrectionResponse:
+        return ops.parse_correct_book(
+            await self._send_async(ops.build_correct_book(book_id, request))
+        )
+
     def create_preview(
         self, repository: str, pr_number: int, request: models.PreviewCreate
     ) -> models.PreviewDetail:

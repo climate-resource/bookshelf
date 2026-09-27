@@ -6,7 +6,8 @@ from typing import Any
 import httpx
 import pytest
 
-from bookshelf._core.errors import ForbiddenError, ValidationError
+from bookshelf._core.errors import ConflictError, ForbiddenError, ValidationError
+from bookshelf._generated import models
 from bookshelf.facade import AsyncBookshelf, Bookshelf
 from tests import _core_payloads as payloads
 
@@ -119,6 +120,46 @@ def test_update_draft_patches_the_named_fields() -> None:
     assert _body(recorded[0]) == {"metadata": {"note": "corrected units"}}
 
 
+def test_correct_book_replaces_metadata_with_a_reason() -> None:
+    recorded: list[httpx.Request] = []
+    correction = models.BookCorrection(
+        metadata={"maturity": "approved"}, reason=models.Reason("signed off by science")
+    )
+
+    with _sync(recorded, 200, payloads.BOOK_CORRECTED) as client:
+        corrected = client.correct_book(payloads.BOOK_CORRECTED["book_id"], correction)
+
+    assert corrected.corrected == ["metadata"]
+    assert corrected.metadata == {"maturity": "approved"}
+    assert recorded[0].method == "POST"
+    assert recorded[0].url.path == f"/v1/books/{payloads.BOOK_CORRECTED['book_id']}/corrections"
+    assert _body(recorded[0]) == {
+        "metadata": {"maturity": "approved"},
+        "reason": "signed off by science",
+    }
+
+
+def test_correct_book_on_a_draft_is_a_conflict() -> None:
+    refusal = payloads.problem(409, "Book is a draft", "edit a draft with PATCH /v1/books/b1")
+
+    with (
+        _sync([], 409, refusal) as client,
+        pytest.raises(ConflictError, match="draft"),
+    ):
+        client.correct_book("b1", models.BookCorrection(metadata={}))
+
+
+def test_correct_book_refuses_a_licence_change() -> None:
+    refusal = payloads.problem(422, "Not correctable", "a licence change mints a new edition")
+    relicensed = models.BookCorrection(discovery=models.BookDiscoveryInput(license="CC0-1.0"))
+
+    with (
+        _sync([], 422, refusal) as client,
+        pytest.raises(ValidationError, match="licence"),
+    ):
+        client.correct_book("b1", relicensed)
+
+
 async def test_async_facade_matches_the_sync_one() -> None:
     created: list[httpx.Request] = []
     async with _async(created, 201, payloads.VOLUME) as client:
@@ -144,3 +185,11 @@ async def test_async_facade_matches_the_sync_one() -> None:
     async with _async(patched, 200, payloads.BOOK_RESPONSE) as client:
         await client.update_draft("b1", metadata={"note": "fixed"})
     assert _body(patched[0]) == {"metadata": {"note": "fixed"}}
+
+    corrections: list[httpx.Request] = []
+    async with _async(corrections, 200, payloads.BOOK_CORRECTED) as client:
+        corrected = await client.correct_book(
+            "b1", models.BookCorrection(metadata={"maturity": "approved"})
+        )
+    assert corrected.metadata == {"maturity": "approved"}
+    assert (corrections[0].method, corrections[0].url.path) == ("POST", "/v1/books/b1/corrections")
