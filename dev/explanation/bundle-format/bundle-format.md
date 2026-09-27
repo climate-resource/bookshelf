@@ -13,7 +13,7 @@ This page specifies what is written to disk.
 It is written so that an implementation in another language can produce and read bundles
 without reading the Python that implements this one.
 
-The format in force is manifest schema version **3.6**.
+The format in force is manifest schema version **3.7**.
 
 ## Bundle directory
 
@@ -111,6 +111,7 @@ Every entry in `resources` has these fields.
 | `used`         | optional     | list of names               | `[]`      | what this resource was derived from                                     |
 | `used_digests` | optional     | list of digests             | `[]`      | inputs it was derived from that the bundle does not carry               |
 | `svg_hash`     | figure only  | string                      | absent    | the `sha256:<hex>` of the svg companion at `resources/<hex>.svg`        |
+| `role`         | optional     | `plan`                      | absent    | `plan` when this is the plan the activity followed                      |
 
 `name` is local to the bundle that registers it, and it carries no hierarchy.
 It matches `^[a-z0-9][a-z0-9._-]{0,199}$`, it is unique within the manifest,
@@ -205,6 +206,20 @@ This resource must exist and be accesible by the publisher.
 Inputs accumulate within a run.
 A resource records the inputs known at the moment it was registered,
 so a later output can cite more than an earlier one and never rewrites what the earlier one recorded.
+
+`role: plan` marks the plan the activity followed, such as a method card:
+
+```yaml
+- name: method-card
+  type: document
+  role: plan
+```
+
+A plan is neither `generated` nor derived from anything, so it records no `used` or `used_digests`.
+It needs an `activity`, and outputs never name it in `used`.
+The platform links it instead to every generated resource of the activity,
+with a `used` edge carrying `role: plan`, which is PROV-O `prov:hadPlan`.
+A reader older than 3.7 drops the field and replays the plan as an ordinary input with no lineage.
 
 ### The activity envelope
 
@@ -438,7 +453,7 @@ resources:
   used:
   - upstream-emissions
   visibility: public
-schema_version: '3.6'
+schema_version: '3.7'
 writer:
   pyarrow: 23.0.0
 ```
