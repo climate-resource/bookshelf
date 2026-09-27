@@ -404,7 +404,8 @@ class Bookshelf:
 
         Discovery fields are patched, so only those named change.
         Metadata is replaced whole, and an explicit ``None`` clears it.
-        The platform records the correction, with its reason, as an event on the book.
+        A correction that changes something is recorded as an event on the book, with its reason.
+        One that changes nothing records no event, so check `corrected` when the audit matters.
         A draft is a ``ConflictError``, so use ``update_draft`` there.
         Content, licence or visibility changes are a ``ValidationError`` because they need a new edition.
         """
@@ -650,7 +651,8 @@ class AsyncBookshelf:
 
         Discovery fields are patched, so only those named change.
         Metadata is replaced whole, and an explicit ``None`` clears it.
-        The platform records the correction, with its reason, as an event on the book.
+        A correction that changes something is recorded as an event on the book, with its reason.
+        One that changes nothing records no event, so check `corrected` when the audit matters.
         A draft is a ``ConflictError``, so use ``update_draft`` there.
         Content, licence or visibility changes are a ``ValidationError`` because they need a new edition.
         """
