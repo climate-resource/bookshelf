@@ -9,6 +9,7 @@
         - book
         - resource
         - resource_by_hash
+        - correct_book
 
 ::: bookshelf.AsyncBookshelf
     options:
@@ -19,3 +20,4 @@
         - book
         - resource
         - resource_by_hash
+        - correct_book
