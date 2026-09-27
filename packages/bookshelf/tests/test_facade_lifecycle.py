@@ -149,14 +149,15 @@ def test_correct_book_on_a_draft_is_a_conflict() -> None:
         client.correct_book("b1", models.BookCorrection(metadata={}))
 
 
-def test_correct_book_refuses_a_visibility_change() -> None:
-    refusal = payloads.problem(422, "Not correctable", "visibility changes mint a new edition")
+def test_correct_book_refuses_a_licence_change() -> None:
+    refusal = payloads.problem(422, "Not correctable", "a licence change mints a new edition")
+    relicensed = models.BookCorrection(discovery=models.BookDiscoveryInput(license="CC0-1.0"))
 
     with (
         _sync([], 422, refusal) as client,
-        pytest.raises(ValidationError, match="visibility"),
+        pytest.raises(ValidationError, match="licence"),
     ):
-        client.correct_book("b1", models.BookCorrection(metadata={}))
+        client.correct_book("b1", relicensed)
 
 
 async def test_async_facade_matches_the_sync_one() -> None:

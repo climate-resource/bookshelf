@@ -176,18 +176,6 @@ PUBLISH_BOOK = _op(
         response_models=(models.BookDetail,),
     )
 )
-CORRECT_BOOK = _op(
-    OpSpec(
-        operation_id="bookActionsCorrectBook",
-        method="POST",
-        path_template="/v1/books/{book_id}/corrections",
-        success_statuses=(200,),
-        error_statuses=(401, 403, 404, 409, 422),
-        supplied_parameters=(("path", "book_id"),),
-        request_model=models.BookCorrection,
-        response_models=(models.BookCorrectionResponse,),
-    )
-)
 REPLAY_BUNDLE = _op(
     OpSpec(
         operation_id="bundlesReplayBundle",
@@ -228,6 +216,18 @@ GET_BOOK = _op(
         error_statuses=(401, 404, 422),
         supplied_parameters=(("path", "book_id"),),
         response_models=(models.BookResponse,),
+    )
+)
+CORRECT_BOOK = _op(
+    OpSpec(
+        operation_id="bookActionsCorrectBook",
+        method="POST",
+        path_template="/v1/books/{book_id}/corrections",
+        success_statuses=(200,),
+        error_statuses=(401, 403, 404, 409, 422),
+        supplied_parameters=(("path", "book_id"),),
+        request_model=models.BookCorrection,
+        response_models=(models.BookCorrectionResponse,),
     )
 )
 UPDATE_BOOK = _op(
