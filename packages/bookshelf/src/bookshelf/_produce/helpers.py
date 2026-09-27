@@ -22,6 +22,7 @@ from bookshelf._produce.types import (
     RegisterItem,
     RegistrationFailure,
     RegistrationSuccess,
+    Role,
     Used,
     UsedInput,
 )
@@ -95,6 +96,19 @@ def used_ref(value: UsedInput) -> models.UsedRefByTrackingId | models.UsedRefByR
             "tracking id, or Used(name=...)"
         )
     return models.UsedRefByTrackingId(tracking_id=UUID(str(handle_tracking_id)))
+
+
+def check_plan(role: Role | None, used: Sequence[UsedInput], name: str | None) -> None:
+    """Refuse inputs on a plan, which the activity follows rather than derives, and a nameless plan."""
+    if role != "plan":
+        return
+    if used:
+        raise ValueError(
+            "a plan is not derived from the activity's inputs, so it takes no used=. "
+            "Pass the inputs to the outputs instead."
+        )
+    if name is None:
+        raise ValueError("a plan needs a name, which its registration cites it by. Pass name=.")
 
 
 def resource_discovery(
@@ -291,9 +305,26 @@ def activity_envelope(
     runner: str,
     used: Sequence[UsedInput],
     config_hash: str | None = None,
+    plans: Sequence[UUID] = (),
+    plan_name: str | None = None,
 ) -> models.ActivityEnvelope:
-    """Build the activity envelope shared by all registrations in a block."""
+    """Build the activity envelope shared by all registrations in a block.
+
+    ``plans`` are the plans already registered, which every later request cites again
+    so the platform links them to its outputs.
+    ``plan_name`` names the item in this request that is itself a plan.
+    """
     parameters = dict(config)
+    refs: list[models.UsedRefByTrackingId | models.UsedRefByResourceName] = [
+        used_ref(value) for value in used
+    ]
+    refs += [
+        models.UsedRefByTrackingId(tracking_id=plan, role=models.UsedRole.plan) for plan in plans
+    ]
+    if plan_name is not None:
+        refs.append(
+            models.UsedRefByResourceName(resource_name=plan_name, role=models.UsedRole.plan)
+        )
     return models.ActivityEnvelope(
         activity_id=activity_id,
         kind=kind,
@@ -301,7 +332,7 @@ def activity_envelope(
         config_hash=config_hash or canonical_config_hash(parameters),
         parameters=parameters,
         runner=runner,
-        used=[used_ref(value) for value in used],
+        used=refs,
     )
 
 

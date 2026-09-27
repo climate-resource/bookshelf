@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Literal, Protocol
 from uuid import UUID
 
 from bookshelf._core.errors import BookshelfError
@@ -75,6 +75,9 @@ class HasTrackingId(Protocol):
 
 
 UsedInput = Used | HasTrackingId | str | UUID
+
+# ``plan`` registers the plan the activity followed, such as a method card, rather than an output.
+Role = Literal["plan"]
 
 
 @dataclass(frozen=True, slots=True)

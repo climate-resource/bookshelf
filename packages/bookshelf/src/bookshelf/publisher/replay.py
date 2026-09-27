@@ -123,6 +123,7 @@ def _resource(
             external_uri=resource.external_uri,
             storage_path=None if pointer else storage_path,
             svg=svg,
+            role=None if resource.role is None else models.UsedRole(resource.role),
         ),
     )
 

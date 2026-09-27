@@ -17,6 +17,7 @@ from bookshelf._produce.types import (
     RegisterItem,
     RegistrationFailure,
     RegistrationSuccess,
+    Role,
     UsedInput,
 )
 from bookshelf._produce.uploads import upload_bytes, upload_bytes_async
@@ -51,6 +52,7 @@ class Activity:
         self.default_visibility = default_visibility
         self._entered = False
         self._closed = False
+        self._plans: list[UUID] = []
 
     def __enter__(self) -> Self:
         if self._closed:
@@ -95,13 +97,17 @@ class Activity:
         tracking_id: UUID | None = None,
         format: str | None = None,
         dedupe: bool = True,
+        role: Role | None = None,
     ) -> Resource:
         """Serialise, hash, upload, and register one generated resource.
 
         ``used=`` records the inputs consumed by this resource.
+        ``role="plan"`` registers the plan the activity followed, such as a method card, instead.
+        A plan takes no ``used=`` and is linked to every output of the activity, before or after it.
         """
         self._require_entered()
-        return self.register_many(
+        helpers.check_plan(role, used, name)
+        return self._register_entries(
             [
                 RegisterItem(
                     obj=obj,
@@ -124,6 +130,8 @@ class Activity:
                 )
             ],
             used=used,
+            atomic=True,
+            plan_name=name if role == "plan" else None,
         )[0]
 
     def register_many(
@@ -140,6 +148,16 @@ class Activity:
         so a refused figure late in the batch leaves no earlier bytes behind.
         """
         self._require_entered()
+        return self._register_entries(entries, used=used, atomic=atomic)
+
+    def _register_entries(
+        self,
+        entries: Sequence[RegisterItem],
+        *,
+        used: Sequence[UsedInput],
+        atomic: bool,
+        plan_name: str | None = None,
+    ) -> list[Resource]:
         if atomic and len(entries) > helpers.MAX_REGISTRATION_BATCH:
             raise ValueError(
                 f"atomic registrations are limited to {helpers.MAX_REGISTRATION_BATCH} items"
@@ -148,7 +166,7 @@ class Activity:
             helpers.check_item_facts(entry, self.default_visibility)
         items = [self._materialise(entry) for entry in entries]
         try:
-            outcomes = self._register_items(items, used=used, atomic=atomic)
+            outcomes = self._register_items(items, used=used, atomic=atomic, plan_name=plan_name)
         except PartialRegistrationError as exc:
             exc.successful_resources = tuple(
                 self._resource_from_success(success, items) for success in exc.successful
@@ -264,6 +282,7 @@ class Activity:
         *,
         used: Sequence[UsedInput],
         atomic: bool,
+        plan_name: str | None = None,
     ) -> list[RegistrationSuccess]:
         if atomic and len(items) > helpers.MAX_REGISTRATION_BATCH:
             raise ValueError(
@@ -281,6 +300,8 @@ class Activity:
             runner=self.runner,
             used=used,
             config_hash=self.config_hash,
+            plans=self._plans,
+            plan_name=plan_name,
         )
         for start in range(0, len(items), chunk_size):
             response = self._client.register_resources(
@@ -297,6 +318,8 @@ class Activity:
             successful.extend(chunk_successful)
             failures.extend(chunk_failures)
         helpers.raise_partial_registration(successful, failures)
+        if plan_name is not None:
+            self._plans.extend(success.outcome.tracking_id for success in successful)
         return successful
 
 
@@ -327,6 +350,7 @@ class AsyncActivity:
         self.default_visibility = default_visibility
         self._entered = False
         self._closed = False
+        self._plans: list[UUID] = []
 
     async def __aenter__(self) -> Self:
         if self._closed:
@@ -372,13 +396,17 @@ class AsyncActivity:
         tracking_id: UUID | None = None,
         format: str | None = None,
         dedupe: bool = True,
+        role: Role | None = None,
     ) -> AsyncResource:
         """Serialise, hash, upload, and register one generated resource.
 
         ``used=`` records the inputs consumed by this resource.
+        ``role="plan"`` registers the plan the activity followed, such as a method card, instead.
+        A plan takes no ``used=`` and is linked to every output of the activity, before or after it.
         """
         self._require_entered()
-        resources = await self.register_many(
+        helpers.check_plan(role, used, name)
+        resources = await self._register_entries(
             [
                 RegisterItem(
                     obj=obj,
@@ -401,6 +429,8 @@ class AsyncActivity:
                 )
             ],
             used=used,
+            atomic=True,
+            plan_name=name if role == "plan" else None,
         )
         return resources[0]
 
@@ -418,6 +448,16 @@ class AsyncActivity:
         so a refused figure late in the batch leaves no earlier bytes behind.
         """
         self._require_entered()
+        return await self._register_entries(entries, used=used, atomic=atomic)
+
+    async def _register_entries(
+        self,
+        entries: Sequence[RegisterItem],
+        *,
+        used: Sequence[UsedInput],
+        atomic: bool,
+        plan_name: str | None = None,
+    ) -> list[AsyncResource]:
         if atomic and len(entries) > helpers.MAX_REGISTRATION_BATCH:
             raise ValueError(
                 f"atomic registrations are limited to {helpers.MAX_REGISTRATION_BATCH} items"
@@ -428,7 +468,9 @@ class AsyncActivity:
         for entry in entries:
             items.append(await self._materialise(entry))
         try:
-            outcomes = await self._register_items(items, used=used, atomic=atomic)
+            outcomes = await self._register_items(
+                items, used=used, atomic=atomic, plan_name=plan_name
+            )
         except PartialRegistrationError as exc:
             exc.successful_resources = tuple(
                 self._resource_from_success(success, items) for success in exc.successful
@@ -544,6 +586,7 @@ class AsyncActivity:
         *,
         used: Sequence[UsedInput],
         atomic: bool,
+        plan_name: str | None = None,
     ) -> list[RegistrationSuccess]:
         if atomic and len(items) > helpers.MAX_REGISTRATION_BATCH:
             raise ValueError(
@@ -561,6 +604,8 @@ class AsyncActivity:
             runner=self.runner,
             used=used,
             config_hash=self.config_hash,
+            plans=self._plans,
+            plan_name=plan_name,
         )
         for start in range(0, len(items), chunk_size):
             response = await self._client.register_resources_async(
@@ -577,6 +622,8 @@ class AsyncActivity:
             successful.extend(chunk_successful)
             failures.extend(chunk_failures)
         helpers.raise_partial_registration(successful, failures)
+        if plan_name is not None:
+            self._plans.extend(success.outcome.tracking_id for success in successful)
         return successful
 
 
