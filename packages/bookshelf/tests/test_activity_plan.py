@@ -14,9 +14,9 @@ import pytest
 from bookshelf._core.client import BookshelfClient
 from bookshelf.cache import ContentCache
 from bookshelf.facade import AsyncBookshelf, Bookshelf
-from bookshelf.publisher.bundle import Bundle
+from bookshelf.publisher.bundle import Bundle, InvalidBundleError
 from bookshelf.publisher.recording import RecordingSink
-from bookshelf.publisher.replay import replay_bundle_sync
+from bookshelf.publisher.replay import replay_bundle, replay_bundle_sync
 from tests import _core_payloads as payloads
 from tests._replay import BASE_URL, replay_client, replayed
 
@@ -143,3 +143,74 @@ def test_a_plan_takes_no_inputs(tmp_path: Path) -> None:
         activity.register(
             b"method", type="document", name="method-card", role="plan", used=[forcing]
         )
+
+
+def _edit_plan(bundle: Bundle, edit: str) -> None:
+    """Break a recorded plan the way a hand edit of the manifest could."""
+    card = next(resource for resource in bundle.manifest.resources if resource.role == "plan")
+    if edit == "generated":
+        card.generated = True
+    elif edit == "used":
+        card.used = ["forcing"]
+    elif edit == "used_digests":
+        card.used_digests = ["sha256:" + "0" * 64]
+    else:
+        bundle.manifest.activity = None
+    bundle.write()
+
+
+_EDITS = [
+    ("generated", "uses nothing"),
+    ("used", "uses nothing"),
+    ("used_digests", "uses nothing"),
+    ("no activity", "no activity"),
+]
+
+
+@pytest.mark.parametrize(("edit", "match"), _EDITS)
+def test_replay_refuses_an_edited_plan_before_any_upload(
+    tmp_path: Path, edit: str, match: str
+) -> None:
+    bundle = _record_plan_bundle(tmp_path)
+    _edit_plan(bundle, edit)
+    recorded: list[httpx.Request] = []
+
+    with replay_client(recorded) as client, pytest.raises(InvalidBundleError, match=match):
+        replay_bundle_sync(bundle.root, client)
+    assert recorded == []
+
+
+@pytest.mark.parametrize(("edit", "match"), _EDITS)
+async def test_async_replay_refuses_an_edited_plan_before_any_upload(
+    tmp_path: Path, edit: str, match: str
+) -> None:
+    bundle = _record_plan_bundle(tmp_path)
+    _edit_plan(bundle, edit)
+    recorded: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        recorded.append(request)
+        return httpx.Response(500)
+
+    async with AsyncBookshelf(
+        BASE_URL, auth=None, async_transport=httpx.MockTransport(handler)
+    ) as client:
+        with pytest.raises(InvalidBundleError, match=match):
+            await replay_bundle(bundle.root, client)
+    assert recorded == []
+
+
+@pytest.mark.parametrize(("edit", "match"), _EDITS)
+def test_validate_refuses_an_edited_plan(tmp_path: Path, edit: str, match: str) -> None:
+    bundle = _record_plan_bundle(tmp_path)
+    _edit_plan(bundle, edit)
+
+    with pytest.raises(InvalidBundleError, match=match):
+        Bundle.read(bundle.root).check_plans()
+
+
+def test_a_recorded_plan_cannot_be_given_an_input(tmp_path: Path) -> None:
+    bundle = _record_plan_bundle(tmp_path)
+
+    with pytest.raises(ValueError, match="plan 'method-card' uses nothing"):
+        bundle.add_used("method-card", "forcing")
