@@ -2,6 +2,7 @@
 
 from bookshelf._core.errors import AuthenticationRequiredError, BookshelfError
 from bookshelf._generated import OPENAPI_VERSION, models
+from bookshelf._produce.helpers import uuid7
 from bookshelf.cache import ContentCache
 from bookshelf.facade import (
     Activity,
@@ -72,4 +73,5 @@ __all__ = [
     "replay_bundle_sync",
     "run_record",
     "setup",
+    "uuid7",
 ]

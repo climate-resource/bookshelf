@@ -170,7 +170,7 @@ class ResolvedResource:
     """
 
     name: str
-    """The key the resource was declared under, for example ``"raw"``."""
+    """The declared resource key, or the entry name for a whole-book reference."""
     path: Path
     """The local file holding the bytes, ready for ``pd.read_csv(raw.path)``."""
     hash: str
@@ -200,7 +200,7 @@ def resolve_resource(
     register_file: RegisterFile,
     lookup_book: LookupBook | None = None,
     lookup_digest: LookupDigest | None = None,
-) -> ResolvedResource:
+) -> ResolvedResource | dict[str, ResolvedResource]:
     """Resolve one declared resource into local bytes and a pointer.
 
     A ``uri`` resource is fetched through ``cache``, verified against its declared digest,
@@ -213,6 +213,7 @@ def resolve_resource(
     with ``lookup_book`` for a book coordinate and ``lookup_digest`` for a digest.
     Nothing is registered for it, because the platform already holds it,
     and the pointer returned is the platform's resource itself.
+    With ``whole_book: true``, the result is a dictionary keyed by entry name.
 
     Whatever catalogue metadata the resource declares is registered with it.
 
@@ -230,7 +231,13 @@ def resolve_resource(
             name, reference=reference, declared=spec.type, lookup_digest=lookup_digest
         )
     if reference is not None:
-        return _referenced(name, reference=reference, declared=spec.type, lookup_book=lookup_book)
+        return _referenced(
+            name,
+            reference=reference,
+            declared=spec.type,
+            lookup_book=lookup_book,
+            whole_book=spec.whole_book,
+        )
     if spec.type is None:
         raise BookshelfError(
             f"resource {name!r} states no type. "
@@ -286,7 +293,8 @@ def _referenced(
     reference: BookshelfReference,
     declared: models.ResourceType | None,
     lookup_book: LookupBook | None,
-) -> ResolvedResource:
+    whole_book: bool = False,
+) -> ResolvedResource | dict[str, ResolvedResource]:
     """Resolve one ``bookshelf://`` reference into the published resource it names.
 
     The bytes come down through the consuming cache, which verifies them against the digest
@@ -307,6 +315,16 @@ def _referenced(
         raise BookshelfError(
             f"resource {name!r} names {reference.uri}, which is not published: {exc}"
         ) from exc
+    if whole_book:
+        return {
+            entry_name: _held(
+                entry_name,
+                uri=f"{reference.uri}/{entry_name}",
+                declared=declared,
+                entry=book[entry_name],
+            )
+            for entry_name in book.entry_names
+        }
     name_in_book = reference.name_in_book
     if name_in_book is None:
         entries = book.entry_names

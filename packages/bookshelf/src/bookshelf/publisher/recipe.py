@@ -34,7 +34,12 @@ from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf._produce import helpers
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
-from bookshelf.publisher.reference import Reference, is_reference, parse_reference
+from bookshelf.publisher.reference import (
+    BookshelfReference,
+    Reference,
+    is_reference,
+    parse_reference,
+)
 
 _SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 
@@ -203,6 +208,7 @@ class _ResourceFields(_Section):
     uri: str | None = Field(default=None, min_length=1)
     path: Path | None = None
     sha256: str | None = None
+    whole_book: bool = Field(default=False, strict=True)
     tags: list[str] | None = None
     description: str | None = None
     authors: list[PersonSpec] | None = None
@@ -294,7 +300,12 @@ class ResourceSpec(_ResourceFields):
                 "a resource declares exactly one of uri or path. "
                 "Use uri for something to fetch, or path for a file beside the recipe"
             )
-        if self.reference is not None:
+        reference = self.reference
+        if self.whole_book and (
+            not isinstance(reference, BookshelfReference) or reference.name_in_book is not None
+        ):
+            raise ValueError("whole_book requires a bookshelf:// book coordinate without an entry")
+        if reference is not None:
             if self.sha256 is not None:
                 raise ValueError(
                     "a bookshelf resource takes its digest from the platform, so it states no "

@@ -621,6 +621,47 @@ def test_a_bookshelf_reference_without_an_entry_names_the_entries_it_could_take(
     assert "'by_gas'" in message
 
 
+@pytest.mark.parametrize("entry_count", [0, 1, 2])
+def test_whole_book_resolves_entries_by_name(
+    tmp_path: Path, published: _PublishedBook, entry_count: int
+) -> None:
+    original = published.entries["by_country"]
+    published.entries = {
+        f"entry_{i}": _PublishedEntry(original.path, tracking_id=UUID(int=i + 1))
+        for i in range(entry_count)
+    }
+    body = "resources:\n  raw:\n    uri: bookshelf://primap-hist/v2.7_e002\n    whole_book: true\n"
+    with _recording(_write_recipe(tmp_path, body), tmp_path / "bundle"):
+        build = setup()
+        entries = build.use("raw")
+        assert isinstance(entries, dict)
+        assert set(entries) == set(published.entries)
+        for name, entry in entries.items():
+            assert entry.name == name
+            assert entry.tracking_id == published.entries[name].tracking_id
+            assert entry.pointer is published.entries[name]
+            assert entry.path.read_bytes() == _PAYLOAD
+            assert entry.hash == f"sha256:{_SHA256}"
+        assert build.use("raw") is entries
+        assert build.bs.bundle.manifest.resources == []
+    assert published.looked_up == [("primap-hist", "v2.7", 2)]
+
+
+def test_whole_book_checks_each_entry_type(tmp_path: Path, published: _PublishedBook) -> None:
+    published.entries["by_gas"] = _PublishedEntry(
+        published.entries["by_country"].path, type=models.ResourceType.tabular
+    )
+    body = (
+        "resources:\n  raw:\n    uri: bookshelf://primap-hist/v2.7_e002\n"
+        "    whole_book: true\n    type: timeseries\n"
+    )
+    with (
+        _recording(_write_recipe(tmp_path, body), tmp_path / "bundle"),
+        pytest.raises(BookshelfError, match="by_gas.*declares type timeseries"),
+    ):
+        setup().use("raw")
+
+
 def test_a_bookshelf_reference_to_an_entry_the_book_lacks_is_rejected(
     tmp_path: Path, published: _PublishedBook
 ) -> None:
