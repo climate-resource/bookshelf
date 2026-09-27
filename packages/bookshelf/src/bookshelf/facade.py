@@ -397,6 +397,19 @@ class Bookshelf:
             ),
         )
 
+    def correct_book(
+        self, book_id: str | UUID, request: models.BookCorrection
+    ) -> models.BookCorrectionResponse:
+        """Correct a published book's discovery profile or metadata without minting an edition.
+
+        Discovery fields are patched, so only those named change.
+        Metadata is replaced whole, and an explicit ``None`` clears it.
+        The platform records the correction, with its reason, as an event on the book.
+        A draft is a ``ConflictError``, so use ``update_draft`` there.
+        Content, licence or visibility changes are a ``ValidationError`` because they need a new edition.
+        """
+        return self._client.correct_book(str(book_id), request)
+
     def book(self, volume: str, version: str, *, edition: int | None = None) -> Book:
         """Resolve a published Book, defaulting to the latest edition.
 
@@ -629,6 +642,19 @@ class AsyncBookshelf:
                 metadata=metadata,
             ),
         )
+
+    async def correct_book(
+        self, book_id: str | UUID, request: models.BookCorrection
+    ) -> models.BookCorrectionResponse:
+        """Correct a published book's discovery profile or metadata without minting an edition.
+
+        Discovery fields are patched, so only those named change.
+        Metadata is replaced whole, and an explicit ``None`` clears it.
+        The platform records the correction, with its reason, as an event on the book.
+        A draft is a ``ConflictError``, so use ``update_draft`` there.
+        Content, licence or visibility changes are a ``ValidationError`` because they need a new edition.
+        """
+        return await self._client.correct_book_async(str(book_id), request)
 
     async def book(
         self,
