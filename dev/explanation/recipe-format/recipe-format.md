@@ -233,7 +233,8 @@ resources:
 
 The coordinate is `bookshelf://<volume>/<version>_e<edition>/<entry>`.
 
-- Leave the entry off and the book must hold exactly one, or the error names the ones it holds.
+- Leave the entry off and the book must hold exactly one, unless `whole_book: true` is set.
+  Otherwise the error names the entries it holds.
 - Leave the edition off and the platform answers with the newest.
   A recipe that wants the same bytes every time states the edition.
 
@@ -244,6 +245,34 @@ so `build.use("primap")` hands back the tracking id the platform already assigne
 A recorded build cannot cite it in `used=`.
 A replay resolves an input it does not carry by digest, against the publishing organisation alone,
 and a referenced book may belong to another one.
+
+To resolve every entry of an edition, set `whole_book: true`:
+
+```yaml
+resources:
+  spei:
+    uri: bookshelf://cra-spei12/v1.2_e003
+    whole_book: true
+```
+
+`build.use("spei")` returns a dictionary of `ResolvedResource` objects keyed by entry name:
+
+```python
+entries = build.use("spei")
+for name, resource in entries.items():
+    print(name, resource.tracking_id, resource.path)
+```
+
+Each entry's bytes are downloaded and verified through the consuming cache.
+No resources are registered, and each result keeps the published tracking id.
+Repeated calls reuse the resolved dictionary.
+A one-entry book still returns a dictionary; an empty book returns an empty dictionary.
+The same restriction on recorded `used=` applies to these entries.
+
+The flag defaults to `false` and requires a boolean value.
+It can also be set under resource defaults and overridden per book.
+When true, it requires a book URI without an entry, and cannot be used with a digest, HTTP URI or path.
+An optional `type` must match every entry in the book.
 
 ### Building on a file that cannot be checked in
 
