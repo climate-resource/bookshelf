@@ -104,6 +104,8 @@ The activity derives a stable config hash, records runtime provenance, materiali
 and sends explicit Usage and Generation lineage to the API.
 Bare strings and UUIDs in `used=` are tracking ids.
 Use `Used(name=...)` to resolve an input by the name another resource in the same request was given.
+Pass `role="plan"` to `register` for the plan the activity followed, such as a method card.
+A plan needs a `name`, takes no `used=`, and is linked to every output of the activity rather than derived from its inputs.
 
 ```python
 from bookshelf import Bookshelf, Used, models

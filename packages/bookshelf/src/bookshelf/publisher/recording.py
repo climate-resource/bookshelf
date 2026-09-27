@@ -36,7 +36,7 @@ from bookshelf._produce.serialise import (
     format_from_suffix,
     serialise,
 )
-from bookshelf._produce.types import AuthorInput, HasTrackingId, RegisterItem, UsedInput
+from bookshelf._produce.types import AuthorInput, HasTrackingId, RegisterItem, Role, UsedInput
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
 from bookshelf.cache import ContentCache
 from bookshelf.facade import Bookshelf
@@ -231,9 +231,14 @@ class RecordingActivity(Activity):
         tracking_id: UUID | None = None,
         format: str | None = None,
         dedupe: bool = True,
+        role: Role | None = None,
     ) -> RecordedResource:
-        """Serialise an output once and append its bytes and provenance."""
+        """Serialise an output once and append its bytes and provenance.
+
+        ``role="plan"`` records the plan the activity followed instead of an output.
+        """
         self._require_entered()
+        helpers.check_plan(role, used, name)
         recorded_name = _recorded_name(name)
         resource_type = helpers.resource_type(type)
         resource_visibility = helpers.visibility(visibility, self.default_visibility)
@@ -255,7 +260,9 @@ class RecordingActivity(Activity):
             caption=caption,
             alt_text=alt_text,
         )
-        self._merge_used(used)
+        plan = role == "plan"
+        if not plan:
+            self._merge_used(used)
         self._bundle.set_activity(self._bundle_activity())
         self._bundle.add_resource(
             data=materialised.data,
@@ -267,10 +274,11 @@ class RecordingActivity(Activity):
             discovery=discovery,
             metadata=dict(metadata or {}),
             dedupe=dedupe,
-            generated=True,
-            used=list(self._used.names),
-            used_digests=list(self._used.digests),
+            generated=not plan,
+            used=[] if plan else list(self._used.names),
+            used_digests=[] if plan else list(self._used.digests),
             svg=svg,
+            role=role,
         )
         self._names[resource_id] = recorded_name
         return RecordedResource(
