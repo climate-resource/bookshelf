@@ -7,6 +7,7 @@ pandas is imported on first use, so the CLI starts without loading it.
 import importlib
 import io
 import json
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from bookshelf._core.errors import BookshelfError
@@ -37,6 +38,17 @@ def require_payload(result: DataPayload | NotModified) -> DataPayload:
     if isinstance(result, NotModified):
         raise BookshelfError("expected a /data payload but the server answered 304 Not Modified")
     return result
+
+
+def read_frame(path: Path) -> "pd.DataFrame":
+    """Read a whole stored resource, which the platform only holds as parquet or csv."""
+    import pandas as pd
+
+    with path.open("rb") as stream:
+        magic = stream.read(4)
+    if magic == b"PAR1":
+        return pd.read_parquet(path)
+    return pd.read_csv(path, compression="gzip" if magic[:2] == b"\x1f\x8b" else None)
 
 
 def to_pandas(payload: DataPayload) -> "pd.DataFrame":

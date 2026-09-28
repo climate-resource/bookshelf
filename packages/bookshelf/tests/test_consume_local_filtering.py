@@ -1,4 +1,4 @@
-"""Converters read the whole resource and filter locally, and ``query()`` filters on the server."""
+"""Converters read the whole cached resource and filter locally, and ``query()`` filters on the server."""
 
 from pathlib import Path
 
@@ -26,8 +26,7 @@ def _requests(transport: httpx.MockTransport) -> tuple[httpx.MockTransport, list
 
 def _shelf(tmp_path: Path) -> tuple[Bookshelf, list[httpx.Request]]:
     transport, seen = _requests(_platform([("v2.6", 1)]))
-    bs = Bookshelf(BASE_URL, auth=None, transport=transport)
-    bs._cache = ContentCache(tmp_path / "cache")
+    bs = Bookshelf(BASE_URL, auth=None, transport=transport, cache=ContentCache(tmp_path / "cache"))
     return bs, seen
 
 
@@ -36,9 +35,8 @@ def test_book_entry_as_df_reads_the_whole_file(tmp_path: Path) -> None:
     entry = bs.book("primap-hist", "v2.6")["by_country"]
 
     assert entry.as_df().equals(entry.as_resource().as_df())
-    data = [request for request in seen if request.url.path.endswith("/data")]
-    assert data and all(not request.url.params for request in data)
-    assert not any("timeseries" in request.url.path for request in seen)
+    assert [request.url.host for request in seen].count("s3.example") == 1
+    assert not any(request.url.path.endswith(("/data", "/timeseries")) for request in seen)
 
 
 def test_filters_and_the_year_window_apply_locally(tmp_path: Path) -> None:
@@ -64,8 +62,12 @@ def _empty_methane() -> pd.DataFrame:
 
 def test_as_scmrun_keeps_timeseries_with_no_values(tmp_path: Path) -> None:
     pytest.importorskip("scmdata")
-    bs = Bookshelf(BASE_URL, auth=None, transport=_platform([("v2.6", 1)], frame=_empty_methane()))
-    bs._cache = ContentCache(tmp_path / "cache")
+    bs = Bookshelf(
+        BASE_URL,
+        auth=None,
+        transport=_platform([("v2.6", 1)], frame=_empty_methane()),
+        cache=ContentCache(tmp_path / "cache"),
+    )
 
     run = bs.book("primap-hist", "v2.6")["by_country"].as_scmrun()
 
@@ -76,8 +78,9 @@ def test_as_scmrun_keeps_timeseries_with_no_values(tmp_path: Path) -> None:
 async def test_the_async_as_scmrun_keeps_timeseries_with_no_values(tmp_path: Path) -> None:
     pytest.importorskip("scmdata")
     transport = _platform([("v2.6", 1)], frame=_empty_methane())
-    async with AsyncBookshelf(BASE_URL, auth=None, async_transport=transport) as bs:
-        bs._cache = ContentCache(tmp_path / "cache")
+    async with AsyncBookshelf(
+        BASE_URL, auth=None, async_transport=transport, cache=ContentCache(tmp_path / "cache")
+    ) as bs:
         book = await bs.book("primap-hist", "v2.6")
         run = await book["by_country"].as_scmrun()
 
@@ -92,8 +95,7 @@ def _duplicated_first_row() -> pd.DataFrame:
 def test_as_scmrun_rejects_duplicate_metadata(tmp_path: Path) -> None:
     errors = pytest.importorskip("scmdata.errors")
     transport = _platform([("v2.6", 1)], frame=_duplicated_first_row())
-    bs = Bookshelf(BASE_URL, auth=None, transport=transport)
-    bs._cache = ContentCache(tmp_path / "cache")
+    bs = Bookshelf(BASE_URL, auth=None, transport=transport, cache=ContentCache(tmp_path / "cache"))
 
     with pytest.raises(errors.NonUniqueMetadataError):
         bs.book("primap-hist", "v2.6")["by_country"].as_scmrun()
@@ -102,8 +104,9 @@ def test_as_scmrun_rejects_duplicate_metadata(tmp_path: Path) -> None:
 async def test_the_async_as_scmrun_rejects_duplicate_metadata(tmp_path: Path) -> None:
     errors = pytest.importorskip("scmdata.errors")
     transport = _platform([("v2.6", 1)], frame=_duplicated_first_row())
-    async with AsyncBookshelf(BASE_URL, auth=None, async_transport=transport) as bs:
-        bs._cache = ContentCache(tmp_path / "cache")
+    async with AsyncBookshelf(
+        BASE_URL, auth=None, async_transport=transport, cache=ContentCache(tmp_path / "cache")
+    ) as bs:
         book = await bs.book("primap-hist", "v2.6")
         with pytest.raises(errors.NonUniqueMetadataError):
             await book["by_country"].as_scmrun()
@@ -126,13 +129,14 @@ def test_converters_refuse_query_arguments_before_downloading(
     with pytest.raises(TypeError, match="query"):
         entry.as_long_df(**{argument: "1"})
 
-    assert not any(request.url.path.endswith("/data") for request in seen[before:])
+    assert seen[before:] == []
 
 
 async def test_the_async_entry_reads_the_whole_file(tmp_path: Path) -> None:
     transport, seen = _requests(_platform([("v2.6", 1)]))
-    async with AsyncBookshelf(BASE_URL, auth=None, async_transport=transport) as bs:
-        bs._cache = ContentCache(tmp_path / "cache")
+    async with AsyncBookshelf(
+        BASE_URL, auth=None, async_transport=transport, cache=ContentCache(tmp_path / "cache")
+    ) as bs:
         book = await bs.book("primap-hist", "v2.6")
         frame = await book["by_country"].as_df(region="AUS")
 

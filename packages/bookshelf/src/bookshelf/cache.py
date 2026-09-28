@@ -129,7 +129,7 @@ class ContentCache:
         self.base_dir = Path(base_dir) if base_dir is not None else default_cache_dir()
         self.max_bytes = max_bytes
         self.base_dir.mkdir(parents=True, exist_ok=True)
-        self.metadata = MetadataCache(self.base_dir / "metadata")
+        self._metadata = MetadataCache(self.base_dir / "metadata")
 
     def get(self, content_hash: str) -> Path | None:
         """Return the cached path, or ``None`` when the hash is absent."""
@@ -202,7 +202,7 @@ class ContentCache:
         for path in self._entries():
             freed += path.stat().st_size
             path.unlink()
-        self.metadata.clear()
+        self._metadata.clear()
         return freed
 
     def _path_for(self, content_hash: str) -> Path:
@@ -220,6 +220,5 @@ __all__ = [
     "CacheSummary",
     "ContentCache",
     "DEFAULT_MAX_BYTES",
-    "MetadataCache",
     "default_cache_dir",
 ]

@@ -1,5 +1,6 @@
 """Offline tests for the 0.4 compatibility shim in ``bookshelf.legacy``."""
 
+import hashlib
 import io
 import re
 import warnings
@@ -96,9 +97,13 @@ def _platform(
     frame: pd.DataFrame = WIDE,
 ) -> httpx.MockTransport:
     """A volume holding ``versions``, every book sharing one timeseries entry."""
+    content = _parquet(frame)
+    resource = dict(payloads.RESOURCE_READ, hash=f"sha256:{hashlib.sha256(content).hexdigest()}")
 
     def handler(request: httpx.Request) -> httpx.Response:
         path = request.url.path
+        if request.url.host == "s3.example":
+            return httpx.Response(200, content=content)
         if path == "/v1/volumes/primap-hist":
             return httpx.Response(200, json=_volume(versions))
         if path.startswith("/v1/volumes/"):
@@ -112,12 +117,10 @@ def _platform(
             return httpx.Response(200, json=_books(chosen))
         if re.fullmatch(r"/v1/books/[^/]+/entries", path):
             return httpx.Response(200, json=_entries(*entries))
-        if path == f"/v1/resources/{TRACKING_ID}/data":
-            return httpx.Response(
-                200, content=_parquet(frame), headers={"content-type": "application/parquet"}
-            )
+        if path == f"/v1/resources/{TRACKING_ID}/download":
+            return httpx.Response(200, json=payloads.DOWNLOAD)
         if path == f"/v1/resources/{TRACKING_ID}":
-            return httpx.Response(200, json=payloads.RESOURCE_READ)
+            return httpx.Response(200, json=resource)
         return httpx.Response(404, json={"detail": f"unhandled {path}"})
 
     return httpx.MockTransport(handler)
@@ -126,8 +129,9 @@ def _platform(
 def _shelf(transport: httpx.MockTransport, tmp_path: Path) -> legacy.BookShelf:
     with pytest.warns(DeprecationWarning, match="bookshelf.BookShelf is deprecated"):
         shelf = legacy.BookShelf()
-    shelf._bookshelf = Bookshelf(BASE_URL, auth=None, transport=transport)
-    shelf._bookshelf._cache = ContentCache(tmp_path / "cache")
+    shelf._bookshelf = Bookshelf(
+        BASE_URL, auth=None, transport=transport, cache=ContentCache(tmp_path / "cache")
+    )
     return shelf
 
 
@@ -207,7 +211,8 @@ def test_is_cached_reflects_the_content_cache(tmp_path: Path) -> None:
 
     with pytest.warns(DeprecationWarning, match="is_cached"):
         assert not shelf.is_cached("primap-hist", "v2.6", 1)
-        shelf._bookshelf._cache.put(payloads.RESOURCE_READ["hash"], b"")
+        entry = shelf._bookshelf.book("primap-hist", "v2.6")["by_country"]
+        shelf._bookshelf._cache.put(entry.content_hash(), b"")
         assert shelf.is_cached("primap-hist", "v2.6", 1)
         assert not shelf.is_cached("nope", "v2.6", 1)
 

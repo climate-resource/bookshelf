@@ -151,7 +151,7 @@ async def test_the_async_surface_reads_the_same_memory() -> None:
 def test_a_corrupt_record_is_dropped_and_asked_for_again() -> None:
     _sync([], [BOOK_PAGE, ENTRIES_PAGE]).book("example", "v1.0.0", edition=2)
     cache = ContentCache()
-    (record,) = cache.metadata.base_dir.rglob("*.json")
+    (record,) = cache._metadata.base_dir.rglob("*.json")
     assert record.name == "v1.0.0_e002.json"
     record.write_text("{not json")
 
@@ -164,11 +164,11 @@ def test_a_corrupt_record_is_dropped_and_asked_for_again() -> None:
 def test_clearing_the_cache_forgets_the_records() -> None:
     _sync([], [BOOK_PAGE, ENTRIES_PAGE]).book("example", "v1.0.0", edition=2)
     cache = ContentCache()
-    assert list(cache.metadata.base_dir.rglob("*.json"))
+    assert list(cache._metadata.base_dir.rglob("*.json"))
 
     cache.clear()
 
-    assert not cache.metadata.base_dir.exists()
+    assert not cache._metadata.base_dir.exists()
 
 
 def test_an_expired_record_is_checked_with_one_request() -> None:
@@ -290,7 +290,7 @@ def test_a_malformed_remembered_hash_is_a_miss() -> None:
     _sync([], [BOOK_PAGE, ENTRIES_PAGE, RESOURCE_READ]).book("example", "v1.0.0", edition=2)[
         "by_country"
     ].content_hash()
-    (record,) = ContentCache().metadata.base_dir.rglob("resources/*.json")
+    (record,) = ContentCache()._metadata.base_dir.rglob("resources/*.json")
     record.write_text('{"hash": "md5:nope", "type": "timeseries"}')
 
     recorded: list[httpx.Request] = []

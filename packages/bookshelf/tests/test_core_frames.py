@@ -3,13 +3,14 @@
 import io
 import json
 import sys
+from pathlib import Path
 
 import pandas as pd
 import pandas.testing as pdt
 import pytest
 
 from bookshelf._core.errors import BookshelfError
-from bookshelf._core.frames import DataFrameSupportError, require_package, to_pandas
+from bookshelf._core.frames import DataFrameSupportError, read_frame, require_package, to_pandas
 from bookshelf._core.types import DataPayload
 
 
@@ -47,3 +48,15 @@ def test_a_missing_package_is_reported_as_a_bookshelf_error(
 
     assert isinstance(raised.value, BookshelfError)
     assert str(raised.value) == "as_polars() requires polars: pip install polars"
+
+
+@pytest.mark.parametrize("stored", ["parquet", "csv", "csv.gz"])
+def test_read_frame_detects_the_stored_format(tmp_path: Path, stored: str) -> None:
+    frame = pd.DataFrame({"region": ["NZL", "AUS"], "2000": [1.0, 2.0]})
+    path = tmp_path / "resource"
+    if stored == "parquet":
+        frame.to_parquet(path)
+    else:
+        frame.to_csv(path, index=False, compression="gzip" if stored == "csv.gz" else None)
+
+    pdt.assert_frame_equal(read_frame(path), frame)

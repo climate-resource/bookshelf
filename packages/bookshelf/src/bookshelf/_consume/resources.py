@@ -39,6 +39,7 @@ from bookshelf._consume.presentation import Describable, Section, Sections
 from bookshelf._consume.query import TimeseriesQuery, constant_columns, timeseries_filters
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import BookshelfError
+from bookshelf._core.frames import read_frame
 from bookshelf._generated import models
 from bookshelf.cache import ContentCache
 
@@ -269,7 +270,7 @@ class Resource(_ResourceHandle):
         reject_query_arguments(filters)
         resource_type = self.type
         require_frame_support(resource_type)
-        whole = self._client.query_resource_dataframe(self.tracking_id)
+        whole = read_frame(self._ensure_cached())
         return select_frame(
             resource_type, whole, year_min=year_min, year_max=year_max, filters=filters
         )
@@ -614,7 +615,7 @@ class AsyncResource(_ResourceHandle):
         reject_query_arguments(filters)
         resource_type = await self._get_type()
         require_frame_support(resource_type)
-        whole = await self._client.query_resource_dataframe_async(self.tracking_id)
+        whole = await asyncio.to_thread(read_frame, await self._ensure_cached())
         # Filtering a whole resource can take seconds, so run it off the event loop.
         return await asyncio.to_thread(
             select_frame,

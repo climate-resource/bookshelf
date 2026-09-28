@@ -176,6 +176,7 @@ class Bookshelf:
         auth: AuthInput = UNSET,
         timeout: float = 30.0,
         book_ttl: float | None = None,
+        cache: ContentCache | None = None,
         # The transport is the test seam: production always leaves it None.
         transport: httpx.BaseTransport | None = None,
     ) -> None:
@@ -189,6 +190,8 @@ class Bookshelf:
             timeout: Seconds to wait for each request.
             book_ttl: Seconds a remembered pinned edition is trusted before it is checked again.
                 Left out, ``$BOOKSHELF_CACHE_BOOK_TTL`` or one day.
+            cache: Where downloads and remembered records are kept.
+                Left out, ``$BOOKSHELF_CACHE_DIR`` or the platform cache directory.
         """
         self._client = BookshelfClient(
             base_url,
@@ -196,7 +199,7 @@ class Bookshelf:
             timeout=timeout,
             transport=transport,
         )
-        self._cache = ContentCache()
+        self._cache = ContentCache() if cache is None else cache
         self._book_ttl = default_book_ttl() if book_ttl is None else _book_ttl(book_ttl)
         # A subclass changes these by rebinding them after this runs, not by redefining them.
         sink: ProduceSink = LiveSink(self._client, self._cache)
@@ -437,6 +440,7 @@ class AsyncBookshelf:
         auth: AuthInput = UNSET,
         timeout: float = 30.0,
         book_ttl: float | None = None,
+        cache: ContentCache | None = None,
         # The transport is the test seam: production always leaves it None.
         async_transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
@@ -450,6 +454,8 @@ class AsyncBookshelf:
             timeout: Seconds to wait for each request.
             book_ttl: Seconds a remembered pinned edition is trusted before it is checked again.
                 Left out, ``$BOOKSHELF_CACHE_BOOK_TTL`` or one day.
+            cache: Where downloads and remembered records are kept.
+                Left out, ``$BOOKSHELF_CACHE_DIR`` or the platform cache directory.
         """
         self._client = BookshelfClient(
             base_url,
@@ -457,7 +463,7 @@ class AsyncBookshelf:
             timeout=timeout,
             async_transport=async_transport,
         )
-        self._cache = ContentCache()
+        self._cache = ContentCache() if cache is None else cache
         self._book_ttl = default_book_ttl() if book_ttl is None else _book_ttl(book_ttl)
         sink: AsyncProduceSink = AsyncLiveSink(self._client, self._cache)
         self.activity = sink.activity
