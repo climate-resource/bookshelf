@@ -11550,20 +11550,38 @@
             "description": "Size of the uploaded object."
           },
           "storage_path": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Storage Path",
-            "description": "Preview key the bytes were uploaded to."
+            "description": "Preview key the bytes were uploaded to. Set for a managed file."
+          },
+          "external_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Uri",
+            "description": "Address of a pointer's data, which Bookshelf never fetches."
           }
         },
         "type": "object",
         "required": [
           "name",
           "hash",
-          "type",
-          "storage_path"
+          "type"
         ],
         "title": "PreviewResourceUpload",
-        "description": "One file of an uploaded preview book, already landed under a preview key."
+        "description": "One file of an uploaded preview book.\n\nA managed file has already landed under a preview key and names it in ``storage_path``.\nA pointer names its address in ``external_uri`` and carries no bytes."
       },
       "PreviewResponse": {
         "properties": {
