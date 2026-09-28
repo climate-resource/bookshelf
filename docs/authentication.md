@@ -165,6 +165,7 @@ headers = {"Authorization": f"Bearer {access_token()}"}
 - A stored login whose refresh fails carries on unauthenticated with a warning.
   Pass `strict=True` to get the `AuthenticationError` instead.
 - `access_token()` returns a current bearer string for clients that are not built on `httpx`.
+  It raises `AuthenticationError` when a stored login cannot be refreshed.
 - Both take `api_url` to choose which Bookshelf deployment's stored login to use.
 - The provider classes (`ClientCredentials`, `ActionsOidcToken` and the rest) are exported
   for building a credential by hand.
@@ -172,6 +173,9 @@ headers = {"Authorization": f"Bearer {access_token()}"}
 Whether a token is accepted is up to the receiving service.
 The GitHub Actions token is minted for the `bookshelf-read` audience,
 so pass `ActionsOidcToken(audience=...)` explicitly for a service that expects its own.
+
+`bookshelf.auth` is not yet covered by the [stable API promise](api/index.md),
+so its names can change in any release.
 
 ## Where credentials are stored
 

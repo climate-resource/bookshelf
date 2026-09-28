@@ -1,20 +1,6 @@
 """Bookshelf credentials for use against other Climate Resource services.
 
-A service that verifies the same WorkOS tokens as Bookshelf can accept the identity
-a user already set up with ``bookshelf auth login``.
-Hand :func:`default_auth` to any ``httpx`` client,
-or use :func:`access_token` for a client that only takes a bearer string.
-
-```python
-import httpx
-from bookshelf.auth import default_auth
-
-with httpx.Client(base_url="https://ndc-api.example", auth=default_auth()) as client:
-    client.get("/v1/me")
-```
-
-The credential is resolved exactly as a ``Bookshelf`` client resolves it,
-so ``$BOOKSHELF_TOKEN``, the machine credential variables and the stored login all apply.
+The credential is resolved exactly as a ``Bookshelf`` client resolves it.
 """
 
 import httpx
@@ -47,6 +33,7 @@ def access_token(api_url: str | None = None, *, timeout: float = 30.0) -> str | 
     """Return a current bearer token, refreshing it first when one is due.
 
     Returns ``None`` when no credential is configured.
+    ``timeout`` bounds the token exchange, in seconds.
     Raises :class:`~bookshelf.AuthenticationError` when the credential cannot be refreshed.
     A token rotated by the refresh is written back to the credential store.
     """

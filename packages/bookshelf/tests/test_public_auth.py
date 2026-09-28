@@ -139,6 +139,16 @@ def test_access_token_raises_for_a_spent_login(monkeypatch: pytest.MonkeyPatch) 
         access_token(API)
 
 
-def test_public_names_resolve() -> None:
-    for name in bookshelf.auth.__all__:
-        assert getattr(bookshelf.auth, name) is not None
+def test_the_public_names_are_exactly_these() -> None:
+    assert set(bookshelf.auth.__all__) == {
+        "ActionsOidcToken",
+        "AuthConfigurationError",
+        "BsatAssertion",
+        "ClientCredentials",
+        "RefreshTokenExchange",
+        "StaticToken",
+        "TokenProvider",
+        "access_token",
+        "default_auth",
+    }
+    assert all(hasattr(bookshelf.auth, name) for name in bookshelf.auth.__all__)
