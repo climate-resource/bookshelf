@@ -306,8 +306,10 @@ entries:
   tracking_id: 0193f0f3-0000-7000-8000-000000000001
 ```
 
-A placement's `name` is only the entry's name, so it may differ from the name the resource was registered under.
-It must not name a resource recorded in the manifest.
+A placement's `name` is only the entry's name,
+so it may differ from the name the resource was registered under.
+It must not name a resource recorded in the manifest, and no resource is placed twice in one book.
+The publishing organisation must own the placed resource.
 A placement is membership alone.
 It adds nothing to any resource's `used` or `used_digests`.
 `source` is for a reviewer and never travels on replay.
@@ -359,6 +361,7 @@ A replayable book contains all the required information to later be streamed to 
 3. That book has at least one entry.
 4. Every entry's `name` matches a resource recorded in the same manifest,
    except a placement, whose `name` must match none.
+   No two placements share a `tracking_id`.
 5. Every resource with `type: figure` and `visibility: public` records a nonblank `alt_text`.
    The platform refuses a public figure without one,
    so a replay would fail only after every byte had uploaded.

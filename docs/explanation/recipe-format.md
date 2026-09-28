@@ -246,15 +246,19 @@ A recorded build cannot cite it in `used=`.
 A replay resolves an input it does not carry by digest, against the publishing organisation alone,
 and a referenced book may belong to another one.
 
-A recorded build can place it in the book instead, under a name of its own choosing:
+A recorded build can place a resource its own organisation holds in the book instead,
+under a name of its own choosing.
+Here `method` declares `uri: bookshelf://cra-method/v2.0_e003/hazard-method`:
 
 ```python
-build.book.attach(build.use("primap"), name_in_book="primap-by-country")
-build.book.attach("bookshelf://primap-hist/v2.7_e002/by_country", name_in_book="primap")
+build.book.attach(build.use("method"), name_in_book="approved-method")
+build.book.attach("bookshelf://cra-method/v2.0_e003/hazard-method", name_in_book="hazard-method")
 ```
 
 A placement puts the existing resource in the book without copying its bytes.
-The name must not be one this build registers a resource under.
+The publishing organisation must own it, so a book from another organisation cannot be placed.
+A bare tracking id is not checked until replay, where the platform refuses one it does not hold.
+The name must not be one this build registers a resource under, and a resource is placed once per book.
 A placement is membership alone and adds no lineage.
 The bundle records the reference as the entry's `source`, and `bookshelf validate` lists every placement.
 
