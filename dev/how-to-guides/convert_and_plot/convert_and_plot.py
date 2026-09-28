@@ -114,6 +114,7 @@ plt.tight_layout()
 # A mismatch raises `HashMismatchError` rather than returning suspect data.
 # The verified bytes land in a local content cache,
 # so a second call for the same resource does no network work.
+# The converters read through the same cache, so `as_df()` after `as_path()` downloads nothing.
 # The cache also remembers each resource's hash and every pinned edition you resolve,
 # so `bs.book(volume, version, edition=n)[name].as_path()` makes no request at all once warm.
 # A remembered edition is checked with one request after a day,
