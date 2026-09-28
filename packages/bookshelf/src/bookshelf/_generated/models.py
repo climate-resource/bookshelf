@@ -1469,6 +1469,13 @@ class ReplayEntry(BaseModel):
         list[DataDictionaryEntry] | None,
         Field(description="Column descriptions for this entry.", title="Data Dictionary"),
     ] = None
+    tracking_id: Annotated[
+        UUID | None,
+        Field(
+            description="An existing resource the organisation holds, placed in the book under ``name`` without copying it. When set, ``name`` is only the entry's name and must not name a resource this request carries.",
+            title="Tracking Id",
+        ),
+    ] = None
 
 
 class Kind4(StrEnum):

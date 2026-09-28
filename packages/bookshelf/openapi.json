@@ -12875,6 +12875,19 @@
             ],
             "title": "Data Dictionary",
             "description": "Column descriptions for this entry."
+          },
+          "tracking_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tracking Id",
+            "description": "An existing resource the organisation holds, placed in the book under ``name`` without copying it. When set, ``name`` is only the entry's name and must not name a resource this request carries."
           }
         },
         "additionalProperties": false,
