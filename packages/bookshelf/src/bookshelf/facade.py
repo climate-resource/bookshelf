@@ -28,7 +28,7 @@ from bookshelf._consume.resources import (
 from bookshelf._consume.volumes import AsyncVolume, Volume
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import UNSET, AuthInput
-from bookshelf._core.errors import BookshelfError, NotFoundError
+from bookshelf._core.errors import BookshelfError, ConflictError, NotFoundError
 from bookshelf._core.session import ensure_authenticated, ensure_authenticated_async
 from bookshelf._generated import models
 from bookshelf._produce import (
@@ -323,6 +323,44 @@ class Bookshelf:
             )
         )
 
+    def get_or_create_volume(
+        self,
+        name: str,
+        *,
+        license: str,
+        description: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        authors: Sequence[Mapping[str, Any]] | None = None,
+        maintainers: Sequence[Mapping[str, Any]] | None = None,
+        discovery: models.VolumeDiscoveryInput | None = None,
+    ) -> tuple[Volume, bool]:
+        """Resolve a volume, creating it first when it does not exist, and say whether this call created it.
+
+        The creation fields apply only to a new volume, and an existing one is returned unchanged.
+        A 409 from a concurrent creator counts as already present,
+        unless the volume it names is one this caller cannot read.
+        """
+        try:
+            return self.volume(name), False
+        except NotFoundError:
+            pass
+        try:
+            self.create_volume(
+                name,
+                license=license,
+                description=description,
+                metadata=metadata,
+                authors=authors,
+                maintainers=maintainers,
+                discovery=discovery,
+            )
+        except ConflictError as conflict:
+            try:
+                return self.volume(name), False
+            except NotFoundError:
+                raise conflict from None
+        return self.volume(name), True
+
     def update_volume(
         self,
         name: str,
@@ -569,6 +607,44 @@ class AsyncBookshelf:
                 discovery=discovery,
             )
         )
+
+    async def get_or_create_volume(
+        self,
+        name: str,
+        *,
+        license: str,
+        description: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        authors: Sequence[Mapping[str, Any]] | None = None,
+        maintainers: Sequence[Mapping[str, Any]] | None = None,
+        discovery: models.VolumeDiscoveryInput | None = None,
+    ) -> tuple[AsyncVolume, bool]:
+        """Resolve a volume, creating it first when it does not exist, and say whether this call created it.
+
+        The creation fields apply only to a new volume, and an existing one is returned unchanged.
+        A 409 from a concurrent creator counts as already present,
+        unless the volume it names is one this caller cannot read.
+        """
+        try:
+            return await self.volume(name), False
+        except NotFoundError:
+            pass
+        try:
+            await self.create_volume(
+                name,
+                license=license,
+                description=description,
+                metadata=metadata,
+                authors=authors,
+                maintainers=maintainers,
+                discovery=discovery,
+            )
+        except ConflictError as conflict:
+            try:
+                return await self.volume(name), False
+            except NotFoundError:
+                raise conflict from None
+        return await self.volume(name), True
 
     async def update_volume(
         self,
