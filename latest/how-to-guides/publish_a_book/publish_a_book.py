@@ -85,6 +85,9 @@ bs = RecordingBookshelf(
 # The licence is fixed at creation and cannot be changed afterwards.
 # Creating needs WRITE and deleting needs ADMIN,
 # so a credential can create a volume it is not able to remove.
+#
+# A script run more than once can call `bs.get_or_create_volume(...)` instead.
+# It takes the same arguments and returns the volume and whether this call created it.
 
 # %% [markdown]
 # ## Deriving some data

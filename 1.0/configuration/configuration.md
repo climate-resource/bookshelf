@@ -9,6 +9,8 @@ always beats the matching environment variable.
 `base_url=` names the API deployment a client talks to.
 Pass it when the deployment must be explicit, for example in a script that runs against staging.
 Without it, the SDK reads `$BOOKSHELF_URL`, then falls back to a built-in default.
+`bookshelf.PRODUCTION_API_URL` and `bookshelf.STAGING_API_URL` name the two deployments,
+so a script need not copy either URL.
 
 | Variable        | Effect                                                                  |
 | --------------- | ----------------------------------------------------------------------- |
@@ -40,10 +42,13 @@ See [where credentials are stored](authentication.md#where-credentials-are-store
 ## Caching
 
 Downloaded resources are cached by content hash, so a repeated read costs no download.
+The converters, `fetch()` and `as_path()` all read through the same cache.
+An external pointer is converted by the platform unless its bytes are already cached.
+Cached content never expires, and the oldest entries are removed once the cache passes 5 GiB.
 
-| Variable                   | Effect                                                                             |
-| -------------------------- | ---------------------------------------------------------------------------------- |
-| `BOOKSHELF_CACHE_DIR`      | Moves the local content cache. `BOOKSHELF_CACHE_LOCATION` is accepted as an alias. |
-| `BOOKSHELF_CACHE_BOOK_TTL` | Lifetime of the local cache for a book. The default is one day.                    |
+| Variable                   | Effect                                                                                             |
+| -------------------------- | -------------------------------------------------------------------------------------------------- |
+| `BOOKSHELF_CACHE_DIR`      | Moves the local content cache. `BOOKSHELF_CACHE_LOCATION` is accepted as an alias.                 |
+| `BOOKSHELF_CACHE_BOOK_TTL` | Seconds a remembered pinned edition is trusted before it is checked again. The default is one day. |
 
 `bookshelf cache` inspects and clears the cache.
