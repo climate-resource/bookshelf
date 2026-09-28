@@ -303,3 +303,15 @@ def test_a_rotation_reports_that_it_replaced_the_record(store: CredentialStore) 
     record = login(store, "tok", refresh_token="rt-1")
 
     assert store.rotate(record, record.with_token("tok-2", expires_at=None, refresh_token="rt-2"))
+
+
+def test_a_login_sets_an_unreadable_file_aside_rather_than_overwriting_it(path: Path) -> None:
+    newer = json.dumps({"version": credentials.STORE_VERSION + 1, "records": {"k": {}}})
+    path.write_text(newer)
+
+    login(FileCredentialStore(path), "tok")
+
+    assert path.with_name("credentials.json.unreadable").read_text() == newer
+    loaded = FileCredentialStore(path).load()
+    assert loaded is not None
+    assert loaded.access_token == "tok"

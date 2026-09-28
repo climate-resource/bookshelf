@@ -327,27 +327,36 @@ class FileCredentialStore(_DocumentStore):
         return self._path if self._path is not None else credentials_path()
 
     def _read(self) -> dict[str, Any]:
+        return self._load()[0]
+
+    def _load(self) -> tuple[dict[str, Any], bool]:
+        """Return the document, and whether an existing file could not be read as one."""
         try:
             with self.path.open("r") as f:
                 data = json.load(f)
+        except FileNotFoundError:
+            return _empty(), False
         except (json.JSONDecodeError, OSError):
-            return _empty()
+            return _empty(), True
         if not isinstance(data, dict) or data.get("version") != STORE_VERSION:
             # TODO: hook in future migrations here
-            return _empty()
+            return _empty(), True
         data.setdefault("records", {})
         data.setdefault("active", {})
-        return data
+        return data, False
 
     @contextmanager
     def _update(self) -> Iterator[dict[str, Any]]:
         path = self.path
         path.parent.mkdir(parents=True, exist_ok=True)
         with FileLock(path.with_name(f"{path.name}.lock")):
-            store = self._read()
+            store, unreadable = self._load()
             before = copy.deepcopy(store)
             yield store
             if store != before:
+                if unreadable:
+                    # Kept aside rather than overwritten, because a newer version may have written it.
+                    os.replace(path, path.with_name(f"{path.name}.unreadable"))
                 self._write(store)
 
     def _write(self, store: dict[str, Any]) -> None:
