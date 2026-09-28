@@ -51,6 +51,7 @@ from bookshelf.publisher.bundle import (
 from bookshelf.publisher.recipe import ResolvedBook, resolve_book_visibility
 from bookshelf.publisher.reference import is_reference
 from bookshelf.publisher.resource import (
+    Located,
     LookupBook,
     LookupDigest,
     ResolvedResource,
@@ -506,7 +507,7 @@ class RecordedDraftBook(DraftBook):
         names: dict[UUID, str],
         activity: Callable[[], Activity] | None = None,
         sidecar_edges: set[tuple[str, str]],
-        locate: Callable[[str], tuple[UUID, str]],
+        locate: Callable[[str], Located],
     ) -> None:
         self._bundle = bundle
         self._names = names
@@ -542,6 +543,8 @@ class RecordedDraftBook(DraftBook):
         Anything else is a placement of a resource the platform already holds:
         a handle from ``build.use()``, a ``bookshelf://`` reference or a bare tracking id.
         A placement may take any name the bundle does not record, and it adds no lineage.
+        The publishing organisation must own the placed resource, so a book from another one cannot be placed.
+        A bare tracking id is not checked until replay, where the platform refuses one it does not hold.
         """
         source = None
         if isinstance(resource, str) and is_reference(resource):
@@ -559,21 +562,19 @@ class RecordedDraftBook(DraftBook):
             if isinstance(resource, ResolvedResource):
                 source = resource.reference
         recorded = self._names.get(tracking_id)
-        if recorded is None:
-            self._bundle.add_book_entry(
-                name=name_in_book,
-                data_dictionary=data_dictionary,
-                tracking_id=tracking_id,
-                source=source,
-            )
-        elif recorded != name_in_book:
+        if recorded is not None and recorded != name_in_book:
             raise ValueError(
                 f"resource {recorded!r} cannot be attached as {name_in_book!r}. "
                 "A replayed resource is registered under the name its entry takes, "
                 f"so register it as {name_in_book!r}."
             )
-        else:
-            self._bundle.add_book_entry(name=name_in_book, data_dictionary=data_dictionary)
+        placed = recorded is None
+        self._bundle.add_book_entry(
+            name=name_in_book,
+            data_dictionary=data_dictionary,
+            tracking_id=tracking_id if placed else None,
+            source=source if placed else None,
+        )
         self._record_attached(name_in_book)
         return models.BookEntryAttachResponse(
             entry_id=helpers.uuid7(),

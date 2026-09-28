@@ -235,7 +235,7 @@ def validate(
             "placements": [
                 {"name": entry.name, "tracking_id": str(entry.tracking_id), "source": entry.source}
                 for entry in framing.entries
-                if entry.tracking_id is not None
+                if entry.is_placement
             ],
             "published": framing.published,
             "processing": [list(pair) for pair in framing.processing or ()],

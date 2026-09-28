@@ -16,9 +16,10 @@ from typer.testing import CliRunner
 from bookshelf._cli import app
 from bookshelf._cli._runtime import EXIT_OK
 from bookshelf._core.client import BookshelfClient
+from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf.facade import Bookshelf
-from bookshelf.publisher.bundle import Bundle, InvalidBundleError
+from bookshelf.publisher.bundle import Bundle, BundleBookEntry, InvalidBundleError
 from bookshelf.publisher.preview import PreviewIdentity, upload_preview
 from bookshelf.publisher.recipe import load_record_recipe
 from bookshelf.publisher.record import _ACTIVE_RECORDING, Build, _RecordingContext, setup
@@ -173,6 +174,23 @@ def test_a_placement_cannot_repeat_an_entry_name(tmp_path: Path) -> None:
             build.book.attach(_SOURCE, name_in_book="approved-method")
 
 
+def test_a_resource_cannot_be_placed_twice(tmp_path: Path) -> None:
+    """The platform refuses a repeated placement, so it is caught before anything uploads."""
+    with _recording(tmp_path) as build:
+        build.book.attach(build.use("method"), name_in_book="approved-method")
+        with pytest.raises(ValueError, match="already placed in this book"):
+            build.book.attach(_SOURCE, name_in_book="method-again")
+
+
+def test_an_unpublished_reference_names_the_placement(tmp_path: Path) -> None:
+    with _recording(tmp_path) as build, pytest.raises(BookshelfError) as excinfo:
+        build.book.attach("bookshelf://method/v2.0_e003/missing", name_in_book="approved-method")
+
+    message = str(excinfo.value)
+    assert message.startswith("a placement names bookshelf://method/v2.0_e003/missing")
+    assert "resource 'bookshelf://" not in message
+
+
 def test_a_placement_adds_no_lineage(tmp_path: Path) -> None:
     with _recording(tmp_path) as build:
         build.book.attach(build.use("method"), name_in_book="approved-method")
@@ -210,6 +228,16 @@ def test_validate_refuses_a_placement_named_like_a_recorded_resource(
     framing.entries[-1].name = "entry-0"
 
     with pytest.raises(InvalidBundleError, match="records a resource of that name"):
+        bundle.validate()
+
+
+def test_validate_refuses_a_resource_placed_twice(make_bundle: BundleFactory) -> None:
+    bundle = _placed(make_bundle)
+    bundle.require_framing().entries.append(
+        BundleBookEntry(name="method-again", tracking_id=_PLACED_ID)
+    )
+
+    with pytest.raises(InvalidBundleError, match="another entry already places"):
         bundle.validate()
 
 

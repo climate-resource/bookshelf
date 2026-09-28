@@ -19,7 +19,7 @@ import hashlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Protocol, TypedDict, Unpack
+from typing import Any, NamedTuple, Protocol, TypedDict, Unpack
 from uuid import UUID
 
 import httpx
@@ -189,7 +189,10 @@ class ResolvedResource:
     so only a digest reference, which resolved in-organisation to begin with, carries one.
     """
     reference: str | None = None
-    """The ``bookshelf://`` reference to the resource the platform holds, set for a reference alone."""
+    """The ``bookshelf://`` reference the resource was resolved through, spelled out to one entry.
+
+    ``None`` for a fetched or checked-in resource, which this build registers itself.
+    """
 
 
 def resolve_resource(
@@ -307,7 +310,8 @@ def _referenced(
     A recipe may name a type that the resource does not have,
     and reading the wrong shape is a failure worth catching before the build starts.
     """
-    book = _published_book(name, reference=reference, lookup_book=lookup_book)
+    who = f"resource {name!r}"
+    book = _published_book(who, reference=reference, lookup_book=lookup_book)
     if whole_book:
         return {
             entry_name: _held(
@@ -318,29 +322,29 @@ def _referenced(
             )
             for entry_name in book.entry_names
         }
-    uri, entry = _book_entry(name, reference=reference, book=book)
+    uri, entry = _book_entry(who, reference=reference, book=book)
     return _held(name, uri=uri, declared=declared, entry=entry)
 
 
 def _published_book(
-    name: str, *, reference: BookshelfReference, lookup_book: LookupBook | None
+    who: str, *, reference: BookshelfReference, lookup_book: LookupBook | None
 ) -> PublishedBook:
-    """Look up the book a reference names, refusing one the platform has not published."""
+    """Look up the book a reference names, refusing one the platform has not published.
+
+    ``who`` names what holds the reference, as the error message opens.
+    """
     if lookup_book is None:
         raise BookshelfError(
-            f"resource {name!r} names {reference.uri}, "
-            "but this build resolves no bookshelf references"
+            f"{who} names {reference.uri}, but this build resolves no bookshelf references"
         )
     try:
         return lookup_book(reference.volume, reference.version, edition=reference.edition)
     except NotFoundError as exc:
-        raise BookshelfError(
-            f"resource {name!r} names {reference.uri}, which is not published: {exc}"
-        ) from exc
+        raise BookshelfError(f"{who} names {reference.uri}, which is not published: {exc}") from exc
 
 
 def _book_entry(
-    name: str, *, reference: BookshelfReference, book: PublishedBook
+    who: str, *, reference: BookshelfReference, book: PublishedBook
 ) -> tuple[str, PublishedEntry]:
     """Return the entry a reference names and the reference spelled out to that entry.
 
@@ -352,7 +356,7 @@ def _book_entry(
         if len(entries) != 1:
             listed = ", ".join(repr(entry) for entry in entries) or "none"
             raise BookshelfError(
-                f"resource {name!r} names the book {reference.uri} rather than an entry of it, "
+                f"{who} names the book {reference.uri} rather than an entry of it, "
                 f"and that book holds {len(entries)} entries: {listed}. "
                 f"Name one, as {reference.uri}/<entry>"
             )
@@ -360,8 +364,15 @@ def _book_entry(
     try:
         entry = book[name_in_book]
     except KeyError as exc:
-        raise BookshelfError(f"resource {name!r} names {reference.uri}, and {exc}") from exc
+        raise BookshelfError(f"{who} names {reference.uri}, and {exc}") from exc
     return replace(reference, name_in_book=name_in_book).uri, entry
+
+
+class Located(NamedTuple):
+    """The resource a ``bookshelf://`` reference names, and the reference spelled out to it."""
+
+    tracking_id: UUID
+    reference: str
 
 
 def locate_reference(
@@ -369,8 +380,8 @@ def locate_reference(
     *,
     lookup_book: LookupBook | None,
     lookup_digest: LookupDigest | None,
-) -> tuple[UUID, str]:
-    """Return the tracking id a ``bookshelf://`` reference names, with the reference spelled out.
+) -> Located:
+    """Return the resource a ``bookshelf://`` reference names, for a placement.
 
     Unlike :func:`resolve_resource` this fetches no bytes, because placing a resource never reads it.
     Raises :class:`~bookshelf._core.errors.BookshelfError` for a reference that resolves to nothing.
@@ -379,20 +390,29 @@ def locate_reference(
         reference = parse_reference(uri)
     except ValueError as exc:
         raise BookshelfError(str(exc)) from exc
+    who = "a placement"
     if isinstance(reference, DigestReference):
-        if lookup_digest is None:
-            raise BookshelfError(
-                f"{uri} cannot be looked up, because this build resolves no bookshelf references"
-            )
-        try:
-            return lookup_digest(reference.hash).tracking_id, reference.uri
-        except NotFoundError as exc:
-            raise BookshelfError(
-                f"{uri} names bytes your organisation does not hold: {exc}"
-            ) from exc
-    book = _published_book(uri, reference=reference, lookup_book=lookup_book)
-    spelled, entry = _book_entry(uri, reference=reference, book=book)
-    return entry.tracking_id, spelled
+        entry = _digest_entry(who, reference=reference, lookup_digest=lookup_digest)
+        return Located(entry.tracking_id, reference.uri)
+    book = _published_book(who, reference=reference, lookup_book=lookup_book)
+    spelled, entry = _book_entry(who, reference=reference, book=book)
+    return Located(entry.tracking_id, spelled)
+
+
+def _digest_entry(
+    who: str, *, reference: DigestReference, lookup_digest: LookupDigest | None
+) -> PublishedEntry:
+    """Look up the resource the organisation holds for a digest reference."""
+    if lookup_digest is None:
+        raise BookshelfError(
+            f"{who} names {reference.uri}, but this build resolves no bookshelf references"
+        )
+    try:
+        return lookup_digest(reference.hash)
+    except NotFoundError as exc:
+        raise BookshelfError(
+            f"{who} names {reference.uri}, which your organisation does not hold: {exc}"
+        ) from exc
 
 
 def _by_digest(
@@ -403,17 +423,7 @@ def _by_digest(
     lookup_digest: LookupDigest | None,
 ) -> ResolvedResource:
     """Resolve one digest reference into the resource the organisation holds for it."""
-    if lookup_digest is None:
-        raise BookshelfError(
-            f"resource {name!r} names {reference.uri}, "
-            "but this build resolves no bookshelf references"
-        )
-    try:
-        entry = lookup_digest(reference.hash)
-    except NotFoundError as exc:
-        raise BookshelfError(
-            f"resource {name!r} names {reference.uri}, which your organisation does not hold: {exc}"
-        ) from exc
+    entry = _digest_entry(f"resource {name!r}", reference=reference, lookup_digest=lookup_digest)
     return _held(name, uri=reference.uri, declared=declared, entry=entry, citable=True)
 
 
@@ -513,6 +523,7 @@ def _checked_in(name: str, *, relative: Path, recipe_dir: Path | None) -> tuple[
 __all__ = [
     "DOWNLOAD_TIMEOUT",
     "LookupBook",
+    "Located",
     "LookupDigest",
     "PublishedBook",
     "PublishedEntry",
