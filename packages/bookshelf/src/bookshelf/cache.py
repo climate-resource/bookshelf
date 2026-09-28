@@ -16,7 +16,6 @@ from uuid import uuid4
 from filelock import AsyncFileLock, FileLock
 from platformdirs import user_cache_dir
 
-from bookshelf._core.errors import BookshelfError
 from bookshelf._core.integrity import HashMismatchError, verify_path
 
 DEFAULT_MAX_BYTES = 5 * 1024**3
@@ -161,7 +160,7 @@ class ContentCache:
             with self.stage(content_hash) as temporary:
                 download(temporary)
                 verify_path(temporary, content_hash)
-            return self._committed(content_hash)
+            return self._path_for(content_hash)
 
     async def fetch_async(
         self, content_hash: str, download: Callable[[Path], Awaitable[None]]
@@ -180,7 +179,7 @@ class ContentCache:
             with self.stage(content_hash) as temporary:
                 await download(temporary)
                 await asyncio.to_thread(verify_path, temporary, content_hash)
-            return self._committed(content_hash)
+            return self._path_for(content_hash)
 
     def put(self, content_hash: str, content: bytes) -> Path:
         """Atomically store content under its hash and enforce the size cap."""
@@ -211,12 +210,6 @@ class ContentCache:
         except (FileNotFoundError, HashMismatchError):
             self.discard(content_hash)
             return None
-        return cached
-
-    def _committed(self, content_hash: str) -> Path:
-        cached = self.get(content_hash)
-        if cached is None:  # pragma: no cover
-            raise BookshelfError("the content cache evicted a resource as it was stored")
         return cached
 
     def _lock_path(self, content_hash: str) -> Path:

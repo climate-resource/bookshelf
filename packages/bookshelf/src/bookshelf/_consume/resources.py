@@ -368,17 +368,14 @@ class Resource(_ResourceHandle):
         """Stream and verify the resource, then return its cached path."""
         return self._ensure_cached()
 
-    def _ensure_cached(self) -> Path:
-        return self._fetch(managed_only=False)
-
     def _cached_frame_file(self) -> Path | None:
         """Return the verified cached file, or ``None`` for an external pointer."""
         try:
-            return self._fetch(managed_only=True)
+            return self._ensure_cached(managed_only=True)
         except _ExternalPointer:
             return None
 
-    def _fetch(self, *, managed_only: bool) -> Path:
+    def _ensure_cached(self, *, managed_only: bool = False) -> Path:
         def download(destination: Path) -> None:
             pointer = self._client.get_resource_download(self.tracking_id)
             # The platform names managed bytes only, so no filename means an external pointer.
@@ -733,17 +730,14 @@ class AsyncResource(_ResourceHandle):
         """Stream and verify the resource, then return its cached path."""
         return await self._ensure_cached()
 
-    async def _ensure_cached(self) -> Path:
-        return await self._fetch(managed_only=False)
-
     async def _cached_frame_file(self) -> Path | None:
         """Return the verified cached file, or ``None`` for an external pointer."""
         try:
-            return await self._fetch(managed_only=True)
+            return await self._ensure_cached(managed_only=True)
         except _ExternalPointer:
             return None
 
-    async def _fetch(self, *, managed_only: bool) -> Path:
+    async def _ensure_cached(self, *, managed_only: bool = False) -> Path:
         async def download(destination: Path) -> None:
             pointer = await self._client.get_resource_download_async(self.tracking_id)
             # The platform names managed bytes only, so no filename means an external pointer.
