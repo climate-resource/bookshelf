@@ -207,18 +207,6 @@ def test_rotation_does_not_overwrite_a_newer_login(store: CredentialStore) -> No
     assert loaded.access_token == "fresh-tok"
 
 
-def test_a_rotation_that_changes_kind_moves_the_active_identity(store: CredentialStore) -> None:
-    agent = login(store, "tok", kind=CredentialKind.AGENT, refresh_token="rt-1")
-    rotated = StoredCredentials(access_token="tok-2", api_url=API, refresh_token="rt-2")
-
-    store.rotate(agent, rotated)
-
-    assert store.active_kinds() == {API: CredentialKind.USER}
-    loaded = store.load(API)
-    assert loaded is not None
-    assert loaded.access_token == "tok-2"
-
-
 def test_memory_store_starts_from_records() -> None:
     store = MemoryCredentialStore([StoredCredentials(access_token="tok", api_url=f"{API}/")])
 

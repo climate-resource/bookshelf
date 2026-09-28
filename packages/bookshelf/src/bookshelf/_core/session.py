@@ -152,7 +152,7 @@ def _login_and_adopt(client: BookshelfClient) -> models.UserResponse:
         user, record = login_user(client.base_url, browser=_has_browser(), store=credential.store)
     except oauth.OAuthError as exc:
         raise AuthenticationRequiredError(f"Logging in to Bookshelf failed: {exc}") from exc
-    client.adopt_credential(credential.adopt_login(record))
+    client.adopt_credential(credential.with_login(record))
     client.verified_user = user
     return user
 

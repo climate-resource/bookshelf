@@ -326,7 +326,7 @@ def auth_whoami(
     base = base_url()
     with command_errors():
         credential = resolve_credential(base)
-        shadowed = credential.shadowed
+        shadowed = credential.shadowed_login()
         shadows = (
             {"source": "stored_login", "id": shadowed.subject or shadowed.key}
             if shadowed is not None
@@ -379,8 +379,9 @@ def _fill_online(report: dict[str, Any], base: str, credential: ResolvedCredenti
             "or 'bookshelf auth whoami --offline' to inspect the stored record.",
             exit_code=EXIT_AUTH_REQUIRED,
         ) from exc
+    described = credential.describe()
     is_agent = me.id.startswith("agent:")
-    report["kind"] = "agent" if is_agent else "user"
+    report["kind"] = "agent" if is_agent else "machine" if described.kind == "machine" else "user"
     report["id"] = me.id if is_agent else (me.email or me.id)
     report["organization_id"] = me.organization_id
     report["permissions"] = me.permissions or []
@@ -389,8 +390,7 @@ def _fill_online(report: dict[str, Any], base: str, credential: ResolvedCredenti
         report["claimed"] = claimed
         if not claimed:
             report["reaches"] = "public"
-    if credential.stored is not None:
-        report["expires_at"] = iso(credential.stored.expires_at)
+    report["expires_at"] = iso(described.expires_at)
 
 
 @auth_app.command("logout")

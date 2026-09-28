@@ -140,11 +140,9 @@ class CredentialStore(Protocol):
         ...
 
     def rotate(self, previous: StoredCredentials, current: StoredCredentials) -> bool:
-        """Replace ``previous`` with its refreshed form, leaving the default deployment alone.
+        """Replace ``previous`` in place, unless the stored record has changed since it was loaded.
 
-        Nothing is written when the stored record is no longer ``previous``,
-        so a refresh cannot bring back a logged out login or overwrite a newer one.
-        Returns whether the record was replaced.
+        Leaves the active identity and the default deployment alone, and returns whether it wrote.
         """
         ...
 
@@ -234,7 +232,7 @@ def _normalised(record: StoredCredentials) -> StoredCredentials:
     return replace(record, expires_at=expires_at, api_url=normalise_api_url(record.api_url))
 
 
-class _DocumentStore(ABC):
+class _DocumentStore(CredentialStore, ABC):
     """The store rules over one JSON-shaped document, whichever adapter holds it."""
 
     @abstractmethod
@@ -283,11 +281,9 @@ class _DocumentStore(ABC):
             stored = store["records"].get(previous.key)
             if not isinstance(stored, dict) or stored.get("access_token") != previous.access_token:
                 return False
-            del store["records"][previous.key]
-            store["records"][current.key] = _credentials_to_record(current)
-            # A rotation can change the kind a record is served as, and the identity stays active.
-            if store["active"].get(previous.api_url) == str(previous.kind):
-                store["active"][current.api_url] = str(current.kind)
+            store["records"][previous.key] = _credentials_to_record(
+                replace(current, kind=previous.kind)
+            )
         return True
 
     def set_active(self, api_url: str, kind: CredentialKind) -> StoredCredentials:

@@ -23,7 +23,7 @@ import os
 import threading
 from collections.abc import Callable, Mapping
 from contextlib import AbstractContextManager, nullcontext
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal
 
@@ -74,9 +74,22 @@ class CredentialSource(enum.StrEnum):
     NONE = "none"
 
 
-_MACHINE_SOURCES = frozenset(
-    {CredentialSource.ENV_TOKEN, CredentialSource.ACTIONS_OIDC, CredentialSource.CLIENT_CREDENTIALS}
-)
+# How a message names each machine credential, and what to do when the API refuses it.
+_MACHINE_SOURCES = {
+    CredentialSource.ENV_TOKEN: (
+        "$BOOKSHELF_TOKEN",
+        "Replace $BOOKSHELF_TOKEN with a current token, or unset it.",
+    ),
+    CredentialSource.ACTIONS_OIDC: (
+        "the job's GitHub Actions OIDC token",
+        "Give the job the 'id-token: write' permission.",
+    ),
+    CredentialSource.CLIENT_CREDENTIALS: (
+        "the client credentials in $BOOKSHELF_CLIENT_ID",
+        "Check BOOKSHELF_CLIENT_ID, BOOKSHELF_CLIENT_SECRET "
+        "and BOOKSHELF_TOKEN_URL against the issuer.",
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -138,20 +151,14 @@ class ResolvedCredential:
         self._fallback: AnonymousFallback | None = None
         self._lock = threading.Lock()
 
-    @property
-    def shadowed(self) -> StoredCredentials | None:
-        """The stored login a machine credential is overriding, if there is one."""
+    def shadowed_login(self) -> StoredCredentials | None:
+        """Read the stored login a machine credential is overriding, if there is one."""
         if self.source not in _MACHINE_SOURCES:
             return None
         return self.store.load(self.api_url)
 
     def token_provider(self) -> TokenProvider | None:
-        """Return the provider, or ``None`` when nothing was found.
-
-        A spent stored login raises from here rather than degrading.
-        Raises :class:`~bookshelf._core.errors.AuthConfigurationError` for a credential
-        that is configured but unusable.
-        """
+        """Return the provider, strict where :meth:`auth` degrades, or ``None`` when nothing was found."""
         with self._lock:
             if self._provider is None and self.source is not CredentialSource.NONE:
                 self._provider = self._build_provider()
@@ -182,7 +189,7 @@ class ResolvedCredential:
         """
         return self.source not in _MACHINE_SOURCES
 
-    def adopt_login(self, record: StoredCredentials) -> "ResolvedCredential":
+    def with_login(self, record: StoredCredentials) -> "ResolvedCredential":
         """Return the credential a fresh interactive login resolves to."""
         return ResolvedCredential(
             CredentialSource.STORED_LOGIN,
@@ -196,30 +203,19 @@ class ResolvedCredential:
         """Report what the credential is, offline."""
         source = self.source
         if source is CredentialSource.ENV_TOKEN:
+            label, remedy = _MACHINE_SOURCES[source]
             token = self._environ["BOOKSHELF_TOKEN"]
             exp = decode_jwt_expiry(token)
             return CredentialDescription(
                 source,
                 kind="agent" if token.startswith("bsat_") else "user",
-                label="$BOOKSHELF_TOKEN",
-                remedy="Replace $BOOKSHELF_TOKEN with a current token, or unset it.",
+                label=label,
+                remedy=remedy,
                 expires_at=None if exp is None else datetime.fromtimestamp(exp, tz=UTC),
             )
-        if source is CredentialSource.ACTIONS_OIDC:
-            return CredentialDescription(
-                source,
-                kind="machine",
-                label="the job's GitHub Actions OIDC token",
-                remedy="Give the job the 'id-token: write' permission.",
-            )
-        if source is CredentialSource.CLIENT_CREDENTIALS:
-            return CredentialDescription(
-                source,
-                kind="machine",
-                label="the client credentials in $BOOKSHELF_CLIENT_ID",
-                remedy="Check BOOKSHELF_CLIENT_ID, BOOKSHELF_CLIENT_SECRET "
-                "and BOOKSHELF_TOKEN_URL against the issuer.",
-            )
+        if source in _MACHINE_SOURCES:
+            label, remedy = _MACHINE_SOURCES[source]
+            return CredentialDescription(source, kind="machine", label=label, remedy=remedy)
         if self.stored is None:
             return CredentialDescription(
                 source, kind="anonymous", label="no credential", remedy=LOGIN_REMEDY
@@ -291,12 +287,13 @@ def _client_credentials(environ: Mapping[str, str]) -> ClientCredentials:
 
 
 def _provider_from_stored(stored: StoredCredentials, store: CredentialStore) -> TokenProvider:
+    expires_at = stored.expires_at.timestamp() if stored.expires_at is not None else None
     if stored.kind is CredentialKind.AGENT and stored.identity_assertion is not None:
         return BsatAssertion(
             stored.identity_assertion,
             base_url=stored.api_url,
             access_token=stored.access_token,
-            expires_at=stored.expires_at.timestamp() if stored.expires_at is not None else None,
+            expires_at=expires_at,
             on_rotate=_rotation_sink(stored, store),
         )
 
@@ -316,7 +313,7 @@ def _provider_from_stored(stored: StoredCredentials, store: CredentialStore) -> 
         stored.refresh_token,
         token_url=f"{oauth.get_workos_base_url()}/user_management/authenticate",
         client_id=client_id,
-        expires_at=stored.expires_at.timestamp() if stored.expires_at is not None else None,
+        expires_at=expires_at,
         on_rotate=_rotation_sink(stored, store),
     )
 
@@ -324,14 +321,10 @@ def _provider_from_stored(stored: StoredCredentials, store: CredentialStore) -> 
 def _rotation_sink(
     stored: StoredCredentials, store: CredentialStore
 ) -> Callable[[str, str | None, float | None], None]:
-    """Build the callback that writes each rotated credential over the one before it.
-
-    An agent record with no assertion is served by the refresh-token grant,
-    so what comes back is a refresh token and the rotation lands as a user record.
-    """
+    """Build the callback that writes each rotated credential over the one before it."""
+    # An agent record with no assertion is served by the refresh-token grant, so it rotates one.
     as_agent = stored.kind is CredentialKind.AGENT and stored.identity_assertion is not None
-    latest = stored if as_agent else replace(stored, kind=CredentialKind.USER)
-    previous = stored
+    latest = previous = stored
     # The sync and async refresh locks are separate, so both surfaces can land here at once.
     lock = threading.Lock()
 

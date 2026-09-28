@@ -211,8 +211,7 @@ def test_consecutive_refreshes_each_replace_the_last() -> None:
     assert [record.access_token for record in store.records()] == ["new-tok"]
 
 
-def test_an_agent_record_without_an_assertion_rotates_as_a_user() -> None:
-    """The rotation follows the provider that was built, not the record's own kind."""
+def test_an_agent_record_without_an_assertion_rotates_its_refresh_token() -> None:
     store = stored(
         kind=CredentialKind.AGENT,
         identity_assertion=None,
@@ -225,7 +224,8 @@ def test_an_agent_record_without_an_assertion_rotates_as_a_user() -> None:
 
     rotated = store.load(API)
     assert rotated is not None
-    assert rotated.kind is CredentialKind.USER
+    assert rotated.kind is CredentialKind.AGENT
+    assert store.active_kinds() == {API: CredentialKind.AGENT}
     assert rotated.refresh_token == "rt-2"
     assert rotated.identity_assertion is None
 
@@ -306,15 +306,16 @@ def test_a_machine_credential_reports_the_login_it_shadows() -> None:
     store = stored()
 
     assert (
-        resolve_credential(API, environ={"BOOKSHELF_TOKEN": "t"}, store=store).shadowed is not None
+        resolve_credential(API, environ={"BOOKSHELF_TOKEN": "t"}, store=store).shadowed_login()
+        is not None
     )
-    assert resolve_credential(API, environ={}, store=store).shadowed is None
+    assert resolve_credential(API, environ={}, store=store).shadowed_login() is None
 
 
 def test_an_adopted_login_uses_the_new_record() -> None:
     credential = resolve_credential(API, environ={}, store=MemoryCredentialStore())
 
-    adopted = credential.adopt_login(user_login(refresh_token=None))
+    adopted = credential.with_login(user_login(refresh_token=None))
 
     assert adopted.source is CredentialSource.STORED_LOGIN
     assert adopted.store is credential.store
