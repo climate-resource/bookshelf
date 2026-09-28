@@ -193,3 +193,97 @@ async def test_async_facade_matches_the_sync_one() -> None:
         )
     assert corrected.metadata == {"maturity": "approved"}
     assert (corrections[0].method, corrections[0].url.path) == ("POST", "/v1/books/b1/corrections")
+
+
+VOLUME_DETAIL: dict[str, Any] = {
+    **payloads.VOLUME,
+    "versions": [],
+    "stats": {
+        "total_versions": 0,
+        "total_editions": 0,
+        "total_resources": 0,
+        "total_size_bytes": 0,
+    },
+}
+
+
+def _scripted(recorded: list[httpx.Request], *replies: tuple[int, Any]) -> httpx.MockTransport:
+    queue = list(replies)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        recorded.append(request)
+        status, payload = queue.pop(0)
+        return httpx.Response(status, json=payload)
+
+    return httpx.MockTransport(handler)
+
+
+def _missing() -> tuple[int, Any]:
+    return 404, payloads.problem(404, "Not Found", "volume not found")
+
+
+def _taken() -> tuple[int, Any]:
+    return 409, payloads.problem(409, "Conflict", "volume already exists")
+
+
+@pytest.mark.parametrize(
+    ("replies", "created", "calls"),
+    [
+        pytest.param([(200, VOLUME_DETAIL)], False, ["GET"], id="present"),
+        pytest.param(
+            [_missing(), (201, payloads.VOLUME), (200, VOLUME_DETAIL)],
+            True,
+            ["GET", "POST", "GET"],
+            id="absent",
+        ),
+        pytest.param(
+            [_missing(), _taken(), (200, VOLUME_DETAIL)],
+            False,
+            ["GET", "POST", "GET"],
+            id="lost-race",
+        ),
+    ],
+)
+def test_get_or_create_volume(
+    replies: list[tuple[int, Any]], created: bool, calls: list[str]
+) -> None:
+    recorded: list[httpx.Request] = []
+    with Bookshelf(BASE_URL, auth=None, transport=_scripted(recorded, *replies)) as client:
+        volume, was_created = client.get_or_create_volume("example", license="MIT")
+
+    assert volume.name == "example"
+    assert was_created is created
+    assert [request.method for request in recorded] == calls
+
+
+def test_get_or_create_volume_raises_what_creation_cannot_absorb() -> None:
+    recorded: list[httpx.Request] = []
+    forbidden = (403, payloads.problem(403, "Forbidden", "no WRITE on this organisation"))
+    with (
+        Bookshelf(
+            BASE_URL, auth=None, transport=_scripted(recorded, _missing(), forbidden)
+        ) as client,
+        pytest.raises(ForbiddenError),
+    ):
+        client.get_or_create_volume("example", license="MIT")
+
+
+async def test_async_get_or_create_volume() -> None:
+    recorded: list[httpx.Request] = []
+    transport = _scripted(recorded, _missing(), (201, payloads.VOLUME), (200, VOLUME_DETAIL))
+    async with AsyncBookshelf(BASE_URL, auth=None, async_transport=transport) as client:
+        volume, created = await client.get_or_create_volume("example", license="MIT")
+
+    assert volume.name == "example"
+    assert created is True
+    assert _body(recorded[1]) == {"name": "example", "discovery": {"license": "MIT"}}
+
+
+def test_the_public_surface_exports_typed_errors_and_deployments() -> None:
+    import bookshelf
+    from bookshelf._core import config, errors
+
+    assert bookshelf.NotFoundError is errors.NotFoundError
+    assert issubclass(bookshelf.ConflictError, bookshelf.APIError)
+    assert bookshelf.STAGING_API_URL == config.STAGING_API_URL
+    assert bookshelf.PRODUCTION_API_URL == config.PRODUCTION_API_URL

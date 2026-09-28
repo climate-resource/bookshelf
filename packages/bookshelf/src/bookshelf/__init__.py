@@ -1,6 +1,19 @@
 """Public facade for the Bookshelf SDK."""
 
-from bookshelf._core.errors import AuthenticationRequiredError, BookshelfError
+from bookshelf._core.config import PRODUCTION_API_URL, STAGING_API_URL
+from bookshelf._core.errors import (
+    APIError,
+    AuthenticationError,
+    AuthenticationRequiredError,
+    BookshelfError,
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    ServerError,
+    TransportError,
+    UnexpectedResponseError,
+    ValidationError,
+)
 from bookshelf._generated import OPENAPI_VERSION, models
 from bookshelf._produce.helpers import uuid7
 from bookshelf.cache import ContentCache
@@ -44,6 +57,9 @@ def __getattr__(name: str) -> object:
 
 __all__ = [
     "OPENAPI_VERSION",
+    "PRODUCTION_API_URL",
+    "STAGING_API_URL",
+    "APIError",
     "Activity",
     "AsyncActivity",
     "AsyncBook",
@@ -52,21 +68,29 @@ __all__ = [
     "AsyncDraftBook",
     "AsyncResource",
     "AsyncVolume",
+    "AuthenticationError",
     "AuthenticationRequiredError",
     "Book",
     "BookEntry",
     "Bookshelf",
     "BookshelfError",
+    "ConflictError",
     "ContentCache",
     "DraftBook",
+    "ForbiddenError",
     "HashMismatchError",
+    "NotFoundError",
     "PartialRegistrationError",
     "RegisterItem",
     "RegistrationFailure",
     "RegistrationSuccess",
     "Resource",
+    "ServerError",
+    "TransportError",
+    "UnexpectedResponseError",
     "UnsupportedConversionError",
     "Used",
+    "ValidationError",
     "Volume",
     "models",
     "replay_bundle",
