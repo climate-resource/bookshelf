@@ -60,3 +60,22 @@ def test_read_frame_detects_the_stored_format(tmp_path: Path, stored: str) -> No
         frame.to_csv(path, index=False, compression="gzip" if stored == "csv.gz" else None)
 
     pdt.assert_frame_equal(read_frame(path), frame)
+
+
+def test_read_frame_keeps_na_codes_as_text(tmp_path: Path) -> None:
+    """Only an empty field is missing, so Namibia's ISO code survives as on the platform."""
+    path = tmp_path / "resource"
+    path.write_text("region,2000\nNA,1.0\nNZL,\n")
+
+    frame = read_frame(path)
+
+    assert frame["region"].tolist() == ["NA", "NZL"]
+    assert frame["2000"].isna().tolist() == [False, True]
+
+
+def test_read_frame_reports_an_unreadable_file_as_a_bookshelf_error(tmp_path: Path) -> None:
+    path = tmp_path / "resource"
+    path.write_bytes(b"")
+
+    with pytest.raises(BookshelfError, match="cannot read the stored resource"):
+        read_frame(path)

@@ -46,9 +46,18 @@ def read_frame(path: Path) -> "pd.DataFrame":
 
     with path.open("rb") as stream:
         magic = stream.read(4)
-    if magic == b"PAR1":
-        return pd.read_parquet(path)
-    return pd.read_csv(path, compression="gzip" if magic[:2] == b"\x1f\x8b" else None)
+    try:
+        if magic == b"PAR1":
+            return pd.read_parquet(path)
+        # Only an empty field is missing, as on the platform, so a code like "NA" stays text.
+        return pd.read_csv(
+            path,
+            compression="gzip" if magic[:2] == b"\x1f\x8b" else None,
+            keep_default_na=False,
+            na_values=[""],
+        )
+    except (ValueError, OSError) as exc:
+        raise BookshelfError(f"cannot read the stored resource as a frame: {exc}") from exc
 
 
 def to_pandas(payload: DataPayload) -> "pd.DataFrame":

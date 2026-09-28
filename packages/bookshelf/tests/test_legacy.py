@@ -95,8 +95,12 @@ def _platform(
     *,
     entries: tuple[str, ...] = ("by_country",),
     frame: pd.DataFrame = WIDE,
+    external: bool = False,
 ) -> httpx.MockTransport:
-    """A volume holding ``versions``, every book sharing one timeseries entry."""
+    """A volume holding ``versions``, every book sharing one timeseries entry.
+
+    An ``external`` entry is a pointer the platform reads in place, so only ``/data`` serves it.
+    """
     content = _parquet(frame)
     resource = dict(payloads.RESOURCE_READ, hash=f"sha256:{hashlib.sha256(content).hexdigest()}")
 
@@ -118,7 +122,15 @@ def _platform(
         if re.fullmatch(r"/v1/books/[^/]+/entries", path):
             return httpx.Response(200, json=_entries(*entries))
         if path == f"/v1/resources/{TRACKING_ID}/download":
+            if external:
+                return httpx.Response(
+                    200, json={"presigned_url": "s3://elsewhere/by_country", "expires_in": 900}
+                )
             return httpx.Response(200, json=payloads.DOWNLOAD)
+        if external and path == f"/v1/resources/{TRACKING_ID}/data":
+            return httpx.Response(
+                200, content=content, headers={"content-type": "application/parquet"}
+            )
         if path == f"/v1/resources/{TRACKING_ID}":
             return httpx.Response(200, json=resource)
         return httpx.Response(404, json={"detail": f"unhandled {path}"})

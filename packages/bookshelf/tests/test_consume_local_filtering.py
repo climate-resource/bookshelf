@@ -181,3 +181,27 @@ def test_filter_years_keeps_the_inclusive_window() -> None:
     wide = pd.DataFrame([[1.0, 2.0, 3.0]], columns=["2000", "2001", "2002"])
     assert list(filter_years(wide, year_min=2001, year_max=2002).columns) == ["2001", "2002"]
     assert filter_years(wide, year_min=None, year_max=None) is wide
+
+
+def test_an_external_pointer_is_converted_by_the_platform(tmp_path: Path) -> None:
+    """The platform reads an external pointer where it lives, which a presigned fetch cannot."""
+    transport, seen = _requests(_platform([("v2.6", 1)], external=True))
+    bs = Bookshelf(BASE_URL, auth=None, transport=transport, cache=ContentCache(tmp_path / "cache"))
+
+    frame = bs.book("primap-hist", "v2.6")["by_country"].as_df(region="NZL")
+
+    assert len(frame) == 2
+    assert any(request.url.path.endswith("/data") for request in seen)
+    assert not any(request.url.scheme == "s3" for request in seen)
+
+
+async def test_the_async_external_pointer_is_converted_by_the_platform(tmp_path: Path) -> None:
+    transport, seen = _requests(_platform([("v2.6", 1)], external=True))
+    async with AsyncBookshelf(
+        BASE_URL, auth=None, async_transport=transport, cache=ContentCache(tmp_path / "cache")
+    ) as bs:
+        book = await bs.book("primap-hist", "v2.6")
+        frame = await book["by_country"].as_df(region="NZL")
+
+    assert len(frame) == 2
+    assert any(request.url.path.endswith("/data") for request in seen)
