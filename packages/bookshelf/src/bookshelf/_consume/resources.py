@@ -373,7 +373,7 @@ class Resource(_ResourceHandle):
         return self._store(self._client.get_resource_download(self.tracking_id), content_hash)
 
     def _cached_frame_file(self) -> Path | None:
-        """Return the verified cached file, or ``None`` for an external pointer the platform reads in place."""
+        """Return the verified cached file, or ``None`` for an external pointer."""
         content_hash = self.content_hash()
         cached = cached_if_verified(self._cache, content_hash)
         if cached is not None:
@@ -744,7 +744,7 @@ class AsyncResource(_ResourceHandle):
         return await self._store(download, content_hash)
 
     async def _cached_frame_file(self) -> Path | None:
-        """Return the verified cached file, or ``None`` for an external pointer the platform reads in place."""
+        """Return the verified cached file, or ``None`` for an external pointer."""
         content_hash = await self.content_hash()
         cached = await self._verified_hit(content_hash)
         if cached is not None:
