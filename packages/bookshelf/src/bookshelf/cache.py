@@ -1,18 +1,23 @@
 """Content addressed local cache for downloaded resources."""
 
+import asyncio
 import contextlib
 import hashlib
 import json
 import os
 import shutil
 import time
-from collections.abc import Iterator
+from collections.abc import Awaitable, Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from filelock import AsyncFileLock, FileLock
 from platformdirs import user_cache_dir
+
+from bookshelf._consume.integrity import HashMismatchError, verify_path
+from bookshelf._core.errors import BookshelfError
 
 DEFAULT_MAX_BYTES = 5 * 1024**3
 
@@ -139,6 +144,44 @@ class ContentCache:
         path.touch()
         return path
 
+    def fetch(self, content_hash: str, download: Callable[[Path], None]) -> Path:
+        """Return the path of verified content, calling ``download`` only on a miss.
+
+        ``download`` writes the bytes to the path it is given.
+        Concurrent fetches of one hash, across threads and processes, download it once.
+        Bytes that do not match ``content_hash`` raise `HashMismatchError` and are never stored.
+        """
+        hit = self._verified(content_hash)
+        if hit is not None:
+            return hit
+        with FileLock(self._lock_path(content_hash)):
+            hit = self._verified(content_hash)
+            if hit is not None:
+                return hit
+            with self.stage(content_hash) as temporary:
+                download(temporary)
+                verify_path(temporary, content_hash)
+            return self._committed(content_hash)
+
+    async def fetch_async(
+        self, content_hash: str, download: Callable[[Path], Awaitable[None]]
+    ) -> Path:
+        """Return the path of verified content, awaiting ``download`` only on a miss.
+
+        The async twin of `fetch`, hashing and waiting on the lock off the event loop.
+        """
+        hit = await asyncio.to_thread(self._verified, content_hash)
+        if hit is not None:
+            return hit
+        async with AsyncFileLock(self._lock_path(content_hash)):
+            hit = await asyncio.to_thread(self._verified, content_hash)
+            if hit is not None:
+                return hit
+            with self.stage(content_hash) as temporary:
+                await download(temporary)
+                await asyncio.to_thread(verify_path, temporary, content_hash)
+            return self._committed(content_hash)
+
     def put(self, content_hash: str, content: bytes) -> Path:
         """Atomically store content under its hash and enforce the size cap."""
         with self.stage(content_hash) as temporary:
@@ -157,6 +200,30 @@ class ContentCache:
     def discard(self, content_hash: str) -> None:
         """Remove one invalid cache entry if it exists."""
         self._path_for(content_hash).unlink(missing_ok=True)
+
+    def _verified(self, content_hash: str) -> Path | None:
+        # Content that no longer matches its hash is discarded so the caller downloads it again.
+        cached = self.get(content_hash)
+        if cached is None:
+            return None
+        try:
+            verify_path(cached, content_hash)
+        except (FileNotFoundError, HashMismatchError):
+            self.discard(content_hash)
+            return None
+        return cached
+
+    def _committed(self, content_hash: str) -> Path:
+        cached = self.get(content_hash)
+        if cached is None:  # pragma: no cover
+            raise BookshelfError("the content cache evicted a resource as it was stored")
+        return cached
+
+    def _lock_path(self, content_hash: str) -> Path:
+        # Lock files are never removed, because unlinking one another process holds breaks the lock.
+        locks = self.base_dir / ".locks"
+        locks.mkdir(exist_ok=True)
+        return locks / f"{self._path_for(content_hash).name}.lock"
 
     def _entries(self) -> list[Path]:
         # Only digest-named files count as entries.

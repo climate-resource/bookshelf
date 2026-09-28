@@ -350,7 +350,7 @@ def test_a_digest_mismatch_is_a_hard_failure(tmp_path: Path, server: _Server) ->
     assert _SHA256 in message
     assert hashlib.sha256(b"tampered").hexdigest() in message
     assert len(server.requests) == 1
-    assert list((tmp_path / "content-cache").iterdir()) == []
+    assert [p.name for p in (tmp_path / "content-cache").iterdir()] == [".locks"]
 
 
 def test_a_path_resource_resolves_and_computes_its_digest(tmp_path: Path) -> None:

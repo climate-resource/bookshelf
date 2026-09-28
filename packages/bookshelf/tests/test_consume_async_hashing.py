@@ -111,7 +111,7 @@ async def test_a_cache_hit_is_verified_off_the_event_loop(
 
     assert path.read_bytes() == CONTENT
     assert client.downloads == 0
-    assert "cached_if_verified" in offloaded
+    assert "_verified" in offloaded
 
 
 async def test_a_corrupt_download_still_raises_and_is_not_cached(tmp_path: Path) -> None:
@@ -122,4 +122,6 @@ async def test_a_corrupt_download_still_raises_and_is_not_cached(tmp_path: Path)
     with pytest.raises(HashMismatchError):
         await resource.as_path()
 
-    assert list(tmp_path.iterdir()) == [], "a file failing verification must not enter the cache"
+    assert [p.name for p in tmp_path.iterdir()] == [".locks"], (
+        "a file failing verification must not enter the cache"
+    )
