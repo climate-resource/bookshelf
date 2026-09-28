@@ -14,9 +14,13 @@ from tests import _core_payloads as payloads
 BASE_URL = "https://bookshelf.test"
 
 
-def _transport(recorded: list[httpx.Request], status: int, payload: Any) -> httpx.MockTransport:
+def _transport(recorded: list[httpx.Request], *replies: tuple[int, Any]) -> httpx.MockTransport:
+    """Answer each request with the next reply, repeating the last one once the script runs out."""
+    queue = list(replies)
+
     def handler(request: httpx.Request) -> httpx.Response:
         recorded.append(request)
+        status, payload = queue.pop(0) if len(queue) > 1 else queue[0]
         if status == 204:
             return httpx.Response(204)
         return httpx.Response(status, json=payload)
@@ -29,12 +33,12 @@ def _body(request: httpx.Request) -> dict[str, Any]:
 
 
 def _sync(recorded: list[httpx.Request], status: int, payload: Any = None) -> Bookshelf:
-    return Bookshelf(BASE_URL, auth=None, transport=_transport(recorded, status, payload))
+    return Bookshelf(BASE_URL, auth=None, transport=_transport(recorded, (status, payload)))
 
 
 def _async(recorded: list[httpx.Request], status: int, payload: Any = None) -> AsyncBookshelf:
     return AsyncBookshelf(
-        BASE_URL, auth=None, async_transport=_transport(recorded, status, payload)
+        BASE_URL, auth=None, async_transport=_transport(recorded, (status, payload))
     )
 
 
@@ -202,17 +206,6 @@ FOUND = (200, payloads.VOLUME_DETAIL)
 CREATED = (201, payloads.VOLUME)
 
 
-def _scripted(recorded: list[httpx.Request], replies: list[tuple[int, Any]]) -> httpx.MockTransport:
-    queue = list(replies)
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        recorded.append(request)
-        status, payload = queue.pop(0)
-        return httpx.Response(status, json=payload)
-
-    return httpx.MockTransport(handler)
-
-
 GET_OR_CREATE_CASES = [
     pytest.param([FOUND], False, id="present"),
     pytest.param([NOT_FOUND, CREATED, FOUND], True, id="absent"),
@@ -225,7 +218,7 @@ def test_get_or_create_volume_reports_whether_it_created(
     replies: list[tuple[int, Any]], created: bool
 ) -> None:
     recorded: list[httpx.Request] = []
-    with Bookshelf(BASE_URL, auth=None, transport=_scripted(recorded, replies)) as client:
+    with Bookshelf(BASE_URL, auth=None, transport=_transport(recorded, *replies)) as client:
         volume, was_created = client.get_or_create_volume("example", license="MIT")
 
     assert volume.name == "example"
@@ -238,7 +231,7 @@ async def test_async_get_or_create_volume_matches_the_sync_one(
     replies: list[tuple[int, Any]], created: bool
 ) -> None:
     recorded: list[httpx.Request] = []
-    transport = _scripted(recorded, replies)
+    transport = _transport(recorded, *replies)
     async with AsyncBookshelf(BASE_URL, auth=None, async_transport=transport) as client:
         volume, was_created = await client.get_or_create_volume("example", license="MIT")
 
@@ -247,26 +240,28 @@ async def test_async_get_or_create_volume_matches_the_sync_one(
     assert len(recorded) == len(replies)
 
 
-@pytest.mark.parametrize(
-    ("replies", "error"),
-    [
-        pytest.param([NOT_FOUND, FORBIDDEN], ForbiddenError, id="forbidden"),
-        pytest.param([NOT_FOUND, CONFLICT, NOT_FOUND], ConflictError, id="hidden"),
-    ],
-)
+GET_OR_CREATE_FAILURES = [
+    pytest.param([NOT_FOUND, FORBIDDEN], ForbiddenError, id="forbidden"),
+    pytest.param([NOT_FOUND, CONFLICT, NOT_FOUND], ConflictError, id="hidden"),
+]
+
+
+@pytest.mark.parametrize(("replies", "error"), GET_OR_CREATE_FAILURES)
 def test_get_or_create_volume_raises_what_it_cannot_resolve(
     replies: list[tuple[int, Any]], error: type[Exception]
 ) -> None:
-    recorded: list[httpx.Request] = []
     with (
-        Bookshelf(BASE_URL, auth=None, transport=_scripted(recorded, replies)) as client,
+        Bookshelf(BASE_URL, auth=None, transport=_transport([], *replies)) as client,
         pytest.raises(error),
     ):
         client.get_or_create_volume("example", license="MIT")
 
 
-async def test_async_get_or_create_volume_raises_a_conflict_for_a_hidden_volume() -> None:
-    transport = _scripted([], [NOT_FOUND, CONFLICT, NOT_FOUND])
+@pytest.mark.parametrize(("replies", "error"), GET_OR_CREATE_FAILURES)
+async def test_async_get_or_create_volume_raises_what_it_cannot_resolve(
+    replies: list[tuple[int, Any]], error: type[Exception]
+) -> None:
+    transport = _transport([], *replies)
     async with AsyncBookshelf(BASE_URL, auth=None, async_transport=transport) as client:
-        with pytest.raises(ConflictError):
+        with pytest.raises(error):
             await client.get_or_create_volume("example", license="MIT")
