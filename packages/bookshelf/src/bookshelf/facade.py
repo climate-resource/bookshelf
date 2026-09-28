@@ -10,7 +10,6 @@ from uuid import UUID
 import httpx
 
 from bookshelf._consume.books import AsyncBook, Book
-from bookshelf._consume.integrity import HashMismatchError
 from bookshelf._consume.lookup import resolve_book, resolve_book_async
 from bookshelf._consume.memo import (
     book_ttl as _book_ttl,
@@ -29,6 +28,7 @@ from bookshelf._consume.volumes import AsyncVolume, Volume
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import UNSET, AuthInput
 from bookshelf._core.errors import BookshelfError, ConflictError, NotFoundError
+from bookshelf._core.integrity import HashMismatchError
 from bookshelf._core.session import ensure_authenticated, ensure_authenticated_async
 from bookshelf._generated import models
 from bookshelf._produce import (

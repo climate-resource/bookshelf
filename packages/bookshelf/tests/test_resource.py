@@ -18,6 +18,7 @@ from bookshelf import HashMismatchError
 from bookshelf._core.errors import BookshelfError, NotFoundError
 from bookshelf._generated import models
 from bookshelf._produce.books import DraftBook
+from bookshelf.cache import ContentCache
 from bookshelf.facade import Bookshelf
 from bookshelf.publisher import resource as resource_module
 from bookshelf.publisher.bundle import Bundle, BundleResource
@@ -350,7 +351,9 @@ def test_a_digest_mismatch_is_a_hard_failure(tmp_path: Path, server: _Server) ->
     assert _SHA256 in message
     assert hashlib.sha256(b"tampered").hexdigest() in message
     assert len(server.requests) == 1
-    assert [p.name for p in (tmp_path / "content-cache").iterdir()] == [".locks"]
+    cache_dir = tmp_path / "content-cache"
+    assert ContentCache(cache_dir).summary().entries == 0
+    assert not list(cache_dir.glob("*.tmp"))
 
 
 def test_a_path_resource_resolves_and_computes_its_digest(tmp_path: Path) -> None:

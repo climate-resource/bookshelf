@@ -14,8 +14,8 @@ from typing import Any
 import pytest
 
 from bookshelf._consume import resources
-from bookshelf._consume.integrity import HashMismatchError
 from bookshelf._consume.resources import AsyncResource
+from bookshelf._core.integrity import HashMismatchError
 from bookshelf.cache import ContentCache
 
 CONTENT = b"year,value\n2020,1.0\n"
@@ -122,6 +122,7 @@ async def test_a_corrupt_download_still_raises_and_is_not_cached(tmp_path: Path)
     with pytest.raises(HashMismatchError):
         await resource.as_path()
 
-    assert [p.name for p in tmp_path.iterdir()] == [".locks"], (
+    assert ContentCache(tmp_path).summary().entries == 0, (
         "a file failing verification must not enter the cache"
     )
+    assert not list(tmp_path.glob("*.tmp"))

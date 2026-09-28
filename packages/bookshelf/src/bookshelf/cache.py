@@ -16,8 +16,8 @@ from uuid import uuid4
 from filelock import AsyncFileLock, FileLock
 from platformdirs import user_cache_dir
 
-from bookshelf._consume.integrity import HashMismatchError, verify_path
 from bookshelf._core.errors import BookshelfError
+from bookshelf._core.integrity import HashMismatchError, verify_path
 
 DEFAULT_MAX_BYTES = 5 * 1024**3
 

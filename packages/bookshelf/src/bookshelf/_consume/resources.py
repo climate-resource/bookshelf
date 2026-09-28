@@ -369,26 +369,24 @@ class Resource(_ResourceHandle):
         return self._ensure_cached()
 
     def _ensure_cached(self) -> Path:
-        def download(destination: Path) -> None:
-            url = self._client.get_resource_download(self.tracking_id).presigned_url
-            self._client.stream_url_to_path(url, destination)
-
-        return self._cache.fetch(self.content_hash(), download)
+        return self._fetch(managed_only=False)
 
     def _cached_frame_file(self) -> Path | None:
         """Return the verified cached file, or ``None`` for an external pointer."""
+        try:
+            return self._fetch(managed_only=True)
+        except _ExternalPointer:
+            return None
 
+    def _fetch(self, *, managed_only: bool) -> Path:
         def download(destination: Path) -> None:
             pointer = self._client.get_resource_download(self.tracking_id)
             # The platform names managed bytes only, so no filename means an external pointer.
-            if pointer.filename is None:
+            if managed_only and pointer.filename is None:
                 raise _ExternalPointer
             self._client.stream_url_to_path(pointer.presigned_url, destination)
 
-        try:
-            return self._cache.fetch(self.content_hash(), download)
-        except _ExternalPointer:
-            return None
+        return self._cache.fetch(self.content_hash(), download)
 
 
 class BookEntry(Resource):
@@ -736,26 +734,24 @@ class AsyncResource(_ResourceHandle):
         return await self._ensure_cached()
 
     async def _ensure_cached(self) -> Path:
-        async def download(destination: Path) -> None:
-            pointer = await self._client.get_resource_download_async(self.tracking_id)
-            await self._client.stream_url_to_path_async(pointer.presigned_url, destination)
-
-        return await self._cache.fetch_async(await self.content_hash(), download)
+        return await self._fetch(managed_only=False)
 
     async def _cached_frame_file(self) -> Path | None:
         """Return the verified cached file, or ``None`` for an external pointer."""
+        try:
+            return await self._fetch(managed_only=True)
+        except _ExternalPointer:
+            return None
 
+    async def _fetch(self, *, managed_only: bool) -> Path:
         async def download(destination: Path) -> None:
             pointer = await self._client.get_resource_download_async(self.tracking_id)
             # The platform names managed bytes only, so no filename means an external pointer.
-            if pointer.filename is None:
+            if managed_only and pointer.filename is None:
                 raise _ExternalPointer
             await self._client.stream_url_to_path_async(pointer.presigned_url, destination)
 
-        try:
-            return await self._cache.fetch_async(await self.content_hash(), download)
-        except _ExternalPointer:
-            return None
+        return await self._cache.fetch_async(await self.content_hash(), download)
 
 
 class AsyncBookEntry(AsyncResource):

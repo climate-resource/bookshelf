@@ -1,12 +1,10 @@
-"""Content integrity helpers for consumed resources."""
+"""Content integrity checks against a declared ``sha256:<hex>`` hash."""
 
-import hashlib
 import hmac
 from pathlib import Path
 
 from bookshelf._core.errors import BookshelfError
-
-_HASH_CHUNK_SIZE = 1024 * 1024
+from bookshelf._core.hashing import sha256_path
 
 
 class HashMismatchError(BookshelfError):
@@ -18,14 +16,10 @@ def verify_path(path: Path, content_hash: str) -> None:
     algorithm, separator, expected = content_hash.partition(":")
     if algorithm != "sha256" or not separator:
         raise HashMismatchError(f"unsupported resource hash {content_hash!r}")
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        while chunk := stream.read(_HASH_CHUNK_SIZE):
-            digest.update(chunk)
-    actual = digest.hexdigest()
-    if not hmac.compare_digest(actual, expected.lower()):
+    actual = sha256_path(path)
+    if not hmac.compare_digest(actual, f"sha256:{expected.lower()}"):
         raise HashMismatchError(
-            f"resource content hash mismatch: expected {content_hash}, got sha256:{actual}"
+            f"resource content hash mismatch: expected {content_hash}, got {actual}"
         )
 
 

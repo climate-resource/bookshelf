@@ -23,9 +23,9 @@ from uuid import UUID
 
 import httpx
 
-from bookshelf._consume.integrity import HashMismatchError
 from bookshelf._core.errors import BookshelfError, NotFoundError
 from bookshelf._core.hashing import sha256_path
+from bookshelf._core.integrity import HashMismatchError
 from bookshelf._core.names import flatten_to_resource_name
 from bookshelf._generated import models
 from bookshelf._produce.types import HasTrackingId
@@ -485,7 +485,7 @@ def _fetched(name: str, *, uri: str, sha256: str, cache: ContentCache) -> tuple[
         return cache.fetch(declared, download), declared
     except HashMismatchError as error:
         raise HashMismatchError(
-            f"resource {name!r} at {uri} does not match its declared digest. {error}. "
+            f"resource {name!r} at {uri} does not match its declared digest ({error}). "
             "The upstream file changed or the transfer corrupted, "
             "so check the resource before restating sha256"
         ) from error
