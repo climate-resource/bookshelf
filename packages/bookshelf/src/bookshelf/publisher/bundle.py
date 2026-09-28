@@ -877,9 +877,9 @@ class Bundle:
         recorded = {resource.name for resource in self.manifest.resources}
         placed: set[UUID] = set()
         for entry in framing.entries:
-            if not entry.is_placement and entry.name not in recorded:
-                raise InvalidBundleError(f"book entry {entry.name!r} has no resource")
             if entry.tracking_id is None:
+                if entry.name not in recorded:
+                    raise InvalidBundleError(f"book entry {entry.name!r} has no resource")
                 continue
             if entry.name in recorded:
                 raise InvalidBundleError(
