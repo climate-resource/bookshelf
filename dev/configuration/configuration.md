@@ -9,6 +9,8 @@ always beats the matching environment variable.
 `base_url=` names the API deployment a client talks to.
 Pass it when the deployment must be explicit, for example in a script that runs against staging.
 Without it, the SDK reads `$BOOKSHELF_URL`, then falls back to a built-in default.
+`bookshelf.PRODUCTION_API_URL` and `bookshelf.STAGING_API_URL` name the two deployments,
+so a script need not copy either URL.
 
 | Variable        | Effect                                                                  |
 | --------------- | ----------------------------------------------------------------------- |
