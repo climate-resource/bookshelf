@@ -58,7 +58,9 @@ def _api(recorded: list[httpx.Request], *, accept: str | None) -> Handler:
 
 
 def _fake_login(calls: list[str]) -> Callable[..., tuple[models.UserResponse, StoredCredentials]]:
-    def login(api_url: str, *, browser: bool) -> tuple[models.UserResponse, StoredCredentials]:
+    def login(
+        api_url: str, *, browser: bool, **_kwargs: object
+    ) -> tuple[models.UserResponse, StoredCredentials]:
         calls.append(api_url)
         record = StoredCredentials(
             access_token="fresh",
@@ -73,7 +75,9 @@ def _fake_login(calls: list[str]) -> Callable[..., tuple[models.UserResponse, St
 
 
 def test_a_stored_login_is_confirmed_once() -> None:
-    credentials.save_credentials("stored", api_url=BASE_URL)
+    credentials.default_store().save_login(
+        credentials.StoredCredentials(access_token="stored", api_url=BASE_URL)
+    )
     recorded: list[httpx.Request] = []
 
     with Bookshelf(BASE_URL, transport=httpx.MockTransport(_api(recorded, accept="stored"))) as bs:
@@ -132,7 +136,9 @@ def test_a_person_is_logged_in_and_the_client_uses_it(monkeypatch: pytest.Monkey
 
 
 def test_a_spent_stored_login_is_replaced(monkeypatch: pytest.MonkeyPatch) -> None:
-    credentials.save_credentials("spent", api_url=BASE_URL)
+    credentials.default_store().save_login(
+        credentials.StoredCredentials(access_token="spent", api_url=BASE_URL)
+    )
     monkeypatch.setattr(session, "login_user", _fake_login(calls := []))
 
     with Bookshelf(BASE_URL, transport=httpx.MockTransport(_api([], accept="fresh"))) as bs:
@@ -217,7 +223,9 @@ def test_a_terminal_without_a_browser_gets_a_device_code(monkeypatch: pytest.Mon
     monkeypatch.setattr(session.webbrowser, "get", no_browser)
     chosen: list[bool] = []
 
-    def login(api_url: str, *, browser: bool) -> tuple[models.UserResponse, StoredCredentials]:
+    def login(
+        api_url: str, *, browser: bool, **_kwargs: object
+    ) -> tuple[models.UserResponse, StoredCredentials]:
         chosen.append(browser)
         return _fake_login([])(api_url, browser=browser)
 
@@ -240,7 +248,11 @@ def test_a_spent_login_is_replaced_without_the_anonymous_warning(
 ) -> None:
     monkeypatch.setenv("BOOKSHELF_WORKOS_CLIENT_ID", "client_test")
     monkeypatch.setenv("BOOKSHELF_WORKOS_BASE_URL", "https://workos.test")
-    credentials.save_credentials("spent", api_url=BASE_URL, refresh_token="refused")
+    credentials.default_store().save_login(
+        credentials.StoredCredentials(
+            access_token="spent", api_url=BASE_URL, refresh_token="refused"
+        )
+    )
     monkeypatch.setattr(session, "login_user", _fake_login(calls := []))
     api = _api([], accept="fresh")
 
@@ -259,7 +271,11 @@ def test_a_spent_login_is_replaced_without_the_anonymous_warning(
 def test_a_spent_login_still_warns_after_a_refused_check(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("BOOKSHELF_WORKOS_CLIENT_ID", "client_test")
     monkeypatch.setenv("BOOKSHELF_WORKOS_BASE_URL", "https://workos.test")
-    credentials.save_credentials("spent", api_url=BASE_URL, refresh_token="refused")
+    credentials.default_store().save_login(
+        credentials.StoredCredentials(
+            access_token="spent", api_url=BASE_URL, refresh_token="refused"
+        )
+    )
     api = _api([], accept="fresh")
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -295,7 +311,9 @@ def test_a_quiet_check_does_not_silence_other_requests() -> None:
 def test_a_saved_login_reports_the_expiry_it_stored() -> None:
     token = "header.eyJleHAiOiAyMDAwMDAwMDAwfQ.signature"
 
-    record = credentials.save_credentials(token, api_url=f"{BASE_URL}/")
+    record = credentials.default_store().save_login(
+        credentials.StoredCredentials(access_token=token, api_url=f"{BASE_URL}/")
+    )
 
     assert record.expires_at is not None
     assert record.expires_at.timestamp() == 2_000_000_000
@@ -303,7 +321,9 @@ def test_a_saved_login_reports_the_expiry_it_stored() -> None:
 
 
 def test_a_failure_other_than_rejection_is_raised(monkeypatch: pytest.MonkeyPatch) -> None:
-    credentials.save_credentials("stored", api_url=BASE_URL)
+    credentials.default_store().save_login(
+        credentials.StoredCredentials(access_token="stored", api_url=BASE_URL)
+    )
     monkeypatch.setattr(session, "login_user", _fake_login(calls := []))
     transport = httpx.MockTransport(lambda _request: httpx.Response(403, json={"detail": "no"}))
 

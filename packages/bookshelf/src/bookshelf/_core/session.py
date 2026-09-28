@@ -16,11 +16,9 @@ from collections.abc import Callable
 from contextlib import AbstractContextManager, nullcontext
 from typing import TextIO
 
-from bookshelf._core import config, credentials, oauth
-from bookshelf._core.auth import AnonymousFallback
+from bookshelf._core import credentials, oauth
 from bookshelf._core.client import BookshelfClient
-from bookshelf._core.config import CredentialSource
-from bookshelf._core.credentials import CredentialKind, StoredCredentials
+from bookshelf._core.credentials import CredentialKind, CredentialStore, StoredCredentials
 from bookshelf._core.errors import AuthenticationError, AuthenticationRequiredError
 from bookshelf._generated import models
 
@@ -28,12 +26,6 @@ _LOGIN_REMEDY = (
     "Run 'bookshelf auth login' in a terminal, "
     "or in CI set BOOKSHELF_CLIENT_ID, BOOKSHELF_CLIENT_SECRET and BOOKSHELF_TOKEN_URL."
 )
-
-_MACHINE_SOURCES = {
-    CredentialSource.ENV_TOKEN: "$BOOKSHELF_TOKEN",
-    CredentialSource.ACTIONS_OIDC: "the job's GitHub Actions OIDC token",
-    CredentialSource.CLIENT_CREDENTIALS: "the client credentials in $BOOKSHELF_CLIENT_ID",
-}
 
 
 def _isatty(stream: TextIO | None) -> bool:
@@ -74,7 +66,7 @@ def _has_browser() -> bool:
 
 def _quiet_spent_login(client: BookshelfClient) -> AbstractContextManager[None]:
     """Drop the spent-login warning while checking, because a login is offered in its place."""
-    return client.auth.quieted() if isinstance(client.auth, AnonymousFallback) else nullcontext()
+    return client.credential.quieted() if client.credential is not None else nullcontext()
 
 
 def _say(line: str) -> None:
@@ -97,6 +89,7 @@ def login_user(
     browser: bool,
     on_auth_url: Callable[[str], None] = _show_auth_url,
     on_device_code: Callable[[oauth.DeviceFlowInfo], None] = _show_device_code,
+    store: CredentialStore | None = None,
 ) -> tuple[models.UserResponse, StoredCredentials]:
     """Run the WorkOS user login, store the credential and make it active.
 
@@ -113,14 +106,17 @@ def login_user(
     refresh_token = token_data.get("refresh_token")
     with BookshelfClient(api_url, auth=access_token) as client:
         user = client.get_current_user()
-    record = credentials.save_credentials(
-        access_token,
-        api_url=api_url,
-        kind=CredentialKind.USER,
-        refresh_token=str(refresh_token) if refresh_token else None,
-        expires_at=credentials.expiry_from(token_data.get("expires_in")),
-        subject=user.email,
-        organization_id=user.organization_id,
+    store = credentials.default_store() if store is None else store
+    record = store.save_login(
+        StoredCredentials(
+            access_token=access_token,
+            api_url=api_url,
+            kind=CredentialKind.USER,
+            refresh_token=str(refresh_token) if refresh_token else None,
+            expires_at=credentials.expiry_from(token_data.get("expires_in")),
+            subject=user.email,
+            organization_id=user.organization_id,
+        )
     )
     return user, record
 
@@ -129,16 +125,17 @@ def _require_login_allowed(
     client: BookshelfClient, rejected: AuthenticationError | None, interactive: bool | None
 ) -> None:
     """Raise unless a rejected or absent credential may be replaced by an interactive login."""
-    if not client.uses_ambient_auth:
+    credential = client.credential
+    if credential is None:
         raise AuthenticationRequiredError(
             "This client was given its credential through auth=, and the API did not accept it."
             if client.auth is not None
             else "This client was created with auth=None, so it cannot authenticate."
         ) from rejected
-    source = client.credential_source
-    if source in _MACHINE_SOURCES:
+    if not credential.may_prompt_login():
         raise AuthenticationRequiredError(
-            f"The API rejected {_MACHINE_SOURCES[source]}. Check it is current for {client.base_url}."
+            f"The API rejected {credential.describe().label}. "
+            f"Check it is current for {client.base_url}."
         ) from rejected
     if not (is_interactive() if interactive is None else interactive):
         what = "The stored login was rejected" if rejected else "No Bookshelf credential was found"
@@ -149,11 +146,13 @@ def _require_login_allowed(
 
 def _login_and_adopt(client: BookshelfClient) -> models.UserResponse:
     """Log a person in, then point the client at the new credential."""
+    credential = client.credential
+    assert credential is not None
     try:
-        user, record = login_user(client.base_url, browser=_has_browser())
+        user, record = login_user(client.base_url, browser=_has_browser(), store=credential.store)
     except oauth.OAuthError as exc:
         raise AuthenticationRequiredError(f"Logging in to Bookshelf failed: {exc}") from exc
-    client.set_auth(config.auth_from_stored(record))
+    client.adopt_credential(credential.adopt_login(record))
     client.verified_user = user
     return user
 
@@ -199,7 +198,7 @@ async def ensure_authenticated_async(
 
 
 def _chose_anonymous(client: BookshelfClient) -> bool:
-    return client.auth is None and not client.uses_ambient_auth
+    return client.auth is None and client.credential is None
 
 
 def require_authentication(client: BookshelfClient) -> None:

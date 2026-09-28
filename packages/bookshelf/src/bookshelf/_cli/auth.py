@@ -5,9 +5,7 @@ Bookshelf's own authorization server issues ``bsat_`` tokens for agents,
 and ``--agent`` selects which.
 """
 
-import os
 import time
-from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -30,26 +28,20 @@ from bookshelf._cli._runtime import (
     note,
     requested_api_url,
 )
-from bookshelf._core import config, credentials, errors, oauth, session
-from bookshelf._core.auth import (
-    JWT_BEARER_GRANT,
-    ActionsOidcToken,
-    TokenProvider,
-    decode_jwt_expiry,
-)
+from bookshelf._core import credentials, errors, oauth, session
+from bookshelf._core.auth import JWT_BEARER_GRANT, TokenProvider
 from bookshelf._core.client import BookshelfClient
-from bookshelf._core.config import CredentialSource
-from bookshelf._core.credentials import CredentialKind
+from bookshelf._core.credentials import CredentialKind, StoredCredentials, default_store
+from bookshelf._core.resolution import (
+    CredentialSource,
+    ResolvedCredential,
+    resolve_credential,
+)
 from bookshelf._generated import models
 
 CLAIM_GRANT = "urn:workos:agent-auth:grant-type:claim"
 
 _AGENT_PLATFORM = "bookshelf-cli"
-
-_LOGIN_REMEDY = (
-    "Run 'bookshelf auth login' to sign in, "
-    "or 'bookshelf auth login --agent' to register an agent identity."
-)
 
 auth_app = typer.Typer(help="Manage authentication for the Bookshelf API.", no_args_is_help=True)
 
@@ -150,15 +142,17 @@ def _login_agent_anonymous(base: str, *, json_output: bool) -> None:
     expires_at = credentials.expiry_from(grant.expires_in)
     subject = f"agent:{registration.registration_id}"
     scopes = grant.scope.split()
-    credentials.save_credentials(
-        grant.access_token,
-        api_url=base,
-        kind=CredentialKind.AGENT,
-        expires_at=expires_at,
-        identity_assertion=assertion,
-        assertion_expires_at=assertion_expires,
-        subject=subject,
-        claimed=False,
+    default_store().save_login(
+        StoredCredentials(
+            access_token=grant.access_token,
+            api_url=base,
+            kind=CredentialKind.AGENT,
+            expires_at=expires_at,
+            identity_assertion=assertion,
+            assertion_expires_at=assertion_expires,
+            subject=subject,
+            claimed=False,
+        )
     )
     note(f"Registered agent identity {subject}")
     note(field("Permissions", ", ".join(scopes) or "none"))
@@ -211,16 +205,18 @@ def _login_agent_claim(base: str, *, email: str, json_output: bool) -> None:
         me = _identity_for_token(base, grant.access_token)
     expires_at = credentials.expiry_from(grant.expires_in)
     subject = me.email or email
-    credentials.save_credentials(
-        grant.access_token,
-        api_url=base,
-        kind=CredentialKind.AGENT,
-        expires_at=expires_at,
-        identity_assertion=grant.identity_assertion,
-        assertion_expires_at=grant.assertion_expires,
-        subject=subject,
-        organization_id=me.organization_id,
-        claimed=True,
+    default_store().save_login(
+        StoredCredentials(
+            access_token=grant.access_token,
+            api_url=base,
+            kind=CredentialKind.AGENT,
+            expires_at=expires_at,
+            identity_assertion=grant.identity_assertion,
+            assertion_expires_at=grant.assertion_expires,
+            subject=subject,
+            organization_id=me.organization_id,
+            claimed=True,
+        )
     )
     scopes = grant.scope.split()
     note(f"Claimed by {subject}")
@@ -283,46 +279,21 @@ def auth_token() -> None:
     """Print the current access token to stdout and nothing else."""
     base = base_url()
     with command_errors():
-        source, stored = config.resolve_ambient_credential(base)
-        if source is CredentialSource.ENV_TOKEN:
-            emit(os.environ["BOOKSHELF_TOKEN"])
-            return
-        if source is CredentialSource.ACTIONS_OIDC:
-            try:
-                emit(
-                    _current_token(
-                        ActionsOidcToken(),
-                        remedy="Give the job the 'id-token: write' permission.",
-                    )
-                )
-            except errors.AuthConfigurationError as exc:
-                raise CliError(str(exc), exit_code=EXIT_USAGE) from exc
-            return
-        if source is CredentialSource.CLIENT_CREDENTIALS:
-            try:
-                machine = config.client_credentials_from_environment()
-            except errors.AuthConfigurationError as exc:
-                raise CliError(str(exc), exit_code=EXIT_USAGE) from exc
-            emit(
-                _current_token(
-                    machine,
-                    remedy="Check BOOKSHELF_CLIENT_ID, BOOKSHELF_CLIENT_SECRET "
-                    "and BOOKSHELF_TOKEN_URL against the issuer.",
-                )
-            )
-            return
-        if stored is None:
-            raise CliError(
-                f"no stored credential for {base}. {_LOGIN_REMEDY}",
-                exit_code=EXIT_AUTH_REQUIRED,
-            )
+        credential = resolve_credential(base)
+        remedy = credential.describe().remedy
         try:
-            provider = config.auth_from_stored(stored)
+            provider = credential.token_provider()
+            if provider is None:
+                raise CliError(
+                    f"no stored credential for {base}. {remedy}", exit_code=EXIT_AUTH_REQUIRED
+                )
+            emit(_current_token(provider, remedy=remedy))
         except errors.AuthConfigurationError as exc:
             # A stored login that cannot be refreshed is spent as far as this command goes,
-            # so it exits as a credential problem rather than an unexpected one.
-            raise CliError(f"{exc} {_LOGIN_REMEDY}", exit_code=EXIT_AUTH_REQUIRED) from exc
-        emit(_current_token(provider, remedy=_LOGIN_REMEDY))
+            # so it exits as a credential problem rather than a usage one.
+            if credential.stored is not None:
+                raise CliError(f"{exc} {remedy}", exit_code=EXIT_AUTH_REQUIRED) from exc
+            raise CliError(str(exc), exit_code=EXIT_USAGE) from exc
 
 
 def _current_token(provider: TokenProvider, *, remedy: str) -> str:
@@ -354,22 +325,15 @@ def auth_whoami(
     """Report the identity in play and which resolution step supplied it."""
     base = base_url()
     with command_errors():
-        source, stored = config.resolve_ambient_credential(base)
-        if source in (
-            CredentialSource.ENV_TOKEN,
-            CredentialSource.ACTIONS_OIDC,
-            CredentialSource.CLIENT_CREDENTIALS,
-        ):
-            stored = credentials.load_credentials(base)
-        shadows: dict[str, str] | None = None
-        if source is not CredentialSource.STORED_LOGIN and stored is not None:
-            shadows = {
-                "source": "stored_login",
-                "id": stored.subject or credentials.record_key(stored.api_url, stored.kind),
-            }
-
+        credential = resolve_credential(base)
+        shadowed = credential.shadowed
+        shadows = (
+            {"source": "stored_login", "id": shadowed.subject or shadowed.key}
+            if shadowed is not None
+            else None
+        )
         report: dict[str, Any] = {
-            "source": source.value,
+            "source": credential.source.value,
             "kind": "anonymous",
             "id": None,
             "organization_id": None,
@@ -378,62 +342,35 @@ def auth_whoami(
             "api_url": base,
             "shadows": shadows,
         }
-        if source is CredentialSource.NONE:
+        if credential.source is CredentialSource.NONE:
             report["reaches"] = "public"
         elif offline:
-            _fill_offline(report, source, stored)
+            _fill_offline(report, credential)
         else:
-            _fill_online(report, base, source, stored)
+            _fill_online(report, base, credential)
 
         emit_payload(report, json_output=json_output)
-        if shadows is not None and source is CredentialSource.ENV_TOKEN:
+        if shadows is not None and credential.source is CredentialSource.ENV_TOKEN:
             note("")
             note(f"Note: $BOOKSHELF_TOKEN overrides your stored login for {shadows['id']}.")
             note("      Unset it to use that instead.")
 
 
-def _fill_offline(
-    report: dict[str, Any],
-    source: CredentialSource,
-    stored: credentials.StoredCredentials | None,
-) -> None:
-    if source is CredentialSource.ENV_TOKEN:
-        token = os.environ["BOOKSHELF_TOKEN"]
-        report["kind"] = "agent" if token.startswith("bsat_") else "user"
-        exp = decode_jwt_expiry(token)
-        if exp is not None:
-            report["expires_at"] = iso(datetime.fromtimestamp(exp, tz=UTC))
-        return
-    if source is CredentialSource.ACTIONS_OIDC:
-        report["kind"] = "machine"
-        return
-    if source is CredentialSource.CLIENT_CREDENTIALS:
-        report["kind"] = "user"
-        return
-    assert stored is not None
-    report["kind"] = str(stored.kind)
-    report["id"] = stored.subject
-    report["organization_id"] = stored.organization_id
-    report["expires_at"] = iso(stored.expires_at)
-    if stored.kind is CredentialKind.AGENT:
-        report["claimed"] = bool(stored.claimed)
-        if not stored.claimed:
+def _fill_offline(report: dict[str, Any], credential: ResolvedCredential) -> None:
+    described = credential.describe()
+    report["kind"] = described.kind
+    report["id"] = described.subject
+    report["organization_id"] = described.organization_id
+    report["expires_at"] = iso(described.expires_at)
+    if described.claimed is not None:
+        report["claimed"] = described.claimed
+        if not described.claimed:
             report["reaches"] = "public"
 
 
-def _fill_online(
-    report: dict[str, Any],
-    base: str,
-    source: CredentialSource,
-    stored: credentials.StoredCredentials | None,
-) -> None:
-    auth = (
-        config.auth_from_stored(stored)
-        if source is CredentialSource.STORED_LOGIN and stored is not None
-        else config.UNSET
-    )
+def _fill_online(report: dict[str, Any], base: str, credential: ResolvedCredential) -> None:
     try:
-        with BookshelfClient(base, auth=auth) as client:
+        with BookshelfClient(base, auth=credential.auth(strict=True)) as client:
             me = client.get_current_user()
     except errors.AuthenticationError as exc:
         raise CliError(
@@ -452,8 +389,8 @@ def _fill_online(
         report["claimed"] = claimed
         if not claimed:
             report["reaches"] = "public"
-    if source is CredentialSource.STORED_LOGIN and stored is not None:
-        report["expires_at"] = iso(stored.expires_at)
+    if credential.stored is not None:
+        report["expires_at"] = iso(credential.stored.expires_at)
 
 
 @auth_app.command("logout")
@@ -468,11 +405,8 @@ def auth_logout(
     """Revoke and clear stored credentials. Local state is cleared even when revocation fails."""
     with command_errors():
         base = None if all_deployments else base_url()
-        records = [
-            record
-            for record in credentials.list_credentials()
-            if base is None or record.api_url == base
-        ]
+        store = default_store()
+        records = [record for record in store.records() if base is None or record.api_url == base]
         cleared = {record.api_url for record in records}
         if not cleared:
             note("Not logged in." if base is None else f"Not logged in to {base}.")
@@ -491,7 +425,7 @@ def auth_logout(
             except errors.BookshelfError:
                 failed.append(record.api_url)
 
-        credentials.clear_credentials(base)
+        store.clear(base)
         for deployment in sorted(cleared):
             note(f"Cleared credentials for {deployment}")
 
@@ -509,8 +443,9 @@ def auth_list(
 ) -> None:
     """List every stored identity, marking the active one per deployment."""
     with command_errors():
-        records = credentials.list_credentials()
-        active = credentials.active_kinds()
+        store = default_store()
+        records = store.records()
+        active = store.active_kinds()
         if not records:
             note("No stored identities. Run 'bookshelf auth login' to add one.")
             return
@@ -537,9 +472,8 @@ def auth_switch(
 ) -> None:
     """Make a stored identity active without re-authenticating."""
     with command_errors():
-        records = [
-            record for record in credentials.list_credentials() if record.subject == identity
-        ]
+        store = default_store()
+        records = [record for record in store.records() if record.subject == identity]
         if requested_api_url() is not None:
             base = base_url()
             records = [record for record in records if record.api_url == base]
@@ -555,7 +489,7 @@ def auth_switch(
                 exit_code=EXIT_USAGE,
             )
         record = records[0]
-        credentials.set_active(record.api_url, record.kind)
+        store.set_active(record.api_url, record.kind)
         note(f"Switched to {identity} ({record.api_url})")
 
 

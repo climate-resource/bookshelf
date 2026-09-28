@@ -21,16 +21,10 @@ if TYPE_CHECKING:
     import pandas as pd
 
 from bookshelf._core import ops
-from bookshelf._core.config import (
-    UNSET,
-    AuthInput,
-    CredentialSource,
-    ambient_auth,
-    resolve_auth,
-    resolve_base_url,
-)
+from bookshelf._core.config import UNSET, AuthInput, resolve_auth, resolve_base_url
 from bookshelf._core.errors import TransportError
 from bookshelf._core.frames import require_payload, to_pandas
+from bookshelf._core.resolution import ResolvedCredential, resolve_credential
 from bookshelf._core.retry import RetryPolicy
 from bookshelf._core.types import (
     ApiRequest,
@@ -70,11 +64,12 @@ class BookshelfClient:
         async_transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self._base_url = resolve_base_url(base_url)
-        self._credential_source: CredentialSource | None = None
+        self._credential: ResolvedCredential | None = None
         if auth is UNSET:
-            self._credential_source, self._auth = ambient_auth(self._base_url)
+            self._credential = resolve_credential(self._base_url)
+            self._auth = self._credential.auth()
         else:
-            self._auth = resolve_auth(auth, base_url=self._base_url)
+            self._auth = resolve_auth(auth)
         self.verified_user: models.UserResponse | None = None
         """The identity the API last confirmed for this client's credential."""
         self._timeout = timeout
@@ -94,22 +89,22 @@ class BookshelfClient:
         return self._base_url
 
     @property
-    def credential_source(self) -> CredentialSource | None:
-        """Which ambient step supplied the credential, or ``None`` when ``auth=`` was given."""
-        return self._credential_source
-
-    @property
-    def uses_ambient_auth(self) -> bool:
-        """Whether the credential came from the environment or a stored login, not ``auth=``."""
-        return self._credential_source is not None
+    def credential(self) -> ResolvedCredential | None:
+        """The ambient credential this client resolved, or ``None`` when ``auth=`` was given."""
+        return self._credential
 
     @property
     def auth(self) -> httpx.Auth | None:
         """The credential requests carry, or ``None`` when they go out anonymously."""
         return self._auth
 
-    def set_auth(self, auth: httpx.Auth) -> None:
+    def adopt_credential(self, credential: ResolvedCredential) -> None:
         """Replace the credential on both surfaces, including transports already opened."""
+        # Strict, because a person just logged in and a refused refresh is theirs to see.
+        auth = credential.auth(strict=True)
+        if auth is None:
+            raise ValueError("Only a credential that authenticates can be adopted.")
+        self._credential = credential
         self._auth = auth
         self.verified_user = None
         for opened in (self._sync, self._async):

@@ -57,11 +57,13 @@ def test_token_prefers_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_token_prints_the_stored_token() -> None:
-    credentials.save_credentials(
-        "stored-token",
-        api_url=API_URL,
-        kind=credentials.CredentialKind.USER,
-        subject="reader@example.com",
+    credentials.default_store().save_login(
+        credentials.StoredCredentials(
+            access_token="stored-token",
+            api_url=API_URL,
+            kind=credentials.CredentialKind.USER,
+            subject="reader@example.com",
+        )
     )
 
     result = runner.invoke(app, ["auth", "token"])
@@ -82,14 +84,16 @@ def test_token_refreshes_through_the_provider_and_rewrites_the_record(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Printing a token and sending a request share one grant, one leeway and one rotation."""
-    credentials.save_credentials(
-        "stale-token",
-        api_url=API_URL,
-        kind=credentials.CredentialKind.USER,
-        refresh_token="rt-old",
-        expires_at=datetime(2020, 1, 1, tzinfo=UTC),
-        subject="reader@example.com",
-        organization_id="org_123",
+    credentials.default_store().save_login(
+        credentials.StoredCredentials(
+            access_token="stale-token",
+            api_url=API_URL,
+            kind=credentials.CredentialKind.USER,
+            refresh_token="rt-old",
+            expires_at=datetime(2020, 1, 1, tzinfo=UTC),
+            subject="reader@example.com",
+            organization_id="org_123",
+        )
     )
     monkeypatch.setenv("BOOKSHELF_WORKOS_CLIENT_ID", "client_test")
     exchanges: list[dict[str, str]] = []
@@ -109,7 +113,7 @@ def test_token_refreshes_through_the_provider_and_rewrites_the_record(
     assert result.stdout == "fresh-token\n"
     assert exchanges[0]["grant_type"] == "refresh_token"
     assert exchanges[0]["refresh_token"] == "rt-old"
-    record = credentials.load_credentials(API_URL)
+    record = credentials.default_store().load(API_URL)
     assert record is not None
     assert record.access_token == "fresh-token"
     assert record.refresh_token == "rt-new"
@@ -149,12 +153,14 @@ def test_token_without_a_token_url_is_a_usage_error(monkeypatch: pytest.MonkeyPa
 
 def test_token_without_a_workos_client_id_is_a_credential_error() -> None:
     """A stored login that cannot be refreshed exits 3, not as an unexpected failure."""
-    credentials.save_credentials(
-        "stale-token",
-        api_url=API_URL,
-        kind=credentials.CredentialKind.USER,
-        refresh_token="rt-old",
-        expires_at=datetime(2020, 1, 1, tzinfo=UTC),
+    credentials.default_store().save_login(
+        credentials.StoredCredentials(
+            access_token="stale-token",
+            api_url=API_URL,
+            kind=credentials.CredentialKind.USER,
+            refresh_token="rt-old",
+            expires_at=datetime(2020, 1, 1, tzinfo=UTC),
+        )
     )
 
     result = runner.invoke(app, ["auth", "token"])
@@ -165,12 +171,14 @@ def test_token_without_a_workos_client_id_is_a_credential_error() -> None:
 
 
 def test_token_reports_a_spent_credential(monkeypatch: pytest.MonkeyPatch) -> None:
-    credentials.save_credentials(
-        "stale-token",
-        api_url=API_URL,
-        kind=credentials.CredentialKind.USER,
-        refresh_token="rt-spent",
-        expires_at=datetime(2020, 1, 1, tzinfo=UTC),
+    credentials.default_store().save_login(
+        credentials.StoredCredentials(
+            access_token="stale-token",
+            api_url=API_URL,
+            kind=credentials.CredentialKind.USER,
+            refresh_token="rt-spent",
+            expires_at=datetime(2020, 1, 1, tzinfo=UTC),
+        )
     )
     monkeypatch.setenv("BOOKSHELF_WORKOS_CLIENT_ID", "client_test")
     transport = httpx.MockTransport(
@@ -197,12 +205,14 @@ def test_whoami_offline_reports_anonymous() -> None:
 
 
 def test_whoami_offline_reports_stored_identity() -> None:
-    credentials.save_credentials(
-        "stored-token",
-        api_url=API_URL,
-        kind=credentials.CredentialKind.USER,
-        subject="reader@example.com",
-        organization_id="org_123",
+    credentials.default_store().save_login(
+        credentials.StoredCredentials(
+            access_token="stored-token",
+            api_url=API_URL,
+            kind=credentials.CredentialKind.USER,
+            subject="reader@example.com",
+            organization_id="org_123",
+        )
     )
 
     result = runner.invoke(app, ["auth", "whoami", "--offline", "--json"])
@@ -218,11 +228,13 @@ def test_whoami_offline_reports_stored_identity() -> None:
 def test_whoami_offline_reports_environment_shadowing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    credentials.save_credentials(
-        "stored-token",
-        api_url=API_URL,
-        kind=credentials.CredentialKind.USER,
-        subject="reader@example.com",
+    credentials.default_store().save_login(
+        credentials.StoredCredentials(
+            access_token="stored-token",
+            api_url=API_URL,
+            kind=credentials.CredentialKind.USER,
+            subject="reader@example.com",
+        )
     )
     monkeypatch.setenv("BOOKSHELF_TOKEN", "environment-token")
 
@@ -246,21 +258,23 @@ def test_logout_without_credentials_succeeds() -> None:
 
 
 def test_logout_clears_state_when_revocation_fails() -> None:
-    credentials.save_credentials(
-        "bsat_dead",
-        api_url=API_URL,
-        kind=credentials.CredentialKind.AGENT,
-        expires_at=datetime(2030, 1, 1, tzinfo=UTC),
-        identity_assertion="assertion",
-        subject="agent:dead",
-        claimed=True,
+    credentials.default_store().save_login(
+        credentials.StoredCredentials(
+            access_token="bsat_dead",
+            api_url=API_URL,
+            kind=credentials.CredentialKind.AGENT,
+            expires_at=datetime(2030, 1, 1, tzinfo=UTC),
+            identity_assertion="assertion",
+            subject="agent:dead",
+            claimed=True,
+        )
     )
 
     result = runner.invoke(app, ["auth", "logout"])
 
     assert result.exit_code == 6
     assert "revocation failed" in result.stderr.lower()
-    assert credentials.list_credentials() == []
+    assert credentials.default_store().records() == []
 
 
 def test_switch_to_unknown_identity_names_list_command() -> None:
@@ -271,8 +285,14 @@ def test_switch_to_unknown_identity_names_list_command() -> None:
 
 
 def _store_two_identities() -> None:
-    credentials.save_credentials("one", api_url=API_URL, subject="a@example.com")
-    credentials.save_credentials("two", api_url="http://127.0.0.1:8", subject="b@example.com")
+    credentials.default_store().save_login(
+        credentials.StoredCredentials(access_token="one", api_url=API_URL, subject="a@example.com")
+    )
+    credentials.default_store().save_login(
+        credentials.StoredCredentials(
+            access_token="two", api_url="http://127.0.0.1:8", subject="b@example.com"
+        )
+    )
 
 
 def test_list_separates_the_human_blocks() -> None:
