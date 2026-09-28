@@ -15,7 +15,6 @@ A reference by digest is the same lookup keyed on the bytes rather than on a boo
 which is how an uploaded file that sits in no book is consumed.
 """
 
-import hashlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -24,9 +23,9 @@ from uuid import UUID
 
 import httpx
 
-from bookshelf._consume.integrity import HashMismatchError, cached_if_verified
 from bookshelf._core.errors import BookshelfError, NotFoundError
 from bookshelf._core.hashing import sha256_path
+from bookshelf._core.integrity import HashMismatchError
 from bookshelf._core.names import flatten_to_resource_name
 from bookshelf._generated import models
 from bookshelf._produce.types import HasTrackingId
@@ -472,32 +471,24 @@ def _fetched(name: str, *, uri: str, sha256: str, cache: ContentCache) -> tuple[
     The declared digest is the cache key, so a hit touches no network at all.
     A download that does not hash to the declared digest is a hard failure with no retry,
     because the upstream file changed or the transfer corrupted, and both need a human.
-    Raising inside the staging context keeps the mismatched bytes out of the cache.
     """
     declared = f"sha256:{sha256}"
-    cached = cached_if_verified(cache, declared)
-    if cached is not None:
-        return cached, declared
-    digest = hashlib.sha256()
-    with cache.stage(declared) as staging:
+
+    def download(destination: Path) -> None:
         with _download_client() as client, client.stream("GET", uri) as response:
             response.raise_for_status()
-            with staging.open("wb") as file:
+            with destination.open("wb") as file:
                 for chunk in response.iter_bytes(_CHUNK_BYTES):
-                    digest.update(chunk)
                     file.write(chunk)
-        actual = f"sha256:{digest.hexdigest()}"
-        if actual != declared:
-            raise HashMismatchError(
-                f"resource {name!r} at {uri} does not match its declared digest. "
-                f"Expected {declared}, got {actual}. "
-                "The upstream file changed or the transfer corrupted, "
-                "so check the resource before restating sha256"
-            )
-    committed = cache.get(declared)
-    if committed is None:
-        raise BookshelfError(f"the cache evicted resource {name!r} as it was stored")
-    return committed, declared
+
+    try:
+        return cache.fetch(declared, download), declared
+    except HashMismatchError as error:
+        raise HashMismatchError(
+            f"resource {name!r} at {uri} does not match its declared digest ({error}). "
+            "The upstream file changed or the transfer corrupted, "
+            "so check the resource before restating sha256"
+        ) from error
 
 
 def _checked_in(name: str, *, relative: Path, recipe_dir: Path | None) -> tuple[Path, str]:

@@ -33,7 +33,6 @@ from bookshelf._consume.frames import (
     polars_converter,
     timeseries_frame,
 )
-from bookshelf._consume.integrity import cached_if_verified, require_cached, verify_path
 from bookshelf._consume.memo import remember_resource, remembered_resource
 from bookshelf._consume.presentation import Describable, Section, Sections
 from bookshelf._consume.query import TimeseriesQuery, constant_columns, timeseries_filters
@@ -53,6 +52,10 @@ _FACET_MAX_VALUES = 500
 _REPR_TIMEOUT = 2.0
 _TRIMMING_ON_RESOURCE = "timeseries trimming requires a book entry handle"
 _UNSUPPORTED_TIMESERIES_ARGS = "timeseries entries accept filters, trimming, top_n, and limit"
+
+
+class _ExternalPointer(Exception):
+    """Aborts a cache fill because the resource points outside the platform's storage."""
 
 
 def describe_type(resource_type: models.ResourceType | None) -> str:
@@ -365,30 +368,22 @@ class Resource(_ResourceHandle):
         """Stream and verify the resource, then return its cached path."""
         return self._ensure_cached()
 
-    def _ensure_cached(self) -> Path:
-        content_hash = self.content_hash()
-        cached = cached_if_verified(self._cache, content_hash)
-        if cached is not None:
-            return cached
-        return self._store(self._client.get_resource_download(self.tracking_id), content_hash)
-
     def _cached_frame_file(self) -> Path | None:
         """Return the verified cached file, or ``None`` for an external pointer."""
-        content_hash = self.content_hash()
-        cached = cached_if_verified(self._cache, content_hash)
-        if cached is not None:
-            return cached
-        download = self._client.get_resource_download(self.tracking_id)
-        # The platform names managed bytes only, so no filename means an external pointer.
-        if download.filename is None:
+        try:
+            return self._ensure_cached(managed_only=True)
+        except _ExternalPointer:
             return None
-        return self._store(download, content_hash)
 
-    def _store(self, download: models.DownloadResponse, content_hash: str) -> Path:
-        with self._cache.stage(content_hash) as temporary:
-            self._client.stream_url_to_path(download.presigned_url, temporary)
-            verify_path(temporary, content_hash)
-        return require_cached(self._cache, content_hash)
+    def _ensure_cached(self, *, managed_only: bool = False) -> Path:
+        def download(destination: Path) -> None:
+            pointer = self._client.get_resource_download(self.tracking_id)
+            # The platform names managed bytes only, so no filename means an external pointer.
+            if managed_only and pointer.filename is None:
+                raise _ExternalPointer
+            self._client.stream_url_to_path(pointer.presigned_url, destination)
+
+        return self._cache.fetch(self.content_hash(), download)
 
 
 class BookEntry(Resource):
@@ -735,36 +730,22 @@ class AsyncResource(_ResourceHandle):
         """Stream and verify the resource, then return its cached path."""
         return await self._ensure_cached()
 
-    async def _ensure_cached(self) -> Path:
-        content_hash = await self.content_hash()
-        cached = await self._verified_hit(content_hash)
-        if cached is not None:
-            return cached
-        download = await self._client.get_resource_download_async(self.tracking_id)
-        return await self._store(download, content_hash)
-
     async def _cached_frame_file(self) -> Path | None:
         """Return the verified cached file, or ``None`` for an external pointer."""
-        content_hash = await self.content_hash()
-        cached = await self._verified_hit(content_hash)
-        if cached is not None:
-            return cached
-        download = await self._client.get_resource_download_async(self.tracking_id)
-        # The platform names managed bytes only, so no filename means an external pointer.
-        if download.filename is None:
+        try:
+            return await self._ensure_cached(managed_only=True)
+        except _ExternalPointer:
             return None
-        return await self._store(download, content_hash)
 
-    async def _verified_hit(self, content_hash: str) -> Path | None:
-        # A cache hit hashes the whole file on disk, so run it off the event loop.
-        return await asyncio.to_thread(cached_if_verified, self._cache, content_hash)
+    async def _ensure_cached(self, *, managed_only: bool = False) -> Path:
+        async def download(destination: Path) -> None:
+            pointer = await self._client.get_resource_download_async(self.tracking_id)
+            # The platform names managed bytes only, so no filename means an external pointer.
+            if managed_only and pointer.filename is None:
+                raise _ExternalPointer
+            await self._client.stream_url_to_path_async(pointer.presigned_url, destination)
 
-    async def _store(self, download: models.DownloadResponse, content_hash: str) -> Path:
-        with self._cache.stage(content_hash) as temporary:
-            await self._client.stream_url_to_path_async(download.presigned_url, temporary)
-            # Verification hashes the whole downloaded file, so run it off the event loop too.
-            await asyncio.to_thread(verify_path, temporary, content_hash)
-        return require_cached(self._cache, content_hash)
+        return await self._cache.fetch_async(await self.content_hash(), download)
 
 
 class AsyncBookEntry(AsyncResource):

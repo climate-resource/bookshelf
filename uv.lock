@@ -164,6 +164,7 @@ name = "bookshelf"
 version = "1.0.0b17"
 source = { editable = "packages/bookshelf" }
 dependencies = [
+    { name = "filelock" },
     { name = "httpx" },
     { name = "pandas" },
     { name = "platformdirs" },
@@ -208,6 +209,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
+    { name = "filelock", specifier = ">=3.15" },
     { name = "gitpython", marker = "extra == 'publish'", specifier = ">=3.1" },
     { name = "httpx", specifier = ">=0.27,<1" },
     { name = "matplotlib", marker = "extra == 'figures'", specifier = ">=3.10" },
