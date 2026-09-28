@@ -182,7 +182,9 @@ def _iso(moment: datetime | None) -> str | None:
     return moment.isoformat() if moment else None
 
 
-def _record_to_credentials(record: dict[str, Any]) -> StoredCredentials | None:
+def _record_to_credentials(record: Any) -> StoredCredentials | None:
+    if not isinstance(record, dict):
+        return None
     access_token = record.get("access_token")
     if not isinstance(access_token, str) or not access_token:
         return None
@@ -252,15 +254,10 @@ class _DocumentStore(CredentialStore, ABC):
         kind = _parse_kind(store["active"].get(target))
         if kind is None:
             return None
-        record = store["records"].get(record_key(target, kind))
-        return _record_to_credentials(record) if isinstance(record, dict) else None
+        return _record_to_credentials(store["records"].get(record_key(target, kind)))
 
     def records(self) -> list[StoredCredentials]:
-        found = (
-            _record_to_credentials(record)
-            for record in self._read()["records"].values()
-            if isinstance(record, dict)
-        )
+        found = (_record_to_credentials(record) for record in self._read()["records"].values())
         return [credentials for credentials in found if credentials is not None]
 
     def active_kinds(self) -> dict[str, CredentialKind]:
@@ -290,8 +287,7 @@ class _DocumentStore(CredentialStore, ABC):
         api_url = normalise_api_url(api_url)
         key = record_key(api_url, kind)
         with self._update() as store:
-            record = store["records"].get(key)
-            credentials = _record_to_credentials(record) if isinstance(record, dict) else None
+            credentials = _record_to_credentials(store["records"].get(key))
             if credentials is None:
                 raise KeyError(key)
             store["active"][api_url] = str(kind)
@@ -334,7 +330,7 @@ class FileCredentialStore(_DocumentStore):
         try:
             with self.path.open("r") as f:
                 data = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, OSError):
             return _empty()
         if not isinstance(data, dict) or data.get("version") != STORE_VERSION:
             # TODO: hook in future migrations here

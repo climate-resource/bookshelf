@@ -381,7 +381,12 @@ def _fill_online(report: dict[str, Any], base: str, credential: ResolvedCredenti
         ) from exc
     described = credential.describe()
     is_agent = me.id.startswith("agent:")
-    report["kind"] = "agent" if is_agent else "machine" if described.kind == "machine" else "user"
+    if is_agent:
+        report["kind"] = "agent"
+    elif described.kind == "machine":
+        report["kind"] = "machine"
+    else:
+        report["kind"] = "user"
     report["id"] = me.id if is_agent else (me.email or me.id)
     report["organization_id"] = me.organization_id
     report["permissions"] = me.permissions or []
