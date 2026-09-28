@@ -73,6 +73,7 @@ with Bookshelf() as bs:
 The converter family also includes `as_long_df()`, `as_scmrun()`, `as_polars()`, and `as_arrow()`.
 They all take `year_min`, `year_max` and `column=value` filters, applied locally after the download.
 The download goes through the verified content cache, so a second conversion costs no network work.
+An external pointer the client cannot fetch is converted by the platform instead, on every call.
 An unknown filter column raises `KeyError`.
 
 `query()` filters and trims on the server instead.

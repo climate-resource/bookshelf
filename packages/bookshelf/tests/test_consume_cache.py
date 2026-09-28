@@ -6,6 +6,7 @@ becomes a file that the summary, the eviction and the clear all step over,
 so it occupies the cache forever without ever counting towards the cap.
 """
 
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -93,3 +94,19 @@ def test_a_record_that_is_not_an_object_reads_as_absent(cache: ContentCache) -> 
 
     assert cache._metadata.get("scope/list") is None
     assert not path.exists()
+
+
+def _hash(content: bytes) -> str:
+    return f"sha256:{hashlib.sha256(content).hexdigest()}"
+
+
+def test_an_entry_over_the_cap_survives_its_own_commit(tmp_path: Path) -> None:
+    """Otherwise a valid resource larger than the cap could never be read back."""
+    cache = ContentCache(tmp_path, max_bytes=4)
+    small, large = b"abc", b"too large for the cap"
+    cache.put(_hash(small), small)
+
+    cache.put(_hash(large), large)
+
+    assert cache.get(_hash(large)) is not None
+    assert cache.get(_hash(small)) is None

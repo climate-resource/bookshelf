@@ -41,6 +41,7 @@ See [where credentials are stored](authentication.md#where-credentials-are-store
 
 Downloaded resources are cached by content hash, so a repeated read costs no download.
 The converters, `fetch()` and `as_path()` all read through the same cache.
+An external pointer is converted by the platform unless its bytes are already cached.
 Cached content never expires, and the oldest entries are removed once the cache passes 5 GiB.
 
 | Variable                   | Effect                                                                                             |

@@ -1,5 +1,6 @@
 """DataFrame round-trip tests for the ``/data`` frame-conversion parse layer."""
 
+import gzip
 import io
 import json
 import sys
@@ -76,6 +77,14 @@ def test_read_frame_keeps_na_codes_as_text(tmp_path: Path) -> None:
 def test_read_frame_reports_an_unreadable_file_as_a_bookshelf_error(tmp_path: Path) -> None:
     path = tmp_path / "resource"
     path.write_bytes(b"")
+
+    with pytest.raises(BookshelfError, match="cannot read the stored resource"):
+        read_frame(path)
+
+
+def test_read_frame_reports_a_truncated_gzip_as_a_bookshelf_error(tmp_path: Path) -> None:
+    path = tmp_path / "resource"
+    path.write_bytes(gzip.compress(b"region,2000\n" + b"NZL,1.0\n" * 1000)[:-40])
 
     with pytest.raises(BookshelfError, match="cannot read the stored resource"):
         read_frame(path)

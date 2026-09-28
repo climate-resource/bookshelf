@@ -7,6 +7,7 @@ pandas is imported on first use, so the CLI starts without loading it.
 import importlib
 import io
 import json
+import zlib
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -56,7 +57,7 @@ def read_frame(path: Path) -> "pd.DataFrame":
             keep_default_na=False,
             na_values=[""],
         )
-    except (ValueError, OSError) as exc:
+    except (ValueError, OSError, EOFError, zlib.error) as exc:
         raise BookshelfError(f"cannot read the stored resource as a frame: {exc}") from exc
 
 

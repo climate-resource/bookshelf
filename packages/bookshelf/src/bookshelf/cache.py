@@ -148,9 +148,11 @@ class ContentCache:
     @contextlib.contextmanager
     def stage(self, content_hash: str) -> Iterator[Path]:
         """Yield a unique staging path and atomically commit it on success."""
-        with _staged(self._path_for(content_hash)) as temporary:
+        path = self._path_for(content_hash)
+        with _staged(path) as temporary:
             yield temporary
-        self.evict_lru()
+        # The entry just committed survives even over the cap, so the caller can still read it.
+        self._evict(self.max_bytes, keep=path)
 
     def discard(self, content_hash: str) -> None:
         """Remove one invalid cache entry if it exists."""
@@ -182,11 +184,15 @@ class ContentCache:
 
         ``max_bytes`` overrides the configured cap for this eviction only.
         """
-        cap = self.max_bytes if max_bytes is None else max_bytes
+        return self._evict(self.max_bytes if max_bytes is None else max_bytes)
+
+    def _evict(self, cap: int, *, keep: Path | None = None) -> int:
         entries = sorted(
-            ((path, path.stat()) for path in self._entries()),
+            ((path, path.stat()) for path in self._entries() if path != keep),
             key=lambda entry: entry[1].st_mtime,
         )
+        if keep is not None and keep.is_file():
+            cap -= keep.stat().st_size
         total = sum(stat.st_size for _, stat in entries)
         freed = 0
         for path, stat in entries:
