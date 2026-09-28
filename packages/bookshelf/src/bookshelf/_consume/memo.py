@@ -72,7 +72,7 @@ def remembered_resource(
     cache: ContentCache, client: BookshelfClient, tracking_id: UUID
 ) -> tuple[str, models.ResourceType] | None:
     """Return the remembered ``(hash, type)`` of a resource, if any."""
-    record = cache.metadata.get(_resource_key(client, tracking_id))
+    record = cache._metadata.get(_resource_key(client, tracking_id))
     if record is None:
         return None
     try:
@@ -88,7 +88,7 @@ def remember_resource(
     cache: ContentCache, client: BookshelfClient, metadata: models.ResourceRead
 ) -> None:
     """Remember the immutable parts of a resource record."""
-    cache.metadata.put(
+    cache._metadata.put(
         _resource_key(client, metadata.tracking_id),
         {"hash": metadata.hash, "type": metadata.type.value},
     )
@@ -114,8 +114,8 @@ def remembered_book(
 ) -> RememberedBook | None:
     """Return a remembered pinned edition and its entries, if any."""
     key = _book_key(client, volume, version, edition)
-    record = cache.metadata.get(key)
-    age = cache.metadata.age(key)
+    record = cache._metadata.get(key)
+    age = cache._metadata.age(key)
     if record is None or age is None:
         return None
     try:
@@ -133,14 +133,14 @@ def confirm_book(
     cache: ContentCache, client: BookshelfClient, volume: str, version: str, edition: int
 ) -> None:
     """Restart the trust window of a remembered edition the platform still publishes."""
-    cache.metadata.touch(_book_key(client, volume, version, edition))
+    cache._metadata.touch(_book_key(client, volume, version, edition))
 
 
 def forget_book(
     cache: ContentCache, client: BookshelfClient, volume: str, version: str, edition: int
 ) -> None:
     """Drop a remembered edition that the platform no longer publishes."""
-    cache.metadata.discard(_book_key(client, volume, version, edition))
+    cache._metadata.discard(_book_key(client, volume, version, edition))
 
 
 def remember_book(
@@ -152,7 +152,7 @@ def remember_book(
     entries: list[models.BookEntryItem],
 ) -> None:
     """Remember a resolved pinned edition and its entries."""
-    cache.metadata.put(
+    cache._metadata.put(
         _book_key(client, volume, version, book.edition),
         {
             "book": book.model_dump(mode="json"),

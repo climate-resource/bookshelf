@@ -24,6 +24,7 @@ from uuid import UUID
 
 import httpx
 
+from bookshelf._consume.integrity import HashMismatchError, cached_if_verified
 from bookshelf._core.errors import BookshelfError, NotFoundError
 from bookshelf._core.hashing import sha256_path
 from bookshelf._core.names import flatten_to_resource_name
@@ -412,7 +413,7 @@ def _fetched(name: str, *, uri: str, sha256: str, cache: ContentCache) -> tuple[
     Raising inside the staging context keeps the mismatched bytes out of the cache.
     """
     declared = f"sha256:{sha256}"
-    cached = cache.get(declared)
+    cached = cached_if_verified(cache, declared)
     if cached is not None:
         return cached, declared
     digest = hashlib.sha256()
@@ -425,8 +426,7 @@ def _fetched(name: str, *, uri: str, sha256: str, cache: ContentCache) -> tuple[
                     file.write(chunk)
         actual = f"sha256:{digest.hexdigest()}"
         if actual != declared:
-            cache.discard(declared)
-            raise BookshelfError(
+            raise HashMismatchError(
                 f"resource {name!r} at {uri} does not match its declared digest. "
                 f"Expected {declared}, got {actual}. "
                 "The upstream file changed or the transfer corrupted, "

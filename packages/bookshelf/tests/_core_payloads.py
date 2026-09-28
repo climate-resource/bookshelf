@@ -105,7 +105,11 @@ BUNDLE_REPLAYED: dict[str, Any] = {
     "converged": True,
 }
 
-DOWNLOAD: dict[str, Any] = {"presigned_url": "https://s3.example/key?sig=abc", "expires_in": 900}
+DOWNLOAD: dict[str, Any] = {
+    "presigned_url": "https://s3.example/key?sig=abc",
+    "expires_in": 900,
+    "filename": "by_country.parquet",
+}
 
 INVALIDATED: dict[str, Any] = {
     "tracking_id": "0197a000-0000-7000-8000-000000000001",

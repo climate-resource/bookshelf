@@ -6,6 +6,7 @@ becomes a file that the summary, the eviction and the clear all step over,
 so it occupies the cache forever without ever counting towards the cap.
 """
 
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -67,29 +68,45 @@ def test_every_stored_entry_is_visible_to_the_summary(cache: ContentCache) -> No
 
 
 def test_metadata_records_round_trip_and_never_count_as_content(cache: ContentCache) -> None:
-    cache.metadata.put("scope/resources/abc", {"hash": "x"})
+    cache._metadata.put("scope/resources/abc", {"hash": "x"})
 
-    assert cache.metadata.get("scope/resources/abc") == {"hash": "x"}
-    assert cache.metadata.get("scope/resources/missing") is None
+    assert cache._metadata.get("scope/resources/abc") == {"hash": "x"}
+    assert cache._metadata.get("scope/resources/missing") is None
     assert cache.summary().entries == 0
 
 
 @pytest.mark.parametrize("key", ["", "a//b", "../escape", "./here", "..\\escape", "C:/escape"])
 def test_a_metadata_key_cannot_leave_the_cache(cache: ContentCache, key: str) -> None:
     with pytest.raises(ValueError, match="invalid metadata key"):
-        cache.metadata.put(key, {})
+        cache._metadata.put(key, {})
 
 
 def test_a_metadata_key_may_contain_a_dot(cache: ContentCache) -> None:
-    cache.metadata.put("scope/books/v1.0.0", {"edition": 1})
+    cache._metadata.put("scope/books/v1.0.0", {"edition": 1})
 
-    assert cache.metadata.get("scope/books/v1.0.0") == {"edition": 1}
+    assert cache._metadata.get("scope/books/v1.0.0") == {"edition": 1}
 
 
 def test_a_record_that_is_not_an_object_reads_as_absent(cache: ContentCache) -> None:
-    cache.metadata.put("scope/list", {"ok": True})
-    path = cache.metadata.base_dir / "scope" / "list.json"
+    cache._metadata.put("scope/list", {"ok": True})
+    path = cache._metadata.base_dir / "scope" / "list.json"
     path.write_text("[1, 2]")
 
-    assert cache.metadata.get("scope/list") is None
+    assert cache._metadata.get("scope/list") is None
     assert not path.exists()
+
+
+def _hash(content: bytes) -> str:
+    return f"sha256:{hashlib.sha256(content).hexdigest()}"
+
+
+def test_an_entry_over_the_cap_survives_its_own_commit(tmp_path: Path) -> None:
+    """Otherwise a valid resource larger than the cap could never be read back."""
+    cache = ContentCache(tmp_path, max_bytes=4)
+    small, large = b"abc", b"too large for the cap"
+    cache.put(_hash(small), small)
+
+    cache.put(_hash(large), large)
+
+    assert cache.get(_hash(large)) is not None
+    assert cache.get(_hash(small)) is None

@@ -39,6 +39,7 @@ from bookshelf._consume.presentation import Describable, Section, Sections
 from bookshelf._consume.query import TimeseriesQuery, constant_columns, timeseries_filters
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import BookshelfError
+from bookshelf._core.frames import read_frame
 from bookshelf._generated import models
 from bookshelf.cache import ContentCache
 
@@ -269,7 +270,11 @@ class Resource(_ResourceHandle):
         reject_query_arguments(filters)
         resource_type = self.type
         require_frame_support(resource_type)
-        whole = self._client.query_resource_dataframe(self.tracking_id)
+        path = self._cached_frame_file()
+        if path is None:
+            whole = self._client.query_resource_dataframe(self.tracking_id)
+        else:
+            whole = read_frame(path)
         return select_frame(
             resource_type, whole, year_min=year_min, year_max=year_max, filters=filters
         )
@@ -365,7 +370,21 @@ class Resource(_ResourceHandle):
         cached = cached_if_verified(self._cache, content_hash)
         if cached is not None:
             return cached
+        return self._store(self._client.get_resource_download(self.tracking_id), content_hash)
+
+    def _cached_frame_file(self) -> Path | None:
+        """Return the verified cached file, or ``None`` for an external pointer."""
+        content_hash = self.content_hash()
+        cached = cached_if_verified(self._cache, content_hash)
+        if cached is not None:
+            return cached
         download = self._client.get_resource_download(self.tracking_id)
+        # The platform names managed bytes only, so no filename means an external pointer.
+        if download.filename is None:
+            return None
+        return self._store(download, content_hash)
+
+    def _store(self, download: models.DownloadResponse, content_hash: str) -> Path:
         with self._cache.stage(content_hash) as temporary:
             self._client.stream_url_to_path(download.presigned_url, temporary)
             verify_path(temporary, content_hash)
@@ -614,7 +633,11 @@ class AsyncResource(_ResourceHandle):
         reject_query_arguments(filters)
         resource_type = await self._get_type()
         require_frame_support(resource_type)
-        whole = await self._client.query_resource_dataframe_async(self.tracking_id)
+        path = await self._cached_frame_file()
+        if path is None:
+            whole = await self._client.query_resource_dataframe_async(self.tracking_id)
+        else:
+            whole = await asyncio.to_thread(read_frame, path)
         # Filtering a whole resource can take seconds, so run it off the event loop.
         return await asyncio.to_thread(
             select_frame,
@@ -714,11 +737,29 @@ class AsyncResource(_ResourceHandle):
 
     async def _ensure_cached(self) -> Path:
         content_hash = await self.content_hash()
-        # A cache hit hashes the whole file on disk, so run it off the event loop.
-        cached = await asyncio.to_thread(cached_if_verified, self._cache, content_hash)
+        cached = await self._verified_hit(content_hash)
         if cached is not None:
             return cached
         download = await self._client.get_resource_download_async(self.tracking_id)
+        return await self._store(download, content_hash)
+
+    async def _cached_frame_file(self) -> Path | None:
+        """Return the verified cached file, or ``None`` for an external pointer."""
+        content_hash = await self.content_hash()
+        cached = await self._verified_hit(content_hash)
+        if cached is not None:
+            return cached
+        download = await self._client.get_resource_download_async(self.tracking_id)
+        # The platform names managed bytes only, so no filename means an external pointer.
+        if download.filename is None:
+            return None
+        return await self._store(download, content_hash)
+
+    async def _verified_hit(self, content_hash: str) -> Path | None:
+        # A cache hit hashes the whole file on disk, so run it off the event loop.
+        return await asyncio.to_thread(cached_if_verified, self._cache, content_hash)
+
+    async def _store(self, download: models.DownloadResponse, content_hash: str) -> Path:
         with self._cache.stage(content_hash) as temporary:
             await self._client.stream_url_to_path_async(download.presigned_url, temporary)
             # Verification hashes the whole downloaded file, so run it off the event loop too.

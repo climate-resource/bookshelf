@@ -1,15 +1,17 @@
 """DataFrame round-trip tests for the ``/data`` frame-conversion parse layer."""
 
+import gzip
 import io
 import json
 import sys
+from pathlib import Path
 
 import pandas as pd
 import pandas.testing as pdt
 import pytest
 
 from bookshelf._core.errors import BookshelfError
-from bookshelf._core.frames import DataFrameSupportError, require_package, to_pandas
+from bookshelf._core.frames import DataFrameSupportError, read_frame, require_package, to_pandas
 from bookshelf._core.types import DataPayload
 
 
@@ -47,3 +49,42 @@ def test_a_missing_package_is_reported_as_a_bookshelf_error(
 
     assert isinstance(raised.value, BookshelfError)
     assert str(raised.value) == "as_polars() requires polars: pip install polars"
+
+
+@pytest.mark.parametrize("stored", ["parquet", "csv", "csv.gz"])
+def test_read_frame_detects_the_stored_format(tmp_path: Path, stored: str) -> None:
+    frame = pd.DataFrame({"region": ["NZL", "AUS"], "2000": [1.0, 2.0]})
+    path = tmp_path / "resource"
+    if stored == "parquet":
+        frame.to_parquet(path)
+    else:
+        frame.to_csv(path, index=False, compression="gzip" if stored == "csv.gz" else None)
+
+    pdt.assert_frame_equal(read_frame(path), frame)
+
+
+def test_read_frame_keeps_na_codes_as_text(tmp_path: Path) -> None:
+    """Only an empty field is missing, so Namibia's ISO code survives as on the platform."""
+    path = tmp_path / "resource"
+    path.write_text("region,2000\nNA,1.0\nNZL,\n")
+
+    frame = read_frame(path)
+
+    assert frame["region"].tolist() == ["NA", "NZL"]
+    assert frame["2000"].isna().tolist() == [False, True]
+
+
+def test_read_frame_reports_an_unreadable_file_as_a_bookshelf_error(tmp_path: Path) -> None:
+    path = tmp_path / "resource"
+    path.write_bytes(b"")
+
+    with pytest.raises(BookshelfError, match="cannot read the stored resource"):
+        read_frame(path)
+
+
+def test_read_frame_reports_a_truncated_gzip_as_a_bookshelf_error(tmp_path: Path) -> None:
+    path = tmp_path / "resource"
+    path.write_bytes(gzip.compress(b"region,2000\n" + b"NZL,1.0\n" * 1000)[:-40])
+
+    with pytest.raises(BookshelfError, match="cannot read the stored resource"):
+        read_frame(path)

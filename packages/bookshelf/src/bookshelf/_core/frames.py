@@ -7,6 +7,8 @@ pandas is imported on first use, so the CLI starts without loading it.
 import importlib
 import io
 import json
+import zlib
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from bookshelf._core.errors import BookshelfError
@@ -37,6 +39,26 @@ def require_payload(result: DataPayload | NotModified) -> DataPayload:
     if isinstance(result, NotModified):
         raise BookshelfError("expected a /data payload but the server answered 304 Not Modified")
     return result
+
+
+def read_frame(path: Path) -> "pd.DataFrame":
+    """Read a whole stored resource, which the platform only holds as parquet or csv."""
+    import pandas as pd
+
+    with path.open("rb") as stream:
+        magic = stream.read(4)
+    try:
+        if magic == b"PAR1":
+            return pd.read_parquet(path)
+        # Only an empty field is missing, as on the platform, so a code like "NA" stays text.
+        return pd.read_csv(
+            path,
+            compression="gzip" if magic[:2] == b"\x1f\x8b" else None,
+            keep_default_na=False,
+            na_values=[""],
+        )
+    except (ValueError, OSError, EOFError, zlib.error) as exc:
+        raise BookshelfError(f"cannot read the stored resource as a frame: {exc}") from exc
 
 
 def to_pandas(payload: DataPayload) -> "pd.DataFrame":

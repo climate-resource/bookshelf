@@ -71,9 +71,7 @@ class BookShelf:
                 "the platform API, set BOOKSHELF_URL to choose a deployment",
                 stacklevel=2,
             )
-        self._bookshelf = Bookshelf()
-        if path is not None:
-            self._bookshelf._cache = ContentCache(Path(path))
+        self._bookshelf = Bookshelf(cache=None if path is None else ContentCache(Path(path)))
         self.path = self._bookshelf._cache.base_dir
         self.remote_bookshelf = self._bookshelf._client._base_url
 

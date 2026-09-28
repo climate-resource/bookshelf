@@ -14,6 +14,7 @@ from uuid import UUID
 import httpx
 import pytest
 
+from bookshelf import HashMismatchError
 from bookshelf._core.errors import BookshelfError, NotFoundError
 from bookshelf._generated import models
 from bookshelf._produce.books import DraftBook
@@ -324,13 +325,25 @@ def test_a_second_resolve_is_served_from_the_cache(tmp_path: Path, server: _Serv
     assert again.path == first.path
 
 
+def test_a_tampered_cache_entry_is_fetched_again(tmp_path: Path, server: _Server) -> None:
+    """A hit is re-verified, as on the consume side, because the cached file is handed out."""
+    recipe = _write_recipe(tmp_path, _URI_VERSION)
+    with _recording(recipe, tmp_path / "first"):
+        setup().use("raw").path.write_bytes(b"edited in place")
+    with _recording(recipe, tmp_path / "second"):
+        again = setup().use("raw")
+
+        assert again.path.read_bytes() == _PAYLOAD
+    assert len(server.requests) == 2
+
+
 def test_a_digest_mismatch_is_a_hard_failure(tmp_path: Path, server: _Server) -> None:
     """A mismatch names both digests, retries nothing, and commits nothing to the cache."""
     server.payload = b"tampered"
 
     with _recording(_write_recipe(tmp_path, _URI_VERSION), tmp_path / "bundle"):
         build = setup()
-        with pytest.raises(BookshelfError) as excinfo:
+        with pytest.raises(HashMismatchError) as excinfo:
             build.use("raw")
 
     message = str(excinfo.value)
