@@ -322,9 +322,9 @@ def test_a_pointer_entry_travels_as_its_address_without_bytes(
     raw, totals = attached["resources"]
     assert raw["name"] == "raw"
     assert raw["external_uri"] == "https://example.org/raw.csv"
-    assert raw.get("storage_path") is None
+    assert "storage_path" not in raw
     assert raw["hash"] == attached["manifest"]["resources"][0]["hash"]
     assert totals["storage_path"].startswith(f"preview/org_1/{PREVIEW_ID}/sha256/")
-    assert totals.get("external_uri") is None
+    assert "external_uri" not in totals
     uploads = deployment.sent("/uploads")
     assert [upload["hash"] for upload in uploads] == [totals["hash"]]

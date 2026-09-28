@@ -121,27 +121,20 @@ def _attach(client: BookshelfClient, preview_id: UUID, candidate: _Candidate) ->
     files: list[models.PreviewResourceUpload] = []
     for resource in candidate.bundle.manifest.resources:
         if resource.kind == "pointer":
-            if resource.name in entries:
-                files.append(
-                    models.PreviewResourceUpload(
-                        name=resource.name,
-                        hash=resource.hash,
-                        type=models.ResourceType(resource.type),
-                        format=resource.format,
-                        size_bytes=resource.size,
-                        external_uri=resource.external_uri,
-                    )
+            if resource.name not in entries:
+                continue
+            address = {"external_uri": resource.external_uri}
+        else:
+            if resource.hash not in by_hash:
+                by_hash[resource.hash] = upload_bytes(
+                    client,
+                    candidate.bundle.resource_bytes(resource),
+                    hash_=resource.hash,
+                    content_type=content_type_for(resource.type),
+                    preview_id=preview_id,
                 )
-            continue
-        if resource.hash not in by_hash:
-            by_hash[resource.hash] = upload_bytes(
-                client,
-                candidate.bundle.resource_bytes(resource),
-                hash_=resource.hash,
-                content_type=content_type_for(resource.type),
-                preview_id=preview_id,
-            )
-        by_name[resource.name] = by_hash[resource.hash]
+            by_name[resource.name] = by_hash[resource.hash]
+            address = {"storage_path": by_hash[resource.hash]}
         files.append(
             models.PreviewResourceUpload(
                 name=resource.name,
@@ -149,7 +142,7 @@ def _attach(client: BookshelfClient, preview_id: UUID, candidate: _Candidate) ->
                 type=models.ResourceType(resource.type),
                 format=resource.format,
                 size_bytes=resource.size,
-                storage_path=by_hash[resource.hash],
+                **address,
             )
         )
     client.attach_preview_book(
