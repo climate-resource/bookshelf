@@ -51,6 +51,6 @@ resources:
   - annual-means
   used_digests: []
   visibility: public
-schema_version: '3.7'
+schema_version: '3.8'
 writer:
   pyarrow: 23.0.0

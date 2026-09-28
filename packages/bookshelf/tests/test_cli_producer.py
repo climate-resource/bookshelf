@@ -60,6 +60,7 @@ def test_validate_reports_the_bundle_summary(make_bundle: BundleFactory) -> None
         "bundle_path": str(bundle.root),
         "resources": 2,
         "book_entries": 2,
+        "placements": [],
         "published": True,
         "processing": [],
     }

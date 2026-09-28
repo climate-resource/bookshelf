@@ -54,7 +54,7 @@ from bookshelf._generated import models
 from bookshelf._produce import helpers
 from bookshelf._produce.types import Role
 
-BUNDLE_SCHEMA_VERSION = "3.7"
+BUNDLE_SCHEMA_VERSION = "3.8"
 
 # A newer minor loads because the models ignore unknown fields, and any other major is refused:
 # v2 keys resources by tracking id and v3 by name, which no rule maps without inventing names.
@@ -280,11 +280,11 @@ class BundleActivity(BaseModel):
 
 
 class BundleBookEntry(BaseModel):
-    """One membership row in the book framing, naming a resource in the same manifest.
+    """One membership row in the book framing.
 
-    ``name`` is both the resource's bundle-local name and the name it takes inside the book.
-    The platform fuses the two,
-    so a resource is registered under the name the book indexes it by.
+    ``name`` is a recorded resource's bundle-local name and the name it takes inside the book.
+    An entry with a ``tracking_id`` is a placement instead, and ``name`` is its entry name alone.
+    ``source`` is the ``bookshelf://`` reference a placement was reached through, when known.
     ``data_dictionary`` describes this entry's columns.
     ``None`` records omission so replay preserves an existing dictionary,
     while an empty list records an explicit clear.
@@ -296,6 +296,13 @@ class BundleBookEntry(BaseModel):
 
     name: ResourceName
     data_dictionary: list[dict[str, Any]] | None = None
+    tracking_id: UUID | None = None
+    source: str | None = None
+
+    @property
+    def is_placement(self) -> bool:
+        """Whether this entry places a resource the platform holds rather than a recorded one."""
+        return self.tracking_id is not None
 
 
 class BundleBook(BaseModel):
@@ -564,28 +571,30 @@ class Bundle:
         *,
         name: str,
         data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
+        tracking_id: UUID | None = None,
+        source: str | None = None,
     ) -> BundleBookEntry:
         """Append the resource ``name`` to the recorded book's membership.
 
         ``name`` must be the bundle-local name of a resource
         already recorded in this manifest,
         and it is the name the entry takes inside the book.
+        A ``tracking_id`` places a resource the platform already holds instead,
+        so ``name`` is the entry's name alone and must not name a recorded resource.
+        ``source`` is the reference the placed resource was reached through.
         ``data_dictionary`` belongs to this attachment rather than the book framing.
         Omit it to preserve an existing entry dictionary,
         or pass an empty sequence to clear one.
         The bundle therefore stays self-contained.
-        A name attached twice raises :class:`ValueError` here
+        A name attached twice, or a resource placed twice, raises :class:`ValueError` here
         instead of failing during replay,
         and so does an entry appended before the book is drafted.
         """
         if self.manifest.book is None:
             raise ValueError("cannot attach a book entry before the book is drafted")
-        if any(entry.name == name for entry in self.manifest.book.entries):
+        entries = self.manifest.book.entries
+        if any(entry.name == name for entry in entries):
             raise ValueError(f"book entry name {name!r} already used in this book")
-        if all(resource.name != name for resource in self.manifest.resources):
-            raise ValueError(
-                f"book entry {name!r} names a resource that is not recorded in this bundle"
-            )
         entry = BundleBookEntry(
             name=name,
             data_dictionary=(
@@ -593,7 +602,22 @@ class Bundle:
                 if data_dictionary is None
                 else [item.model_dump(mode="json") for item in data_dictionary]
             ),
+            tracking_id=tracking_id,
+            source=source,
         )
+        recorded = any(resource.name == name for resource in self.manifest.resources)
+        if not entry.is_placement and not recorded:
+            raise ValueError(
+                f"book entry {name!r} names a resource that is not recorded in this bundle"
+            )
+        if entry.is_placement and recorded:
+            raise ValueError(
+                f"cannot place {tracking_id} as {name!r}, "
+                "because this bundle records a resource of that name. "
+                "Place it under a name the bundle does not record."
+            )
+        if entry.is_placement and any(other.tracking_id == tracking_id for other in entries):
+            raise ValueError(f"resource {tracking_id} is already placed in this book")
         self.manifest.book.entries.append(entry)
         return entry
 
@@ -755,6 +779,9 @@ class Bundle:
         recorded = {resource.name for resource in self.manifest.resources}
         if name in recorded:
             raise ValueError(f"resource name {name!r} is already recorded in this bundle")
+        placed = self.manifest.book.entries if self.manifest.book is not None else ()
+        if any(entry.is_placement and entry.name == name for entry in placed):
+            raise ValueError(f"resource name {name!r} is already a placed entry of this book")
         for reference in used or ():
             if reference not in recorded:
                 raise ValueError(
@@ -825,7 +852,9 @@ class Bundle:
         - the bundle records a book framing
         - that book is marked for publication
         - the book has at least one entry
-        - every entry names a resource recorded in the same manifest
+        - every entry names a resource recorded in the same manifest,
+          except a placement, whose name must not name one
+        - no resource is placed twice, because the platform refuses a repeated placement
         - every ``used`` name is recorded earlier in the manifest than what consumes it
         - every public figure records a nonblank ``alt_text``, because the platform refuses one without
         - every resource's catalogue metadata is one the contract accepts,
@@ -846,9 +875,23 @@ class Bundle:
             raise InvalidBundleError("bundle has no book entries")
 
         recorded = {resource.name for resource in self.manifest.resources}
+        placed: set[UUID] = set()
         for entry in framing.entries:
-            if entry.name not in recorded:
-                raise InvalidBundleError(f"book entry {entry.name!r} has no resource")
+            if entry.tracking_id is None:
+                if entry.name not in recorded:
+                    raise InvalidBundleError(f"book entry {entry.name!r} has no resource")
+                continue
+            if entry.name in recorded:
+                raise InvalidBundleError(
+                    f"book entry {entry.name!r} places {entry.tracking_id}, "
+                    "but the bundle records a resource of that name"
+                )
+            if entry.tracking_id in placed:
+                raise InvalidBundleError(
+                    f"book entry {entry.name!r} places {entry.tracking_id}, "
+                    "which another entry already places"
+                )
+            placed.add(entry.tracking_id)
 
         # Replay resolves lineage against the resources of the same request,
         # so an input that lands later than its consumer has nothing to resolve to.

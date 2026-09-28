@@ -10,6 +10,7 @@ import tempfile
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import partial
 from pathlib import Path
 from typing import Any, Self
 from uuid import UUID
@@ -48,10 +49,13 @@ from bookshelf.publisher.bundle import (
     synthesise_pointer_hash,
 )
 from bookshelf.publisher.recipe import ResolvedBook, resolve_book_visibility
+from bookshelf.publisher.reference import is_reference
 from bookshelf.publisher.resource import (
+    Located,
     LookupBook,
     LookupDigest,
     ResolvedResource,
+    locate_reference,
     resolve_resource,
 )
 
@@ -503,10 +507,12 @@ class RecordedDraftBook(DraftBook):
         names: dict[UUID, str],
         activity: Callable[[], Activity] | None = None,
         sidecar_edges: set[tuple[str, str]],
+        locate: Callable[[str], Located],
     ) -> None:
         self._bundle = bundle
         self._names = names
         self._sidecar_edges = sidecar_edges
+        self._locate = locate
         super().__init__(
             client,
             models.BookDetail(
@@ -530,29 +536,45 @@ class RecordedDraftBook(DraftBook):
         name_in_book: str,
         data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
     ) -> models.BookEntryAttachResponse:
-        """Record the membership of a resource this bundle carries.
+        """Record the membership of a resource.
 
         The platform registers a replayed resource under the name its entry takes,
-        so the two are one name and a resource attached under a different one is refused.
+        so a resource this bundle carries attached under a different name is refused.
+        Anything else is a placement of a resource the platform already holds:
+        a handle from ``build.use()``, a ``bookshelf://`` reference or a bare tracking id.
+        A placement may take any name the bundle does not record, and it adds no lineage.
+        The publishing organisation must own the placed resource, so a book from another one cannot be placed.
+        A bare tracking id is not checked until replay, where the platform refuses one it does not hold.
         """
-        tracking_id = (
-            UUID(str(resource))
-            if isinstance(resource, str | UUID)
-            else UUID(str(resource.tracking_id))
-        )
+        source = None
+        if isinstance(resource, str) and is_reference(resource):
+            tracking_id, source = self._locate(resource)
+        elif isinstance(resource, str | UUID):
+            try:
+                tracking_id = UUID(str(resource))
+            except ValueError as exc:
+                raise ValueError(
+                    f"{resource!r} is neither a tracking id nor a bookshelf:// reference, "
+                    f"so it cannot be attached as {name_in_book!r}"
+                ) from exc
+        else:
+            tracking_id = UUID(str(resource.tracking_id))
+            if isinstance(resource, ResolvedResource):
+                source = resource.reference
         recorded = self._names.get(tracking_id)
-        if recorded is None:
-            raise ValueError(
-                f"{name_in_book!r} names a resource this bundle does not record. "
-                "A recorded book is made of the resources its own build registered."
-            )
-        if recorded != name_in_book:
+        if recorded is not None and recorded != name_in_book:
             raise ValueError(
                 f"resource {recorded!r} cannot be attached as {name_in_book!r}. "
                 "A replayed resource is registered under the name its entry takes, "
                 f"so register it as {name_in_book!r}."
             )
-        self._bundle.add_book_entry(name=name_in_book, data_dictionary=data_dictionary)
+        placed = recorded is None
+        self._bundle.add_book_entry(
+            name=name_in_book,
+            data_dictionary=data_dictionary,
+            tracking_id=tracking_id if placed else None,
+            source=source if placed else None,
+        )
         self._record_attached(name_in_book)
         return models.BookEntryAttachResponse(
             entry_id=helpers.uuid7(),
@@ -742,6 +764,9 @@ class RecordingSink:
             names=self._names,
             activity=self.writing_activity,
             sidecar_edges=self._sidecar_edges,
+            locate=partial(
+                locate_reference, lookup_book=self._lookup_book, lookup_digest=self._lookup_digest
+            ),
         )
 
     def register_external(

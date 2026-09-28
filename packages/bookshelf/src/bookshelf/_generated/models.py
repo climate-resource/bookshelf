@@ -1460,11 +1460,18 @@ class ReplayEntry(BaseModel):
     name: Annotated[
         str,
         Field(
-            description="Name of a resource carried by this request. It is also the entry's name within the book.",
+            description="The entry's name within the book. Without ``tracking_id`` it is also the name of a resource carried by this request. With one it must not name any resource the request carries.",
             pattern="^[a-z0-9][a-z0-9._-]{0,199}$",
             title="Name",
         ),
     ]
+    tracking_id: Annotated[
+        UUID | None,
+        Field(
+            description="Places the existing resource with this tracking id under ``name``, which may differ from the name it was registered under. The caller's organisation must own it, and one it does not own is a 404.",
+            title="Tracking Id",
+        ),
+    ] = None
     data_dictionary: Annotated[
         list[DataDictionaryEntry] | None,
         Field(description="Column descriptions for this entry.", title="Data Dictionary"),
