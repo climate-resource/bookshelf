@@ -1103,6 +1103,7 @@ def _record_pointer(
         generated=generated,
         used=list(used.names),
         used_digests=list(used.digests),
+        tracking_id=tracking_id,
     )
     return settled.handle(
         client,
@@ -1148,6 +1149,7 @@ def _record_file(
         dedupe=dedupe,
         # An input is read by the activity rather than produced by it.
         generated=False,
+        tracking_id=tracking_id,
     )
     return settled.handle(
         client, cache, names, hash_=hash, discovery=discovery, metadata=metadata, dedupe=dedupe

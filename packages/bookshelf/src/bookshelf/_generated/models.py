@@ -3116,6 +3116,13 @@ class ReplayResource(BaseModel):
             title="Dedupe",
         ),
     ] = True
+    tracking_id: Annotated[
+        UUID | None,
+        Field(
+            description="Tracking id to register the resource under, for a producer that already names its resources. Requires ``dedupe`` off, because an alias would answer with another id. The server mints one when omitted.",
+            title="Tracking Id",
+        ),
+    ] = None
     size_bytes: Annotated[
         SizeBytes1 | None,
         Field(
