@@ -89,3 +89,12 @@ def test_importing_the_sdk_does_not_require_the_git_binary() -> None:
     )
 
     assert result.returncode == 0, result.stderr
+
+
+def test_the_root_package_exports_typed_errors_and_deployments() -> None:
+    from bookshelf._core import config, errors
+
+    assert bookshelf.NotFoundError is errors.NotFoundError
+    assert issubclass(bookshelf.ConflictError, bookshelf.APIError)
+    assert bookshelf.STAGING_API_URL == config.STAGING_API_URL
+    assert bookshelf.PRODUCTION_API_URL == config.PRODUCTION_API_URL

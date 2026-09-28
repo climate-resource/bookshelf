@@ -79,6 +79,17 @@ VOLUME: dict[str, Any] = {
     "updated_at": TS,
 }
 
+VOLUME_DETAIL: dict[str, Any] = {
+    **VOLUME,
+    "versions": [],
+    "stats": {
+        "total_versions": 0,
+        "total_editions": 0,
+        "total_resources": 0,
+        "total_size_bytes": 0,
+    },
+}
+
 ENTRY_ATTACHED: dict[str, Any] = {
     "entry_id": "0197a000-0000-7000-8000-0000000000e1",
     "book_id": "0197a000-0000-7000-8000-0000000000b1",

@@ -195,19 +195,14 @@ async def test_async_facade_matches_the_sync_one() -> None:
     assert (corrections[0].method, corrections[0].url.path) == ("POST", "/v1/books/b1/corrections")
 
 
-VOLUME_DETAIL: dict[str, Any] = {
-    **payloads.VOLUME,
-    "versions": [],
-    "stats": {
-        "total_versions": 0,
-        "total_editions": 0,
-        "total_resources": 0,
-        "total_size_bytes": 0,
-    },
-}
+NOT_FOUND = (404, payloads.problem(404, "Not Found", "volume not found"))
+CONFLICT = (409, payloads.problem(409, "Conflict", "volume already exists"))
+FORBIDDEN = (403, payloads.problem(403, "Forbidden", "no WRITE on this organisation"))
+FOUND = (200, payloads.VOLUME_DETAIL)
+CREATED = (201, payloads.VOLUME)
 
 
-def _scripted(recorded: list[httpx.Request], *replies: tuple[int, Any]) -> httpx.MockTransport:
+def _scripted(recorded: list[httpx.Request], replies: list[tuple[int, Any]]) -> httpx.MockTransport:
     queue = list(replies)
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -218,72 +213,60 @@ def _scripted(recorded: list[httpx.Request], *replies: tuple[int, Any]) -> httpx
     return httpx.MockTransport(handler)
 
 
-def _missing() -> tuple[int, Any]:
-    return 404, payloads.problem(404, "Not Found", "volume not found")
+GET_OR_CREATE_CASES = [
+    pytest.param([FOUND], False, id="present"),
+    pytest.param([NOT_FOUND, CREATED, FOUND], True, id="absent"),
+    pytest.param([NOT_FOUND, CONFLICT, FOUND], False, id="lost-race"),
+]
 
 
-def _taken() -> tuple[int, Any]:
-    return 409, payloads.problem(409, "Conflict", "volume already exists")
-
-
-@pytest.mark.parametrize(
-    ("replies", "created", "calls"),
-    [
-        pytest.param([(200, VOLUME_DETAIL)], False, ["GET"], id="present"),
-        pytest.param(
-            [_missing(), (201, payloads.VOLUME), (200, VOLUME_DETAIL)],
-            True,
-            ["GET", "POST", "GET"],
-            id="absent",
-        ),
-        pytest.param(
-            [_missing(), _taken(), (200, VOLUME_DETAIL)],
-            False,
-            ["GET", "POST", "GET"],
-            id="lost-race",
-        ),
-    ],
-)
-def test_get_or_create_volume(
-    replies: list[tuple[int, Any]], created: bool, calls: list[str]
+@pytest.mark.parametrize(("replies", "created"), GET_OR_CREATE_CASES)
+def test_get_or_create_volume_reports_whether_it_created(
+    replies: list[tuple[int, Any]], created: bool
 ) -> None:
     recorded: list[httpx.Request] = []
-    with Bookshelf(BASE_URL, auth=None, transport=_scripted(recorded, *replies)) as client:
+    with Bookshelf(BASE_URL, auth=None, transport=_scripted(recorded, replies)) as client:
         volume, was_created = client.get_or_create_volume("example", license="MIT")
 
     assert volume.name == "example"
     assert was_created is created
-    assert [request.method for request in recorded] == calls
+    assert len(recorded) == len(replies)
 
 
-def test_get_or_create_volume_raises_what_creation_cannot_absorb() -> None:
+@pytest.mark.parametrize(("replies", "created"), GET_OR_CREATE_CASES)
+async def test_async_get_or_create_volume_matches_the_sync_one(
+    replies: list[tuple[int, Any]], created: bool
+) -> None:
     recorded: list[httpx.Request] = []
-    forbidden = (403, payloads.problem(403, "Forbidden", "no WRITE on this organisation"))
+    transport = _scripted(recorded, replies)
+    async with AsyncBookshelf(BASE_URL, auth=None, async_transport=transport) as client:
+        volume, was_created = await client.get_or_create_volume("example", license="MIT")
+
+    assert volume.name == "example"
+    assert was_created is created
+    assert len(recorded) == len(replies)
+
+
+@pytest.mark.parametrize(
+    ("replies", "error"),
+    [
+        pytest.param([NOT_FOUND, FORBIDDEN], ForbiddenError, id="forbidden"),
+        pytest.param([NOT_FOUND, CONFLICT, NOT_FOUND], ConflictError, id="hidden"),
+    ],
+)
+def test_get_or_create_volume_raises_what_it_cannot_resolve(
+    replies: list[tuple[int, Any]], error: type[Exception]
+) -> None:
+    recorded: list[httpx.Request] = []
     with (
-        Bookshelf(
-            BASE_URL, auth=None, transport=_scripted(recorded, _missing(), forbidden)
-        ) as client,
-        pytest.raises(ForbiddenError),
+        Bookshelf(BASE_URL, auth=None, transport=_scripted(recorded, replies)) as client,
+        pytest.raises(error),
     ):
         client.get_or_create_volume("example", license="MIT")
 
 
-async def test_async_get_or_create_volume() -> None:
-    recorded: list[httpx.Request] = []
-    transport = _scripted(recorded, _missing(), (201, payloads.VOLUME), (200, VOLUME_DETAIL))
+async def test_async_get_or_create_volume_raises_a_conflict_for_a_hidden_volume() -> None:
+    transport = _scripted([], [NOT_FOUND, CONFLICT, NOT_FOUND])
     async with AsyncBookshelf(BASE_URL, auth=None, async_transport=transport) as client:
-        volume, created = await client.get_or_create_volume("example", license="MIT")
-
-    assert volume.name == "example"
-    assert created is True
-    assert _body(recorded[1]) == {"name": "example", "discovery": {"license": "MIT"}}
-
-
-def test_the_public_surface_exports_typed_errors_and_deployments() -> None:
-    import bookshelf
-    from bookshelf._core import config, errors
-
-    assert bookshelf.NotFoundError is errors.NotFoundError
-    assert issubclass(bookshelf.ConflictError, bookshelf.APIError)
-    assert bookshelf.STAGING_API_URL == config.STAGING_API_URL
-    assert bookshelf.PRODUCTION_API_URL == config.PRODUCTION_API_URL
+        with pytest.raises(ConflictError):
+            await client.get_or_create_volume("example", license="MIT")

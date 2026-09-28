@@ -337,7 +337,8 @@ class Bookshelf:
         """Resolve a volume, creating it first when it does not exist, and say whether this call created it.
 
         The creation fields apply only to a new volume, and an existing one is returned unchanged.
-        A 409 from a concurrent creator counts as already present.
+        A 409 from a concurrent creator counts as already present,
+        unless the volume it names is one this caller cannot read.
         """
         try:
             return self.volume(name), False
@@ -353,8 +354,11 @@ class Bookshelf:
                 maintainers=maintainers,
                 discovery=discovery,
             )
-        except ConflictError:
-            return self.volume(name), False
+        except ConflictError as conflict:
+            try:
+                return self.volume(name), False
+            except NotFoundError:
+                raise conflict from None
         return self.volume(name), True
 
     def update_volume(
@@ -618,7 +622,8 @@ class AsyncBookshelf:
         """Resolve a volume, creating it first when it does not exist, and say whether this call created it.
 
         The creation fields apply only to a new volume, and an existing one is returned unchanged.
-        A 409 from a concurrent creator counts as already present.
+        A 409 from a concurrent creator counts as already present,
+        unless the volume it names is one this caller cannot read.
         """
         try:
             return await self.volume(name), False
@@ -634,8 +639,11 @@ class AsyncBookshelf:
                 maintainers=maintainers,
                 discovery=discovery,
             )
-        except ConflictError:
-            return await self.volume(name), False
+        except ConflictError as conflict:
+            try:
+                return await self.volume(name), False
+            except NotFoundError:
+                raise conflict from None
         return await self.volume(name), True
 
     async def update_volume(

@@ -12,7 +12,6 @@ from bookshelf._core.errors import (
     ServerError,
     TransportError,
     UnexpectedResponseError,
-    ValidationError,
 )
 from bookshelf._generated import OPENAPI_VERSION, models
 from bookshelf._produce.helpers import uuid7
@@ -90,7 +89,6 @@ __all__ = [
     "UnexpectedResponseError",
     "UnsupportedConversionError",
     "Used",
-    "ValidationError",
     "Volume",
     "models",
     "replay_bundle",

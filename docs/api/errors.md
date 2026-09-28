@@ -19,8 +19,6 @@ so a caller can catch `NotFoundError` or `ConflictError` rather than compare `st
 
 ::: bookshelf.ConflictError
 
-::: bookshelf.ValidationError
-
 ::: bookshelf.ServerError
 
 ::: bookshelf.UnexpectedResponseError
