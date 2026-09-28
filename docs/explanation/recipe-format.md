@@ -246,6 +246,18 @@ A recorded build cannot cite it in `used=`.
 A replay resolves an input it does not carry by digest, against the publishing organisation alone,
 and a referenced book may belong to another one.
 
+A recorded build can place it in the book instead, under a name of its own choosing:
+
+```python
+build.book.attach(build.use("primap"), name_in_book="primap-by-country")
+build.book.attach("bookshelf://primap-hist/v2.7_e002/by_country", name_in_book="primap")
+```
+
+A placement puts the existing resource in the book without copying its bytes.
+The name must not be one this build registers a resource under.
+A placement is membership alone and adds no lineage.
+The bundle records the reference as the entry's `source`, and `bookshelf validate` lists every placement.
+
 To resolve every entry of an edition, set `whole_book: true`:
 
 ```yaml

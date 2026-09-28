@@ -232,6 +232,11 @@ def validate(
             "bundle_path": str(bundle),
             "resources": len(loaded.manifest.resources),
             "book_entries": len(framing.entries),
+            "placements": [
+                {"name": entry.name, "tracking_id": str(entry.tracking_id), "source": entry.source}
+                for entry in framing.entries
+                if entry.tracking_id is not None
+            ],
             "published": framing.published,
             "processing": [list(pair) for pair in framing.processing or ()],
         }

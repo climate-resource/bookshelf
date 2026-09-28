@@ -13,7 +13,7 @@ This page specifies what is written to disk.
 It is written so that an implementation in another language can produce and read bundles
 without reading the Python that implements this one.
 
-The format in force is manifest schema version **3.7**.
+The format in force is manifest schema version **3.8**.
 
 ## Bundle directory
 
@@ -277,10 +277,12 @@ It is recorded so `bookshelf validate` reads as a complete account of the build.
 
 Each entry in `entries` carries the membership and its own optional column descriptions:
 
-| Field             | Required | Default | Meaning                                            |
-| ----------------- | -------- | ------- | -------------------------------------------------- |
-| `name`            | required |         | a resource recorded in this same manifest          |
-| `data_dictionary` | optional | absent  | column-level descriptions that apply to this entry |
+| Field             | Required | Default | Meaning                                                                |
+| ----------------- | -------- | ------- | ---------------------------------------------------------------------- |
+| `name`            | required |         | a resource recorded in this same manifest, or a placement's entry name |
+| `data_dictionary` | optional | absent  | column-level descriptions that apply to this entry                     |
+| `tracking_id`     | optional | absent  | a resource the platform holds, placed as this entry                    |
+| `source`          | optional | absent  | the `bookshelf://` reference the placement came through                |
 
 An absent `data_dictionary` leaves the entry's existing dictionary unchanged on replay.
 An empty list explicitly clears it,
@@ -293,6 +295,23 @@ because the platform registers a replayed resource under the name its entry take
 A writer enforces both when it appends an entry.
 Validation checks the reference and not the uniqueness,
 so an implementation that reads a hand-edited manifest should check the names itself.
+
+An entry with a `tracking_id` is a placement.
+It puts a resource the platform already holds in the book without copying its bytes:
+
+```yaml
+entries:
+- name: approved-method
+  source: bookshelf://method/v2.0_e003/hazard-method
+  tracking_id: 0193f0f3-0000-7000-8000-000000000001
+```
+
+A placement's `name` is only the entry's name, so it may differ from the name the resource was registered under.
+It must not name a resource recorded in the manifest.
+A placement is membership alone.
+It adds nothing to any resource's `used` or `used_digests`.
+`source` is for a reviewer and never travels on replay.
+A reader older than 3.8 drops both fields and refuses the entry, because it names no recorded resource.
 
 ## Determinism
 
@@ -338,7 +357,8 @@ A replayable book contains all the required information to later be streamed to 
 1. The manifest records a `book`.
 2. That book has `published: true`.
 3. That book has at least one entry.
-4. Every entry's `name` matches a resource recorded in the same manifest.
+4. Every entry's `name` matches a resource recorded in the same manifest,
+   except a placement, whose `name` must match none.
 5. Every resource with `type: figure` and `visibility: public` records a nonblank `alt_text`.
    The platform refuses a public figure without one,
    so a replay would fail only after every byte had uploaded.
@@ -453,7 +473,7 @@ resources:
   used:
   - upstream-emissions
   visibility: public
-schema_version: '3.7'
+schema_version: '3.8'
 writer:
   pyarrow: 23.0.0
 ```

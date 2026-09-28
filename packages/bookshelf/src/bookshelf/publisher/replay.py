@@ -40,14 +40,19 @@ from bookshelf.publisher.bundle import (
 
 
 def _entry(entry: BundleBookEntry) -> models.ReplayEntry:
-    """Project one recorded membership row. An omitted dictionary stays omitted, an empty one clears."""
+    """Project one recorded membership row. An omitted dictionary stays omitted, an empty one clears.
+
+    A placement carries the tracking id of the resource it places.
+    """
+    placed = stated(tracking_id=entry.tracking_id)
     if entry.data_dictionary is None:
-        return models.ReplayEntry(name=entry.name)
+        return models.ReplayEntry(name=entry.name, **placed)
     return models.ReplayEntry(
         name=entry.name,
         data_dictionary=[
             models.DataDictionaryEntry.model_validate(item) for item in entry.data_dictionary
         ],
+        **placed,
     )
 
 

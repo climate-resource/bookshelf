@@ -17,7 +17,7 @@ which is how an uploaded file that sits in no book is consumed.
 
 import hashlib
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Protocol, TypedDict, Unpack
 from uuid import UUID
@@ -32,7 +32,7 @@ from bookshelf._generated import models
 from bookshelf._produce.types import HasTrackingId
 from bookshelf.cache import ContentCache
 from bookshelf.publisher.recipe import ResourceSpec, credited
-from bookshelf.publisher.reference import BookshelfReference, DigestReference
+from bookshelf.publisher.reference import BookshelfReference, DigestReference, parse_reference
 
 DOWNLOAD_TIMEOUT = 600.0
 _CHUNK_BYTES = 1 << 20
@@ -188,6 +188,8 @@ class ResolvedResource:
     A resource reached through a book coordinate may belong to another organisation,
     so only a digest reference, which resolved in-organisation to begin with, carries one.
     """
+    reference: str | None = None
+    """The ``bookshelf://`` reference to the resource the platform holds, set for a reference alone."""
 
 
 def resolve_resource(
@@ -305,17 +307,7 @@ def _referenced(
     A recipe may name a type that the resource does not have,
     and reading the wrong shape is a failure worth catching before the build starts.
     """
-    if lookup_book is None:
-        raise BookshelfError(
-            f"resource {name!r} names {reference.uri}, "
-            "but this build resolves no bookshelf references"
-        )
-    try:
-        book = lookup_book(reference.volume, reference.version, edition=reference.edition)
-    except NotFoundError as exc:
-        raise BookshelfError(
-            f"resource {name!r} names {reference.uri}, which is not published: {exc}"
-        ) from exc
+    book = _published_book(name, reference=reference, lookup_book=lookup_book)
     if whole_book:
         return {
             entry_name: _held(
@@ -326,6 +318,34 @@ def _referenced(
             )
             for entry_name in book.entry_names
         }
+    uri, entry = _book_entry(name, reference=reference, book=book)
+    return _held(name, uri=uri, declared=declared, entry=entry)
+
+
+def _published_book(
+    name: str, *, reference: BookshelfReference, lookup_book: LookupBook | None
+) -> PublishedBook:
+    """Look up the book a reference names, refusing one the platform has not published."""
+    if lookup_book is None:
+        raise BookshelfError(
+            f"resource {name!r} names {reference.uri}, "
+            "but this build resolves no bookshelf references"
+        )
+    try:
+        return lookup_book(reference.volume, reference.version, edition=reference.edition)
+    except NotFoundError as exc:
+        raise BookshelfError(
+            f"resource {name!r} names {reference.uri}, which is not published: {exc}"
+        ) from exc
+
+
+def _book_entry(
+    name: str, *, reference: BookshelfReference, book: PublishedBook
+) -> tuple[str, PublishedEntry]:
+    """Return the entry a reference names and the reference spelled out to that entry.
+
+    A reference to a book that holds one entry names that entry.
+    """
     name_in_book = reference.name_in_book
     if name_in_book is None:
         entries = book.entry_names
@@ -341,7 +361,38 @@ def _referenced(
         entry = book[name_in_book]
     except KeyError as exc:
         raise BookshelfError(f"resource {name!r} names {reference.uri}, and {exc}") from exc
-    return _held(name, uri=reference.uri, declared=declared, entry=entry)
+    return replace(reference, name_in_book=name_in_book).uri, entry
+
+
+def locate_reference(
+    uri: str,
+    *,
+    lookup_book: LookupBook | None,
+    lookup_digest: LookupDigest | None,
+) -> tuple[UUID, str]:
+    """Return the tracking id a ``bookshelf://`` reference names, with the reference spelled out.
+
+    Unlike :func:`resolve_resource` this fetches no bytes, because placing a resource never reads it.
+    Raises :class:`~bookshelf._core.errors.BookshelfError` for a reference that resolves to nothing.
+    """
+    try:
+        reference = parse_reference(uri)
+    except ValueError as exc:
+        raise BookshelfError(str(exc)) from exc
+    if isinstance(reference, DigestReference):
+        if lookup_digest is None:
+            raise BookshelfError(
+                f"{uri} cannot be looked up, because this build resolves no bookshelf references"
+            )
+        try:
+            return lookup_digest(reference.hash).tracking_id, reference.uri
+        except NotFoundError as exc:
+            raise BookshelfError(
+                f"{uri} names bytes your organisation does not hold: {exc}"
+            ) from exc
+    book = _published_book(uri, reference=reference, lookup_book=lookup_book)
+    spelled, entry = _book_entry(uri, reference=reference, book=book)
+    return entry.tracking_id, spelled
 
 
 def _by_digest(
@@ -388,6 +439,7 @@ def _held(
         pointer=entry,
         tracking_id=entry.tracking_id,
         citable_hash=entry.metadata.hash if citable else None,
+        reference=uri,
     )
 
 
@@ -467,5 +519,6 @@ __all__ = [
     "ResolvedResource",
     "Catalogue",
     "RegisterFile",
+    "locate_reference",
     "resolve_resource",
 ]
