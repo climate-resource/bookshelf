@@ -16,6 +16,7 @@ from uuid import uuid4
 from filelock import AsyncFileLock, FileLock
 from platformdirs import user_cache_dir
 
+from bookshelf._core.errors import BookshelfError
 from bookshelf._core.integrity import HashMismatchError, verify_path
 
 DEFAULT_MAX_BYTES = 5 * 1024**3
@@ -160,7 +161,7 @@ class ContentCache:
             with self.stage(content_hash) as temporary:
                 download(temporary)
                 verify_path(temporary, content_hash)
-            return self._path_for(content_hash)
+            return self._committed(content_hash)
 
     async def fetch_async(
         self, content_hash: str, download: Callable[[Path], Awaitable[None]]
@@ -179,7 +180,7 @@ class ContentCache:
             with self.stage(content_hash) as temporary:
                 await download(temporary)
                 await asyncio.to_thread(verify_path, temporary, content_hash)
-            return self._path_for(content_hash)
+            return self._committed(content_hash)
 
     def put(self, content_hash: str, content: bytes) -> Path:
         """Atomically store content under its hash and enforce the size cap."""
@@ -211,6 +212,13 @@ class ContentCache:
             self.discard(content_hash)
             return None
         return cached
+
+    def _committed(self, content_hash: str) -> Path:
+        # Another process sharing the cache can evict the entry as soon as it lands.
+        path = self._path_for(content_hash)
+        if not path.is_file():  # pragma: no cover
+            raise BookshelfError("another process evicted the resource as it was stored")
+        return path
 
     def _lock_path(self, content_hash: str) -> Path:
         # Lock files are never removed, because unlinking one another process holds breaks the lock.
