@@ -2802,8 +2802,19 @@ class PreviewResourceUpload(BaseModel):
         SizeBytes | None, Field(description="Size of the uploaded object.", title="Size Bytes")
     ] = None
     storage_path: Annotated[
-        str, Field(description="Preview key the bytes were uploaded to.", title="Storage Path")
-    ]
+        str | None,
+        Field(
+            description="Preview key the bytes were uploaded to. Set for a managed file.",
+            title="Storage Path",
+        ),
+    ] = None
+    external_uri: Annotated[
+        str | None,
+        Field(
+            description="Address of a pointer's data, which Bookshelf never fetches.",
+            title="External Uri",
+        ),
+    ] = None
 
 
 class PreviewUploadCompleteRequest(BaseModel):

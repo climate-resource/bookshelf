@@ -302,3 +302,29 @@ def test_a_checked_in_input_travels_as_a_file_but_not_as_an_entry(
     assert totals["used"] == ["raw"]
     uploads = deployment.sent("/uploads")
     assert [upload["hash"] for upload in uploads] == [raw["hash"], totals["hash"]]
+
+
+def test_a_pointer_entry_travels_as_its_address_without_bytes(
+    make_bundle: BundleFactory,
+) -> None:
+    bundle = _lineage_bundle(make_bundle)
+    bundle.add_book_entry(name="raw")
+    bundle.write()
+    deployment = PreviewDeployment()
+
+    with _client(deployment) as client:
+        outcome = upload_preview([bundle.root], client, IDENTITY)
+
+    assert outcome.refused == {}
+    assert outcome.preview.state.value == "sealed"
+    (attached,) = deployment.sent("/v1.0.0")
+    assert sorted(entry["name"] for entry in attached["manifest"]["entries"]) == ["raw", "totals"]
+    raw, totals = attached["resources"]
+    assert raw["name"] == "raw"
+    assert raw["external_uri"] == "https://example.org/raw.csv"
+    assert raw.get("storage_path") is None
+    assert raw["hash"] == attached["manifest"]["resources"][0]["hash"]
+    assert totals["storage_path"].startswith(f"preview/org_1/{PREVIEW_ID}/sha256/")
+    assert totals.get("external_uri") is None
+    uploads = deployment.sent("/uploads")
+    assert [upload["hash"] for upload in uploads] == [totals["hash"]]

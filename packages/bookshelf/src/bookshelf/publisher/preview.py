@@ -65,16 +65,6 @@ def _candidate(path: Path) -> _Candidate:
         raise InvalidBundleError(f"{path}: {exc}") from exc
     try:
         bundle.validate()
-        pointers = [
-            resource.name
-            for resource in bundle.manifest.resources
-            if resource.kind != "managed"
-            and any(entry.name == resource.name for entry in framing.entries)
-        ]
-        if pointers:
-            raise InvalidBundleError(
-                f"book entries {pointers} are pointers, which a preview cannot carry"
-            )
     except InvalidBundleError as exc:
         return _Candidate(path, bundle, framing, str(exc))
     return _Candidate(path, bundle, framing, None)
@@ -121,14 +111,27 @@ def _manifest(candidate: _Candidate, storage_paths: Mapping[str, str]) -> dict[s
 def _attach(client: BookshelfClient, preview_id: UUID, candidate: _Candidate) -> None:
     """Upload every managed resource's bytes under the preview, then attach the manifest and files.
 
-    Inputs that are not book entries travel too,
+    Managed inputs that are not book entries travel too,
     because the platform needs a file for every managed resource the manifest names.
+    A pointer entry travels as its ``external_uri`` with no bytes.
     """
+    entries = {entry.name for entry in candidate.framing.entries}
     by_hash: dict[str, str] = {}
     by_name: dict[str, str] = {}
     files: list[models.PreviewResourceUpload] = []
     for resource in candidate.bundle.manifest.resources:
-        if resource.kind != "managed":
+        if resource.kind == "pointer":
+            if resource.name in entries:
+                files.append(
+                    models.PreviewResourceUpload(
+                        name=resource.name,
+                        hash=resource.hash,
+                        type=models.ResourceType(resource.type),
+                        format=resource.format,
+                        size_bytes=resource.size,
+                        external_uri=resource.external_uri,
+                    )
+                )
             continue
         if resource.hash not in by_hash:
             by_hash[resource.hash] = upload_bytes(
