@@ -145,6 +145,34 @@ One machine can hold several identities, and one is active per deployment.
 - `bookshelf auth logout` revokes the credential and clears local state.
   `--all` covers every deployment, and `--no-revoke` clears locally without telling the server.
 
+## Use a Bookshelf login against another service
+
+Other Climate Resource services verify the same WorkOS tokens,
+so a library talking to one of them can reuse the identity from `bookshelf auth login`.
+`bookshelf.auth` resolves the credential exactly as a `Bookshelf` client does.
+
+```python
+import httpx
+from bookshelf.auth import access_token, default_auth
+
+with httpx.Client(base_url="https://ndc-api.example", auth=default_auth()) as client:
+    client.get("/v1/me")
+
+headers = {"Authorization": f"Bearer {access_token()}"}
+```
+
+- `default_auth()` returns an `httpx.Auth` that refreshes the token and retries once on a 401.
+- A stored login whose refresh fails carries on unauthenticated with a warning.
+  Pass `strict=True` to get the `AuthenticationError` instead.
+- `access_token()` returns a current bearer string for clients that are not built on `httpx`.
+- Both take `api_url` to choose which Bookshelf deployment's stored login to use.
+- The provider classes (`ClientCredentials`, `ActionsOidcToken` and the rest) are exported
+  for building a credential by hand.
+
+Whether a token is accepted is up to the receiving service.
+The GitHub Actions token is minted for the `bookshelf-read` audience,
+so pass `ActionsOidcToken(audience=...)` explicitly for a service that expects its own.
+
 ## Where credentials are stored
 
 Credentials live in `credentials.json` under the user config directory,
