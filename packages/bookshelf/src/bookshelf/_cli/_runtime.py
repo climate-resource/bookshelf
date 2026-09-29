@@ -18,7 +18,7 @@ import typer
 from bookshelf._consume.presentation import human_bytes
 from bookshelf._core import errors
 from bookshelf._core.config import resolve_base_url
-from bookshelf._core.resolution import resolve_credential
+from bookshelf._core.resolution import CredentialSource, resolve_credential
 
 EXIT_OK = 0
 EXIT_UNEXPECTED = 1
@@ -191,6 +191,8 @@ def _forbidden_remedy() -> str:
     and a claimed agent is already capped to whatever its claimer can do.
     """
     described = resolve_credential(base_url()).describe()
+    if described.source not in (CredentialSource.STORED_LOGIN, CredentialSource.NONE):
+        return f"Ask an organisation admin to grant the required permission to {described.label}."
     if described.kind == "agent" and not described.claimed:
         return (
             "Your credential does not reach this data. "

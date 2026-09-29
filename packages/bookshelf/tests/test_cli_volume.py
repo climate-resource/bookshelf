@@ -25,7 +25,12 @@ def isolated_credentials(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
     """Keep the 403 remedy's credential lookup off the machine's real stored logins."""
     path = tmp_path / "credentials.json"
     monkeypatch.setattr(credentials, "credentials_path", lambda: path)
-    for name in ("BOOKSHELF_TOKEN", "BOOKSHELF_CLIENT_ID", "BOOKSHELF_CLIENT_SECRET"):
+    for name in (
+        "BOOKSHELF_AUTH",
+        "BOOKSHELF_TOKEN",
+        "BOOKSHELF_CLIENT_ID",
+        "BOOKSHELF_CLIENT_SECRET",
+    ):
         monkeypatch.delenv(name, raising=False)
 
 
@@ -259,6 +264,22 @@ def test_forbidden_remedy_for_a_human_points_at_an_admin_not_the_claim_ceremony(
     assert result.exit_code == EXIT_FORBIDDEN
     assert "organisation admin" in stderr
     assert "auth login --agent --claim" not in stderr
+
+
+def test_forbidden_remedy_for_an_env_token_names_it_rather_than_a_login(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stored login never beats an env credential, so logging in again would not help."""
+    monkeypatch.setenv("BOOKSHELF_TOKEN", "bsat_env-token")
+    refusal = payloads.problem(403, "Forbidden", "admin permission required")
+    _patch_client(monkeypatch, 403, refusal)
+
+    result = runner.invoke(app, ["volume", "delete", "example", "--yes"])
+
+    stderr = _plain(result.stderr)
+    assert result.exit_code == EXIT_FORBIDDEN
+    assert "grant the required permission to $BOOKSHELF_TOKEN" in stderr
+    assert "auth login" not in stderr
 
 
 def test_forbidden_remedy_for_an_unclaimed_agent_offers_the_claim_ceremony(
