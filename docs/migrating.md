@@ -62,6 +62,8 @@ The compatibility layer differs from 0.4 in a few places:
 - The 0.4 submodules `bookshelf.shelf`, `bookshelf.book`, `bookshelf.errors` and `bookshelf.schema` are gone.
   Import `BookShelf` and `LocalBook` from `bookshelf`,
   and `UnknownBook`, `UnknownVersion` and `UnknownEdition` from `bookshelf.legacy`.
+- `bookshelf.constants`, `bookshelf.utils` and `bookshelf.dataset_structure` are gone with no replacement.
+  Helpers such as `print_dataset_structure` have to be copied into your own code.
 
 ## Step 2: move to the new API
 
