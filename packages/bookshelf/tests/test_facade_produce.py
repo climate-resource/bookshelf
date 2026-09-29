@@ -201,7 +201,7 @@ def test_register_file_uploads_then_catalogues_the_bytes(tmp_path: Path) -> None
     assert item["format"] == "csv"
     assert item["locations"] == [{"shelf": "managed", "path": "ingest/org_1/abc"}]
     assert item["discovery"]["tags"] == ["raw"]
-    assert item["dedupe"] is True
+    assert "dedupe" not in item
     assert "external_uri" not in item or item["external_uri"] is None
 
 

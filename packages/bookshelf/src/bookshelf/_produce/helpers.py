@@ -238,7 +238,6 @@ def external_item(
     discovery: models.ResourceDiscovery,
     metadata: Mapping[str, Any] | None,
     tracking_id: UUID | None,
-    dedupe: bool,
 ) -> models.RegisterResourceItem:
     """Build the single-item registration an external pointer becomes.
 
@@ -253,7 +252,6 @@ def external_item(
         discovery=discovery,
         metadata=dict(metadata or {}),
         external_uri=uri,
-        dedupe=dedupe,
     )
 
 
@@ -279,7 +277,6 @@ def managed_item(
     discovery: models.ResourceDiscovery,
     metadata: Mapping[str, Any] | None,
     tracking_id: UUID | None,
-    dedupe: bool,
 ) -> models.RegisterResourceItem:
     """Build the single-item registration that already uploaded bytes become."""
     return models.RegisterResourceItem(
@@ -292,7 +289,6 @@ def managed_item(
         discovery=discovery,
         metadata=dict(metadata or {}),
         locations=[models.LocationInput(shelf="managed", path=storage_path)],
-        dedupe=dedupe,
     )
 
 

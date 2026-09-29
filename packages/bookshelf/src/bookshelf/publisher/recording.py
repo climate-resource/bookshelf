@@ -100,7 +100,6 @@ class RecordedResource(Resource):
         discovery: models.ResourceDiscovery | None = None,
         metadata: Mapping[str, Any] | None = None,
         location: str | None = None,
-        dedupe: bool = True,
     ) -> None:
         now = datetime.now(UTC)
         super().__init__(
@@ -116,7 +115,7 @@ class RecordedResource(Resource):
                 discovery=discovery or models.ResourceDiscovery(),
                 metadata=dict(metadata or {}),
                 owner_org_id="recording",
-                dedupe=dedupe,
+                dedupe=True,
                 locations=[] if location is None else [location],
                 location_url=location,
                 created_at=now,
@@ -234,7 +233,6 @@ class RecordingActivity(Activity):
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
         format: str | None = None,
-        dedupe: bool = True,
         role: Role | None = None,
     ) -> RecordedResource:
         """Serialise an output once and append its bytes and provenance.
@@ -277,7 +275,6 @@ class RecordingActivity(Activity):
             visibility=resource_visibility.value,
             discovery=discovery,
             metadata=dict(metadata or {}),
-            dedupe=dedupe,
             generated=not plan,
             used=[] if plan else list(self._used.names),
             used_digests=[] if plan else list(self._used.digests),
@@ -295,7 +292,6 @@ class RecordingActivity(Activity):
             visibility=resource_visibility,
             discovery=discovery,
             metadata=metadata,
-            dedupe=dedupe,
         )
 
     def register_many(
@@ -333,7 +329,6 @@ class RecordingActivity(Activity):
                     metadata=entry.metadata,
                     tracking_id=entry.tracking_id,
                     format=entry.format,
-                    dedupe=entry.dedupe,
                 )
                 for entry in entries
             ]
@@ -359,7 +354,6 @@ class RecordingActivity(Activity):
                     visibility=item.visibility.value,
                     discovery=item.discovery,
                     metadata=dict(item.entry.metadata or {}),
-                    dedupe=item.entry.dedupe,
                     generated=True,
                     used=list(merged_used.names),
                     used_digests=list(merged_used.digests),
@@ -398,7 +392,6 @@ class RecordingActivity(Activity):
                 visibility=item.visibility,
                 discovery=item.discovery,
                 metadata=item.entry.metadata,
-                dedupe=item.entry.dedupe,
             )
             for item in prepared
         ]
@@ -435,7 +428,6 @@ class RecordingActivity(Activity):
         license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
-        dedupe: bool = True,
     ) -> RecordedResource:
         """Record an external output and its activity provenance."""
         self._require_entered()
@@ -463,7 +455,6 @@ class RecordingActivity(Activity):
             ),
             metadata=metadata,
             tracking_id=tracking_id,
-            dedupe=dedupe,
             generated=True,
             used=self._used,
         )
@@ -786,7 +777,6 @@ class RecordingSink:
         license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
-        dedupe: bool = True,
     ) -> RecordedResource:
         """Record a catalogued pointer without writing its bytes."""
         return _record_pointer(
@@ -811,7 +801,6 @@ class RecordingSink:
             ),
             metadata=metadata,
             tracking_id=tracking_id,
-            dedupe=dedupe,
         )
 
     def register_file(
@@ -831,7 +820,6 @@ class RecordingSink:
         license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
-        dedupe: bool = True,
     ) -> RecordedResource:
         """Record a checked-in file as managed bytes, linked back to where it is committed."""
         return _record_file(
@@ -856,7 +844,6 @@ class RecordingSink:
             ),
             metadata=helpers.with_source_url(metadata, path),
             tracking_id=tracking_id,
-            dedupe=dedupe,
         )
 
     def use(self, name: str) -> ResolvedResource | dict[str, ResolvedResource]:
@@ -912,7 +899,6 @@ class RecordingSink:
             name=name,
             visibility=self.default_visibility.value,
             metadata=dict(metadata),
-            dedupe=False,
             generated=True,
             used=list(used.names),
             used_digests=list(used.digests),
@@ -927,7 +913,6 @@ class RecordingSink:
             name=name,
             visibility=self.default_visibility,
             metadata=metadata,
-            dedupe=False,
         )
 
 
@@ -1030,7 +1015,6 @@ class _SettledResource:
         hash_: str,
         discovery: models.ResourceDiscovery,
         metadata: Mapping[str, Any] | None,
-        dedupe: bool,
         location: str | None = None,
     ) -> RecordedResource:
         """Index the recorded name and return the handle a build file holds."""
@@ -1046,7 +1030,6 @@ class _SettledResource:
             discovery=discovery,
             metadata=metadata,
             location=location,
-            dedupe=dedupe,
         )
 
 
@@ -1083,7 +1066,6 @@ def _record_pointer(
     discovery: models.ResourceDiscovery,
     metadata: Mapping[str, Any] | None,
     tracking_id: UUID | None,
-    dedupe: bool,
     generated: bool = False,
     used: _UsedInputs = _UsedInputs(),
 ) -> RecordedResource:
@@ -1101,7 +1083,6 @@ def _record_pointer(
         visibility=settled.visibility.value,
         discovery=discovery,
         metadata=dict(metadata or {}),
-        dedupe=dedupe,
         generated=generated,
         used=list(used.names),
         used_digests=list(used.digests),
@@ -1113,7 +1094,6 @@ def _record_pointer(
         names,
         hash_=resource_hash,
         discovery=discovery,
-        dedupe=dedupe,
         metadata=metadata,
         location=uri,
     )
@@ -1134,7 +1114,6 @@ def _record_file(
     discovery: models.ResourceDiscovery,
     metadata: Mapping[str, Any] | None,
     tracking_id: UUID | None,
-    dedupe: bool,
 ) -> RecordedResource:
     """Append one checked-in file as a managed resource, bytes and all."""
     settled = _settle(name, type, visibility, default_visibility, tracking_id, names)
@@ -1148,14 +1127,11 @@ def _record_file(
         visibility=settled.visibility.value,
         discovery=discovery,
         metadata=dict(metadata or {}),
-        dedupe=dedupe,
         # An input is read by the activity rather than produced by it.
         generated=False,
         tracking_id=tracking_id,
     )
-    return settled.handle(
-        client, cache, names, hash_=hash, discovery=discovery, metadata=metadata, dedupe=dedupe
-    )
+    return settled.handle(client, cache, names, hash_=hash, discovery=discovery, metadata=metadata)
 
 
 def _recorded_activity_used(

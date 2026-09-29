@@ -390,13 +390,14 @@ def test_a_pinned_tracking_id_travels_to_replay(tmp_path: Path) -> None:
         hash="sha256:" + "a" * 64,
         name="slice",
         tracking_id=_PINNED,
-        dedupe=False,
     )
     bundle.write()
 
     assert handle.tracking_id == _PINNED
     assert Bundle.read(bundle.root).manifest.resources[0].tracking_id == _PINNED
-    assert _request(bundle, {}).resources[0].tracking_id == _PINNED
+    replayed = _request(bundle, {}).resources[0]
+    assert replayed.tracking_id == _PINNED
+    assert "dedupe" not in replayed.model_fields_set
 
 
 def test_an_unpinned_resource_sends_no_tracking_id(tmp_path: Path) -> None:
@@ -408,25 +409,10 @@ def test_an_unpinned_resource_sends_no_tracking_id(tmp_path: Path) -> None:
     assert "tracking_id" not in _request(bundle, {}).resources[0].model_fields_set
 
 
-def test_a_pinned_tracking_id_with_dedupe_records_nothing(tmp_path: Path) -> None:
-    """An alias would answer with another resource's id, so the pin needs dedupe off."""
-    bundle = Bundle(tmp_path / "bundle")
-
-    with pytest.raises(ValueError, match="dedupe"):
-        _sink(bundle, tmp_path / "cache").register_external(
-            type="geospatial",
-            uri=f"rdm://slice/{_PINNED}",
-            hash="sha256:" + "a" * 64,
-            name="slice",
-            tracking_id=_PINNED,
-        )
-    assert bundle.manifest.resources == []
-
-
 def test_a_tracking_id_pinned_twice_is_refused(tmp_path: Path) -> None:
     bundle = Bundle(tmp_path / "bundle")
     sink = _sink(bundle, tmp_path / "cache")
-    pin = {"hash": "sha256:" + "a" * 64, "tracking_id": _PINNED, "dedupe": False}
+    pin = {"hash": "sha256:" + "a" * 64, "tracking_id": _PINNED}
     sink.register_external(type="geospatial", uri="rdm://slice/a", name="first", **pin)
 
     with pytest.raises(ValueError, match="already recorded"):
@@ -448,6 +434,5 @@ def test_a_pin_on_an_unpinned_handles_id_is_refused(tmp_path: Path) -> None:
             hash="sha256:" + "a" * 64,
             name="second",
             tracking_id=first.tracking_id,
-            dedupe=False,
         )
     assert [resource.name for resource in bundle.manifest.resources] == ["first"]

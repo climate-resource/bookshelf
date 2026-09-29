@@ -33,8 +33,7 @@ book:
     - email: info@climate-resource.com
       name: Climate Resource
 resources:
-- dedupe: true
-  format: csv
+- format: csv
   generated: false
   hash: sha256:eb7cc4817f0a014cba1cb9b7049b7652bf20831104237b039a4b9422f4a03d64
   kind: managed
@@ -46,8 +45,7 @@ resources:
   used: []
   used_digests: []
   visibility: public
-- dedupe: true
-  format: parquet
+- format: parquet
   generated: true
   hash: sha256:8bdf0e7eceb3746a9855a9786732b502a19888914cb4ede2458a0b727f7a9c7e
   kind: managed
@@ -60,6 +58,6 @@ resources:
   - raw
   used_digests: []
   visibility: public
-schema_version: '3.9'
+schema_version: '3.10'
 writer:
   pyarrow: 23.0.0

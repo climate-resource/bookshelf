@@ -38,10 +38,8 @@ class Used:
 class RegisterItem:
     """One managed object to materialise as part of an activity batch.
 
-    With the default ``dedupe=True``,
-    byte-identical objects owned by the same organisation
-    collapse to one canonical resource,
-    even when their names differ.
+    The server aliases it onto a resource the organisation already holds with the same bytes,
+    unless it pins its own tracking id.
     The first resource's name remains canonical.
     """
 
@@ -61,7 +59,6 @@ class RegisterItem:
     metadata: Mapping[str, Any] | None = None
     tracking_id: UUID | None = None
     format: str | None = None
-    dedupe: bool = True
 
     def __post_init__(self) -> None:
         if self.name is not None:
