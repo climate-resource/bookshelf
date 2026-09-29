@@ -150,7 +150,8 @@ If any item fails, the facade finishes every chunk and raises `PartialRegistrati
 The error retains indexed successful outcomes, usable committed resource handles,
 and each failed index with its typed `ItemError`.
 Index `-1` identifies a batch level lineage failure reported by the server.
-The server decides: a registration aliases onto a resource your organisation already holds with the same bytes,
+The server decides:
+a registration aliases onto a resource your organisation already holds with the same bytes,
 unless it pins its own tracking id.
 The first canonical resource keeps its name, even when later items supply a different one.
 Returned producer handles expose `registration_status` and `registration_outcome`,

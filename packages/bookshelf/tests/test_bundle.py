@@ -294,6 +294,7 @@ def test_a_newer_minor_still_loads(tmp_path: Path) -> None:
 
 
 def test_a_manifest_recording_dedupe_still_loads(tmp_path: Path) -> None:
+    """A manifest from before 3.10 keeps its pin, and the retired field is dropped."""
     loaded = _read_manifest_text(
         tmp_path,
         "schema_version: '3.9'\n"
@@ -432,6 +433,16 @@ def test_svg_bytes_refuses_a_record_without_a_companion(make_bundle: BundleFacto
 
     with pytest.raises(ValueError, match="records no svg companion"):
         bundle.svg_bytes(bundle.manifest.resources[0])
+
+
+def test_a_pin_needs_nothing_else(make_bundle: BundleFactory) -> None:
+    """The server gives a pinned id its own row, so a lone pin validates."""
+    written = make_bundle(entries=2)
+    written.manifest.resources[0].tracking_id = _PINNED
+    written.write()
+
+    (resource, _) = Bundle.read_validated(written.root).manifest.resources
+    assert resource.tracking_id == _PINNED
 
 
 def test_a_hand_edited_pin_is_refused(make_bundle: BundleFactory) -> None:

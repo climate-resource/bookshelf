@@ -38,8 +38,8 @@ class Used:
 class RegisterItem:
     """One managed object to materialise as part of an activity batch.
 
-    The server decides: a registration aliases onto a resource your organisation already holds
-    with the same bytes, unless it pins its own tracking id.
+    The server aliases it onto a resource the organisation already holds with the same bytes,
+    unless it pins its own tracking id.
     The first resource's name remains canonical.
     """
 

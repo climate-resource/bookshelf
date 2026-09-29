@@ -192,8 +192,9 @@ for record in manifest["resources"]:
 # %% [markdown]
 # ## Deduplication
 #
-# The server decides: a registration aliases onto a resource your organisation already holds
-# with the same bytes, unless it pins its own tracking id.
+# The server decides:
+# a registration aliases onto a resource your organisation already holds with the same bytes,
+# unless it pins its own tracking id.
 # The first resource's name stays canonical,
 # even when a later item supplies a different name.
 #

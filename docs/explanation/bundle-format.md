@@ -138,11 +138,10 @@ A figure supplied as png bytes records none, and the figure is complete without 
 The platform serves the companion as the figure's vector format,
 and it keeps the first companion bound to a given master.
 
-A record carries no deduplication setting.
-The server decides: a registration aliases onto a resource your organisation already holds with the same bytes,
+The server decides:
+a registration aliases onto a resource your organisation already holds with the same bytes,
 unless it pins its own tracking id.
 A manifest older than 3.10 may record a `dedupe` field, and a reader drops it.
-A reader older than 3.10 reads the absent field as `true`, so it refuses a resource that pins a `tracking_id`.
 
 ### `managed` versus `pointer`
 
@@ -357,6 +356,8 @@ A reader models one major version, and this specification describes major 3.
 - A **newer minor** loads.
   Minor changes are additive, and a reader ignores fields it does not model.
   An older reader therefore reads a newer bundle by dropping what it cannot understand.
+  3.10 is the one exception so far.
+  It removed `dedupe`, so a reader older than 3.10 refuses a 3.10 resource that pins a `tracking_id`.
 - A **newer major** is refused.
   A reader must raise rather than interpret it,
   because a major change means a field it does model may now mean something else.
