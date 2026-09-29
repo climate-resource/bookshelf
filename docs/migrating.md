@@ -1,8 +1,8 @@
 # Migrating from 0.4
 
 This page is for code that reads books with bookshelf 0.4.
-Bookshelf 1.0 reads from the Bookshelf platform API instead of the old S3 bucket.
-The data is the same, but the Python API and some behaviour around it changed.
+Bookshelf 1.0 reads from the Bookshelf platform API instead of reading straight from an S3 bucket.
+The existing books and their editions were migrated to the new platform.
 
 Publishing moved as well.
 `bookshelf-producer` is retired, and feedstocks publish through the record and replay workflow
@@ -69,22 +69,24 @@ The compatibility layer differs from 0.4 in a few places:
 
 ### API mapping
 
-| 0.4                                             | 1.0                                                       |
-| ----------------------------------------------- | --------------------------------------------------------- |
-| `BookShelf()`                                   | `Bookshelf()`, ideally as a context manager               |
-| `BookShelf(path=...)`                           | `Bookshelf(cache=ContentCache(path))`                     |
-| `shelf.load(name, version)`                     | `bs.book(name, version)`                                  |
-| `shelf.load(name, version, edition)`            | `bs.book(name, version, edition=edition)`                 |
-| `shelf.load(name)`                              | `bs.book(name, bs.volume(name).latest)`                   |
-| `shelf.list_versions(name)`                     | `bs.volume(name).versions`                                |
-| `shelf.is_available(name, version)`             | `bs.book(...)`, catching `NotFoundError`                  |
-| `shelf.is_cached(...)`                          | No check-only call. `as_path()` fills the cache.          |
-| `book.long_version()`                           | `f"{book.metadata.version}_e{book.metadata.edition:03}"`  |
-| `book.metadata()`                               | `book.metadata`, a Pydantic model                         |
-| `book.metadata()["resources"]`                  | `book.entry_names`, a tuple of names without suffixes     |
-| `book.timeseries(name)`                         | `book[name].as_scmrun()`                                  |
-| `book.get_long_format_data(name)`               | `book[name].as_long_df()`                                 |
-| `UnknownBook`, `UnknownVersion`                 | `bookshelf.NotFoundError`                                 |
+Note the subtle change in capitalisation from `BookShelf` to `Bookshelf`.
+
+| 0.4                                  | 1.0                                                      |
+| ------------------------------------ | -------------------------------------------------------- |
+| `BookShelf()`                        | `Bookshelf()`                                            |
+| `BookShelf(path=...)`                | `Bookshelf(cache=ContentCache(path))`                    |
+| `shelf.load(name, version)`          | `bs.book(name, version)`                                 |
+| `shelf.load(name, version, edition)` | `bs.book(name, version, edition=edition)`                |
+| `shelf.load(name)`                   | `bs.book(name, bs.volume(name).latest)`                  |
+| `shelf.list_versions(name)`          | `bs.volume(name).versions`                               |
+| `shelf.is_available(name, version)`  | `bs.book(...)`, catching `NotFoundError`                 |
+| `shelf.is_cached(...)`               | No check-only call. `as_path()` fills the cache.         |
+| `book.long_version()`                | `f"{book.metadata.version}_e{book.metadata.edition:03}"` |
+| `book.metadata()`                    | `book.metadata`, a Pydantic model                        |
+| `book.metadata()["resources"]`       | `book.entry_names`, a tuple of names without suffixes    |
+| `book.timeseries(name)`              | `book[name].as_scmrun()`                                 |
+| `book.get_long_format_data(name)`    | `book[name].as_long_df()`                                |
+| `UnknownBook`, `UnknownVersion`      | `bookshelf.NotFoundError`                                |
 
 `bs.volume(name).editions(version)` lists the editions of a version,
 which 0.4 had no call for.
@@ -114,7 +116,8 @@ with Bookshelf() as bs:
     long = entry.as_long_df()
 ```
 
-`Bookshelf` holds an HTTP connection, so use it as a context manager or call `bs.close()`.
+`Bookshelf` holds an HTTP connection pool.
+In long-running code, use it as a context manager or call `bs.close()` so the connections close when you are done.
 [Getting started](getting_started.md) covers `AsyncBookshelf`,
 and [Reading a published book](how-to-guides/read_a_book.py) covers the other converters.
 
@@ -157,10 +160,10 @@ New versions are only published to the platform.
 
 ### Entry names lose their suffix
 
-0.4 stored resources under names such as `by_country_wide`,
-and `timeseries("by_country")` added the suffix for you.
-In 1.0 an entry has one name, `by_country`, and `book["by_country_wide"]` raises `KeyError`
-listing the names that exist.
+0.4 stored resources in wide and long formats under names such as `by_country_wide`,
+and `timeseries("by_country")` added the wide suffix for you.
+In 1.0 an entry has one name, `by_country`,
+and `book["by_country_wide"]` raises `KeyError` listing the names that exist.
 
 A book can also carry entries that are not data, such as `build.ipynb` and `build.html`,
 the notebook that built it.
@@ -185,29 +188,9 @@ Sort by the metadata columns before comparing frames or taking positional slices
 | `$BOOKSHELF_REMOTE`          | `$BOOKSHELF_URL`, naming the platform API rather than a bucket |
 | `$BOOKSHELF_CACHE_LOCATION`  | `$BOOKSHELF_CACHE_DIR`, with the old name as a fallback        |
 
-The default deployment is production, so most readers set neither.
-Reading a public book needs no credential.
-Private books need one.
-See [Authentication](authentication.md).
 [Configuration](configuration.md) lists every setting.
 
 The cache is keyed by content hash and shared between books,
 so a resource that appears in two editions downloads once.
 Cached files have no file extension.
 `bookshelf cache` inspects and clears it.
-
-## Checking your migration
-
-We tested this guide by reading `rcmip-emissions` `v5.1.0` edition 1 with 0.4.3 and with 1.0.0b17.
-The `ScmRun` and the long frame (with `legacy_columns=True`) matched exactly.
-To check your own code, run the old and new versions side by side,
-write each result to CSV, sort by the metadata columns and compare:
-
-```python
-import pandas as pd
-
-keys = ["model", "scenario", "region", "variable", "unit"]
-old = pd.read_csv("old.csv").set_index(keys).sort_index()
-new = pd.read_csv("new.csv").set_index(keys).sort_index()
-pd.testing.assert_frame_equal(old, new, check_dtype=False)
-```

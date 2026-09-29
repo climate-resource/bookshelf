@@ -1,7 +1,6 @@
 # Bookshelf Python SDK
 
-The `bookshelf` package is the official Python SDK
-for the Bookshelf data platform.
+The `bookshelf` package is the official Python SDK for the Bookshelf data platform.
 It provides synchronous and asynchronous facades
 for consuming published data,
 producing managed resources,

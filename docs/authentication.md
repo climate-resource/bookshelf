@@ -8,6 +8,8 @@ This page covers the methods the SDK and the `bookshelf` CLI support,
 which one to pick, and the order they are tried in.
 The environment variables named here are described in full in [Configuration](configuration.md).
 
+The bookshelf credentials may be accepted by other Climate Resource services for authentication and authorisation.
+
 ## Authentication methods
 
 Pick the method that matches who is calling.
@@ -46,8 +48,8 @@ Visit       <the verification URL the issuer returns>
 The code expires after a few minutes. Run the command again for a fresh one.
 
 `bookshelf auth login` always tries a browser first, so pass `--no-browser` to take this path.
-In Python, `Bookshelf().ensure_authenticated()` picks the device flow by itself
-in a notebook, an SSH session or a terminal with no usable browser.
+In Python, `Bookshelf().ensure_authenticated()` picks the device flow by itself in a notebook,
+an SSH session or a terminal with no usable browser.
 
 The client renews the stored credential by itself, so a login lasts across sessions.
 If the issuer refuses to renew it, the client warns and falls back to anonymous access.

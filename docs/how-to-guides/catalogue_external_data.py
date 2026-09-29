@@ -73,7 +73,6 @@ pointer.tracking_id
 # The URI must be `https`.
 # Recording does not check the scheme, so an `s3://` pointer records cleanly
 # and is rejected when the bundle is replayed.
-# Mirror to an HTTPS endpoint before cataloguing.
 
 # %% [markdown]
 # ## One activity per recorded build

@@ -16,15 +16,15 @@ Import every name from the top-level package, for example `from bookshelf import
 | [Cache](cache.md)            | The local content cache that downloads read through  |
 | [Legacy (0.4)](legacy.md)    | The deprecated 0.4 consumer API                      |
 
-The package also exports these names, which have no page of their own:
+In addition there is some useful metadata exposed:
 
-- `PRODUCTION_API_URL` and `STAGING_API_URL` name the two deployments.
 - `__version__` is the installed package version.
+- `PRODUCTION_API_URL` and `STAGING_API_URL` name the two deployments.
 - `OPENAPI_VERSION` is the version of the platform API contract the SDK was generated from.
-- `uuid7` mints a time-ordered UUID.
 
 ## Outside the promise
 
+This package is still in a state of flux from a major rewriteso we don't yet provide any semver guarantees for some of the exports.
 Anything not on these pages can change in any release, even when it is importable.
 This includes:
 
