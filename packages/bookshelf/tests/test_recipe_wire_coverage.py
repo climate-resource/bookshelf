@@ -8,7 +8,6 @@ Values are matched rather than keys, because the wire renames some fields.
 
 import json
 import re
-import textwrap
 import types
 from collections.abc import Iterator
 from datetime import date
@@ -34,7 +33,7 @@ _SECTIONS: tuple[tuple[str, type[BaseModel]], ...] = (
     ("resource", _ResourceFields),
 )
 
-# Identity and location rather than catalogue metadata, so they are exercised by every other test.
+# Identity and location rather than catalogue metadata.
 _STRUCTURAL = {
     "volume.name",
     "resource.type",
@@ -53,17 +52,17 @@ _ORCIDS = {
 
 NOT_SENT_ON_PURPOSE: dict[str, str] = {}  # leaf -> reason
 
-_VOLUME_SECTION = "https://github.com/climate-resource/bookshelf/issues/260"
+_ISSUE_260 = "https://github.com/climate-resource/bookshelf/issues/260"
 KNOWN_GAPS: dict[str, str] = {  # leaf -> issue URL
-    "volume.maintainers.name": _VOLUME_SECTION,
-    "volume.maintainers.email": _VOLUME_SECTION,
-    "volume.maintainers.affiliation": _VOLUME_SECTION,
-    "volume.maintainers.orcid": _VOLUME_SECTION,
-    "volume.keywords": _VOLUME_SECTION,
-    "volume.update_cadence": _VOLUME_SECTION,
-    "volume.deprecated": _VOLUME_SECTION,
-    "volume.superseded_by": _VOLUME_SECTION,
-    "volume.deprecation_note": _VOLUME_SECTION,
+    "volume.maintainers.name": _ISSUE_260,
+    "volume.maintainers.email": _ISSUE_260,
+    "volume.maintainers.affiliation": _ISSUE_260,
+    "volume.maintainers.orcid": _ISSUE_260,
+    "volume.keywords": _ISSUE_260,
+    "volume.update_cadence": _ISSUE_260,
+    "volume.deprecated": _ISSUE_260,
+    "volume.superseded_by": _ISSUE_260,
+    "volume.deprecation_note": _ISSUE_260,
 }
 
 
@@ -157,7 +156,8 @@ def _arrived(needle: tuple[str | None, Any], sent: set[tuple[str | None, Any]]) 
     key, value = needle
     if key is None:
         return any(sent_value == value for _, sent_value in sent)
-    return needle in sent
+    # Identity, because ``1 == True`` would let an integer flag stand in for the boolean.
+    return any(sent_key == key and sent_value is value for sent_key, sent_value in sent)
 
 
 @pytest.fixture(scope="module")
@@ -178,7 +178,7 @@ def sent(tmp_path_factory: pytest.TempPathFactory) -> set[tuple[str | None, Any]
         "books": [book],
     }
     (root / "bookshelf.yaml").write_text(yaml.safe_dump(recipe), encoding="utf-8")
-    (root / "build.py").write_text(textwrap.dedent(_BUILD), encoding="utf-8")
+    (root / "build.py").write_text(_BUILD, encoding="utf-8")
     (root / "inputs").mkdir()
     (root / "inputs" / "raw.csv").write_text("region,value\nWorld,1\n", encoding="utf-8")
 
