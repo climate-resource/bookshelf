@@ -26,7 +26,7 @@ scmdata is no longer a core dependency, so install the `scmrun` extra if you rea
 uv add "bookshelf[scmrun]>=1.0"
 ```
 
-Existing 0.4 code runs unchanged:
+Code that imports from the top-level `bookshelf` package runs unchanged:
 
 ```python
 from bookshelf import BookShelf
@@ -55,7 +55,13 @@ The compatibility layer differs from 0.4 in a few places:
 - `load(force=True)` is accepted and ignored, because there is no metadata cache to refresh.
 - `LocalBook.metadata()` returns a dict of the old shape, but without the `profile` key
   and with a `metadata` key holding the platform's book metadata.
-- The old errors `UnknownBook`, `UnknownVersion` and `UnknownEdition` live in `bookshelf.legacy`.
+  Each resource carries only `name`, `timeseries_name`, `type` and `tracking_id`,
+  so code reading `filename`, `hash` or `shape` from it breaks.
+- `list_versions()` lists each version once, where 0.4 repeated a version for every edition.
+  It also includes private versions the caller is allowed to see.
+- The 0.4 submodules `bookshelf.shelf`, `bookshelf.book`, `bookshelf.errors` and `bookshelf.schema` are gone.
+  Import `BookShelf` and `LocalBook` from `bookshelf`,
+  and `UnknownBook`, `UnknownVersion` and `UnknownEdition` from `bookshelf.legacy`.
 
 ## Step 2: move to the new API
 
@@ -63,17 +69,17 @@ The compatibility layer differs from 0.4 in a few places:
 
 | 0.4                                             | 1.0                                                       |
 | ----------------------------------------------- | --------------------------------------------------------- |
-| `BookShelf()`                                   | `Bookshelf()`, ideally as a context manager                |
+| `BookShelf()`                                   | `Bookshelf()`, ideally as a context manager               |
 | `BookShelf(path=...)`                           | `Bookshelf(cache=ContentCache(path))`                     |
 | `shelf.load(name, version)`                     | `bs.book(name, version)`                                  |
 | `shelf.load(name, version, edition)`            | `bs.book(name, version, edition=edition)`                 |
 | `shelf.load(name)`                              | `bs.book(name, bs.volume(name).latest)`                   |
 | `shelf.list_versions(name)`                     | `bs.volume(name).versions`                                |
-| `shelf.is_available(name, version)`             | `bs.book(...)`, catching `NotFoundError`                   |
-| `shelf.is_cached(...)`                          | No equivalent. Reads go through the cache automatically.  |
+| `shelf.is_available(name, version)`             | `bs.book(...)`, catching `NotFoundError`                  |
+| `shelf.is_cached(...)`                          | No check-only call. `as_path()` fills the cache.          |
 | `book.long_version()`                           | `f"{book.metadata.version}_e{book.metadata.edition:03}"`  |
 | `book.metadata()`                               | `book.metadata`, a Pydantic model                         |
-| `book.metadata()["resources"]`                  | `book.entry_names`                                        |
+| `book.metadata()["resources"]`                  | `book.entry_names`, a tuple of names without suffixes     |
 | `book.timeseries(name)`                         | `book[name].as_scmrun()`                                  |
 | `book.get_long_format_data(name)`               | `book[name].as_long_df()`                                 |
 | `UnknownBook`, `UnknownVersion`                 | `bookshelf.NotFoundError`                                 |
@@ -162,12 +168,8 @@ Check `book[name].type` before treating every entry as a timeseries.
 
 Values are fixed per edition, but labels such as scenario names may change from one edition to the next.
 Filtering on a label that no longer exists returns an empty `ScmRun` rather than an error.
-Check hard coded labels against the edition you load,
+Check hard-coded labels against the edition you load,
 especially when an unpinned read moves you to a newer one.
-
-### Duplicate rows raise
-
-`as_scmrun()` raises scmdata's `NonUniqueMetadataError` for rows with duplicate metadata.
 
 ### Row order is not guaranteed
 
@@ -183,7 +185,8 @@ Sort by the metadata columns before comparing frames or taking positional slices
 
 The default deployment is production, so most readers set neither.
 Reading a public book needs no credential.
-Private books need one, see [Authentication](authentication.md).
+Private books need one.
+See [Authentication](authentication.md).
 [Configuration](configuration.md) lists every setting.
 
 The cache is keyed by content hash and shared between books,

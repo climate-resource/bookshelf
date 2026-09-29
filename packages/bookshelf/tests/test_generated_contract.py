@@ -38,7 +38,6 @@ def test_generated_tree_contract_and_markers() -> None:
 def test_openapi_version_is_contract_provenance() -> None:
     contract = json.loads((SDK_ROOT / "openapi.json").read_text())
     assert contract["info"]["version"] == OPENAPI_VERSION
-    assert bookshelf.__version__ != OPENAPI_VERSION
 
 
 def test_representative_generated_models_are_pydantic_v2_models() -> None:

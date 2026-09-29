@@ -18,18 +18,7 @@ make test
 ```
 
 `make checks` runs pre-commit (ruff and the other hooks) and then strict type checking.
-Type checking runs from the package directory, so its nested configuration applies:
-
-```bash
-cd packages/bookshelf
-uv run --locked --all-extras --group test mypy src
-```
-
-`make test` runs the SDK suite:
-
-```bash
-uv run --package bookshelf --locked --all-extras --group test pytest packages/bookshelf -r a -v
-```
+Run mypy from `packages/bookshelf`, so its nested configuration applies.
 
 Keep `--group test` on any direct pytest run.
 It carries pytest-asyncio, and without it every async test is skipped while the suite still passes.

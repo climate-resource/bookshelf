@@ -31,7 +31,7 @@ This includes:
 - Underscore-prefixed modules, such as `bookshelf._core`, are internal.
 - The producer surface is exported but sits outside the promise for now.
   That covers `setup`, `run_record`, `replay_bundle`, `replay_bundle_sync`, `Activity`, `DraftBook`,
-  `RegisterItem`, `Used` and their async and result counterparts.
+  `RegisterItem`, `Used`, `AsyncActivity`, `AsyncDraftBook`, `RegistrationSuccess` and `RegistrationFailure`.
   It also covers `Bookshelf.activity`, `Bookshelf.draft_book` and the volume and draft management methods.
 - `bookshelf.publisher` drives recording, replaying and publishing bundles, and is not covered.
 - `bookshelf.models` holds the generated API models.
