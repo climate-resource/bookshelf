@@ -333,7 +333,10 @@ def test_a_volume_fact_the_contract_refuses_fails_before_any_request(tmp_path: P
     bundle.manifest.book.volume_discovery = {"update_cadence": "x" * 101}
 
     recorded: list[httpx.Request] = []
-    with pytest.raises(InvalidBundleError, match="volume 'primap-hist' records a update_cadence"):
+    with pytest.raises(
+        InvalidBundleError,
+        match="volume 'primap-hist' records update_cadence, which the contract refuses",
+    ):
         _publish(bundle, recorded)
 
     assert recorded == []

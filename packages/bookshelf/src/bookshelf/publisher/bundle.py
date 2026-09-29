@@ -1023,7 +1023,7 @@ class Bundle:
                 error = exc.errors()[0]
                 field = ".".join(str(part) for part in error["loc"]) or "volume_discovery"
                 raise InvalidBundleError(
-                    f"volume {book.volume!r} records a {field} the contract refuses: {error['msg']}"
+                    f"volume {book.volume!r} records {field}, which the contract refuses: {error['msg']}"
                 ) from exc
         for resource in self.manifest.resources:
             words = resource.caption is not None or resource.alt_text is not None

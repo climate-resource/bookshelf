@@ -275,6 +275,9 @@ Neither enters the seal the server computes.
 Replay sends it as a patch to the volume before the book, and only when it states something.
 A fact it leaves out keeps the value the volume already holds.
 It is not part of the seal, so a replay that converges on an existing edition still applies it.
+The facts are those of the recipe when the bundle was recorded,
+so replaying an old bundle puts its older facts back on the volume.
+Re-record from the current recipe instead.
 A reader older than 3.9 drops the field and leaves the volume alone.
 
 `processing` is provenance, and it is not part of the seal.
