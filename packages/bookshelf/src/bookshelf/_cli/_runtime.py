@@ -18,6 +18,7 @@ import typer
 from bookshelf._consume.presentation import human_bytes
 from bookshelf._core import errors
 from bookshelf._core.config import resolve_base_url
+from bookshelf._core.resolution import CredentialSource, resolve_credential
 
 EXIT_OK = 0
 EXIT_UNEXPECTED = 1
@@ -183,6 +184,33 @@ def _exit_code_for(exc: errors.BookshelfError) -> int:
     return EXIT_UNEXPECTED
 
 
+def _forbidden_remedy() -> str:
+    """Pick the 403 remedy for the credential actually in play.
+
+    The claim hint only fits an unclaimed agent: a human lacks permissions an admin must grant,
+    and a claimed agent is already capped to whatever its claimer can do.
+    """
+    described = resolve_credential(base_url()).describe()
+    if described.source not in (CredentialSource.STORED_LOGIN, CredentialSource.NONE):
+        return f"Ask an organisation admin to grant the required permission to {described.label}."
+    if described.kind == "agent" and not described.claimed:
+        return (
+            "Your credential does not reach this data. "
+            "Run 'bookshelf auth login --agent --claim --email you@org.com' "
+            "to bind this agent to your organisation."
+        )
+    if described.kind == "agent" and described.claimed:
+        return (
+            "This agent holds only the permissions its user had when claiming it. "
+            "Once an organisation admin grants that user the permission, run "
+            "'bookshelf auth login --agent --claim --email you@org.com' again."
+        )
+    return (
+        "Ask an organisation admin to grant the required permission, "
+        "then run 'bookshelf auth login' again to refresh it."
+    )
+
+
 def _remedy_for(exit_code: int) -> str | None:
     if exit_code == EXIT_AUTH_REQUIRED:
         return (
@@ -190,11 +218,7 @@ def _remedy_for(exit_code: int) -> str | None:
             "'bookshelf auth login --agent' to register an agent identity."
         )
     if exit_code == EXIT_FORBIDDEN:
-        return (
-            "Your credential does not reach this data. "
-            "Run 'bookshelf auth login --agent --claim --email you@org.com' "
-            "to bind this agent to your organisation."
-        )
+        return _forbidden_remedy()
     return None
 
 
