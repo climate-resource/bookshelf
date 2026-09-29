@@ -132,7 +132,7 @@ def test_printing_a_volume_names_its_versions_and_their_edition_ranges(volume: V
     printed = repr(volume)
 
     assert "Bookshelf Volume 'primap-hist' (versions: 3)" in printed
-    assert "latest     v2.6_e005" in printed
+    assert "latest          v2.6_e005" in printed
     assert "v2.4  editions 001-002" in printed
     assert "v2.5  edition 001" in printed
     assert 'volume["v2.6"]' in printed
@@ -152,8 +152,8 @@ def test_a_volume_repr_unwraps_the_discovery_root_models(cache: ContentCache) ->
 
     printed = repr(volume)
 
-    assert "license      CC-BY-4.0" in printed
-    assert "description  National greenhouse gas emissions." in printed
+    assert "latest licence  CC-BY-4.0" in printed
+    assert "description     National greenhouse gas emissions." in printed
     assert "root=" not in printed
 
 

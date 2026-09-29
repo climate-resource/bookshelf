@@ -739,7 +739,7 @@ def _written_resource(bs: RecordingBookshelf, bundle_path: Path, name: str) -> B
     return next(r for r in Bundle.read(bundle_path).manifest.resources if r.name == name)
 
 
-def test_a_version_doi_lands_on_the_recorded_pointer(tmp_path: Path, server: _Server) -> None:
+def test_a_version_doi_stays_off_the_recorded_pointer(tmp_path: Path, server: _Server) -> None:
     bundle_path = tmp_path / "bundle"
     with _recording(_write_recipe(tmp_path, _URI_VERSION), bundle_path):
         build = setup()
@@ -749,7 +749,7 @@ def test_a_version_doi_lands_on_the_recorded_pointer(tmp_path: Path, server: _Se
     assert pointer.type == "tabular"
     assert pointer.hash == f"sha256:{_SHA256}"
     assert pointer.external_uri == "https://example.invalid/raw.csv"
-    assert pointer.metadata == {"doi": "10.5281/zenodo.13752654"}
+    assert "doi" not in pointer.metadata
 
 
 def test_a_version_without_a_doi_records_no_doi_key(tmp_path: Path) -> None:

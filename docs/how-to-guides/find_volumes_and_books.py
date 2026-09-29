@@ -116,7 +116,7 @@ entry.query(year_min=2018, year_max=2020, top_n=5).iloc[:5, :3]
 # %% [markdown]
 # A volume reports only what it has published,
 # because a draft is not something a consumer can read.
-# The full catalogue rows, drafts included, are on the command line and in `BookshelfClient`.
+# `bookshelf show` lists every edition with its status, drafts included.
 
 # %% [markdown]
 # ## From the command line

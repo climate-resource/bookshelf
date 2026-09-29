@@ -111,7 +111,9 @@ class _VolumeBase(Describable):
             "latest": book_coordinate(latest, self.editions(latest)[-1])
             if latest is not None
             else "(nothing published)",
-            "license": discovery.license.root if discovery and discovery.license else "(unstated)",
+            "latest licence": (
+                discovery.license.root if discovery and discovery.license else "(unstated)"
+            ),
             "resources": stats.total_resources,
             "size": human_bytes(stats.total_size_bytes),
         }
