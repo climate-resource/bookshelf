@@ -449,6 +449,11 @@ def _prepare_manifest(raw: dict[str, Any]) -> None:
         )
 
 
+def _version_key(version: str) -> tuple[int, ...]:
+    """Order ``<major>.<minor>`` numerically, so 3.10 sorts after 3.9."""
+    return tuple(int(part) for part in version.split("."))
+
+
 def resource_filename(hash_: str, type_: str) -> str:
     """Return the content-addressed byte-file name for ``hash_`` of ``type_``.
 
@@ -1037,7 +1042,13 @@ class Bundle:
                 ) from exc
 
     def write(self) -> None:
-        """Flush the manifest to ``manifest.lock`` (deterministic YAML)."""
+        """Flush the manifest to ``manifest.lock`` (deterministic YAML).
+
+        An older manifest is written as the current version,
+        because the models have already dropped fields its readers expect.
+        """
+        if _version_key(self.manifest.schema_version) < _version_key(BUNDLE_SCHEMA_VERSION):
+            self.manifest.schema_version = BUNDLE_SCHEMA_VERSION
         self.root.mkdir(parents=True, exist_ok=True)
         self.manifest_path.write_bytes(_dump_sorted_yaml(self.manifest))
 

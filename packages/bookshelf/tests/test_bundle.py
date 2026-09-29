@@ -9,6 +9,7 @@ import pytest
 from bookshelf._core.errors import BookshelfError
 from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
 from bookshelf.publisher.bundle import (
+    BUNDLE_SCHEMA_VERSION,
     Bundle,
     BundleBook,
     InvalidBundleError,
@@ -309,6 +310,18 @@ def test_a_manifest_recording_dedupe_still_loads(tmp_path: Path) -> None:
     (resource,) = loaded.manifest.resources
     assert resource.tracking_id == _PINNED
     assert "dedupe" not in resource.model_dump()
+
+
+@pytest.mark.parametrize(("read", "written"), [("3.9", BUNDLE_SCHEMA_VERSION), ("3.11", "3.11")])
+def test_writing_an_older_manifest_stamps_the_current_version(
+    tmp_path: Path, read: str, written: str
+) -> None:
+    """A rewrite drops ``dedupe``, so it must not claim a version whose readers expect it."""
+    loaded = _read_manifest_text(tmp_path, f"schema_version: '{read}'\nresources: []\n")
+
+    loaded.write()
+
+    assert Bundle.read(loaded.root).manifest.schema_version == written
 
 
 def test_the_synthesised_pointer_hash_matches_the_backend_seed() -> None:

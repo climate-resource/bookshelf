@@ -358,6 +358,7 @@ A reader models one major version, and this specification describes major 3.
   An older reader therefore reads a newer bundle by dropping what it cannot understand.
   3.10 is the one exception so far.
   It removed `dedupe`, so a reader older than 3.10 refuses a 3.10 resource that pins a `tracking_id`.
+  A writer therefore stamps the current version on an older manifest it rewrites.
 - A **newer major** is refused.
   A reader must raise rather than interpret it,
   because a major change means a field it does model may now mean something else.
