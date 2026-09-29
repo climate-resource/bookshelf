@@ -194,7 +194,6 @@ class LiveSink:
         license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
-        dedupe: bool = True,
     ) -> Resource:
         """Catalogue an external pointer without attributing it to an activity."""
         item = helpers.external_item(
@@ -214,7 +213,6 @@ class LiveSink:
             ),
             metadata=metadata,
             tracking_id=tracking_id,
-            dedupe=dedupe,
         )
         return self._register_one(item)
 
@@ -235,7 +233,6 @@ class LiveSink:
         license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
-        dedupe: bool = True,
     ) -> Resource:
         """Upload a file and catalogue it as an input, attributing it to no activity.
 
@@ -267,7 +264,6 @@ class LiveSink:
             ),
             metadata=helpers.with_source_url(metadata, path),
             tracking_id=tracking_id,
-            dedupe=dedupe,
         )
         return self._register_one(item)
 
@@ -386,7 +382,6 @@ class AsyncLiveSink:
         license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
-        dedupe: bool = True,
     ) -> AsyncResource:
         """Catalogue an external pointer without attributing it to an activity."""
         item = helpers.external_item(
@@ -406,7 +401,6 @@ class AsyncLiveSink:
             ),
             metadata=metadata,
             tracking_id=tracking_id,
-            dedupe=dedupe,
         )
         return await self._register_one(item)
 
@@ -427,7 +421,6 @@ class AsyncLiveSink:
         license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
-        dedupe: bool = True,
     ) -> AsyncResource:
         """Upload a file and catalogue it as an input, attributing it to no activity.
 
@@ -461,7 +454,6 @@ class AsyncLiveSink:
             ),
             metadata=helpers.with_source_url(metadata, path),
             tracking_id=tracking_id,
-            dedupe=dedupe,
         )
         return await self._register_one(item)
 
@@ -553,7 +545,6 @@ class _ProduceSink[ActivityT, ResourceT, DraftT](Protocol):
         license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
-        dedupe: bool = True,
     ) -> ResourceT: ...
 
     def register_file(
@@ -573,7 +564,6 @@ class _ProduceSink[ActivityT, ResourceT, DraftT](Protocol):
         license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
-        dedupe: bool = True,
     ) -> ResourceT: ...
 
     def draft_book(

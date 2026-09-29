@@ -59,7 +59,6 @@ def upload(
                 "hash": content_hash,
                 "tracking_id": str(resource.tracking_id),
                 "outcome": outcome.status.value,
-                "dedupe": outcome.dedupe,
                 "name": resource.name,
                 "type": resource_type.value,
                 "size_bytes": size,

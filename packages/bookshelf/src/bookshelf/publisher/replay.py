@@ -115,7 +115,6 @@ def _resource(
         kind=models.Kind4(resource.kind),
         visibility=models.Visibility(resource.visibility),
         metadata=dict(resource.metadata),
-        dedupe=resource.dedupe,
         generated=resource.generated,
         used=[
             *resource.used,

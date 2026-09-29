@@ -25,9 +25,14 @@ book:
   version: v1.0.0
   visibility: public
   volume: fetch-from-web-example
+  volume_discovery:
+    keywords:
+    - example
+    maintainers:
+    - email: info@climate-resource.com
+      name: Climate Resource
 resources:
-- dedupe: true
-  external_uri: https://raw.githubusercontent.com/datasets/co2-ppm/146bdc608e1078d3e28e7a5d4755fdc316ffed2d/data/co2-annmean-gl.csv
+- external_uri: https://raw.githubusercontent.com/datasets/co2-ppm/146bdc608e1078d3e28e7a5d4755fdc316ffed2d/data/co2-annmean-gl.csv
   generated: false
   hash: sha256:8a5e1d4ca2da50c203bf9d6a392b3ef04ec756ff0256fd07532c383affe79e9c
   kind: pointer
@@ -36,9 +41,9 @@ resources:
   tags: []
   type: tabular
   used: []
+  used_digests: []
   visibility: public
-- dedupe: true
-  format: parquet
+- format: parquet
   generated: true
   hash: sha256:d0c29c739d46bde0ef87c056fcff5602890a766361380c5dc9030531a1bfb9a5
   kind: managed
@@ -49,9 +54,9 @@ resources:
   type: timeseries
   used:
   - raw
+  used_digests: []
   visibility: public
-- dedupe: true
-  format: parquet
+- format: parquet
   generated: true
   hash: sha256:7308232e7138c0ad8eea1dfc93afa80408cfe10a1c5c9e567306b29ce050ffb6
   kind: managed
@@ -62,7 +67,8 @@ resources:
   type: tabular
   used:
   - raw
+  used_digests: []
   visibility: public
-schema_version: '3.1'
+schema_version: '3.10'
 writer:
   pyarrow: 23.0.0

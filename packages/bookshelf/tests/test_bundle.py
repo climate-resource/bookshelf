@@ -245,6 +245,9 @@ def test_a_written_bundle_records_the_pyarrow_that_wrote_its_bytes(
     assert reloaded.manifest.writer.pyarrow == importlib.metadata.version("pyarrow")
 
 
+_PINNED = uuid.UUID("26029217-b748-538f-afc6-20d34e032ffe")
+
+
 def _read_manifest_text(tmp_path: Path, text: str) -> Bundle:
     """Write a hand-rolled manifest and read it back as a bundle."""
     root = tmp_path / "bundle"
@@ -285,9 +288,26 @@ def test_a_manifest_declaring_a_newer_major_is_refused(tmp_path: Path) -> None:
 
 def test_a_newer_minor_still_loads(tmp_path: Path) -> None:
     """A minor is additive, so the models drop what they do not know and keep the rest."""
-    loaded = _read_manifest_text(tmp_path, "schema_version: '3.9'\nresources: []\n")
+    loaded = _read_manifest_text(tmp_path, "schema_version: '3.11'\nresources: []\n")
 
-    assert loaded.manifest.schema_version == "3.9"
+    assert loaded.manifest.schema_version == "3.11"
+
+
+def test_a_manifest_recording_dedupe_still_loads(tmp_path: Path) -> None:
+    loaded = _read_manifest_text(
+        tmp_path,
+        "schema_version: '3.9'\n"
+        "resources:\n"
+        "- name: pinned\n"
+        "  hash: sha256:" + "a" * 64 + "\n"
+        "  type: tabular\n"
+        "  dedupe: false\n"
+        f"  tracking_id: {_PINNED}\n",
+    )
+
+    (resource,) = loaded.manifest.resources
+    assert resource.tracking_id == _PINNED
+    assert "dedupe" not in resource.model_dump()
 
 
 def test_the_synthesised_pointer_hash_matches_the_backend_seed() -> None:
@@ -414,25 +434,12 @@ def test_svg_bytes_refuses_a_record_without_a_companion(make_bundle: BundleFacto
         bundle.svg_bytes(bundle.manifest.resources[0])
 
 
-_PINNED = uuid.UUID("26029217-b748-538f-afc6-20d34e032ffe")
-
-
-@pytest.mark.parametrize(
-    ("pins", "match"),
-    [
-        ([(_PINNED, True)], "needs dedupe=False"),
-        ([(_PINNED, False), (_PINNED, False)], "already pins"),
-    ],
-)
-def test_a_hand_edited_pin_is_refused(
-    make_bundle: BundleFactory, pins: list[tuple[uuid.UUID, bool]], match: str
-) -> None:
+def test_a_hand_edited_pin_is_refused(make_bundle: BundleFactory) -> None:
     """A manifest edited on disk skips the recording checks, so validate repeats them."""
-    written = make_bundle(entries=len(pins))
-    for resource, (tracking_id, dedupe) in zip(written.manifest.resources, pins, strict=True):
-        resource.tracking_id = tracking_id
-        resource.dedupe = dedupe
+    written = make_bundle(entries=2)
+    for resource in written.manifest.resources:
+        resource.tracking_id = _PINNED
     written.write()
 
-    with pytest.raises(InvalidBundleError, match=match):
+    with pytest.raises(InvalidBundleError, match="already pins"):
         Bundle.read_validated(written.root)

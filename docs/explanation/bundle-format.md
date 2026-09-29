@@ -13,7 +13,7 @@ This page specifies what is written to disk.
 It is written so that an implementation in another language can produce and read bundles
 without reading the Python that implements this one.
 
-The format in force is manifest schema version **3.9**.
+The format in force is manifest schema version **3.10**.
 
 ## Bundle directory
 
@@ -101,7 +101,6 @@ Every entry in `resources` has these fields.
 | `caption`      | figure only  | string                      | absent    | what the figure shows, at most 500 characters                                |
 | `alt_text`     | figure only  | string                      | absent    | the figure described for a reader who cannot see it, at most 1000 characters |
 | `metadata`     | optional     | mapping                     | `{}`      | free-form metadata                                                           |
-| `dedupe`       | optional     | boolean                     | `true`    | whether byte-identical resources may collapse to one canonical resource      |
 | `size`         | managed only | integer                     | absent    | the byte length of the stored bytes                                          |
 | `external_uri` | pointer only | string                      | absent    | the external target                                                          |
 | `generated`    | optional     | boolean                     | `false`   | whether an activity produced this resource                                   |
@@ -138,6 +137,12 @@ so the recorder could draw a vector beside the png master.
 A figure supplied as png bytes records none, and the figure is complete without one.
 The platform serves the companion as the figure's vector format,
 and it keeps the first companion bound to a given master.
+
+A record carries no deduplication setting.
+The server decides: a registration aliases onto a resource your organisation already holds with the same bytes,
+unless it pins its own tracking id.
+A manifest older than 3.10 may record a `dedupe` field, and a reader drops it.
+A reader older than 3.10 reads the absent field as `true`, so it refuses a resource that pins a `tracking_id`.
 
 ### `managed` versus `pointer`
 
@@ -464,8 +469,7 @@ book:
   visibility: public
   volume: example-emissions
 resources:
-- dedupe: true
-  external_uri: https://example.org/upstream/emissions-v1.0.0.csv
+- external_uri: https://example.org/upstream/emissions-v1.0.0.csv
   generated: false
   hash: sha256:c6dd00dc24e5ddcf21081c662e8264bbc0cf7d10986181f961545eaef0e4051c
   kind: pointer
@@ -475,8 +479,7 @@ resources:
   type: tabular
   used: []
   visibility: public
-- dedupe: true
-  format: parquet
+- format: parquet
   generated: true
   hash: sha256:7198966a1a10c93fe40255d2c8e49b750e2cc7d3c9f56e4d06ac7e595e9afaa0
   kind: managed
@@ -488,7 +491,7 @@ resources:
   used:
   - upstream-emissions
   visibility: public
-schema_version: '3.9'
+schema_version: '3.10'
 writer:
   pyarrow: 23.0.0
 ```

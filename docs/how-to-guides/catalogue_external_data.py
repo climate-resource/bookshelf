@@ -192,17 +192,10 @@ for record in manifest["resources"]:
 # %% [markdown]
 # ## Deduplication
 #
-# `dedupe` defaults to true and is recorded per resource,
-# because the server resolves it rather than the recorder.
-
-# %%
-{record["name"]: record["dedupe"] for record in manifest["resources"]}
-
-# %% [markdown]
-# On replay, byte identical items owned by one organisation
-# collapse to the first canonical resource,
+# The server decides: a registration aliases onto a resource your organisation already holds
+# with the same bytes, unless it pins its own tracking id.
+# The first resource's name stays canonical,
 # even when a later item supplies a different name.
-# The first resource's name stays canonical.
 #
 # Through a live facade the handle reports this on `registration_status`.
 #
@@ -216,9 +209,6 @@ for record in manifest["resources"]:
 # second.registration_status              # aliased
 # first.tracking_id == second.tracking_id  # True
 # ```
-#
-# Pass `dedupe=False` when each run has to produce a distinct resource,
-# for instance when re-publishing unchanged data as a new edition.
 
 # %% [markdown]
 # ## Resuming after a failed upload

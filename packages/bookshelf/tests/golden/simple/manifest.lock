@@ -24,8 +24,7 @@ book:
   visibility: public
   volume: golden-example
 resources:
-- dedupe: true
-  external_uri: https://example.invalid/golden-upstream-v1.0.0.csv
+- external_uri: https://example.invalid/golden-upstream-v1.0.0.csv
   generated: true
   hash: sha256:c2be0622db25f74a9f65bf289df60a46a99f60d1e46aa869fdbe2ad316b4a372
   kind: pointer
@@ -36,8 +35,7 @@ resources:
   used: []
   used_digests: []
   visibility: public
-- dedupe: true
-  format: parquet
+- format: parquet
   generated: true
   hash: sha256:ea6c596787f6a204b23bfa40d53aeb0385c09dea0d92c788b559cd4ef11267cf
   kind: managed
@@ -50,8 +48,7 @@ resources:
   - golden-upstream
   used_digests: []
   visibility: public
-- dedupe: true
-  format: parquet
+- format: parquet
   generated: true
   hash: sha256:76f2a9c81692ea9816ec55e4c78334fdf976d788b8cf7f47c6a7fa2d46e31876
   kind: managed
@@ -65,6 +62,6 @@ resources:
   - emissions
   used_digests: []
   visibility: public
-schema_version: '3.9'
+schema_version: '3.10'
 writer:
   pyarrow: 23.0.0

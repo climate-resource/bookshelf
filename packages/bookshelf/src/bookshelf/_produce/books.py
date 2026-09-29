@@ -145,7 +145,6 @@ class DraftBook(_DraftBookBase):
         alt_text: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         format: str | None = None,
-        dedupe: bool = True,
     ) -> Any:  # noqa: ANN401
         """Register one output and attach it under ``name`` in a single call.
 
@@ -196,7 +195,6 @@ class DraftBook(_DraftBookBase):
             alt_text=alt_text,
             metadata=metadata,
             format=format,
-            dedupe=dedupe,
         )
         self.attach(resource, name_in_book=name, data_dictionary=data_dictionary)
         if sidecar is not None:
@@ -297,7 +295,6 @@ class AsyncDraftBook(_DraftBookBase):
         alt_text: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         format: str | None = None,
-        dedupe: bool = True,
     ) -> Any:  # noqa: ANN401
         """Register one output and attach it under ``name`` in a single call.
 
@@ -334,7 +331,6 @@ class AsyncDraftBook(_DraftBookBase):
             alt_text=alt_text,
             metadata=metadata,
             format=format,
-            dedupe=dedupe,
         )
         await self.attach(resource, name_in_book=name, data_dictionary=data_dictionary)
         return resource

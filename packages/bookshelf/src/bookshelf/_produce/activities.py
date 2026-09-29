@@ -96,7 +96,6 @@ class Activity:
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
         format: str | None = None,
-        dedupe: bool = True,
         role: Role | None = None,
     ) -> Resource:
         """Serialise, hash, upload, and register one generated resource.
@@ -126,7 +125,6 @@ class Activity:
                     metadata=metadata,
                     tracking_id=tracking_id,
                     format=format,
-                    dedupe=dedupe,
                 )
             ],
             used=used,
@@ -195,7 +193,6 @@ class Activity:
         license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
-        dedupe: bool = True,
     ) -> Resource:
         """Register an external output and attribute it to this activity.
 
@@ -219,7 +216,6 @@ class Activity:
             ),
             metadata=metadata,
             tracking_id=tracking_id,
-            dedupe=dedupe,
         )
         outcome = helpers.single_success(self._register_items([item], used=used, atomic=True))
         return Resource(
@@ -273,7 +269,6 @@ class Activity:
             discovery=helpers.item_discovery(entry),
             metadata=entry.metadata,
             tracking_id=entry.tracking_id,
-            dedupe=entry.dedupe,
         )
 
     def _register_items(
@@ -395,7 +390,6 @@ class AsyncActivity:
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
         format: str | None = None,
-        dedupe: bool = True,
         role: Role | None = None,
     ) -> AsyncResource:
         """Serialise, hash, upload, and register one generated resource.
@@ -425,7 +419,6 @@ class AsyncActivity:
                     metadata=metadata,
                     tracking_id=tracking_id,
                     format=format,
-                    dedupe=dedupe,
                 )
             ],
             used=used,
@@ -499,7 +492,6 @@ class AsyncActivity:
         license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
-        dedupe: bool = True,
     ) -> AsyncResource:
         """Register an external output and attribute it to this activity.
 
@@ -523,7 +515,6 @@ class AsyncActivity:
             ),
             metadata=metadata,
             tracking_id=tracking_id,
-            dedupe=dedupe,
         )
         outcome = helpers.single_success(await self._register_items([item], used=used, atomic=True))
         return AsyncResource(
@@ -577,7 +568,6 @@ class AsyncActivity:
             discovery=helpers.item_discovery(entry),
             metadata=entry.metadata,
             tracking_id=entry.tracking_id,
-            dedupe=entry.dedupe,
         )
 
     async def _register_items(

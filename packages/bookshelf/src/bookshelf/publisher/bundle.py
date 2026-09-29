@@ -54,7 +54,7 @@ from bookshelf._generated import models
 from bookshelf._produce import helpers
 from bookshelf._produce.types import Role
 
-BUNDLE_SCHEMA_VERSION = "3.9"
+BUNDLE_SCHEMA_VERSION = "3.10"
 
 # A newer minor loads because the models ignore unknown fields, and any other major is refused:
 # v2 keys resources by tracking id and v3 by name, which no rule maps without inventing names.
@@ -182,7 +182,7 @@ class BundleResource(BaseModel):
     ``svg_hash`` is the digest of a figure's svg companion at ``resources/<hex>.svg``,
     which only a ``figure`` may record.
     ``tracking_id`` pins the id the platform registers the resource under,
-    for a producer that already names its resources. It requires ``dedupe`` off.
+    for a producer that already names its resources.
 
     ``extra="ignore"`` keeps each resource record forward-compatible,
     so an older reader still loads a record written by a later client
@@ -207,7 +207,6 @@ class BundleResource(BaseModel):
     caption: str | None = None
     alt_text: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
-    dedupe: bool = True
     size: int | None = None  # byte length of a managed resource, ``None`` for a pointer
     external_uri: str | None = None  # the pointer target, ``None`` for a managed resource
     generated: bool = False
@@ -658,7 +657,6 @@ class Bundle:
         visibility: str = "hidden",
         discovery: models.ResourceDiscovery | None = None,
         metadata: dict[str, Any] | None = None,
-        dedupe: bool = True,
         generated: bool = False,
         used: list[str] | None = None,
         used_digests: list[str] | None = None,
@@ -713,7 +711,6 @@ class Bundle:
             visibility=visibility,
             discovery=discovery,
             metadata=metadata,
-            dedupe=dedupe,
             size=len(data),
             generated=generated,
             used=used,
@@ -733,7 +730,6 @@ class Bundle:
         visibility: str = "hidden",
         discovery: models.ResourceDiscovery | None = None,
         metadata: dict[str, Any] | None = None,
-        dedupe: bool = True,
         generated: bool = False,
         used: list[str] | None = None,
         used_digests: list[str] | None = None,
@@ -759,7 +755,6 @@ class Bundle:
             visibility=visibility,
             discovery=discovery,
             metadata=metadata,
-            dedupe=dedupe,
             external_uri=external_uri,
             generated=generated,
             used=used,
@@ -777,7 +772,6 @@ class Bundle:
         visibility: str,
         discovery: models.ResourceDiscovery | None,
         metadata: dict[str, Any] | None,
-        dedupe: bool,
         generated: bool,
         used: list[str] | None,
         used_digests: list[str] | None,
@@ -800,11 +794,10 @@ class Bundle:
         recorded = {resource.name for resource in self.manifest.resources}
         if name in recorded:
             raise ValueError(f"resource name {name!r} is already recorded in this bundle")
-        if tracking_id is not None:
-            if dedupe:
-                raise ValueError(f"resource {name!r} pins a tracking_id, which needs dedupe=False")
-            if any(resource.tracking_id == tracking_id for resource in self.manifest.resources):
-                raise ValueError(f"tracking id {tracking_id} is already recorded in this bundle")
+        if tracking_id is not None and any(
+            resource.tracking_id == tracking_id for resource in self.manifest.resources
+        ):
+            raise ValueError(f"tracking id {tracking_id} is already recorded in this bundle")
         placed = self.manifest.book.entries if self.manifest.book is not None else ()
         if any(entry.is_placement and entry.name == name for entry in placed):
             raise ValueError(f"resource name {name!r} is already a placed entry of this book")
@@ -826,7 +819,6 @@ class Bundle:
             # falls through to the record's default rather than arriving as a null.
             **(discovery or models.ResourceDiscovery()).model_dump(exclude_none=True),
             metadata=dict(metadata or {}),
-            dedupe=dedupe,
             size=size,
             external_uri=external_uri,
             generated=generated,
@@ -882,7 +874,7 @@ class Bundle:
         - every entry names a resource recorded in the same manifest,
           except a placement, whose name must not name one
         - no resource is placed twice, because the platform refuses a repeated placement
-        - every pinned ``tracking_id`` is unique and sits on a resource with ``dedupe`` off
+        - every pinned ``tracking_id`` is unique
         - every ``used`` name is recorded earlier in the manifest than what consumes it
         - every public figure records a nonblank ``alt_text``, because the platform refuses one without
         - every resource's catalogue metadata is one the contract accepts,
@@ -925,10 +917,6 @@ class Bundle:
         for resource in self.manifest.resources:
             if resource.tracking_id is None:
                 continue
-            if resource.dedupe:
-                raise InvalidBundleError(
-                    f"resource {resource.name!r} pins a tracking_id, which needs dedupe=False"
-                )
             if resource.tracking_id in pinned:
                 raise InvalidBundleError(
                     f"resource {resource.name!r} pins {resource.tracking_id}, "
