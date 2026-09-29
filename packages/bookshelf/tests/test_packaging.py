@@ -16,6 +16,10 @@ SDK_ROOT = Path(__file__).resolve().parents[1]
 SDK_VERSION = tomllib.loads((SDK_ROOT / "pyproject.toml").read_text())["project"]["version"]
 
 
+def test_version_matches_the_distribution() -> None:
+    assert bookshelf.__version__ == SDK_VERSION
+
+
 def test_py_typed_marker_present() -> None:
     assert (Path(bookshelf.__file__).parent / "py.typed").is_file()
 

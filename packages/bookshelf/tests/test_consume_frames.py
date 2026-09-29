@@ -5,13 +5,13 @@ import sys
 import pandas as pd
 import pytest
 
+from bookshelf import DataFrameSupportError
 from bookshelf._consume.frames import (
     long_timeseries,
     polars_converter,
     timeseries_frame,
     wide_timeseries,
 )
-from bookshelf._core.frames import DataFrameSupportError
 from bookshelf._generated import models
 
 
