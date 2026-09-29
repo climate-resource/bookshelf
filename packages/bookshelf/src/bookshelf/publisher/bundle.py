@@ -54,7 +54,7 @@ from bookshelf._generated import models
 from bookshelf._produce import helpers
 from bookshelf._produce.types import Role
 
-BUNDLE_SCHEMA_VERSION = "3.8"
+BUNDLE_SCHEMA_VERSION = "3.9"
 
 # A newer minor loads because the models ignore unknown fields, and any other major is refused:
 # v2 keys resources by tracking id and v3 by name, which no rule maps without inventing names.
@@ -324,6 +324,9 @@ class BundleBook(BaseModel):
     The API spells one of them differently,
     and that is reconciled where the replay request is built.
 
+    ``volume_discovery`` holds the volume facts the recipe states, keyed as the wire keys them.
+    Replay applies them to the volume before the book, and a fact the recipe leaves out keeps its value.
+
     The framing is **pre-edition** and has no ``edition`` field,
     as the server determines the edition depending on the content.
 
@@ -349,6 +352,16 @@ class BundleBook(BaseModel):
     ``None`` means the recorder stated nothing.
     """
     published: bool = False
+    volume_discovery: dict[str, Any] | None = None
+
+    @property
+    def volume_update(self) -> models.VolumeUpdate | None:
+        """The patch replay sends to the volume, or ``None`` when the recipe states no volume facts."""
+        if not self.volume_discovery:
+            return None
+        return models.VolumeUpdate(
+            discovery=models.VolumeDiscoveryInput.model_validate(self.volume_discovery)
+        )
 
 
 def _pyarrow_version() -> str:
@@ -1000,8 +1013,18 @@ class Bundle:
 
         A draft or resources-only bundle replays without :meth:`validate`,
         so replay calls this on its own to keep a hand-edited manifest from uploading first.
-        Raises :class:`InvalidBundleError` naming the first resource that fails.
+        Raises :class:`InvalidBundleError` naming the volume or the first resource that fails.
         """
+        book = self.manifest.book
+        if book is not None:
+            try:
+                _ = book.volume_update
+            except ValidationError as exc:
+                error = exc.errors()[0]
+                field = ".".join(str(part) for part in error["loc"]) or "volume_discovery"
+                raise InvalidBundleError(
+                    f"volume {book.volume!r} records {field}, which the contract refuses: {error['msg']}"
+                ) from exc
         for resource in self.manifest.resources:
             words = resource.caption is not None or resource.alt_text is not None
             if resource.type == "figure" or words:

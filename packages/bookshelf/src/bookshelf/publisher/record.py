@@ -26,6 +26,7 @@ from bookshelf.publisher.recipe import (
     DiscoveryFields,
     RecordRecipe,
     ResolvedBook,
+    VolumeSection,
     load_record_recipe,
     resolve_book_visibility,
 )
@@ -158,6 +159,7 @@ def setup(
         )
         if not isinstance(book, RecordedDraftBook):
             raise TypeError("recording sink returned a live draft book")
+        _record_volume(context.bundle, context.recipe.volume)
         context.book = book
         context.setup_called = True
         return Build(context.bookshelf, book)
@@ -267,6 +269,14 @@ def _record_processing(bundle: Bundle) -> None:
     bundle.manifest.book.processing = (
         [] if activity is None else [(activity.code_ref, activity.config_hash)]
     )
+
+
+def _record_volume(bundle: Bundle, volume: VolumeSection) -> None:
+    """Stamp the volume facts the recipe states, and only those, so replay leaves the rest alone."""
+    if bundle.manifest.book is None:
+        return
+    stated = volume.model_dump(mode="json", exclude={"name"}, exclude_unset=True, exclude_none=True)
+    bundle.manifest.book.volume_discovery = stated or None
 
 
 # The kinds stamped on the two evidence documents every recorded book carries.

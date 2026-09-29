@@ -26,6 +26,12 @@ book:
   version: v2.0.0
   visibility: public
   volume: multi-version-example
+  volume_discovery:
+    keywords:
+    - example
+    maintainers:
+    - email: info@climate-resource.com
+      name: Climate Resource
 resources:
 - dedupe: true
   format: csv
@@ -68,6 +74,6 @@ resources:
   - raw
   used_digests: []
   visibility: public
-schema_version: '3.8'
+schema_version: '3.9'
 writer:
   pyarrow: 23.0.0

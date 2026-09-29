@@ -52,18 +52,7 @@ _ORCIDS = {
 
 NOT_SENT_ON_PURPOSE: dict[str, str] = {}  # leaf -> reason
 
-_ISSUE_260 = "https://github.com/climate-resource/bookshelf/issues/260"
-KNOWN_GAPS: dict[str, str] = {  # leaf -> issue URL
-    "volume.maintainers.name": _ISSUE_260,
-    "volume.maintainers.email": _ISSUE_260,
-    "volume.maintainers.affiliation": _ISSUE_260,
-    "volume.maintainers.orcid": _ISSUE_260,
-    "volume.keywords": _ISSUE_260,
-    "volume.update_cadence": _ISSUE_260,
-    "volume.deprecated": _ISSUE_260,
-    "volume.superseded_by": _ISSUE_260,
-    "volume.deprecation_note": _ISSUE_260,
-}
+KNOWN_GAPS: dict[str, str] = {}  # leaf -> issue URL
 
 
 def _unwrap_optional(annotation: Any) -> Any:  # noqa: ANN401

@@ -172,7 +172,7 @@ def _companions(bundle: Bundle) -> list[tuple[BundleResource, str]]:
 
 
 def send_bundle(client: BookshelfClient, bundle: Path | Bundle) -> models.BundleReplayResponse:
-    """Upload the managed bytes and send the whole bundle as one request.
+    """Apply the recipe's volume facts, then upload the managed bytes and send the bundle as one request.
 
     This is the seam the facade drives, so the transport stays behind it.
     The catalogue metadata and any plan are checked before the first upload,
@@ -181,6 +181,9 @@ def send_bundle(client: BookshelfClient, bundle: Path | Bundle) -> models.Bundle
     recorded = Bundle.read(bundle) if isinstance(bundle, Path) else bundle
     recorded.check_discovery()
     recorded.check_plans()
+    book = recorded.manifest.book
+    if book is not None and (update := book.volume_update) is not None:
+        client.update_volume(book.volume, update)
     storage_paths = {
         resource.name: upload_bytes(
             client,
@@ -210,6 +213,9 @@ async def send_bundle_async(
     recorded = Bundle.read(bundle) if isinstance(bundle, Path) else bundle
     recorded.check_discovery()
     recorded.check_plans()
+    book = recorded.manifest.book
+    if book is not None and (update := book.volume_update) is not None:
+        await client.update_volume_async(book.volume, update)
     storage_paths = {
         resource.name: await upload_bytes_async(
             client,
