@@ -4,6 +4,7 @@
     options:
       members:
         - close
+        - ensure_authenticated
         - search_volumes
         - volume
         - book
@@ -15,6 +16,7 @@
     options:
       members:
         - aclose
+        - ensure_authenticated
         - search_volumes
         - volume
         - book

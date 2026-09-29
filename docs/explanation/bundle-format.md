@@ -78,9 +78,9 @@ so the same frame written by two pyarrow versions has two content hashes.
 Recording the version makes that difference explain itself
 rather than surfacing as an unattributed change in the recorded hashes.
 
-The whole block is absent when pyarrow was not installed on the machine that wrote the bundle.
-It is also absent from any bundle written against schema `1.0`,
-because the field did not exist then.
+pyarrow is a core dependency, so every bundle this client writes carries the block.
+A reader still treats it as optional.
+Schema `1.0` predates the block, but a bundle below schema major 3 is refused on read anyway.
 
 ### A resource record
 
@@ -201,7 +201,7 @@ This is how a book built from an uploaded file cites the upload.
 Such an input is already on the platform and belongs to no book,
 so the bundle records nothing for it and it has no name for `used` to carry.
 Each digest is canonical `sha256:<hex>`.
-This resource must exist and be accesible by the publisher.
+This resource must exist and be accessible by the publisher.
 
 Inputs accumulate within a run.
 A resource records the inputs known at the moment it was registered,
@@ -227,12 +227,16 @@ The optional `activity` describes the run that produced the bundle.
 
 | Field         | Required                   | Meaning                                                               |
 | ------------- | -------------------------- | --------------------------------------------------------------------- |
-| `activity_id` | required                   | UUID minted by the producer, stable across replays of the same bundle |
+| `activity_id` | required                   | UUID derived from the four fields below, stable across replays        |
 | `kind`        | required                   | what sort of run this was, for instance `build`                       |
 | `code_ref`    | required                   | the code that ran, conventionally `<git remote>@<sha>`                |
 | `config_hash` | required                   | a `sha256:<hex>` digest identifying the run's configuration           |
 | `parameters`  | optional, defaults to `{}` | the parameters the run was given                                      |
 | `runner`      | optional                   | what executed the run                                                 |
+
+`activity_id` is a UUID5 over `kind`, `code_ref`, `config_hash` and `parameters`.
+It names what the activity is rather than when it ran, so recording the same build twice yields one id.
+`runner` is left out, because the same build on a laptop and on CI is the same activity.
 
 `config_hash` is what says two runs were configured the same way.
 A producer that has a better digest records it.

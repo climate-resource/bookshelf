@@ -71,8 +71,9 @@ pointer.tracking_id
 # A hashless pointer receives the same synthetic hash the backend would compute.
 #
 # The URI must be `https`.
-# Object store schemes such as `s3://` are rejected,
-# so mirror to an HTTPS endpoint before cataloguing.
+# Recording does not check the scheme, so an `s3://` pointer records cleanly
+# and is rejected when the bundle is replayed.
+# Mirror to an HTTPS endpoint before cataloguing.
 
 # %% [markdown]
 # ## One activity per recorded build
@@ -132,10 +133,9 @@ with bs.activity(
         ],
     )
 
-# A name is a write-time coordinate, so the read model does not echo it back.
-# The manifest below is where the recorded names are read from,
+# Each handle carries the name the manifest recorded it under,
 # and a resource keeps that name when it is attached to the book.
-mirrored.tracking_id, [item.tracking_id for item in outputs]
+mirrored.name, [item.name for item in outputs]
 
 # %% [markdown]
 # ## What a mixed bundle looks like

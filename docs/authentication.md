@@ -2,7 +2,7 @@
 
 Reading a public book needs no credential at all,
 but the bookshelf does have some features that require authentication,
-such reading private books, drafting a book, and publishing one.
+such as reading private books, drafting a book, and publishing one.
 
 This page covers the methods the SDK and the `bookshelf` CLI support,
 which one to pick, and the order they are tried in.
@@ -45,11 +45,13 @@ Visit       <the verification URL the issuer returns>
 
 The code expires after a few minutes. Run the command again for a fresh one.
 
-A notebook, an SSH session and a terminal with no usable browser all take this path without being asked.
-Pass `--no-browser` to force it.
+`bookshelf auth login` always tries a browser first, so pass `--no-browser` to take this path.
+In Python, `Bookshelf().ensure_authenticated()` picks the device flow by itself
+in a notebook, an SSH session or a terminal with no usable browser.
 
-The stored credential is periodically renewed
-You may periodically need to rerun `bookshelf auth login` to generate a new long-lived token.
+The client renews the stored credential by itself, so a login lasts across sessions.
+If the issuer refuses to renew it, the client warns and falls back to anonymous access.
+Run `bookshelf auth login` again to replace it.
 
 ## Register an agent identity
 
@@ -78,7 +80,7 @@ Nothing refreshes it, so a short-lived token will expire part way through a long
 which is the usual way to get one.
 
 In Python, `auth=` on `Bookshelf`, `AsyncBookshelf` and `BookshelfClient` overrides everything else.
-It takes a bearer token string or a credential provider.
+It takes a bearer token string, any `httpx.Auth` instance, or `None`.
 
 ```python
 from bookshelf import Bookshelf
@@ -139,7 +141,9 @@ One machine can hold several identities, and one is active per deployment.
   `--json` emits one object per identity.
 - `bookshelf auth switch <identity>` makes a different stored identity active
   without authenticating again.
-  Take the name from `auth list`, and pass `--api-url` when the same name exists on two deployments.
+  Take the name from `auth list`.
+  When the same name exists on two deployments, name one with the root option:
+  `bookshelf --api-url URL auth switch <identity>`.
 - `bookshelf auth token` prints the current access token and nothing else,
   refreshing it first when one is due.
 - `bookshelf auth logout` revokes the credential and clears local state.

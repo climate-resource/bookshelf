@@ -166,10 +166,19 @@ window.shape
 # %% [markdown]
 # > **Warning: Filter syntax differs by path**
 # >
-# > `query()` on a book entry accepts bare `column=value` filters only.
+# > `query()` on a book entry sends its filters to the book timeseries endpoint,
+# > which accepts bare `column=value` filters only.
 # > The richer `col.op` grammar (`region.in`, `variable.neq` and friends)
-# > is **silently ignored** here rather than rejected,
+# > is **silently ignored** there rather than rejected,
 # > so a mistyped filter returns the full unfiltered result.
+#
+# `query()` on the underlying resource does support `col.op`.
+# `as_resource()` drops the book context and returns that resource.
+# The operator is part of the keyword, so pass it through a dictionary.
+
+# %%
+two_regions = entry.as_resource().query(**{"region.in": "World,World|R5.2ASIA"})
+two_regions.index.get_level_values("region").unique()
 
 # %% [markdown]
 # `top_n` keeps only the largest series,
