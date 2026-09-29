@@ -198,7 +198,6 @@ def resolve_resource(
     name: str,
     *,
     resources: Mapping[str, ResourceSpec],
-    doi: str | None,
     recipe_dir: Path | None,
     cache: ContentCache,
     register_external: RegisterExternal,
@@ -256,7 +255,7 @@ def resolve_resource(
             path=path,
             hash=content_hash,
             name=flatten_to_resource_name(name),
-            metadata={"doi": doi} if doi is not None else None,
+            metadata=None,
             **catalogue,
         )
         return ResolvedResource(
@@ -280,7 +279,7 @@ def resolve_resource(
         # The declared key names the input for the rest of the bundle,
         # flattened because a recipe may declare it under something the platform would refuse.
         name=flatten_to_resource_name(name),
-        metadata={"doi": doi} if doi is not None else None,
+        metadata=None,
         **catalogue,
     )
     return ResolvedResource(

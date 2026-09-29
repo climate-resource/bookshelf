@@ -876,7 +876,6 @@ class RecordingSink:
             resolved = resolve_resource(
                 name,
                 resources=self._resolved.resources,
-                doi=self._resolved.discovery.doi,
                 recipe_dir=self._recipe_dir,
                 cache=self._cache,
                 register_external=self.register_external,
