@@ -39,7 +39,7 @@ class RegisterItem:
     """One managed object to materialise as part of an activity batch.
 
     The server aliases it onto a resource the organisation already holds with the same bytes,
-    unless it pins its own tracking id.
+    even when it proposes its own ``tracking_id``.
     The first resource's name remains canonical.
     """
 
