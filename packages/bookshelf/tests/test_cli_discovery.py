@@ -58,10 +58,11 @@ def _patch_client(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _run_json(monkeypatch: pytest.MonkeyPatch, *args: str) -> dict[str, Any]:
+    """Run a command with ``--json`` and return its first document, one per line."""
     _patch_client(monkeypatch)
     result = runner.invoke(app, [*args, "--json"])
     assert result.exit_code == 0, result.output
-    document: dict[str, Any] = json.loads(result.stdout)
+    document: dict[str, Any] = json.loads(result.stdout.splitlines()[0])
     return document
 
 
