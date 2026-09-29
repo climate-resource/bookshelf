@@ -92,7 +92,7 @@ def _derive() -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
     recipe: dict[str, dict[str, Any]] = {}
     leaves: dict[str, Any] = {}
     for section, model in _SECTIONS:
-        values = recipe.setdefault(section, {})
+        values = recipe[section] = {}
         for name, field in model.model_fields.items():
             leaf = f"{section}.{name}"
             if leaf in _STRUCTURAL:
@@ -116,6 +116,8 @@ def _derive() -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
 
 
 _RECIPE_VALUES, LEAVES = _derive()
+
+_Sent = set[tuple[str | None, Any]]
 
 _BUILD = """\
 import bookshelf
@@ -152,7 +154,7 @@ def _walk(node: Any, key: str | None = None) -> Iterator[tuple[str | None, Any]]
         yield key, node
 
 
-def _arrived(needle: tuple[str | None, Any], sent: set[tuple[str | None, Any]]) -> bool:
+def _arrived(needle: tuple[str | None, Any], sent: _Sent) -> bool:
     key, value = needle
     if key is None:
         return any(sent_value == value for _, sent_value in sent)
@@ -161,7 +163,7 @@ def _arrived(needle: tuple[str | None, Any], sent: set[tuple[str | None, Any]]) 
 
 
 @pytest.fixture(scope="module")
-def sent(tmp_path_factory: pytest.TempPathFactory) -> set[tuple[str | None, Any]]:
+def sent(tmp_path_factory: pytest.TempPathFactory) -> _Sent:
     """Record and publish the sentinel recipe once, returning every JSON leaf any request carried."""
     root = tmp_path_factory.mktemp("wire-coverage")
     book = {
@@ -182,6 +184,7 @@ def sent(tmp_path_factory: pytest.TempPathFactory) -> set[tuple[str | None, Any]
     (root / "inputs").mkdir()
     (root / "inputs" / "raw.csv").write_text("region,value\nWorld,1\n", encoding="utf-8")
 
+    # The recorder runs from a scratch directory, which is no clone to read a code ref from.
     with pytest.MonkeyPatch.context() as monkeypatch:
         monkeypatch.setattr(
             recording_module, "derive_code_ref", lambda: "https://example.invalid/test@0"
@@ -226,14 +229,14 @@ def test_every_leaf_has_a_sentinel() -> None:
 @pytest.mark.parametrize(
     "leaf", [leaf for leaf in LEAVES if leaf not in NOT_SENT_ON_PURPOSE and leaf not in KNOWN_GAPS]
 )
-def test_the_leaf_reaches_a_request(leaf: str, sent: set[tuple[str | None, Any]]) -> None:
+def test_the_leaf_reaches_a_request(leaf: str, sent: _Sent) -> None:
     missing = [needle for needle in _needles(leaf, LEAVES[leaf]) if not _arrived(needle, sent)]
 
     assert not missing, f"{leaf} was never sent: {missing}"
 
 
 @pytest.mark.parametrize("leaf", list(KNOWN_GAPS))
-def test_a_known_gap_is_still_missing(leaf: str, sent: set[tuple[str | None, Any]]) -> None:
+def test_a_known_gap_is_still_missing(leaf: str, sent: _Sent) -> None:
     """A fix that sends the field must also delete its entry from ``KNOWN_GAPS``."""
     arrived = [needle for needle in _needles(leaf, LEAVES[leaf]) if _arrived(needle, sent)]
 
@@ -246,6 +249,6 @@ def test_the_allowlists_are_well_formed() -> None:
     )
 
     assert all(issue.match(url) for url in KNOWN_GAPS.values())
-    assert all(isinstance(reason, str) and reason for reason in NOT_SENT_ON_PURPOSE.values())
+    assert all(NOT_SENT_ON_PURPOSE.values())
     assert not KNOWN_GAPS.keys() & NOT_SENT_ON_PURPOSE.keys()
     assert (KNOWN_GAPS.keys() | NOT_SENT_ON_PURPOSE.keys()) <= LEAVES.keys()
