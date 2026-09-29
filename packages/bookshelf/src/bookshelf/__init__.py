@@ -1,5 +1,7 @@
 """Public facade for the Bookshelf SDK."""
 
+import importlib.metadata
+
 from bookshelf._core.config import PRODUCTION_API_URL, STAGING_API_URL
 from bookshelf._core.errors import (
     APIError,
@@ -13,6 +15,7 @@ from bookshelf._core.errors import (
     TransportError,
     UnexpectedResponseError,
 )
+from bookshelf._core.frames import DataFrameSupportError
 from bookshelf._generated import OPENAPI_VERSION, models
 from bookshelf._produce.helpers import uuid7
 from bookshelf.cache import ContentCache
@@ -40,6 +43,8 @@ from bookshelf.facade import (
     Volume,
 )
 from bookshelf.publisher import replay_bundle, replay_bundle_sync, run_record, setup
+
+__version__ = importlib.metadata.version("bookshelf")
 
 _LEGACY_NAMES = frozenset({"BookShelf", "LocalBook"})
 
@@ -75,6 +80,7 @@ __all__ = [
     "BookshelfError",
     "ConflictError",
     "ContentCache",
+    "DataFrameSupportError",
     "DraftBook",
     "ForbiddenError",
     "HashMismatchError",
@@ -90,6 +96,7 @@ __all__ = [
     "UnsupportedConversionError",
     "Used",
     "Volume",
+    "__version__",
     "models",
     "replay_bundle",
     "replay_bundle_sync",

@@ -164,14 +164,15 @@ for label, shape in await shapes():
 #
 # The producer surface mirrors too.
 # The activity is an `async with`,
-# and `register`, `draft_book`, `attach` and `publish` are all awaited.
+# and `draft_book`, `register`, `attach` and `publish` are all awaited.
 #
 # ```python
 # async with AsyncBookshelf() as bs:
+#     draft = await bs.draft_book("my-volume", version="v1.0.0", license="CC-BY-4.0")
+#
 #     async with bs.activity(config={"scenario": "ssp245"}) as activity:
 #         output = await activity.register(frame, type="timeseries")
 #
-#     draft = await bs.draft_book("my-volume", version="v1.0.0", license="CC-BY-4.0")
 #     await draft.attach(output, name_in_book="ssp245")
 #     await draft.publish()
 # ```

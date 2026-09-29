@@ -95,7 +95,7 @@ def _emit_facets(catalogue: models.VolumeFacets, json_output: bool) -> None:
 
 
 def show(
-    address: str = typer.Argument(help="volume[@version[_eNNN]][/file]"),
+    address: str = typer.Argument(help=r"volume\[@version\[_eNNN]]\[/file]"),
     json_output: bool = typer.Option(False, "--json", help="Emit the description as JSON."),
 ) -> None:
     """Resolve one address and describe what is there, at whatever depth it is given."""

@@ -77,41 +77,38 @@ Parquet output is not stable across pyarrow versions,
 so the same frame written by two pyarrow versions has two content hashes.
 Recording the version makes that difference explain itself
 rather than surfacing as an unattributed change in the recorded hashes.
-
-The whole block is absent when pyarrow was not installed on the machine that wrote the bundle.
-It is also absent from any bundle written against schema `1.0`,
-because the field did not exist then.
+A bundle below schema major 3 is refused on read anyway.
 
 ### A resource record
 
 Every entry in `resources` has these fields.
 
-| Field          | Required     | Type                        | Default   | Meaning                                                                 |
-| -------------- | ------------ | --------------------------- | --------- | ----------------------------------------------------------------------- |
-| `name`         | required     | string                      |           | the bundle-local name this resource is addressed by                     |
-| `hash`         | required     | `sha256:<64 lowercase hex>` |           | the content hash, and the replay idempotency key                        |
-| `type`         | required     | string                      |           | what sort of resource this is, see below                                |
-| `kind`         | optional     | `managed` or `pointer`      | `managed` | which of the two variants this record is                                |
-| `format`       | optional     | string                      | absent    | the declared storage format, absent when it is not known                |
-| `visibility`   | optional     | `hidden`, `org` or `public` | `hidden`  | the tier this resource records as                                       |
-| `tags`         | optional     | list of strings             | `[]`      | free-form labels                                                        |
-| `description`  | optional     | string                      | absent    | what this resource holds                                                |
-| `authors`      | optional     | list of author mappings     | absent    | who made this resource                                                  |
-| `doi`          | optional     | string                      | absent    | the DOI for this resource                                               |
-| `citation`     | optional     | string                      | absent    | the citation to use for this resource                                   |
-| `license`      | optional     | string                      | absent    | the terms this resource is under                                        |
-| `license_url`  | optional     | string                      | absent    | the full licence text for those terms                                   |
-| `caption`      | figure only  | string                      | absent    | what the figure shows, at most 500 characters                           |
+| Field          | Required     | Type                        | Default   | Meaning                                                                      |
+| -------------- | ------------ | --------------------------- | --------- | ---------------------------------------------------------------------------- |
+| `name`         | required     | string                      |           | the bundle-local name this resource is addressed by                          |
+| `hash`         | required     | `sha256:<64 lowercase hex>` |           | the content hash, and the replay idempotency key                             |
+| `type`         | required     | string                      |           | what sort of resource this is, see below                                     |
+| `kind`         | optional     | `managed` or `pointer`      | `managed` | which of the two variants this record is                                     |
+| `format`       | optional     | string                      | absent    | the declared storage format, absent when it is not known                     |
+| `visibility`   | optional     | `hidden`, `org` or `public` | `hidden`  | the tier this resource records as                                            |
+| `tags`         | optional     | list of strings             | `[]`      | free-form labels                                                             |
+| `description`  | optional     | string                      | absent    | what this resource holds                                                     |
+| `authors`      | optional     | list of author mappings     | absent    | who made this resource                                                       |
+| `doi`          | optional     | string                      | absent    | the DOI for this resource                                                    |
+| `citation`     | optional     | string                      | absent    | the citation to use for this resource                                        |
+| `license`      | optional     | string                      | absent    | the terms this resource is under                                             |
+| `license_url`  | optional     | string                      | absent    | the full licence text for those terms                                        |
+| `caption`      | figure only  | string                      | absent    | what the figure shows, at most 500 characters                                |
 | `alt_text`     | figure only  | string                      | absent    | the figure described for a reader who cannot see it, at most 1000 characters |
-| `metadata`     | optional     | mapping                     | `{}`      | free-form metadata                                                      |
-| `dedupe`       | optional     | boolean                     | `true`    | whether byte-identical resources may collapse to one canonical resource |
-| `size`         | managed only | integer                     | absent    | the byte length of the stored bytes                                     |
-| `external_uri` | pointer only | string                      | absent    | the external target                                                     |
-| `generated`    | optional     | boolean                     | `false`   | whether an activity produced this resource                              |
-| `used`         | optional     | list of names               | `[]`      | what this resource was derived from                                     |
-| `used_digests` | optional     | list of digests             | `[]`      | inputs it was derived from that the bundle does not carry               |
-| `svg_hash`     | figure only  | string                      | absent    | the `sha256:<hex>` of the svg companion at `resources/<hex>.svg`        |
-| `role`         | optional     | `plan`                      | absent    | `plan` when this is the plan the activity followed                      |
+| `metadata`     | optional     | mapping                     | `{}`      | free-form metadata                                                           |
+| `dedupe`       | optional     | boolean                     | `true`    | whether byte-identical resources may collapse to one canonical resource      |
+| `size`         | managed only | integer                     | absent    | the byte length of the stored bytes                                          |
+| `external_uri` | pointer only | string                      | absent    | the external target                                                          |
+| `generated`    | optional     | boolean                     | `false`   | whether an activity produced this resource                                   |
+| `used`         | optional     | list of names               | `[]`      | what this resource was derived from                                          |
+| `used_digests` | optional     | list of digests             | `[]`      | inputs it was derived from that the bundle does not carry                    |
+| `svg_hash`     | figure only  | string                      | absent    | the `sha256:<hex>` of the svg companion at `resources/<hex>.svg`             |
+| `role`         | optional     | `plan`                      | absent    | `plan` when this is the plan the activity followed                           |
 
 `name` is local to the bundle that registers it, and it carries no hierarchy.
 It matches `^[a-z0-9][a-z0-9._-]{0,199}$`, it is unique within the manifest,
@@ -201,7 +198,7 @@ This is how a book built from an uploaded file cites the upload.
 Such an input is already on the platform and belongs to no book,
 so the bundle records nothing for it and it has no name for `used` to carry.
 Each digest is canonical `sha256:<hex>`.
-This resource must exist and be accesible by the publisher.
+This resource must exist and be accessible by the publisher.
 
 Inputs accumulate within a run.
 A resource records the inputs known at the moment it was registered,
@@ -225,14 +222,18 @@ A reader older than 3.7 drops the field and replays the plan as an ordinary inpu
 
 The optional `activity` describes the run that produced the bundle.
 
-| Field         | Required                   | Meaning                                                               |
-| ------------- | -------------------------- | --------------------------------------------------------------------- |
-| `activity_id` | required                   | UUID minted by the producer, stable across replays of the same bundle |
-| `kind`        | required                   | what sort of run this was, for instance `build`                       |
-| `code_ref`    | required                   | the code that ran, conventionally `<git remote>@<sha>`                |
-| `config_hash` | required                   | a `sha256:<hex>` digest identifying the run's configuration           |
-| `parameters`  | optional, defaults to `{}` | the parameters the run was given                                      |
-| `runner`      | optional                   | what executed the run                                                 |
+| Field         | Required                   | Meaning                                                        |
+| ------------- | -------------------------- | -------------------------------------------------------------- |
+| `activity_id` | required                   | UUID derived from the four fields below, stable across replays |
+| `kind`        | required                   | what sort of run this was, for instance `build`                |
+| `code_ref`    | required                   | the code that ran, conventionally `<git remote>@<sha>`         |
+| `config_hash` | required                   | a `sha256:<hex>` digest identifying the run's configuration    |
+| `parameters`  | optional, defaults to `{}` | the parameters the run was given                               |
+| `runner`      | optional                   | what executed the run                                          |
+
+`activity_id` is a UUID5 over `kind`, `code_ref`, `config_hash` and `parameters`.
+It names what the activity is rather than when it ran, so recording the same build twice yields one id.
+`runner` is left out, because the same build on a laptop and on CI is the same activity.
 
 `config_hash` is what says two runs were configured the same way.
 A producer that has a better digest records it.
@@ -250,19 +251,19 @@ Nothing in a bundle is a timestamp (see [Determinism](#determinism)).
 `book` frames a book to draft and publish.
 This field is specific to the Bookshelf and is optional.
 
-| Field             | Required | Default  | Meaning                                                                          |
-| ----------------- | -------- | -------- | -------------------------------------------------------------------------------- |
-| `volume`          | required |          | the volume the book belongs to, referenced by name and never created by a bundle |
-| `version`         | required |          | the consumer-facing data version                                                 |
-| `visibility`      | optional | `hidden` | the tier of the book                                                             |
-| `license`         | optional | absent   | the SPDX licence                                                                 |
-| `authors`         | optional | `[]`     | who made this version's data, sent on the replay                                 |
-| `discovery`       | optional | absent   | the editorial metadata baked onto this book, keyed by the recipe's field names   |
-| `description`     | optional | absent   | free prose                                                                       |
-| `metadata`        | optional | `{}`     | free-form metadata                                                               |
-| `entries`         | optional | `[]`     | the book's membership                                                            |
-| `published`       | optional | `false`  | whether the book should be published, or left a draft                            |
-| `processing`      | optional | absent   | the `[code_ref, config_hash]` pairs of the runs that generated the book's members |
+| Field         | Required | Default  | Meaning                                                                           |
+| ------------- | -------- | -------- | --------------------------------------------------------------------------------- |
+| `volume`      | required |          | the volume the book belongs to, referenced by name and never created by a bundle  |
+| `version`     | required |          | the consumer-facing data version                                                  |
+| `visibility`  | optional | `hidden` | the tier of the book                                                              |
+| `license`     | optional | absent   | the SPDX licence                                                                  |
+| `authors`     | optional | `[]`     | who made this version's data, sent on the replay                                  |
+| `discovery`   | optional | absent   | the editorial metadata baked onto this book, keyed by the recipe's field names    |
+| `description` | optional | absent   | free prose                                                                        |
+| `metadata`    | optional | `{}`     | free-form metadata                                                                |
+| `entries`     | optional | `[]`     | the book's membership                                                             |
+| `published`   | optional | `false`  | whether the book should be published, or left a draft                             |
+| `processing`  | optional | absent   | the `[code_ref, config_hash]` pairs of the runs that generated the book's members |
 
 `discovery` and `authors` hold values the recipe has already resolved,
 so the bundle records what will be published rather than what was declared.
