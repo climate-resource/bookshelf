@@ -869,6 +869,7 @@ class Bundle:
         - every entry names a resource recorded in the same manifest,
           except a placement, whose name must not name one
         - no resource is placed twice, because the platform refuses a repeated placement
+        - every pinned ``tracking_id`` is unique and sits on a resource with ``dedupe`` off
         - every ``used`` name is recorded earlier in the manifest than what consumes it
         - every public figure records a nonblank ``alt_text``, because the platform refuses one without
         - every resource's catalogue metadata is one the contract accepts,
@@ -906,6 +907,21 @@ class Bundle:
                     "which another entry already places"
                 )
             placed.add(entry.tracking_id)
+
+        pinned: set[UUID] = set()
+        for resource in self.manifest.resources:
+            if resource.tracking_id is None:
+                continue
+            if resource.dedupe:
+                raise InvalidBundleError(
+                    f"resource {resource.name!r} pins a tracking_id, which needs dedupe=False"
+                )
+            if resource.tracking_id in pinned:
+                raise InvalidBundleError(
+                    f"resource {resource.name!r} pins {resource.tracking_id}, "
+                    "which another resource already pins"
+                )
+            pinned.add(resource.tracking_id)
 
         # Replay resolves lineage against the resources of the same request,
         # so an input that lands later than its consumer has nothing to resolve to.

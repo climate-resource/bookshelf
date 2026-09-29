@@ -431,3 +431,23 @@ def test_a_tracking_id_pinned_twice_is_refused(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="already recorded"):
         sink.register_external(type="geospatial", uri="rdm://slice/b", name="second", **pin)
+
+
+def test_a_pin_on_an_unpinned_handles_id_is_refused(tmp_path: Path) -> None:
+    """Two handles sharing one id would let a later reference resolve to the wrong resource."""
+    bundle = Bundle(tmp_path / "bundle")
+    sink = _sink(bundle, tmp_path / "cache")
+    first = sink.register_external(
+        type="geospatial", uri="rdm://slice/a", hash="sha256:" + "a" * 64, name="first"
+    )
+
+    with pytest.raises(ValueError, match="already recorded"):
+        sink.register_external(
+            type="geospatial",
+            uri="rdm://slice/b",
+            hash="sha256:" + "a" * 64,
+            name="second",
+            tracking_id=first.tracking_id,
+            dedupe=False,
+        )
+    assert [resource.name for resource in bundle.manifest.resources] == ["first"]

@@ -1057,7 +1057,10 @@ def _settle(
     visibility: VisibilityInput,
     default_visibility: models.Visibility,
     tracking_id: UUID | None,
+    names: Mapping[UUID, str],
 ) -> _SettledResource:
+    if tracking_id in names:
+        raise ValueError(f"tracking id {tracking_id} is already recorded in this bundle")
     return _SettledResource(
         name=_recorded_name(name),
         type=helpers.resource_type(type),
@@ -1086,7 +1089,7 @@ def _record_pointer(
     used: _UsedInputs = _UsedInputs(),
 ) -> RecordedResource:
     """Append one pointer resource and return its local handle."""
-    settled = _settle(name, type, visibility, default_visibility, tracking_id)
+    settled = _settle(name, type, visibility, default_visibility, tracking_id, names)
     resource_hash = hash or synthesise_pointer_hash(
         type_=settled.type.value,
         external_uri=uri,
@@ -1135,7 +1138,7 @@ def _record_file(
     dedupe: bool,
 ) -> RecordedResource:
     """Append one checked-in file as a managed resource, bytes and all."""
-    settled = _settle(name, type, visibility, default_visibility, tracking_id)
+    settled = _settle(name, type, visibility, default_visibility, tracking_id, names)
     bundle.add_resource(
         data=path.read_bytes(),
         hash_=hash,
