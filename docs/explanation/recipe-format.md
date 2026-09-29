@@ -89,7 +89,9 @@ Everything else in `volume:` can.
 `keywords` is declared once because it doesn't change between books.
 Letting it vary would make a filter return a different volume
 depending on which edition happened to match.
-Changes to the volume metadata are updated on the next publish.
+Publishing applies `volume:` to the volume before the book is replayed.
+Only the fields the recipe states are sent, so one it leaves out keeps whatever value the volume already has.
+A field set to null counts as left out, so the recipe can change a volume fact but cannot clear one.
 
 A book may override anything under `defaults:`.
 The merge is field by field rather than section by section,

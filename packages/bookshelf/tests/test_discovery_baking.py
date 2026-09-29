@@ -19,10 +19,11 @@ import pytest
 
 from bookshelf._core.errors import BookshelfError
 from bookshelf.facade import AsyncBookshelf, Bookshelf
-from bookshelf.publisher.bundle import Bundle
+from bookshelf.publisher.bundle import Bundle, InvalidBundleError
 from bookshelf.publisher.recipe import load_record_recipe
 from bookshelf.publisher.record import _ACTIVE_RECORDING, _RecordingContext, setup
 from bookshelf.publisher.replay import replay_bundle, replay_bundle_sync
+from tests import _core_payloads as payloads
 from tests._replay import replay_response
 
 BASE_URL = "https://bookshelf.test"
@@ -63,15 +64,12 @@ _COMPUTED_FIELDS = (
     "frequency",
 )
 
-# The facts that belong to the long-lived volume rather than to any one book.
-_VOLUME_ONLY_FIELDS = (
-    "maintainers",
-    "keywords",
-    "update_cadence",
-    "deprecated",
-    "superseded_by",
-    "deprecation_note",
-)
+# The volume facts ``_RECIPE`` states, as the volume patch carries them.
+_STATED_VOLUME = {
+    "maintainers": [{"name": "Jared Lewis", "email": "jared@example.com"}],
+    "keywords": ["ghg", "national"],
+    "update_cadence": "annual",
+}
 
 
 def _defaults_discovery_block() -> str:
@@ -137,10 +135,12 @@ def _record(recipe_path: Path, root: Path, version: str) -> Bundle:
 
 
 def _transport(recorded: list[httpx.Request]) -> httpx.MockTransport:
-    """Answer the replay route while keeping every request the run made."""
+    """Answer the volume patch and the replay while keeping every request the run made."""
 
     def handler(request: httpx.Request) -> httpx.Response:
         recorded.append(request)
+        if request.method == "PATCH":
+            return httpx.Response(200, json=payloads.VOLUME)
         return httpx.Response(200, json=replay_response(resource_count=0))
 
     return httpx.MockTransport(handler)
@@ -164,10 +164,10 @@ def _record_and_publish(
     return _publish(_record(recipe_path, root, version), recorded)
 
 
-def _volume_writes(recorded: list[httpx.Request]) -> list[tuple[str, str]]:
-    """Return every request in a run that would write to a volume."""
+def _volume_writes(recorded: list[httpx.Request]) -> list[tuple[str, str, Any]]:
+    """Return every request in a run that would write to a volume, with the body it sent."""
     return [
-        (request.method, request.url.path)
+        (request.method, request.url.path, json.loads(request.content))
         for request in recorded
         if request.method != "GET" and request.url.path.startswith("/v1/volumes")
     ]
@@ -187,8 +187,10 @@ def test_publishing_a_later_version_does_not_rewrite_an_earlier_one(tmp_path: Pa
     assert second["discovery"]["publisher"] == "Climate Resource"
     assert second["discovery"]["license"] == "CC-BY"
 
-    # Publishing a book states what that book says. It never touches the volume.
-    assert _volume_writes(later) == []
+    # A book's own facts never reach the volume, which takes only what the volume section states.
+    assert _volume_writes(later) == [
+        ("PATCH", "/v1/volumes/primap-hist", {"discovery": _STATED_VOLUME})
+    ]
 
     again = _record_and_publish(recipe, tmp_path / "b26-again", "v2.6")
     assert again == first
@@ -285,17 +287,56 @@ def test_the_computed_fields_are_never_sent(tmp_path: Path) -> None:
         assert name not in payload["discovery"]
 
 
-def test_the_volume_only_fields_are_never_sent_on_a_book(tmp_path: Path) -> None:
+def test_the_volume_section_is_applied_to_the_volume_before_the_book(tmp_path: Path) -> None:
+    """An unstated fact, such as ``deprecated``, stays off the patch so the volume keeps its value."""
     recipe = _write(tmp_path, _RECIPE)
 
-    payload = _record_and_publish(recipe, tmp_path / "bundle", "v2.7")
+    recorded: list[httpx.Request] = []
+    _record_and_publish(recipe, tmp_path / "bundle", "v2.7", recorded)
 
-    for name in _VOLUME_ONLY_FIELDS:
-        assert name not in payload
-        assert name not in payload["discovery"]
-    # The volume reaches the replay as the slug it is filed under, and nothing more.
-    assert payload["volume"] == "primap-hist"
-    assert "name" not in payload
+    assert [(request.method, request.url.path) for request in recorded] == [
+        ("PATCH", "/v1/volumes/primap-hist"),
+        ("POST", "/v1/bundles/replay"),
+    ]
+    assert json.loads(recorded[0].content) == {"discovery": _STATED_VOLUME}
+
+
+def test_a_volume_section_that_states_only_the_name_leaves_the_volume_alone(
+    tmp_path: Path,
+) -> None:
+    recipe = _write(
+        tmp_path,
+        """\
+volume:
+  name: primap-hist
+build:
+  notebook: build.py
+books:
+  - version: "v1.0.0"
+    license: MIT
+""",
+    )
+
+    recorded: list[httpx.Request] = []
+    bundle = _record(recipe, tmp_path / "bundle", "v1.0.0")
+    _publish(bundle, recorded)
+
+    assert bundle.manifest.book is not None
+    assert bundle.manifest.book.volume_discovery is None
+    assert _volume_writes(recorded) == []
+
+
+def test_a_volume_fact_the_contract_refuses_fails_before_any_request(tmp_path: Path) -> None:
+    recipe = _write(tmp_path, _RECIPE)
+    bundle = _record(recipe, tmp_path / "bundle", "v2.7")
+    assert bundle.manifest.book is not None
+    bundle.manifest.book.volume_discovery = {"update_cadence": "x" * 101}
+
+    recorded: list[httpx.Request] = []
+    with pytest.raises(InvalidBundleError, match="volume 'primap-hist' records a update_cadence"):
+        _publish(bundle, recorded)
+
+    assert recorded == []
 
 
 @pytest.mark.parametrize(
@@ -340,3 +381,6 @@ async def test_the_async_replay_sends_the_same_payload(tmp_path: Path) -> None:
         await replay_bundle(bundle, client)
 
     assert json.loads(recorded[-1].content)["book"] == synchronous
+    assert _volume_writes(recorded) == [
+        ("PATCH", "/v1/volumes/primap-hist", {"discovery": _STATED_VOLUME})
+    ]

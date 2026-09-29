@@ -13,7 +13,7 @@ This page specifies what is written to disk.
 It is written so that an implementation in another language can produce and read bundles
 without reading the Python that implements this one.
 
-The format in force is manifest schema version **3.8**.
+The format in force is manifest schema version **3.9**.
 
 ## Bundle directory
 
@@ -263,12 +263,19 @@ This field is specific to the Bookshelf and is optional.
 | `entries`         | optional | `[]`     | the book's membership                                                            |
 | `published`       | optional | `false`  | whether the book should be published, or left a draft                            |
 | `processing`      | optional | absent   | the `[code_ref, config_hash]` pairs of the runs that generated the book's members |
+| `volume_discovery` | optional | absent  | the volume facts the recipe states, applied to the volume on replay              |
 
 `discovery` and `authors` hold values the recipe has already resolved,
 so the bundle records what will be published rather than what was declared.
 Replay sends both,
 which is how each book keeps its own copy of what was true when it was published.
 Neither enters the seal the server computes.
+
+`volume_discovery` is keyed as the platform's volume discovery profile keys it.
+Replay sends it as a patch to the volume before the book, and only when it states something.
+A fact it leaves out keeps the value the volume already holds.
+It is not part of the seal, so a replay that converges on an existing edition still applies it.
+A reader older than 3.9 drops the field and leaves the volume alone.
 
 `processing` is provenance, and it is not part of the seal.
 It answers "which code produced this", and nothing more.
@@ -405,6 +412,7 @@ and validating it would need the network that the format is designed to avoid.
   See [Determinism](#determinism).
 - **The volume.**
   A bundle references a volume by name and never creates one.
+  It may update the facts `volume_discovery` states, but the volume must already exist.
 - **Anything about a server.**
   No URLs, no organisation, no credentials, no account.
   A bundle names its content and its provenance, and nothing about where it might end up.
@@ -476,7 +484,7 @@ resources:
   used:
   - upstream-emissions
   visibility: public
-schema_version: '3.8'
+schema_version: '3.9'
 writer:
   pyarrow: 23.0.0
 ```
