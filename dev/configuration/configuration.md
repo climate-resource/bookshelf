@@ -19,6 +19,9 @@ so a script need not copy either URL.
 Stored credentials are scoped to a deployment,
 so pointing a client at staging never sends it a production login.
 
+`BOOKSHELF_REMOTE` named the 0.4 S3 bucket.
+It is ignored now, and setting it raises a warning pointing at `BOOKSHELF_URL`.
+
 ## Credentials
 
 These select which credential the client sends.
@@ -32,6 +35,8 @@ and the order they are tried in.
 | `BOOKSHELF_CLIENT_ID`        | An OAuth client ID, paired with `BOOKSHELF_CLIENT_SECRET`. Climate Resource's CI uses this.    |
 | `BOOKSHELF_CLIENT_SECRET`    | The matching client secret.                                                                    |
 | `BOOKSHELF_TOKEN_URL`        | The token endpoint the client credentials are exchanged at. Required alongside the pair above. |
+| `BOOKSHELF_WORKOS_CLIENT_ID` | The WorkOS client ID for login and refresh. Production and staging have theirs built in.       |
+| `BOOKSHELF_WORKOS_BASE_URL`  | The WorkOS API a login is made against. Defaults to `https://auth-api.climateresource.com.au`. |
 
 `auth=` on the client overrides every one of these,
 and `auth=None` stays unauthenticated even when a credential is present.
@@ -51,4 +56,5 @@ Cached content never expires, and the oldest entries are removed once the cache 
 | `BOOKSHELF_CACHE_DIR`      | Moves the local content cache. `BOOKSHELF_CACHE_LOCATION` is accepted as an alias.                 |
 | `BOOKSHELF_CACHE_BOOK_TTL` | Seconds a remembered pinned edition is trusted before it is checked again. The default is one day. |
 
+`book_ttl=` on `Bookshelf` and `AsyncBookshelf` overrides `BOOKSHELF_CACHE_BOOK_TTL` for one client.
 `bookshelf cache` inspects and clears the cache.
