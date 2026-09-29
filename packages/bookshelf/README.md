@@ -152,7 +152,7 @@ and each failed index with its typed `ItemError`.
 Index `-1` identifies a batch level lineage failure reported by the server.
 The server decides:
 a registration aliases onto a resource your organisation already holds with the same bytes,
-unless it pins its own tracking id.
+unless a bundle pins its tracking id.
 The first canonical resource keeps its name, even when later items supply a different one.
 Returned producer handles expose `registration_status` and `registration_outcome`,
 so callers can detect this `aliased` result.
