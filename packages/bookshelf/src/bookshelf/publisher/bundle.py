@@ -181,6 +181,8 @@ class BundleResource(BaseModel):
     and a public figure must record an ``alt_text``.
     ``svg_hash`` is the digest of a figure's svg companion at ``resources/<hex>.svg``,
     which only a ``figure`` may record.
+    ``tracking_id`` pins the id the platform registers the resource under,
+    for a producer that already names its resources. It requires ``dedupe`` off.
 
     ``extra="ignore"`` keeps each resource record forward-compatible,
     so an older reader still loads a record written by a later client
@@ -213,6 +215,7 @@ class BundleResource(BaseModel):
     used_digests: list[str] = Field(default_factory=list)
     role: Role | None = None
     svg_hash: str | None = None  # canonical ``sha256:<hex>`` of the svg companion, figure only
+    tracking_id: UUID | None = None
 
     @field_validator("used_digests")
     @classmethod
@@ -648,6 +651,7 @@ class Bundle:
         used_digests: list[str] | None = None,
         svg: bytes | None = None,
         role: Role | None = None,
+        tracking_id: UUID | None = None,
     ) -> BundleResource:
         """Write ``data`` to ``resources/<hex>`` and append a manifest record.
 
@@ -703,6 +707,7 @@ class Bundle:
             used_digests=used_digests,
             svg_hash=svg_hash,
             role=role,
+            tracking_id=tracking_id,
         )
 
     def add_pointer(
@@ -719,6 +724,7 @@ class Bundle:
         generated: bool = False,
         used: list[str] | None = None,
         used_digests: list[str] | None = None,
+        tracking_id: UUID | None = None,
     ) -> BundleResource:
         """Append a ``kind="pointer"`` manifest record: write **no** bytes.
 
@@ -745,6 +751,7 @@ class Bundle:
             generated=generated,
             used=used,
             used_digests=used_digests,
+            tracking_id=tracking_id,
         )
 
     def _append(
@@ -766,6 +773,7 @@ class Bundle:
         external_uri: str | None = None,
         svg_hash: str | None = None,
         role: Role | None = None,
+        tracking_id: UUID | None = None,
     ) -> BundleResource:
         """Build one manifest record and append it, so both variants share one shape.
 
@@ -779,6 +787,11 @@ class Bundle:
         recorded = {resource.name for resource in self.manifest.resources}
         if name in recorded:
             raise ValueError(f"resource name {name!r} is already recorded in this bundle")
+        if tracking_id is not None:
+            if dedupe:
+                raise ValueError(f"resource {name!r} pins a tracking_id, which needs dedupe=False")
+            if any(resource.tracking_id == tracking_id for resource in self.manifest.resources):
+                raise ValueError(f"tracking id {tracking_id} is already recorded in this bundle")
         placed = self.manifest.book.entries if self.manifest.book is not None else ()
         if any(entry.is_placement and entry.name == name for entry in placed):
             raise ValueError(f"resource name {name!r} is already a placed entry of this book")
@@ -808,6 +821,7 @@ class Bundle:
             used_digests=list(used_digests or []),
             svg_hash=svg_hash,
             role=role,
+            tracking_id=tracking_id,
         )
         self.manifest.resources.append(record)
         return record
@@ -855,6 +869,7 @@ class Bundle:
         - every entry names a resource recorded in the same manifest,
           except a placement, whose name must not name one
         - no resource is placed twice, because the platform refuses a repeated placement
+        - every pinned ``tracking_id`` is unique and sits on a resource with ``dedupe`` off
         - every ``used`` name is recorded earlier in the manifest than what consumes it
         - every public figure records a nonblank ``alt_text``, because the platform refuses one without
         - every resource's catalogue metadata is one the contract accepts,
@@ -892,6 +907,21 @@ class Bundle:
                     "which another entry already places"
                 )
             placed.add(entry.tracking_id)
+
+        pinned: set[UUID] = set()
+        for resource in self.manifest.resources:
+            if resource.tracking_id is None:
+                continue
+            if resource.dedupe:
+                raise InvalidBundleError(
+                    f"resource {resource.name!r} pins a tracking_id, which needs dedupe=False"
+                )
+            if resource.tracking_id in pinned:
+                raise InvalidBundleError(
+                    f"resource {resource.name!r} pins {resource.tracking_id}, "
+                    "which another resource already pins"
+                )
+            pinned.add(resource.tracking_id)
 
         # Replay resolves lineage against the resources of the same request,
         # so an input that lands later than its consumer has nothing to resolve to.

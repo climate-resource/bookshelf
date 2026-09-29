@@ -129,6 +129,7 @@ def _resource(
             storage_path=None if pointer else storage_path,
             svg=svg,
             role=None if resource.role is None else models.UsedRole(resource.role),
+            tracking_id=resource.tracking_id,
         ),
     )
 

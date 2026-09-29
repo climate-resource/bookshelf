@@ -1,6 +1,7 @@
 """Tests for the bundle contract, through the :class:`Bundle` interface."""
 
 import importlib.metadata
+import uuid
 from pathlib import Path
 
 import pytest
@@ -411,3 +412,27 @@ def test_svg_bytes_refuses_a_record_without_a_companion(make_bundle: BundleFacto
 
     with pytest.raises(ValueError, match="records no svg companion"):
         bundle.svg_bytes(bundle.manifest.resources[0])
+
+
+_PINNED = uuid.UUID("26029217-b748-538f-afc6-20d34e032ffe")
+
+
+@pytest.mark.parametrize(
+    ("pins", "match"),
+    [
+        ([(_PINNED, True)], "needs dedupe=False"),
+        ([(_PINNED, False), (_PINNED, False)], "already pins"),
+    ],
+)
+def test_a_hand_edited_pin_is_refused(
+    make_bundle: BundleFactory, pins: list[tuple[uuid.UUID, bool]], match: str
+) -> None:
+    """A manifest edited on disk skips the recording checks, so validate repeats them."""
+    written = make_bundle(entries=len(pins))
+    for resource, (tracking_id, dedupe) in zip(written.manifest.resources, pins, strict=True):
+        resource.tracking_id = tracking_id
+        resource.dedupe = dedupe
+    written.write()
+
+    with pytest.raises(InvalidBundleError, match=match):
+        Bundle.read_validated(written.root)

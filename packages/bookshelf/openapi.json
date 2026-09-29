@@ -12977,6 +12977,19 @@
             "description": "When ``True`` (default) a resource whose content hash the org already holds resolves to that canonical resource and is reported as ``aliased``. Set to ``False`` so each edition owns a distinct row even for identical bytes.",
             "default": true
           },
+          "tracking_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tracking Id",
+            "description": "Tracking id to register the resource under, for a producer that already names its resources. Requires ``dedupe`` off, because an alias would answer with another id. The server mints one when omitted."
+          },
           "size_bytes": {
             "anyOf": [
               {

@@ -19,6 +19,7 @@ from bookshelf.cache import ContentCache
 from bookshelf.publisher.bundle import Bundle, companion_filename, resource_filename
 from bookshelf.publisher.record import _record_processing
 from bookshelf.publisher.recording import RecordedDraftBook, RecordingActivity, RecordingSink
+from bookshelf.publisher.replay import _request
 
 
 def _sink(bundle: Bundle, cache_path: Path) -> RecordingSink:
@@ -373,3 +374,80 @@ def test_png_bytes_record_no_svg_companion(tmp_path: Path) -> None:
     (figure,) = bundle.manifest.resources
     assert figure.svg_hash is None
     assert [path.suffix for path in bundle.resources_dir.iterdir()] == [".png"]
+
+
+_PINNED = uuid.UUID("26029217-b748-538f-afc6-20d34e032ffe")
+
+
+def test_a_pinned_tracking_id_travels_to_replay(tmp_path: Path) -> None:
+    """A producer that already names its pointer keeps that name on the platform."""
+    bundle = Bundle(tmp_path / "bundle")
+    sink = _sink(bundle, tmp_path / "cache")
+
+    handle = sink.register_external(
+        type="geospatial",
+        uri=f"rdm://slice/{_PINNED}",
+        hash="sha256:" + "a" * 64,
+        name="slice",
+        tracking_id=_PINNED,
+        dedupe=False,
+    )
+    bundle.write()
+
+    assert handle.tracking_id == _PINNED
+    assert Bundle.read(bundle.root).manifest.resources[0].tracking_id == _PINNED
+    assert _request(bundle, {}).resources[0].tracking_id == _PINNED
+
+
+def test_an_unpinned_resource_sends_no_tracking_id(tmp_path: Path) -> None:
+    bundle = Bundle(tmp_path / "bundle")
+    _sink(bundle, tmp_path / "cache").register_external(
+        type="geospatial", uri="rdm://slice/other", hash="sha256:" + "a" * 64, name="slice"
+    )
+
+    assert "tracking_id" not in _request(bundle, {}).resources[0].model_fields_set
+
+
+def test_a_pinned_tracking_id_with_dedupe_records_nothing(tmp_path: Path) -> None:
+    """An alias would answer with another resource's id, so the pin needs dedupe off."""
+    bundle = Bundle(tmp_path / "bundle")
+
+    with pytest.raises(ValueError, match="dedupe"):
+        _sink(bundle, tmp_path / "cache").register_external(
+            type="geospatial",
+            uri=f"rdm://slice/{_PINNED}",
+            hash="sha256:" + "a" * 64,
+            name="slice",
+            tracking_id=_PINNED,
+        )
+    assert bundle.manifest.resources == []
+
+
+def test_a_tracking_id_pinned_twice_is_refused(tmp_path: Path) -> None:
+    bundle = Bundle(tmp_path / "bundle")
+    sink = _sink(bundle, tmp_path / "cache")
+    pin = {"hash": "sha256:" + "a" * 64, "tracking_id": _PINNED, "dedupe": False}
+    sink.register_external(type="geospatial", uri="rdm://slice/a", name="first", **pin)
+
+    with pytest.raises(ValueError, match="already recorded"):
+        sink.register_external(type="geospatial", uri="rdm://slice/b", name="second", **pin)
+
+
+def test_a_pin_on_an_unpinned_handles_id_is_refused(tmp_path: Path) -> None:
+    """Two handles sharing one id would let a later reference resolve to the wrong resource."""
+    bundle = Bundle(tmp_path / "bundle")
+    sink = _sink(bundle, tmp_path / "cache")
+    first = sink.register_external(
+        type="geospatial", uri="rdm://slice/a", hash="sha256:" + "a" * 64, name="first"
+    )
+
+    with pytest.raises(ValueError, match="already recorded"):
+        sink.register_external(
+            type="geospatial",
+            uri="rdm://slice/b",
+            hash="sha256:" + "a" * 64,
+            name="second",
+            tracking_id=first.tracking_id,
+            dedupe=False,
+        )
+    assert [resource.name for resource in bundle.manifest.resources] == ["first"]
