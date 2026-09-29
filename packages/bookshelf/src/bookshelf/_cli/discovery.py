@@ -75,7 +75,8 @@ def _volume_row(item: models.VolumeListItem) -> dict[str, Any]:
         "latest_edition": item.latest_edition,
         "resource_types": item.resource_types or [],
         "topics": (discovery.topics if discovery else None) or [],
-        "license": discovery.license.root if discovery and discovery.license else None,
+        "keywords": (discovery.keywords if discovery else None) or [],
+        "latest_license": discovery.license.root if discovery and discovery.license else None,
     }
 
 
@@ -120,9 +121,12 @@ def _show_volume(client: BookshelfClient, parsed: Address, json_output: bool) ->
         {
             "name": volume.name,
             "title": discovery.title.root if discovery and discovery.title else None,
-            "publisher": (discovery.publisher.root if discovery and discovery.publisher else None),
-            "license": discovery.license.root if discovery and discovery.license else None,
+            "latest_publisher": (
+                discovery.publisher.root if discovery and discovery.publisher else None
+            ),
+            "latest_license": discovery.license.root if discovery and discovery.license else None,
             "topics": (discovery.topics if discovery else None) or [],
+            "keywords": (discovery.keywords if discovery else None) or [],
             "regions": (discovery.spatial_coverage if discovery else None) or [],
             "versions": [
                 {
@@ -166,6 +170,7 @@ def _resolve_book(client: BookshelfClient, parsed: Address) -> models.BookListIt
 
 def _show_book(detail: models.BookResponse, label: str, json_output: bool) -> None:
     resources = detail.resources or []
+    discovery = detail.discovery
     emit_payload(
         {
             "address": label,
@@ -173,6 +178,12 @@ def _show_book(detail: models.BookResponse, label: str, json_output: bool) -> No
             "status": str(detail.status),
             "visibility": str(detail.visibility),
             "published_at": iso(detail.published_at),
+            "license": discovery.license.root if discovery and discovery.license else None,
+            "doi": discovery.doi.root if discovery and discovery.doi else None,
+            "citation": discovery.citation.root if discovery and discovery.citation else None,
+            "release_url": (
+                discovery.release_url.root if discovery and discovery.release_url else None
+            ),
             "resources": [
                 {
                     "name": resource.name,
