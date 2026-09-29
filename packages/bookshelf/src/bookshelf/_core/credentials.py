@@ -4,19 +4,25 @@ The store holds several records at once, keyed by deployment plus identity kind
 (``user`` for a WorkOS login, ``agent`` for a Bookshelf agent identity).
 One record per deployment is active, and one deployment is the default.
 
-Secrets live in a JSON file at the ``platformdirs`` user-config path
+:class:`FileCredentialStore` keeps them in a JSON file at the ``platformdirs`` user-config path
 ``bookshelf/credentials.json``, readable only by the current user.
+:class:`MemoryCredentialStore` applies the same rules without touching disk.
 """
 
+import copy
 import enum
 import json
 import os
 import stat
+from abc import ABC, abstractmethod
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
+from filelock import FileLock
 from platformdirs import user_config_dir
 
 from bookshelf._core.auth import decode_jwt_expiry
@@ -35,21 +41,26 @@ class CredentialKind(enum.StrEnum):
     AGENT = "agent"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class StoredCredentials:
     """One credential record persisted by ``bookshelf auth login``."""
 
     access_token: str
-    token_type: str
-    expires_at: datetime | None
     api_url: str
-    refresh_token: str | None
+    token_type: str = "bearer"
+    expires_at: datetime | None = None
+    refresh_token: str | None = None
     kind: CredentialKind = CredentialKind.USER
     identity_assertion: str | None = None
     assertion_expires_at: datetime | None = None
     subject: str | None = None
     organization_id: str | None = None
     claimed: bool | None = None
+
+    @property
+    def key(self) -> str:
+        """The store key this record lives under."""
+        return record_key(self.api_url, self.kind)
 
     def with_token(
         self,
@@ -97,6 +108,60 @@ def credentials_path() -> Path:
     return Path(user_config_dir("bookshelf")) / "credentials.json"
 
 
+def expiry_from(expires_in: float | None) -> datetime | None:
+    """Turn a token response's ``expires_in`` seconds into the moment it expires."""
+    return None if expires_in is None else datetime.now(UTC) + timedelta(seconds=expires_in)
+
+
+class CredentialStore(Protocol):
+    """Where stored logins live, and the rules for which one is in play."""
+
+    def load(self, api_url: str | None = None) -> StoredCredentials | None:
+        """Return the active record for ``api_url``, or for the default deployment without one.
+
+        Expired credentials are returned as stored,
+        the credential provider decides whether they can still be refreshed.
+        """
+        ...
+
+    def records(self) -> list[StoredCredentials]:
+        """Return every stored record."""
+        ...
+
+    def active_kinds(self) -> dict[str, CredentialKind]:
+        """Return the active identity kind per deployment."""
+        ...
+
+    def save_login(self, record: StoredCredentials) -> StoredCredentials:
+        """Store a fresh login, make it active and its deployment the default, and return it.
+
+        A record with no ``expires_at`` takes its expiry from the access token's JWT ``exp`` claim.
+        """
+        ...
+
+    def rotate(self, previous: StoredCredentials, current: StoredCredentials) -> bool:
+        """Replace ``previous`` in place, unless the stored record has changed since it was loaded.
+
+        Leaves the active identity and the default deployment alone, and returns whether it wrote.
+        """
+        ...
+
+    def set_active(self, api_url: str, kind: CredentialKind) -> StoredCredentials:
+        """Make a stored identity active and its deployment the default.
+
+        Raises ``KeyError`` when no such record is stored.
+        """
+        ...
+
+    def clear(self, api_url: str | None = None, kind: CredentialKind | None = None) -> None:
+        """Delete every record, one deployment's records, or one identity on one deployment."""
+        ...
+
+
+def _empty() -> dict[str, Any]:
+    return {"version": STORE_VERSION, "records": {}, "active": {}}
+
+
 def _parse_kind(value: Any) -> CredentialKind | None:
     try:
         return CredentialKind(value)
@@ -113,46 +178,13 @@ def _parse_datetime(value: Any) -> datetime | None:
         return None
 
 
-def _read_store() -> dict[str, Any]:
-    """Read the store file, treating an unknown version as empty."""
-    creds_path = credentials_path()
-    if not creds_path.exists():
-        return {"version": STORE_VERSION, "records": {}, "active": {}}
-    try:
-        with creds_path.open("r") as f:
-            data = json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return {"version": STORE_VERSION, "records": {}, "active": {}}
-    if not isinstance(data, dict):
-        return {"version": STORE_VERSION, "records": {}, "active": {}}
-    if data.get("version") != STORE_VERSION:
-        # TODO: hook in future migrations here
-        return {"version": STORE_VERSION, "records": {}, "active": {}}
-    data.setdefault("records", {})
-    data.setdefault("active", {})
-    return data
+def _iso(moment: datetime | None) -> str | None:
+    return moment.isoformat() if moment else None
 
 
-def _write_store(store: dict[str, Any]) -> None:
-    creds_path = credentials_path()
-    creds_path.parent.mkdir(parents=True, exist_ok=True)
-    # Make a temp file and then os.remove to avoid corrupted writes
-    temporary = creds_path.with_name(f"{creds_path.name}.{os.getpid()}.tmp")
-    try:
-        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, stat.S_IRUSR | stat.S_IWUSR)
-        try:
-            os.fchmod(fd, stat.S_IRUSR | stat.S_IWUSR)
-        except OSError:
-            os.close(fd)
-            raise
-        with os.fdopen(fd, "w") as f:
-            json.dump(store, f, indent=2)
-        os.replace(temporary, creds_path)
-    finally:
-        temporary.unlink(missing_ok=True)
-
-
-def _record_to_credentials(record: dict[str, Any]) -> StoredCredentials | None:
+def _record_to_credentials(record: Any) -> StoredCredentials | None:
+    if not isinstance(record, dict):
+        return None
     access_token = record.get("access_token")
     if not isinstance(access_token, str) or not access_token:
         return None
@@ -177,186 +209,209 @@ def _record_to_credentials(record: dict[str, Any]) -> StoredCredentials | None:
     )
 
 
-def load_credentials(api_url: str | None = None) -> StoredCredentials | None:
-    """Load the active credential record, or ``None`` when missing or corrupt.
-
-    With ``api_url``, the active record for that deployment.
-    Without one,
-    the active record is from the default deployment.
-    This is the last deployment logged in to or switched to.
-    Expired credentials are returned as stored,
-    the credential provider decides whether they can still be refreshed.
-    """
-    store = _read_store()
-    target = normalise_api_url(api_url) if api_url is not None else store.get("default_api_url")
-    if not isinstance(target, str):
-        return None
-    kind = _parse_kind(store.get("active", {}).get(target))
-    if kind is None:
-        return None
-    key = record_key(target, kind)
-    record = store.get("records", {}).get(key)
-    if not isinstance(record, dict):
-        return None
-    return _record_to_credentials(record)
+def _credentials_to_record(record: StoredCredentials) -> dict[str, Any]:
+    return {
+        "access_token": record.access_token,
+        "token_type": record.token_type,
+        "expires_at": _iso(record.expires_at),
+        "api_url": record.api_url,
+        "refresh_token": record.refresh_token,
+        "kind": str(record.kind),
+        "identity_assertion": record.identity_assertion,
+        "assertion_expires_at": _iso(record.assertion_expires_at),
+        "subject": record.subject,
+        "organization_id": record.organization_id,
+        "claimed": record.claimed,
+    }
 
 
-def list_credentials() -> list[StoredCredentials]:
-    """Return every stored credential record."""
-    store = _read_store()
-    found: list[StoredCredentials] = []
-    for record in store.get("records", {}).values():
-        if isinstance(record, dict):
-            credentials = _record_to_credentials(record)
-            if credentials is not None:
-                found.append(credentials)
-    return found
-
-
-def active_kinds() -> dict[str, CredentialKind]:
-    """Return the active identity kind per deployment."""
-    store = _read_store()
-    parsed = {key: _parse_kind(value) for key, value in store.get("active", {}).items()}
-    return {key: kind for key, kind in parsed.items() if kind is not None}
-
-
-def expiry_from(expires_in: float | None) -> datetime | None:
-    """Turn a token response's ``expires_in`` seconds into the moment it expires."""
-    return None if expires_in is None else datetime.now(UTC) + timedelta(seconds=expires_in)
-
-
-def save_credentials(
-    access_token: str,
-    *,
-    api_url: str,
-    kind: CredentialKind = CredentialKind.USER,
-    refresh_token: str | None = None,
-    expires_at: datetime | None = None,
-    identity_assertion: str | None = None,
-    assertion_expires_at: datetime | None = None,
-    subject: str | None = None,
-    organization_id: str | None = None,
-    claimed: bool | None = None,
-    token_type: str = "bearer",  # noqa: S107, this is the token type, not a secret
-) -> StoredCredentials:
-    """Persist one freshly acquired credential, make it active for its deployment and return it.
-
-    This is the shape a login has, where there is no prior record to build on.
-    """
-    record = StoredCredentials(
-        access_token=access_token,
-        token_type=token_type,
-        expires_at=expires_at,
-        api_url=api_url,
-        refresh_token=refresh_token,
-        kind=kind,
-        identity_assertion=identity_assertion,
-        assertion_expires_at=assertion_expires_at,
-        subject=subject,
-        organization_id=organization_id,
-        claimed=claimed,
-    )
-    return save_record(record)
-
-
-def save_record(record: StoredCredentials) -> StoredCredentials:
-    """Persist one credential record, make it active for its deployment and return what was stored.
-
-    A record with no ``expires_at`` takes its expiry from the access token's JWT ``exp`` claim,
-    staying open-ended only when the token carries no ``exp``.
-    """
+def _normalised(record: StoredCredentials) -> StoredCredentials:
     expires_at = record.expires_at
     if expires_at is None:
         exp = decode_jwt_expiry(record.access_token)
         if exp is not None:
             expires_at = datetime.fromtimestamp(exp, tz=UTC)
-
-    api_url = normalise_api_url(record.api_url)
-    kind = record.kind
-    key = record_key(api_url, kind)
-
-    store = _read_store()
-    assertion_expiry = record.assertion_expires_at
-    store["records"][key] = {
-        "access_token": record.access_token,
-        "token_type": record.token_type,
-        "expires_at": expires_at.isoformat() if expires_at else None,
-        "api_url": api_url,
-        "refresh_token": record.refresh_token,
-        "kind": str(kind),
-        "identity_assertion": record.identity_assertion,
-        "assertion_expires_at": assertion_expiry.isoformat() if assertion_expiry else None,
-        "subject": record.subject,
-        "organization_id": record.organization_id,
-        "claimed": record.claimed,
-    }
-    store["active"][api_url] = str(kind)
-    store["default_api_url"] = api_url
-    _write_store(store)
-    return replace(record, expires_at=expires_at, api_url=api_url)
+    return replace(record, expires_at=expires_at, api_url=normalise_api_url(record.api_url))
 
 
-def set_active(api_url: str, kind: CredentialKind) -> StoredCredentials:
-    """Make a stored identity active for its deployment without re-authenticating.
+class _DocumentStore(CredentialStore, ABC):
+    """The store rules over one JSON-shaped document, whichever adapter holds it."""
 
-    The deployment also becomes the default,
-    so the switched-to identity is what ambient resolution picks up.
-    Raises ``KeyError`` when no such record is stored.
+    @abstractmethod
+    def _read(self) -> dict[str, Any]:
+        """Return a snapshot of the document."""
+
+    @abstractmethod
+    @contextmanager
+    def _update(self) -> Iterator[dict[str, Any]]:
+        """Yield the current document for changing in place, then persist it if it changed."""
+
+    def load(self, api_url: str | None = None) -> StoredCredentials | None:
+        store = self._read()
+        target = normalise_api_url(api_url) if api_url is not None else store.get("default_api_url")
+        if not isinstance(target, str):
+            return None
+        kind = _parse_kind(store["active"].get(target))
+        if kind is None:
+            return None
+        return _record_to_credentials(store["records"].get(record_key(target, kind)))
+
+    def records(self) -> list[StoredCredentials]:
+        found = (_record_to_credentials(record) for record in self._read()["records"].values())
+        return [credentials for credentials in found if credentials is not None]
+
+    def active_kinds(self) -> dict[str, CredentialKind]:
+        parsed = {key: _parse_kind(value) for key, value in self._read()["active"].items()}
+        return {key: kind for key, kind in parsed.items() if kind is not None}
+
+    def save_login(self, record: StoredCredentials) -> StoredCredentials:
+        record = _normalised(record)
+        with self._update() as store:
+            store["records"][record.key] = _credentials_to_record(record)
+            store["active"][record.api_url] = str(record.kind)
+            store["default_api_url"] = record.api_url
+        return record
+
+    def rotate(self, previous: StoredCredentials, current: StoredCredentials) -> bool:
+        previous, current = _normalised(previous), _normalised(current)
+        with self._update() as store:
+            stored = store["records"].get(previous.key)
+            if not isinstance(stored, dict) or stored.get("access_token") != previous.access_token:
+                return False
+            store["records"][previous.key] = _credentials_to_record(
+                replace(current, kind=previous.kind)
+            )
+        return True
+
+    def set_active(self, api_url: str, kind: CredentialKind) -> StoredCredentials:
+        api_url = normalise_api_url(api_url)
+        key = record_key(api_url, kind)
+        with self._update() as store:
+            credentials = _record_to_credentials(store["records"].get(key))
+            if credentials is None:
+                raise KeyError(key)
+            store["active"][api_url] = str(kind)
+            store["default_api_url"] = api_url
+        return credentials
+
+    def clear(self, api_url: str | None = None, kind: CredentialKind | None = None) -> None:
+        with self._update() as store:
+            if api_url is None:
+                store.clear()
+                store.update(_empty())
+                return
+            api_url = normalise_api_url(api_url)
+            kinds = [kind] if kind is not None else list(CredentialKind)
+            for target_kind in kinds:
+                store["records"].pop(record_key(api_url, target_kind), None)
+            active_kind = store["active"].get(api_url)
+            if kind is None or active_kind == kind:
+                store["active"].pop(api_url, None)
+            if store.get("default_api_url") == api_url and api_url not in store["active"]:
+                store["default_api_url"] = next(iter(store["active"]), None)
+
+
+class FileCredentialStore(_DocumentStore):
+    """The credentials file, locked across processes for every change.
+
+    Every change re-reads the file under the lock,
+    so two processes rotating different records cannot lose each other's writes.
     """
-    api_url = normalise_api_url(api_url)
-    key = record_key(api_url, kind)
-    store = _read_store()
-    record = store.get("records", {}).get(key)
-    if not isinstance(record, dict):
-        raise KeyError(key)
-    credentials = _record_to_credentials(record)
-    if credentials is None:
-        raise KeyError(key)
-    store["active"][api_url] = str(kind)
-    store["default_api_url"] = api_url
-    _write_store(store)
-    return credentials
+
+    def __init__(self, path: Path | None = None) -> None:
+        self._path = path
+
+    @property
+    def path(self) -> Path:
+        """The file this store reads and writes."""
+        return self._path if self._path is not None else credentials_path()
+
+    def _read(self) -> dict[str, Any]:
+        return self._load()[0]
+
+    def _load(self) -> tuple[dict[str, Any], bool]:
+        """Return the document, and whether an existing file could not be read as one."""
+        try:
+            with self.path.open("r") as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            return _empty(), False
+        except (json.JSONDecodeError, OSError):
+            return _empty(), True
+        if not isinstance(data, dict) or data.get("version") != STORE_VERSION:
+            # TODO: hook in future migrations here
+            return _empty(), True
+        data.setdefault("records", {})
+        data.setdefault("active", {})
+        return data, False
+
+    @contextmanager
+    def _update(self) -> Iterator[dict[str, Any]]:
+        path = self.path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with FileLock(path.with_name(f"{path.name}.lock")):
+            store, unreadable = self._load()
+            before = copy.deepcopy(store)
+            yield store
+            if store != before:
+                if unreadable:
+                    # Kept aside rather than overwritten, because a newer version may have written it.
+                    os.replace(path, path.with_name(f"{path.name}.unreadable"))
+                self._write(store)
+
+    def _write(self, store: dict[str, Any]) -> None:
+        path = self.path
+        # Written beside the file and moved over it, so a crash never leaves it half written.
+        temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+        try:
+            fd = os.open(
+                temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, stat.S_IRUSR | stat.S_IWUSR
+            )
+            try:
+                os.fchmod(fd, stat.S_IRUSR | stat.S_IWUSR)
+            except OSError:
+                os.close(fd)
+                raise
+            with os.fdopen(fd, "w") as f:
+                json.dump(store, f, indent=2)
+            os.replace(temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
 
 
-def clear_credentials(api_url: str | None = None, kind: CredentialKind | None = None) -> None:
-    """Delete stored credentials from the file.
+class MemoryCredentialStore(_DocumentStore):
+    """A store held in memory, for tests and for processes that must not touch disk."""
 
-    Without arguments every record for every deployment is removed.
-    With ``api_url`` only that deployment's records are removed,
-    narrowed further to one identity kind when ``kind`` is given.
-    """
-    if api_url is None:
-        creds_path = credentials_path()
-        if creds_path.exists():
-            creds_path.unlink()
-        return
+    def __init__(self, records: Iterable[StoredCredentials] = ()) -> None:
+        self._store = _empty()
+        for record in records:
+            self.save_login(record)
 
-    store = _read_store()
-    api_url = normalise_api_url(api_url)
-    kinds = [kind] if kind is not None else list(CredentialKind)
-    for target_kind in kinds:
-        store["records"].pop(record_key(api_url, target_kind), None)
-    active_kind = store.get("active", {}).get(api_url)
-    if kind is None or active_kind == kind:
-        store["active"].pop(api_url, None)
-    if store.get("default_api_url") == api_url and api_url not in store["active"]:
-        store["default_api_url"] = next(iter(store["active"]), None)
-    _write_store(store)
+    def _read(self) -> dict[str, Any]:
+        return copy.deepcopy(self._store)
+
+    @contextmanager
+    def _update(self) -> Iterator[dict[str, Any]]:
+        store = self._read()
+        yield store
+        self._store = store
+
+
+def default_store() -> CredentialStore:
+    """Return the store ``bookshelf auth login`` writes to."""
+    return FileCredentialStore()
 
 
 __all__ = [
     "STORE_VERSION",
     "CredentialKind",
+    "CredentialStore",
+    "FileCredentialStore",
+    "MemoryCredentialStore",
     "StoredCredentials",
-    "active_kinds",
-    "clear_credentials",
     "credentials_path",
+    "default_store",
     "expiry_from",
-    "list_credentials",
-    "load_credentials",
     "normalise_api_url",
     "record_key",
-    "save_credentials",
-    "save_record",
-    "set_active",
 ]
