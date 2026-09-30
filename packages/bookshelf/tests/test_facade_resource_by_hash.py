@@ -31,7 +31,7 @@ def test_resource_by_hash_asks_for_the_canonical_merging_row() -> None:
         resource = client.resource_by_hash(DIGEST)
 
     assert str(resource.tracking_id) == payloads.RESOURCE_READ["tracking_id"]
-    assert resource.metadata.hash == DIGEST
+    assert resource.content_hash() == DIGEST
     request = recorded[0]
     assert (request.method, request.url.path) == ("GET", "/v1/resources")
     assert parse_qs(request.url.query.decode()) == {

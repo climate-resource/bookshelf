@@ -87,10 +87,10 @@ except KeyError as exc:
 # ## Exploring before pulling data
 #
 # `magicc` is a large entry, so explore its shape first rather than downloading it to find out.
-# Three helpers describe an entry without pulling any of it:
+# Three helpers describe an entry without pulling all of it:
 # `facets()` returns each index column and its distinct values,
-# `schema()` describes the timeseries structure,
-# and `preview()` returns a small tabular sample.
+# `series_metadata()` lists the series one record at a time,
+# and `preview()` returns a small sample.
 #
 # Start with `facets()`, where `total_unique` counts across the whole entry.
 
@@ -107,26 +107,43 @@ scenarios = next(facet for facet in facets.facets if facet.column == "scenario")
 sorted((value.value, value.count) for value in scenarios.values)[:10]
 
 # %% [markdown]
-# `schema()` reports the same structure without any values at all,
+# `series_metadata()` reports the same structure without any values at all,
 # so `total_rows` is the number of series waiting behind it.
 
 # %%
-schema = entry.schema()
-schema.columns, schema.total_rows
+series = entry.series_metadata()
+series.columns, series.total_rows
 
 # %% [markdown]
-# When none of that substitutes for looking at the data, `preview()` returns a sample.
+# ## Previewing
+#
+# `preview()` has the platform pick a bounded sample.
+# It returns a `DataPreview`, whose `data` is the frame
+# and whose `completeness` says whether that frame holds every selected row.
+# A wide timeseries row is one series, so `limit` counts series.
 
 # %%
-entry.preview(limit=5)
+sample = entry.preview(limit=5)
+sample.completeness, sample.data.shape
+
+# %% [markdown]
+# A preview takes the same selection as the converters below,
+# plus `order`, `top_n` and `drop_constant`.
+# `top_n` keeps the series with the largest latest value,
+# and `drop_constant` drops the dimensions that hold one value across the returned series.
+# These are presentation controls, useful for a chart rather than an analysis.
+
+# %%
+top = entry.preview(filters={"region": "World"}, year_min=2020, year_max=2100, top_n=5, drop_constant=True)
+top.data.index.names
 
 # %% [markdown]
 # ## Pulling data
 #
 # `as_df()` returns pandas.
-# It always reads the whole resource, so nothing is truncated.
+# It always returns every selected row, so nothing is truncated.
 # For a timeseries entry it is wide indexed:
-# the index carries the metadata dimensions and the columns are years.
+# the index carries the metadata dimensions and the columns are years, labelled as strings.
 
 # %%
 frame = entry.as_df()
@@ -136,86 +153,42 @@ frame.shape
 frame.index.names
 
 # %% [markdown]
-# ## Filtering locally
+# ## Selecting
 #
-# `year_min` and `year_max` bound the year window.
-# Any other keyword is a `column=value` filter on the rows.
-# Both apply after the download, so every index dimension stays intact.
-# A filter on a column the resource does not have raises `KeyError`.
+# `year_min` and `year_max` bound the inclusive year window.
+# `filters` maps a column to a value, or to a list of values that are alternatives.
+# Separate filters must all hold.
+# A filter on a column the resource does not have raises `SelectionError`.
 
 # %%
-world = entry.as_df(region="World", year_min=2020, year_max=2100)
+world = entry.as_df(filters={"region": ["World", "World|R5.2ASIA"]}, year_min=2020, year_max=2100)
 world.shape
 
 # %% [markdown]
-# ## Trimming on the server
-#
-# `query()` sends the trimming to the platform instead,
-# which is quicker for a chart or a first look at a large entry.
-# It accepts the same year window and filters, plus `top_n`, `drop_constant` and `limit`.
-#
-# > **Warning: A server query is a preview**
-# >
-# > The book timeseries endpoint returns at most 10000 rows by default.
-# > Use `as_df()` when the result has to be complete.
+# By default the selection applies to the verified cached file,
+# so the first read downloads the whole entry and later reads cost nothing.
+# `server_side=True` has the platform select instead, which transfers only the selected rows.
+# The result is the same either way.
 
 # %%
-window = entry.query(region="World", year_min=2020, year_max=2100)
-window.shape
-
-# %% [markdown]
-# > **Warning: Filter syntax differs by path**
-# >
-# > `query()` on a book entry accepts bare `column=value` filters only.
-# > The platform reads a `col.op` filter such as `region.in` as a column name,
-# > so it raises `ValidationError: Unknown column in filter: region.in`.
-# > A mistyped column name fails the same way.
-#
-# `query()` on the underlying resource does support `col.op`.
-# `as_resource()` drops the book context and returns that resource.
-# The operator is part of the keyword, so pass it through a dictionary.
-
-# %%
-two_regions = entry.as_resource().query(**{"region.in": "World,World|R5.2ASIA"})
-two_regions.index.get_level_values("region").unique()
-
-# %% [markdown]
-# `top_n` keeps only the largest series,
-# ranked by their latest non-null value over the whole filtered result.
-# It is a presentation control, useful for a chart rather than an analysis.
-
-# %%
-top = entry.query(top_n=5, year_min=2020, year_max=2100)
-top.shape
-
-# %% [markdown]
-# > **Warning: Trimming can drop index dimensions**
-# >
-# > When `top_n` or `limit` narrows the result to rows sharing a value,
-# > the server drops that column from the index rather than repeating it.
-# > The frame above has fewer index levels than the untrimmed one.
-# > That is fine for a chart, and it breaks `as_scmrun()`,
-# > which requires `region`, `unit`, `variable`, `model` and `scenario` to be present.
-# > Use a year window and filters when the index has to stay whole.
-
-# %%
-top.index.names
-
-# %% [markdown]
-# `drop_constant=True` does the same thing deliberately,
-# removing dimensions that carry a single value across the filtered data.
-
-# %%
-entry.query(region="World", year_min=2020, year_max=2100, drop_constant=True).index.names
+remote = entry.as_df(
+    filters={"region": ["World", "World|R5.2ASIA"]},
+    year_min=2020,
+    year_max=2100,
+    server_side=True,
+)
+remote.shape
 
 # %% [markdown]
 # ## Long format
 #
 # `as_long_df()` returns the tidy form,
-# one row per series and year, with `year` and `value` columns.
+# one row per series and year, with an integer `year` and a `value` column.
 
 # %%
-entry.as_long_df(region="World", variable="Emissions|CO2", year_min=2020, year_max=2030).head()
+entry.as_long_df(
+    filters={"region": "World", "variable": "Emissions|CO2"}, year_min=2020, year_max=2030
+).head()
 
 # %% [markdown]
 # ## Where to next

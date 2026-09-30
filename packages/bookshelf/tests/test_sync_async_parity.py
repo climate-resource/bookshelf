@@ -39,10 +39,6 @@ CLASS_PAIRS = [
 KNOWN_EXCEPTIONS = {
     # The async surface follows the aclose() convention instead.
     ("Bookshelf", "close"),
-    # AsyncResource offers _get_metadata() and _get_type() coroutines,
-    # because a property cannot be awaited.
-    ("Resource", "metadata"),
-    ("Resource", "type"),
 }
 
 _ASYNC_PREFIX = re.compile(r"\bAsync(?=[A-Z])")

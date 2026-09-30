@@ -7,7 +7,6 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 from uuid import UUID
 
@@ -152,9 +151,11 @@ class _PublishedEntry:
     tracking_id: UUID = _PUBLISHED_ID
     type: models.ResourceType = models.ResourceType.timeseries
 
-    @property
-    def metadata(self) -> SimpleNamespace:
-        return SimpleNamespace(hash=f"sha256:{_SHA256}")
+    def resource_type(self) -> models.ResourceType:
+        return self.type
+
+    def content_hash(self) -> str:
+        return f"sha256:{_SHA256}"
 
     def as_path(self) -> Path:
         return self.path
@@ -210,7 +211,7 @@ class _Held:
 
     def lookup(self, content_hash: str) -> _PublishedEntry:
         self.looked_up.append(content_hash)
-        if content_hash != self.entry.metadata.hash:
+        if content_hash != self.entry.content_hash():
             raise NotFoundError(f"no resource with hash {content_hash}", status_code=404)
         return self.entry
 

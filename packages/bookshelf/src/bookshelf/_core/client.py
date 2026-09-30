@@ -450,7 +450,7 @@ class BookshelfClient:
         resource_name: str,
         *,
         max_values: int | None = None,
-        filters: Mapping[str, str] | None = None,
+        filters: Mapping[str, str | list[str]] | None = None,
     ) -> models.FacetsResponse:
         return ops.parse_get_book_resource_facets(
             self._send(
@@ -466,7 +466,7 @@ class BookshelfClient:
         resource_name: str,
         *,
         max_values: int | None = None,
-        filters: Mapping[str, str] | None = None,
+        filters: Mapping[str, str | list[str]] | None = None,
     ) -> models.FacetsResponse:
         return ops.parse_get_book_resource_facets(
             await self._send_async(

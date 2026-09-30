@@ -129,7 +129,7 @@ def test_a_cached_file_is_served_without_any_request(tmp_path: Path) -> None:
     entry = _sync(second, []).book("example", "v1.0.0", edition=2)["by_country"]
 
     assert entry.as_path().read_bytes() == PAYLOAD
-    assert entry.type.value == "timeseries"
+    assert entry.resource_type().value == "timeseries"
     assert second == []
 
 

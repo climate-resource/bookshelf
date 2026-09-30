@@ -21,9 +21,12 @@ from bookshelf._consume.resources import (
     AsyncBookEntry,
     AsyncResource,
     BookEntry,
+    DataPreview,
     Resource,
+    ResourceInfo,
     UnsupportedConversionError,
 )
+from bookshelf._consume.selection import SelectionError
 from bookshelf._consume.volumes import AsyncVolume, Volume
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import UNSET, AuthInput
@@ -768,6 +771,7 @@ __all__ = [
     "Book",
     "BookEntry",
     "Bookshelf",
+    "DataPreview",
     "DraftBook",
     "HashMismatchError",
     "PartialRegistrationError",
@@ -775,6 +779,8 @@ __all__ = [
     "RegistrationFailure",
     "RegistrationSuccess",
     "Resource",
+    "ResourceInfo",
+    "SelectionError",
     "UnsupportedConversionError",
     "Used",
     "Volume",

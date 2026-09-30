@@ -7,12 +7,11 @@ import pytest
 
 from bookshelf import DataFrameSupportError
 from bookshelf._consume.frames import (
+    drop_constant_dimensions,
     long_timeseries,
     polars_converter,
-    timeseries_frame,
     wide_timeseries,
 )
-from bookshelf._generated import models
 
 
 def test_long_timeseries_round_trips_a_dimensioned_wide_frame() -> None:
@@ -31,17 +30,33 @@ def test_long_timeseries_handles_a_wide_frame_without_dimensions() -> None:
     assert long["value"].tolist() == [1.5, 2.5]
 
 
-def test_long_timeseries_handles_a_response_without_an_index() -> None:
-    response = models.TimeseriesResponse(
-        index=[],
-        years=[2000, 2001],
-        data=[[1.5, 2.5]],
-        metadata={},
-        total_rows=1,
-    )
-    long = long_timeseries(timeseries_frame(response))
-    assert list(long.columns) == ["year", "value"]
-    assert long["value"].tolist() == [1.5, 2.5]
+@pytest.mark.parametrize(
+    "stored",
+    [
+        pd.DataFrame({"region": ["NZL"], "2000-01-01": [1.5], "2001-01-01 00:00:00": [2.5]}),
+        pd.DataFrame({"region": ["NZL", "NZL"], "year": [2000, 2001], "value": [1.5, 2.5]}),
+    ],
+    ids=["wide", "long"],
+)
+def test_wide_timeseries_labels_years_as_strings_whatever_the_stored_shape(
+    stored: pd.DataFrame,
+) -> None:
+    wide = wide_timeseries(stored)
+    assert list(wide.columns) == ["2000", "2001"]
+    assert wide.loc["NZL", "2000"] == 1.5
+
+
+def test_a_long_frame_without_dimensions_still_gets_string_years() -> None:
+    wide = wide_timeseries(pd.DataFrame({"year": [2000, 2001], "value": [1.5, 2.5]}))
+    assert list(wide.columns) == ["2000", "2001"]
+
+
+def test_drop_constant_dimensions_keeps_the_levels_that_vary() -> None:
+    wide = pd.DataFrame(
+        {"model": ["m", "m"], "region": ["NZL", "AUS"], "2000": [1.0, 2.0]}
+    ).set_index(["model", "region"])
+    assert drop_constant_dimensions(wide).index.names == ["region"]
+    assert drop_constant_dimensions(wide.iloc[:1]).index.names == [None]
 
 
 def test_wide_timeseries_leaves_a_year_only_frame_alone() -> None:

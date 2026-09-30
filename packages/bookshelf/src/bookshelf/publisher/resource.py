@@ -113,14 +113,12 @@ class PublishedEntry(Protocol):
 
     tracking_id: UUID
 
-    @property
-    def metadata(self) -> models.ResourceRead:
-        """The platform's projection of the resource, which is where its digest comes from."""
+    def resource_type(self) -> models.ResourceType:
+        """The type the platform registered the resource under."""
         ...
 
-    @property
-    def type(self) -> models.ResourceType:
-        """The type the platform registered the resource under."""
+    def content_hash(self) -> str:
+        """The digest the platform declares for the bytes."""
         ...
 
     def as_path(self) -> Path:
@@ -434,19 +432,20 @@ def _held(
     citable: bool = False,
 ) -> ResolvedResource:
     """Wrap a platform-held resource, checking a stated type rather than trusting it."""
-    if declared is not None and entry.type != declared:
+    registered = entry.resource_type()
+    if declared is not None and registered != declared:
         raise BookshelfError(
             f"resource {name!r} declares type {declared.value}, "
-            f"but {uri} is {entry.type.value}. "
+            f"but {uri} is {registered.value}. "
             "Correct the type, or leave it out and take the platform's"
         )
     return ResolvedResource(
         name=name,
         path=entry.as_path(),
-        hash=entry.metadata.hash,
+        hash=entry.content_hash(),
         pointer=entry,
         tracking_id=entry.tracking_id,
-        citable_hash=entry.metadata.hash if citable else None,
+        citable_hash=entry.content_hash() if citable else None,
         reference=uri,
     )
 

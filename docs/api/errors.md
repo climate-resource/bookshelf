@@ -31,6 +31,8 @@ so a caller can catch `NotFoundError` or `ConflictError` rather than compare `st
 
 ::: bookshelf.UnsupportedConversionError
 
+::: bookshelf.SelectionError
+
 ::: bookshelf.DataFrameSupportError
 
 ::: bookshelf.PartialRegistrationError
