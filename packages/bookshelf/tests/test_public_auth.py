@@ -142,6 +142,7 @@ def test_access_token_raises_for_a_spent_login(monkeypatch: pytest.MonkeyPatch) 
 def test_the_public_names_are_exactly_these() -> None:
     assert set(bookshelf.auth.__all__) == {
         "ActionsOidcToken",
+        "ActionsTokenError",
         "AuthConfigurationError",
         "BsatAssertion",
         "ClientCredentials",

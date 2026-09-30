@@ -6,6 +6,7 @@ from uuid import UUID
 from bookshelf._consume.presentation import Describable, Sections
 from bookshelf._consume.resources import AsyncBookEntry, BookEntry, describe_type
 from bookshelf._core.client import BookshelfClient
+from bookshelf._core.errors import EntryNotFoundError
 from bookshelf._core.names import book_coordinate
 from bookshelf._generated import models
 from bookshelf.cache import ContentCache
@@ -61,9 +62,10 @@ class _BookBase(Describable):
             return self._entries[name_in_book]
         except KeyError:
             available = ", ".join(sorted(self._entries)) or "(none)"
-            raise KeyError(
+            raise EntryNotFoundError(
                 f"book {book_coordinate(self.metadata.version, self.metadata.edition)} "
-                f"has no entry {name_in_book!r}, available: {available}"
+                f"has no entry {name_in_book!r}, available: {available}",
+                status_code=404,
             ) from None
 
 
@@ -71,7 +73,7 @@ class Book(_BookBase):
     """A resolved published Book indexed by Entry name."""
 
     def __getitem__(self, name_in_book: str) -> BookEntry:
-        """Look up one entry by name, raising KeyError for a name the book does not index."""
+        """Look up one entry by name, raising EntryNotFoundError for a name the book does not index."""
         return BookEntry(
             self._client,
             self._cache,
@@ -86,7 +88,7 @@ class AsyncBook(_BookBase):
     _title = "Bookshelf Async Book"
 
     def __getitem__(self, name_in_book: str) -> AsyncBookEntry:
-        """Look up one entry by name, raising KeyError for a name the book does not index."""
+        """Look up one entry by name, raising EntryNotFoundError for a name the book does not index."""
         return AsyncBookEntry(
             self._client,
             self._cache,

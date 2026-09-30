@@ -179,7 +179,7 @@ def _exit_code_for(exc: errors.BookshelfError) -> int:
         return EXIT_NOT_FOUND
     if isinstance(exc, errors.ServerError | errors.TransportError):
         return EXIT_NETWORK
-    if isinstance(exc, errors.ValidationError):
+    if isinstance(exc, errors.RequestValidationError):
         return EXIT_USAGE
     return EXIT_UNEXPECTED
 

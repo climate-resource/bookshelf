@@ -154,8 +154,6 @@ def _bundle_errors(root: Path) -> Generator[None]:
 
     A malformed manifest is a distinct outcome from a crash,
     so a caller can branch on it.
-    ``ValueError`` covers both the schema-major refusal
-    and the pydantic validation failure.
     """
     try:
         yield

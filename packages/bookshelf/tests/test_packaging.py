@@ -102,3 +102,22 @@ def test_the_root_package_exports_typed_errors_and_deployments() -> None:
     assert issubclass(bookshelf.ConflictError, bookshelf.APIError)
     assert bookshelf.STAGING_API_URL == config.STAGING_API_URL
     assert bookshelf.PRODUCTION_API_URL == config.PRODUCTION_API_URL
+
+
+def test_every_sdk_error_is_exported_from_the_root_package() -> None:
+    import bookshelf.publisher  # noqa: F401
+
+    def subclasses(cls: type) -> set[type]:
+        found = set(cls.__subclasses__())
+        return found.union(*(subclasses(sub) for sub in found))
+
+    public = {
+        error
+        for error in subclasses(bookshelf.BookshelfError)
+        if error.__module__.startswith("bookshelf.")
+        and not error.__module__.startswith("bookshelf._cli")
+        and not error.__name__.startswith("_")
+    }
+
+    assert {error.__name__ for error in public} <= set(bookshelf.__all__)
+    assert all(getattr(bookshelf, error.__name__) is error for error in public)

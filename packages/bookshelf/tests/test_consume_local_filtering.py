@@ -6,7 +6,7 @@ import httpx
 import pandas as pd
 import pytest
 
-from bookshelf import AsyncBookshelf, Bookshelf
+from bookshelf import AsyncBookshelf, Bookshelf, SelectionError
 from bookshelf._consume.frames import filter_rows, filter_years
 from bookshelf._core.errors import BookshelfError
 from bookshelf.cache import ContentCache
@@ -114,8 +114,10 @@ async def test_the_async_as_scmrun_rejects_duplicate_metadata(tmp_path: Path) ->
 
 def test_an_unknown_filter_column_is_rejected(tmp_path: Path) -> None:
     bs, _ = _shelf(tmp_path)
-    with pytest.raises(KeyError, match="regoin"):
+    with pytest.raises(SelectionError, match="^cannot filter on 'regoin'") as caught:
         bs.resource(TRACKING_ID).as_df(regoin="NZL")
+
+    assert isinstance(caught.value, KeyError)
 
 
 @pytest.mark.parametrize("argument", ["limit", "top_n", "drop_constant", "select"])

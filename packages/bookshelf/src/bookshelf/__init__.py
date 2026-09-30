@@ -2,20 +2,27 @@
 
 import importlib.metadata
 
+from bookshelf._core.actions_oidc import ActionsTokenError
 from bookshelf._core.config import PRODUCTION_API_URL, STAGING_API_URL
 from bookshelf._core.errors import (
     APIError,
+    AuthConfigurationError,
     AuthenticationError,
     AuthenticationRequiredError,
     BookshelfError,
     ConflictError,
+    EntryNotFoundError,
     ForbiddenError,
     NotFoundError,
+    OAuthProtocolError,
+    RequestValidationError,
+    SelectionError,
     ServerError,
     TransportError,
     UnexpectedResponseError,
 )
 from bookshelf._core.frames import DataFrameSupportError
+from bookshelf._core.oauth import OAuthError
 from bookshelf._generated import OPENAPI_VERSION, models
 from bookshelf._produce.helpers import uuid7
 from bookshelf.cache import ContentCache
@@ -42,7 +49,15 @@ from bookshelf.facade import (
     Used,
     Volume,
 )
-from bookshelf.publisher import replay_bundle, replay_bundle_sync, run_record, setup
+from bookshelf.publisher import (
+    InvalidBundleError,
+    InvalidRecipeError,
+    InvalidReferenceError,
+    replay_bundle,
+    replay_bundle_sync,
+    run_record,
+    setup,
+)
 
 __version__ = importlib.metadata.version("bookshelf")
 
@@ -64,6 +79,7 @@ __all__ = [
     "PRODUCTION_API_URL",
     "STAGING_API_URL",
     "APIError",
+    "ActionsTokenError",
     "Activity",
     "AsyncActivity",
     "AsyncBook",
@@ -72,6 +88,7 @@ __all__ = [
     "AsyncDraftBook",
     "AsyncResource",
     "AsyncVolume",
+    "AuthConfigurationError",
     "AuthenticationError",
     "AuthenticationRequiredError",
     "Book",
@@ -82,14 +99,22 @@ __all__ = [
     "ContentCache",
     "DataFrameSupportError",
     "DraftBook",
+    "EntryNotFoundError",
     "ForbiddenError",
     "HashMismatchError",
+    "InvalidBundleError",
+    "InvalidRecipeError",
+    "InvalidReferenceError",
     "NotFoundError",
+    "OAuthError",
+    "OAuthProtocolError",
     "PartialRegistrationError",
     "RegisterItem",
     "RegistrationFailure",
     "RegistrationSuccess",
+    "RequestValidationError",
     "Resource",
+    "SelectionError",
     "ServerError",
     "TransportError",
     "UnexpectedResponseError",

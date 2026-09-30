@@ -5,6 +5,7 @@ The credential is resolved exactly as a ``Bookshelf`` client resolves it.
 
 import httpx
 
+from bookshelf._core.actions_oidc import ActionsTokenError
 from bookshelf._core.auth import (
     ActionsOidcToken,
     BsatAssertion,
@@ -46,6 +47,7 @@ def access_token(api_url: str | None = None, *, timeout: float = 30.0) -> str | 
 
 __all__ = [
     "ActionsOidcToken",
+    "ActionsTokenError",
     "AuthConfigurationError",
     "BsatAssertion",
     "ClientCredentials",
