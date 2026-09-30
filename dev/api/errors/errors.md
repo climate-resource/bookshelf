@@ -19,8 +19,9 @@ whether the platform answered 404 or the SDK settled the lookup locally.
 Looking up an entry a book does not index raises `EntryNotFoundError`.
 It is also a `KeyError`, so `book["name"]` behaves like any other mapping.
 
-Filtering on a column the data does not have raises `SelectionError`,
+Filtering or ordering on a column the data does not have raises `SelectionError`,
 which is also a `KeyError`.
+So does a filter value the column cannot be read as, and a selection the platform refuses.
 
 ## HTTP responses
 
