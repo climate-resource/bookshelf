@@ -385,6 +385,15 @@ def test_a_recipe_that_is_not_yaml_is_an_invalid_recipe(tmp_path: Path) -> None:
     assert isinstance(caught.value, ValueError)
 
 
+@pytest.mark.parametrize("content", [b"[]\n", b"volume: \xff\n"], ids=["empty-list", "not-utf8"])
+def test_an_unreadable_recipe_is_an_invalid_recipe(tmp_path: Path, content: bytes) -> None:
+    path = tmp_path / "bookshelf.yaml"
+    path.write_bytes(content)
+
+    with pytest.raises(InvalidRecipeError):
+        load_record_recipe(path)
+
+
 def test_books_stated_as_a_mapping_is_rejected(tmp_path: Path) -> None:
     path = _write(
         tmp_path,

@@ -293,10 +293,12 @@ def test_a_manifest_declaring_a_newer_major_is_refused(tmp_path: Path) -> None:
         "schema_version: 3\nresources: []\n",
         "schema_version: 'three'\nresources: []\n",
         "- not a mapping\n",
+        "[]\n",
+        "false\n",
         "schema_version: '3.0'\nresources: [1]\n",
         "schema_version: '3.0'\nresources: [\n",
     ],
-    ids=["numeric-version", "unparsable-version", "list", "schema", "yaml"],
+    ids=["numeric-version", "unparsable-version", "list", "empty-list", "false", "schema", "yaml"],
 )
 def test_an_unreadable_manifest_is_an_invalid_bundle(tmp_path: Path, text: str) -> None:
     with pytest.raises(InvalidBundleError):

@@ -669,9 +669,11 @@ def load_record_recipe(path: Path) -> RecordRecipe:
     A recipe that breaks one raises :class:`InvalidRecipeError`.
     """
     try:
-        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except yaml.YAMLError as exc:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (yaml.YAMLError, UnicodeDecodeError) as exc:
         raise InvalidRecipeError(f"{path} is not valid YAML: {exc}") from exc
+    if raw is None:
+        raw = {}
     if not isinstance(raw, dict):
         raise InvalidRecipeError(f"{path} must contain a YAML mapping")
     if any(key in raw for key in _REMOVED_FLAT_KEYS):

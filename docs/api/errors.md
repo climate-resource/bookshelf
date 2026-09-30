@@ -7,6 +7,9 @@ Misusing the API raises Python's own `TypeError` or `ValueError` instead,
 for example passing an argument a resource type does not accept.
 These signal a bug in the calling code rather than a condition to handle.
 
+A server response that does not match the published schema is the one gap.
+It raises pydantic's `ValidationError`, which is not a `BookshelfError`.
+
 ## Not found
 
 A volume, version, book, entry or resource that does not exist raises `NotFoundError`,

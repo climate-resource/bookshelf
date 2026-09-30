@@ -1068,9 +1068,11 @@ class Bundle:
         A bundle recorded as a draft loads here and replays as a draft.
         """
         try:
-            raw = yaml.safe_load((root / MANIFEST_NAME).read_bytes()) or {}
+            raw = yaml.safe_load((root / MANIFEST_NAME).read_bytes())
         except yaml.YAMLError as exc:
             raise InvalidBundleError(f"{MANIFEST_NAME} is not valid YAML: {exc}") from exc
+        if raw is None:
+            raw = {}
         if not isinstance(raw, dict):
             raise InvalidBundleError(f"{MANIFEST_NAME} must contain a YAML mapping")
         _prepare_manifest(raw)
