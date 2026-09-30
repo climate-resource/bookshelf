@@ -42,9 +42,11 @@ from pydantic import (
     ConfigDict,
     Field,
     StringConstraints,
-    ValidationError,
     field_validator,
     model_validator,
+)
+from pydantic import (
+    ValidationError as PydanticValidationError,
 )
 
 from bookshelf._core.errors import BookshelfError
@@ -1014,7 +1016,7 @@ class Bundle:
         if book is not None:
             try:
                 _ = book.volume_update
-            except ValidationError as exc:
+            except PydanticValidationError as exc:
                 error = exc.errors()[0]
                 field = ".".join(str(part) for part in error["loc"]) or "volume_discovery"
                 raise InvalidBundleError(
@@ -1035,7 +1037,7 @@ class Bundle:
                     raise InvalidBundleError(str(exc)) from exc
             try:
                 _ = resource.discovery
-            except ValidationError as exc:
+            except PydanticValidationError as exc:
                 error = exc.errors()[0]
                 field = ".".join(str(part) for part in error["loc"]) or "discovery"
                 raise InvalidBundleError(
@@ -1076,7 +1078,7 @@ class Bundle:
         _prepare_manifest(raw)
         try:
             manifest = BundleManifest.model_validate(raw)
-        except ValidationError as exc:
+        except PydanticValidationError as exc:
             raise InvalidBundleError(
                 f"{MANIFEST_NAME} does not match the bundle schema: {exc}"
             ) from exc

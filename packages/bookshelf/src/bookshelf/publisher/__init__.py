@@ -50,7 +50,7 @@ It returns a :class:`PublishOutcome` saying what the publish resolved to::
 
 from bookshelf.publisher.bundle import Bundle, BundleManifest, InvalidBundleError
 from bookshelf.publisher.publish import PublishOutcome, publish_bundle
-from bookshelf.publisher.recipe import RecordRecipe, load_record_recipe
+from bookshelf.publisher.recipe import InvalidRecipeError, RecordRecipe, load_record_recipe
 from bookshelf.publisher.record import (
     Build,
     parse_parameters,
@@ -64,7 +64,11 @@ from bookshelf.publisher.recording import (
     RecordingBookshelf,
     RecordingSink,
 )
-from bookshelf.publisher.reference import BookshelfReference, DigestReference
+from bookshelf.publisher.reference import (
+    BookshelfReference,
+    DigestReference,
+    InvalidReferenceError,
+)
 from bookshelf.publisher.replay import replay_bundle, replay_bundle_sync
 from bookshelf.publisher.resource import ResolvedResource, resolve_resource
 
@@ -74,6 +78,8 @@ __all__ = [
     "Bundle",
     "BundleManifest",
     "InvalidBundleError",
+    "InvalidRecipeError",
+    "InvalidReferenceError",
     "PublishOutcome",
     "RecordRecipe",
     "RecordedDraftBook",

@@ -31,11 +31,14 @@ class AuthenticationRequiredError(BookshelfError):
     """No credential the API accepts is available, and none can be obtained here."""
 
 
-class SelectionError(BookshelfError, KeyError):
-    """A filter names a column or index level the data does not have."""
-
+class _UnquotedKeyError(KeyError):
+    # KeyError would otherwise print its message as a quoted repr.
     def __str__(self) -> str:
-        return BookshelfError.__str__(self)
+        return Exception.__str__(self)
+
+
+class SelectionError(BookshelfError, _UnquotedKeyError):
+    """A filter names a column or index level the data does not have."""
 
 
 class APIError(BookshelfError):
@@ -105,18 +108,15 @@ class NotFoundError(APIError, LookupError):
     """
 
 
-class EntryNotFoundError(NotFoundError, KeyError):
+class EntryNotFoundError(NotFoundError, _UnquotedKeyError):
     """A book indexes no entry by the requested name."""
-
-    def __str__(self) -> str:
-        return BookshelfError.__str__(self)
 
 
 class ConflictError(APIError):
     """Raised on HTTP 409 responses."""
 
 
-class ValidationError(APIError):
+class RequestValidationError(APIError):
     """Raised on HTTP 400 / 422 request-validation failures."""
 
 
@@ -154,12 +154,12 @@ class UnexpectedResponseError(APIError):
 
 
 _ERROR_BY_STATUS: dict[int, type[APIError]] = {
-    400: ValidationError,
+    400: RequestValidationError,
     401: AuthenticationError,
     403: ForbiddenError,
     404: NotFoundError,
     409: ConflictError,
-    422: ValidationError,
+    422: RequestValidationError,
 }
 
 

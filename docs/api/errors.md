@@ -30,7 +30,7 @@ so a caller can catch `NotFoundError` or `ConflictError` rather than compare `st
 
 ::: bookshelf.APIError
 
-::: bookshelf.ValidationError
+::: bookshelf.RequestValidationError
 
 ::: bookshelf.AuthenticationError
 
@@ -69,3 +69,7 @@ so a caller can catch `NotFoundError` or `ConflictError` rather than compare `st
 ::: bookshelf.PartialRegistrationError
 
 ::: bookshelf.InvalidBundleError
+
+::: bookshelf.InvalidRecipeError
+
+::: bookshelf.InvalidReferenceError

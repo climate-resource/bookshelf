@@ -384,10 +384,7 @@ def locate_reference(
     Unlike :func:`resolve_resource` this fetches no bytes, because placing a resource never reads it.
     Raises :class:`~bookshelf._core.errors.BookshelfError` for a reference that resolves to nothing.
     """
-    try:
-        reference = parse_reference(uri)
-    except ValueError as exc:
-        raise BookshelfError(str(exc)) from exc
+    reference = parse_reference(uri)
     who = "a placement"
     if isinstance(reference, DigestReference):
         entry = _digest_entry(who, reference=reference, lookup_digest=lookup_digest)

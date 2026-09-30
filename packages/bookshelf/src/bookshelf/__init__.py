@@ -15,11 +15,11 @@ from bookshelf._core.errors import (
     ForbiddenError,
     NotFoundError,
     OAuthProtocolError,
+    RequestValidationError,
     SelectionError,
     ServerError,
     TransportError,
     UnexpectedResponseError,
-    ValidationError,
 )
 from bookshelf._core.frames import DataFrameSupportError
 from bookshelf._core.oauth import OAuthError
@@ -51,6 +51,8 @@ from bookshelf.facade import (
 )
 from bookshelf.publisher import (
     InvalidBundleError,
+    InvalidRecipeError,
+    InvalidReferenceError,
     replay_bundle,
     replay_bundle_sync,
     run_record,
@@ -101,6 +103,8 @@ __all__ = [
     "ForbiddenError",
     "HashMismatchError",
     "InvalidBundleError",
+    "InvalidRecipeError",
+    "InvalidReferenceError",
     "NotFoundError",
     "OAuthError",
     "OAuthProtocolError",
@@ -108,6 +112,7 @@ __all__ = [
     "RegisterItem",
     "RegistrationFailure",
     "RegistrationSuccess",
+    "RequestValidationError",
     "Resource",
     "SelectionError",
     "ServerError",
@@ -115,7 +120,6 @@ __all__ = [
     "UnexpectedResponseError",
     "UnsupportedConversionError",
     "Used",
-    "ValidationError",
     "Volume",
     "__version__",
     "models",

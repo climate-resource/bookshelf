@@ -5,6 +5,7 @@ import pytest
 from bookshelf.publisher.reference import (
     BookshelfReference,
     DigestReference,
+    InvalidReferenceError,
     is_reference,
     parse_reference,
 )
@@ -55,8 +56,10 @@ def test_a_reference_that_is_not_a_coordinate_is_rejected(uri: str) -> None:
 
 
 def test_a_uri_of_another_scheme_is_rejected() -> None:
-    with pytest.raises(ValueError, match="starts with"):
+    with pytest.raises(InvalidReferenceError, match="starts with") as caught:
         BookshelfReference.parse("https://example.invalid/raw.csv")
+
+    assert isinstance(caught.value, ValueError)
 
 
 @pytest.mark.parametrize(
