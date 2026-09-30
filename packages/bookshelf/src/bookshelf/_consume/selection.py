@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from bookshelf._consume.frames import is_year_column
-from bookshelf._core.errors import BookshelfError
+from bookshelf._core.errors import SelectionError
 from bookshelf._generated import models
 
 if TYPE_CHECKING:
@@ -25,14 +25,10 @@ type Order = str | Sequence[str]
 _TRUE_WORDS = frozenset({"true", "1", "yes"})
 
 
-class SelectionError(BookshelfError, ValueError):
-    """A selection names a column the resource has not got, or cannot be expressed."""
-
-
 def _scalar(column: str, value: object) -> FilterValue:
     if value is None or isinstance(value, str | bool | int | float):
         return value
-    raise SelectionError(f"filter {column!r} has a {type(value).__name__} value, not a scalar")
+    raise TypeError(f"filter {column!r} has a {type(value).__name__} value, not a scalar")
 
 
 def _values(column: str, wanted: object) -> tuple[FilterValue, ...]:
@@ -40,11 +36,9 @@ def _values(column: str, wanted: object) -> tuple[FilterValue, ...]:
         return (_scalar(column, wanted),)
     values = tuple(_scalar(column, value) for value in wanted)
     if not values:
-        raise SelectionError(f"filter {column!r} lists no values, so it would select nothing")
+        raise ValueError(f"filter {column!r} lists no values, so it would select nothing")
     if len(values) > 1 and (None in values or "" in values):
-        raise SelectionError(
-            f"filter {column!r} can match a missing or empty value only on its own"
-        )
+        raise ValueError(f"filter {column!r} can match a missing or empty value only on its own")
     return values
 
 
@@ -102,7 +96,7 @@ class Selection:
     def check(self, resource_type: models.ResourceType) -> None:
         """Refuse a year window on data that has no year columns."""
         if self.has_years and resource_type is not models.ResourceType.timeseries:
-            raise SelectionError("year_min and year_max need a timeseries resource")
+            raise TypeError("year_min and year_max need a timeseries resource")
 
     def data_params(self) -> dict[str, str]:
         """Encode the selection for the ``/data`` route.
@@ -128,7 +122,7 @@ class Selection:
         params: dict[str, str | list[str]] = {}
         for column, values in self.filters:
             if None in values:
-                raise SelectionError(f"book routes cannot filter {column!r} on a missing value")
+                raise ValueError(f"book routes cannot filter {column!r} on a missing value")
             texts = [wire_text(value) for value in values]
             params[column] = texts[0] if len(texts) == 1 else texts
         return params
@@ -154,7 +148,7 @@ def _order_keys(order: Order | None) -> tuple[tuple[str, bool], ...]:
         return ()
     keys = [order] if isinstance(order, str) else list(order)
     if not all(isinstance(key, str) and key.lstrip("-") for key in keys):
-        raise SelectionError("order takes column names, each prefixed with '-' to sort descending")
+        raise ValueError("order takes column names, each prefixed with '-' to sort descending")
     return tuple((key[1:], True) if key.startswith("-") else (key, False) for key in keys)
 
 
@@ -235,4 +229,4 @@ def _filter_years(wide: pd.DataFrame, year_min: int | None, year_max: int | None
     ]
 
 
-__all__ = ["FilterValue", "Filters", "Order", "Selection", "SelectionError"]
+__all__ = ["FilterValue", "Filters", "Order", "Selection"]

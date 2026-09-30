@@ -142,7 +142,7 @@ They apply to the cached download by default, and `server_side=True` has the pla
 entry.as_df(year_min=2000, year_max=2010, filters={"region": "World"})
 ```
 
-A filter on a column the resource does not have raises `SelectionError`.
+A filter on a column the resource does not have raises `SelectionError`, a `KeyError`.
 Previously you filtered the `ScmRun` or `DataFrame` yourself, which still works.
 
 ## Behaviour to check
@@ -164,7 +164,7 @@ New versions are only published to the platform.
 0.4 stored resources in wide and long formats under names such as `by_country_wide`,
 and `timeseries("by_country")` added the wide suffix for you.
 In 1.0 an entry has one name, `by_country`,
-and `book["by_country_wide"]` raises `KeyError` listing the names that exist.
+and `book["by_country_wide"]` raises `EntryNotFoundError`, a `KeyError`, listing the names that exist.
 
 A book can also carry entries that are not data, such as `build.ipynb` and `build.html`,
 the notebook that built it.

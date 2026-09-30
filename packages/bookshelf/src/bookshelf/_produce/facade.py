@@ -82,13 +82,16 @@ ProcessingInput = Sequence[tuple[str, str]]
 """The ``(code_ref, config_hash)`` pairs of the runs that generated a book's members."""
 
 
-def processing_items(pairs: ProcessingInput) -> list[models.ProcessingItem]:
+def processing_items(pairs: ProcessingInput) -> list[models.BookDraftRequestProcessingItem]:
     """Wrap the processing fingerprint in the model its request field takes.
 
     An empty sequence becomes ``[]``, which is the book that no activity generated.
     The platform deduplicates and sorts, so nothing is done to the order here.
     """
-    return [models.ProcessingItem((code_ref, config_hash)) for code_ref, config_hash in pairs]
+    return [
+        models.BookDraftRequestProcessingItem((code_ref, config_hash))
+        for code_ref, config_hash in pairs
+    ]
 
 
 def _draft_request(
@@ -128,7 +131,7 @@ def _draft_request(
         version=version,
         visibility=visibility,
         metadata=dict(metadata or {}),
-        bundle_hash=_as_model(models.BundleHash, bundle_hash),
+        bundle_hash=_as_model(models.BookDraftRequestBundleHash, bundle_hash),
         **baked,
     )
 

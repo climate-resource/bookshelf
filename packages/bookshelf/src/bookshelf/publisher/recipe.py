@@ -86,6 +86,10 @@ _MOVED_KEYS = (
 )
 
 
+class InvalidRecipeError(BookshelfError, ValueError):
+    """A recipe on disk breaks a rule the recipe format promises."""
+
+
 class _Section(BaseModel):
     """Base for every recipe section: unknown keys are rejected, and the result is immutable."""
 
@@ -286,7 +290,8 @@ class ResourceSpec(_ResourceFields):
     def reference(self) -> Reference | None:
         """The platform-held resource this declaration names, or ``None`` for a fetch or a file.
 
-        Raises :class:`ValueError` where the URI takes the scheme without a coordinate or a digest,
+        Raises :class:`~bookshelf.publisher.reference.InvalidReferenceError`
+        where the URI takes the scheme without a coordinate or a digest,
         which is what makes reading it enough to validate it.
         """
         if self.uri is None or not is_reference(self.uri):
@@ -572,15 +577,15 @@ def _section[SectionT: BaseModel](
     if raw is None:
         raw = {}
     if not isinstance(raw, dict):
-        raise BookshelfError(f"{path} {where} must be a mapping")
+        raise InvalidRecipeError(f"{path} {where} must be a mapping")
     try:
         return model.model_validate(raw)
     except ValidationError as exc:
         problems = [_render(error, model=model, where=where) for error in exc.errors()]
         if len(problems) == 1:
-            raise BookshelfError(f"{path} {problems[0]}") from exc
+            raise InvalidRecipeError(f"{path} {problems[0]}") from exc
         listed = "\n".join(f"- {problem}" for problem in problems)
-        raise BookshelfError(f"{path} has {len(problems)} problems:\n{listed}") from exc
+        raise InvalidRecipeError(f"{path} has {len(problems)} problems:\n{listed}") from exc
 
 
 def _book_documents(path: Path, raw: dict[str, Any]) -> list[dict[str, Any]]:
@@ -589,7 +594,7 @@ def _book_documents(path: Path, raw: dict[str, Any]) -> list[dict[str, Any]]:
     if declared is None:
         return []
     if not isinstance(declared, list):
-        raise BookshelfError(
+        raise InvalidRecipeError(
             f"{path} books must be a list, one entry per book, each with a 'version:'"
         )
     documents: list[dict[str, Any]] = []
@@ -597,10 +602,10 @@ def _book_documents(path: Path, raw: dict[str, Any]) -> list[dict[str, Any]]:
         if body is None:
             body = {}
         if not isinstance(body, dict):
-            raise BookshelfError(f"{path} books[{index}] must be a mapping")
+            raise InvalidRecipeError(f"{path} books[{index}] must be a mapping")
         version = body.get("version")
         if version is not None and not isinstance(version, str):
-            raise BookshelfError(f"{path} books[{index}] {_unquoted_version(version)}")
+            raise InvalidRecipeError(f"{path} books[{index}] {_unquoted_version(version)}")
         documents.append(body)
     return documents
 
@@ -661,18 +666,24 @@ def load_record_recipe(path: Path) -> RecordRecipe:
 
     Every rule the recipe promises is enforced here,
     so a recipe that loads is one the recorder can run without rechecking it.
+    A recipe that breaks one raises :class:`InvalidRecipeError`.
     """
-    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (yaml.YAMLError, UnicodeDecodeError) as exc:
+        raise InvalidRecipeError(f"{path} is not valid YAML: {exc}") from exc
+    if raw is None:
+        raw = {}
     if not isinstance(raw, dict):
-        raise BookshelfError(f"{path} must contain a YAML mapping")
+        raise InvalidRecipeError(f"{path} must contain a YAML mapping")
     if any(key in raw for key in _REMOVED_FLAT_KEYS):
-        raise BookshelfError(
+        raise InvalidRecipeError(
             f"{path} uses the removed flat recipe form. "
             "Move 'collection' under 'volume: name:', 'notebook' under 'build:', "
             "and declare each book under 'books:'"
         )
     if "versions" in raw:
-        raise BookshelfError(
+        raise InvalidRecipeError(
             f"{path} declares 'versions:'. That section is now 'books:', "
             "a list rather than a mapping, with the version stated as 'version:' inside each entry"
         )
@@ -680,11 +691,13 @@ def load_record_recipe(path: Path) -> RecordRecipe:
     if unknown:
         listed = ", ".join(repr(key) for key in unknown)
         allowed = ", ".join(_TOP_LEVEL_KEYS)
-        raise BookshelfError(
+        raise InvalidRecipeError(
             f"{path} has an unknown top-level key {listed}. A recipe holds: {allowed}"
         )
     if "volume" not in raw:
-        raise BookshelfError(f"{path} declares no volume. Add 'volume:' with a 'name:' under it")
+        raise InvalidRecipeError(
+            f"{path} declares no volume. Add 'volume:' with a 'name:' under it"
+        )
 
     volume_raw = raw.get("volume")
     build_raw = raw.get("build")
@@ -692,7 +705,7 @@ def load_record_recipe(path: Path) -> RecordRecipe:
     for section, key, advice in _MOVED_KEYS:
         body = raw.get(section)
         if isinstance(body, dict) and key in body:
-            raise BookshelfError(f"{path} declares {key!r} under '{section}:'. {advice}")
+            raise InvalidRecipeError(f"{path} declares {key!r} under '{section}:'. {advice}")
 
     defaults = _section(DefaultsSection, defaults_raw, path=path, where="defaults")
     books = []
@@ -720,7 +733,7 @@ def load_record_recipe(path: Path) -> RecordRecipe:
         # The whole-recipe rules live on the model, so their message arrives through pydantic
         # and gets the path prefix here, like every other refusal the loader raises.
         problem = exc.errors()[0]["msg"].removeprefix("Value error, ")
-        raise BookshelfError(f"{path} {problem}") from exc
+        raise InvalidRecipeError(f"{path} {problem}") from exc
 
 
 def resolve_book_visibility(
@@ -751,6 +764,7 @@ __all__ = [
     "BuildSection",
     "DefaultsSection",
     "DiscoveryFields",
+    "InvalidRecipeError",
     "RecordRecipe",
     "ResolvedBook",
     "ResourceDefaults",

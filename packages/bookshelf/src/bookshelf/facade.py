@@ -20,7 +20,6 @@ from bookshelf._consume.memo import (
 )
 from bookshelf._consume.reading import DataPreview, ResourceInfo
 from bookshelf._consume.resources import AsyncBookEntry, AsyncResource, BookEntry, Resource
-from bookshelf._consume.selection import SelectionError
 from bookshelf._consume.volumes import AsyncVolume, Volume
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import UNSET, AuthInput
@@ -445,7 +444,8 @@ class Bookshelf:
         A correction that changes something is recorded as an event on the book, with its reason.
         One that changes nothing records no event, so check ``corrected`` when the audit matters.
         A draft is a ``ConflictError``, so use ``update_draft`` there.
-        Content, licence or visibility changes are a ``ValidationError`` because they need a new edition.
+        Content, licence or visibility changes are a ``RequestValidationError``,
+        because they need a new edition.
         """
         return self._client.correct_book(book_id, request)
 
@@ -733,7 +733,8 @@ class AsyncBookshelf:
         A correction that changes something is recorded as an event on the book, with its reason.
         One that changes nothing records no event, so check ``corrected`` when the audit matters.
         A draft is a ``ConflictError``, so use ``update_draft`` there.
-        Content, licence or visibility changes are a ``ValidationError`` because they need a new edition.
+        Content, licence or visibility changes are a ``RequestValidationError``,
+        because they need a new edition.
         """
         return await self._client.correct_book_async(book_id, request)
 
@@ -774,7 +775,6 @@ __all__ = [
     "RegistrationSuccess",
     "Resource",
     "ResourceInfo",
-    "SelectionError",
     "UnsupportedConversionError",
     "Used",
     "Volume",

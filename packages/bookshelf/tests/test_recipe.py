@@ -17,6 +17,7 @@ from bookshelf._produce.visibility import INHERIT
 from bookshelf.publisher.bundle import Bundle
 from bookshelf.publisher.recipe import (
     BookSpec,
+    InvalidRecipeError,
     PersonSpec,
     RecordRecipe,
     ResolvedBook,
@@ -375,6 +376,22 @@ def test_the_versions_mapping_is_rejected_naming_the_list_that_replaced_it(tmp_p
     assert "now 'books:'" in message
     assert "a list rather than a mapping" in message
     assert "'version:' inside each entry" in message
+
+
+def test_a_recipe_that_is_not_yaml_is_an_invalid_recipe(tmp_path: Path) -> None:
+    with pytest.raises(InvalidRecipeError, match="not valid YAML") as caught:
+        load_record_recipe(_write(tmp_path, "volume: [\n"))
+
+    assert isinstance(caught.value, ValueError)
+
+
+@pytest.mark.parametrize("content", [b"[]\n", b"volume: \xff\n"], ids=["empty-list", "not-utf8"])
+def test_an_unreadable_recipe_is_an_invalid_recipe(tmp_path: Path, content: bytes) -> None:
+    path = tmp_path / "bookshelf.yaml"
+    path.write_bytes(content)
+
+    with pytest.raises(InvalidRecipeError):
+        load_record_recipe(path)
 
 
 def test_books_stated_as_a_mapping_is_rejected(tmp_path: Path) -> None:

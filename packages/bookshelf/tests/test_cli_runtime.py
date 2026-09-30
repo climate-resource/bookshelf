@@ -15,7 +15,7 @@ from bookshelf._core import errors
         (errors.AuthenticationError("no", status_code=401), 3),
         (errors.ForbiddenError("not yours", status_code=403), 4),
         (errors.NotFoundError("gone", status_code=404), 5),
-        (errors.ValidationError("bad", status_code=422), 2),
+        (errors.RequestValidationError("bad", status_code=422), 2),
         (errors.ServerError("boom", status_code=502), 6),
         (errors.TransportError("refused"), 6),
         (errors.ConflictError("clash", status_code=409), 1),

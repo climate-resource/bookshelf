@@ -22,7 +22,7 @@ def _item(name: str, resource_type: str) -> models.RegisterResourceItem:
 def _outcome(suffix: str) -> models.RegistrationOutcome:
     return models.RegistrationOutcome(
         tracking_id=UUID(f"0197a000-0000-7000-8000-0000000000{suffix}"),
-        status=models.Status2.created,
+        status=models.RegistrationOutcomeStatus.created,
         dedupe=True,
     )
 
@@ -93,4 +93,7 @@ def test_a_name_outside_the_platform_charset_is_refused(name: str) -> None:
 
 def test_the_name_charset_matches_the_generated_wire_model() -> None:
     """The platform owns this charset, so regenerating the models must not leave the SDK behind."""
-    assert RESOURCE_NAME_PATTERN.pattern == models.Name.model_json_schema()["pattern"]
+    assert (
+        RESOURCE_NAME_PATTERN.pattern
+        == models.RegisterResourceItemName.model_json_schema()["pattern"]
+    )

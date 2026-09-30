@@ -26,11 +26,17 @@ import re
 from dataclasses import dataclass
 from typing import Self
 
+from bookshelf._core.errors import BookshelfError
+
 SCHEME = "bookshelf://"
 
 _EDITION_RE = re.compile(r"^(?P<version>.+)_e(?P<edition>\d+)$")
 _DIGEST_RE = re.compile(r"^sha256/(?P<hex>[0-9a-fA-F]{64})$")
 _DIGEST_LIKE_RE = re.compile(r"^sha256/[0-9a-fA-F]+(?:/.*)?$")
+
+
+class InvalidReferenceError(BookshelfError, ValueError):
+    """A ``bookshelf://`` reference is not one this client can parse."""
 
 
 def _digest_hex(uri: str) -> str | None:
@@ -68,18 +74,22 @@ class BookshelfReference:
 
     @classmethod
     def parse(cls, uri: str) -> Self:
-        """Read a ``bookshelf://`` URI, raising :class:`ValueError` naming the shape it takes.
+        """Read a ``bookshelf://`` URI, raising :class:`InvalidReferenceError` naming the shape it takes.
 
         The check is structural, so a reference that parses is one a lookup can be attempted for.
         Whether the volume, the edition or the entry exists is a question only the platform answers.
         """
         if not uri.startswith(SCHEME):
-            raise ValueError(f"a bookshelf reference starts with {SCHEME!r}, got {uri!r}")
+            raise InvalidReferenceError(
+                f"a bookshelf reference starts with {SCHEME!r}, got {uri!r}"
+            )
         if _digest_hex(uri) is not None:
-            raise ValueError(f"{uri!r} names a resource by digest rather than by coordinate")
+            raise InvalidReferenceError(
+                f"{uri!r} names a resource by digest rather than by coordinate"
+            )
         segments = uri[len(SCHEME) :].split("/")
         if len(segments) not in (2, 3) or not all(segments):
-            raise ValueError(
+            raise InvalidReferenceError(
                 f"{uri!r} is not a bookshelf reference. "
                 f"Write {SCHEME}<volume>/<version>_e<edition>/<entry>, "
                 "leaving the entry off where the book holds one or whole_book is true"
@@ -110,12 +120,14 @@ class DigestReference:
 
     @classmethod
     def parse(cls, uri: str) -> Self:
-        """Read a ``bookshelf://sha256/<hex>`` URI, raising :class:`ValueError` otherwise."""
+        """Read a ``bookshelf://sha256/<hex>`` URI, raising :class:`InvalidReferenceError` otherwise."""
         if not uri.startswith(SCHEME):
-            raise ValueError(f"a bookshelf reference starts with {SCHEME!r}, got {uri!r}")
+            raise InvalidReferenceError(
+                f"a bookshelf reference starts with {SCHEME!r}, got {uri!r}"
+            )
         hex_ = _digest_hex(uri)
         if hex_ is None:
-            raise ValueError(
+            raise InvalidReferenceError(
                 f"{uri!r} is not a digest reference. Write {SCHEME}sha256/<64 hex characters>"
             )
         return cls(hash=f"sha256:{hex_}")
@@ -125,7 +137,7 @@ type Reference = BookshelfReference | DigestReference
 
 
 def parse_reference(uri: str) -> Reference:
-    """Read either reference shape, raising :class:`ValueError` naming the one it falls short of.
+    """Read either reference shape, raising :class:`InvalidReferenceError` naming the one it falls short of.
 
     ``sha256`` followed by 64 hex characters is a digest.
     Hex of any other length after ``sha256/``, or hex followed by an entry,
@@ -136,7 +148,7 @@ def parse_reference(uri: str) -> Reference:
     if _digest_hex(uri) is not None:
         return DigestReference.parse(uri)
     if uri.startswith(SCHEME) and _DIGEST_LIKE_RE.match(uri[len(SCHEME) :]) is not None:
-        raise ValueError(
+        raise InvalidReferenceError(
             f"{uri!r} is not a digest reference. Write {SCHEME}sha256/<64 hex characters>"
         )
     return BookshelfReference.parse(uri)
@@ -151,6 +163,7 @@ __all__ = [
     "SCHEME",
     "BookshelfReference",
     "DigestReference",
+    "InvalidReferenceError",
     "Reference",
     "is_reference",
     "parse_reference",

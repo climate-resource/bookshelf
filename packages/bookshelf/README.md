@@ -82,7 +82,7 @@ a list of columns to sort by, each prefixed with `-` to sort descending.
 
 The cached download is shared, so a second conversion costs no network work.
 An external pointer has no cached file, so the platform selects it on every call.
-An unknown filter column raises `SelectionError` on either route.
+An unknown filter column raises `SelectionError`, which is also a `KeyError`, on either route.
 
 `preview()` returns a bounded `DataPreview` instead.
 It adds `limit`, `top_n` and `drop_constant`, and takes `order` on dimension columns.

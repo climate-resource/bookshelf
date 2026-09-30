@@ -211,7 +211,9 @@ def test_build_put_presigned_is_absolute_and_registry_free() -> None:
         (
             ops.build_correct_book(
                 "book/one",
-                models.BookCorrection(metadata=None, reason=models.Reason("retracted")),
+                models.BookCorrection(
+                    metadata=None, reason=models.BookCorrectionReason("retracted")
+                ),
             ),
             ApiRequest(
                 method="POST",
@@ -370,7 +372,7 @@ def test_parse_delete_book_rejects_a_published_book() -> None:
     }
     response = payloads.json_response(400, problem, media_type="application/problem+json")
 
-    with pytest.raises(errors.ValidationError) as excinfo:
+    with pytest.raises(errors.RequestValidationError) as excinfo:
         ops.parse_delete_book(response)
 
     assert excinfo.value.detail == "only draft books can be deleted"
@@ -435,12 +437,12 @@ def test_declared_problem_maps_to_typed_exception() -> None:
 @pytest.mark.parametrize(
     ("status", "exception_type"),
     [
-        (400, errors.ValidationError),
+        (400, errors.RequestValidationError),
         (401, errors.AuthenticationError),
         (403, errors.ForbiddenError),
         (404, errors.NotFoundError),
         (409, errors.ConflictError),
-        (422, errors.ValidationError),
+        (422, errors.RequestValidationError),
     ],
 )
 def test_problem_json_maps_the_exception_hierarchy(
@@ -480,7 +482,7 @@ def test_5xx_maps_to_server_error_with_fallback_detail() -> None:
 
 def test_fastapi_validation_body_falls_back_to_detail_field() -> None:
     response = payloads.json_response(422, {"detail": [{"loc": ["query", "limit"]}]})
-    with pytest.raises(errors.ValidationError) as excinfo:
+    with pytest.raises(errors.RequestValidationError) as excinfo:
         ops.parse_list_books(response)
     assert "limit" in excinfo.value.detail
 

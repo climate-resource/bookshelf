@@ -201,17 +201,19 @@ def test_an_unknown_filter_column_raises_the_same_error_on_both_routes(
     tmp_path: Path, server_side: bool
 ) -> None:
     bs, _ = _shelf(tmp_path)
-    with pytest.raises(SelectionError, match="regoin"):
+    with pytest.raises(SelectionError, match="regoin") as caught:
         bs.resource(TRACKING_ID).as_df(filters={"regoin": "NZL"}, server_side=server_side)
+
+    assert isinstance(caught.value, KeyError)
 
 
 @pytest.mark.parametrize(
     ("filters", "error"),
     [
-        ({"region": []}, SelectionError),
-        ({"region": ["NZL", None]}, SelectionError),
-        ({"region": ["NZL", ""]}, SelectionError),
-        ({"region": {"NZL"}}, SelectionError),
+        ({"region": []}, ValueError),
+        ({"region": ["NZL", None]}, ValueError),
+        ({"region": ["NZL", ""]}, ValueError),
+        ({"region": {"NZL"}}, TypeError),
         ([("region", "NZL")], TypeError),
     ],
 )
@@ -229,7 +231,7 @@ def test_a_malformed_selection_fails_before_any_request(
 
 
 def test_a_year_window_needs_a_timeseries() -> None:
-    with pytest.raises(SelectionError, match="timeseries"):
+    with pytest.raises(TypeError, match="timeseries"):
         Selection.build(None, year_min=2000, year_max=None).check(models.ResourceType.tabular)
 
 
@@ -271,7 +273,7 @@ def test_a_preview_refuses_an_order_it_cannot_honour(
     bs, seen = _shelf(tmp_path)
     entry = bs.book("primap-hist", "v2.6")["by_country"]
 
-    with pytest.raises(SelectionError, match=match):
+    with pytest.raises(ValueError, match=match):
         entry.preview(**options)
 
     assert _data_requests(seen) == []
@@ -314,7 +316,7 @@ def test_a_malformed_order_fails_before_any_request(tmp_path: Path, order: Any) 
     bs, seen = _shelf(tmp_path)
     resource = bs.resource(TRACKING_ID)
     before = len(seen)
-    with pytest.raises(SelectionError, match="order"):
+    with pytest.raises(ValueError, match="order"):
         resource.as_df(order=order)
     assert seen[before:] == []
 

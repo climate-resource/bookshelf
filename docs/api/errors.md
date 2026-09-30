@@ -1,15 +1,40 @@
 # Errors
 
-Failed requests, missing volumes or books, and the errors below all subclass `BookshelfError`,
-so catching it covers them.
-Looking up an entry a book does not index raises `KeyError` instead.
+Every error the SDK raises for a failed operation subclasses `BookshelfError`.
+Each class below is importable from `bookshelf`.
+
+Misusing the API raises Python's own `TypeError` or `ValueError` instead,
+for example passing an argument a resource type does not accept.
+These signal a bug in the calling code rather than a condition to handle.
+
+A server response that does not match the published schema is the one gap.
+It raises pydantic's `ValidationError`, which is not a `BookshelfError`.
+
+## Not found
+
+A volume, version, book, entry or resource that does not exist raises `NotFoundError`,
+whether the platform answered 404 or the SDK settled the lookup locally.
+`NotFoundError` is also a `LookupError`.
+
+Looking up an entry a book does not index raises `EntryNotFoundError`.
+It is also a `KeyError`, so `book["name"]` behaves like any other mapping.
+
+Filtering or ordering on a column the data does not have raises `SelectionError`,
+which is also a `KeyError`.
+So does a filter value the column cannot be read as, and a selection the platform refuses.
+
+## HTTP responses
 
 An HTTP error response raises an `APIError` subclass chosen by status,
 so a caller can catch `NotFoundError` or `ConflictError` rather than compare `status_code`.
 
+## Reference
+
 ::: bookshelf.BookshelfError
 
 ::: bookshelf.APIError
+
+::: bookshelf.RequestValidationError
 
 ::: bookshelf.AuthenticationError
 
@@ -17,22 +42,38 @@ so a caller can catch `NotFoundError` or `ConflictError` rather than compare `st
 
 ::: bookshelf.NotFoundError
 
+::: bookshelf.EntryNotFoundError
+
 ::: bookshelf.ConflictError
 
 ::: bookshelf.ServerError
 
 ::: bookshelf.UnexpectedResponseError
 
+::: bookshelf.OAuthProtocolError
+
 ::: bookshelf.TransportError
 
 ::: bookshelf.AuthenticationRequiredError
+
+::: bookshelf.AuthConfigurationError
+
+::: bookshelf.ActionsTokenError
+
+::: bookshelf.OAuthError
+
+::: bookshelf.SelectionError
 
 ::: bookshelf.HashMismatchError
 
 ::: bookshelf.UnsupportedConversionError
 
-::: bookshelf.SelectionError
-
 ::: bookshelf.DataFrameSupportError
 
 ::: bookshelf.PartialRegistrationError
+
+::: bookshelf.InvalidBundleError
+
+::: bookshelf.InvalidRecipeError
+
+::: bookshelf.InvalidReferenceError

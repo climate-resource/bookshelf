@@ -232,6 +232,8 @@ def test_exact_generator_flags_are_locked(generator: ModuleType) -> None:
         "builtin",
         "--use-annotated",
         "--set-default-enum-member",
+        "--naming-strategy",
+        "full-path",
         "--output",
         str(generator.LIVE_TREE),
     ][:-1] + [command[-1]]

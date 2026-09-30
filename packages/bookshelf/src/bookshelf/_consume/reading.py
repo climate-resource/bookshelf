@@ -20,8 +20,8 @@ from bookshelf._consume.conversions import (
     shape_frame,
 )
 from bookshelf._consume.frames import drop_constant_dimensions, is_year_column
-from bookshelf._consume.selection import Selection, SelectionError
-from bookshelf._core.errors import ValidationError
+from bookshelf._consume.selection import Selection
+from bookshelf._core.errors import RequestValidationError, SelectionError
 from bookshelf._generated import models
 
 if TYPE_CHECKING:
@@ -114,15 +114,13 @@ def check_preview(
 ) -> None:
     check_frame_read(resource_type, selection, "preview()")
     if limit < 1:
-        raise SelectionError("limit must be at least 1")
+        raise ValueError("limit must be at least 1")
     # The platform reads top_n alongside an order as "the first n in that order", not a ranking.
     if top_n is not None and selection.order:
-        raise SelectionError("top_n ranks by the latest value, so it cannot take an order as well")
+        raise ValueError("top_n ranks by the latest value, so it cannot take an order as well")
     timeseries = resource_type is models.ResourceType.timeseries
     if timeseries and any(is_year_column(column) for column, _ in selection.order):
-        raise SelectionError(
-            "preview() orders by dimension columns, so sort a complete read by year"
-        )
+        raise ValueError("preview() orders by dimension columns, so sort a complete read by year")
     if drop_constant and not timeseries:
         raise UnsupportedConversionError("drop_constant requires a timeseries resource")
 
@@ -148,7 +146,7 @@ def selection_rejections() -> Iterator[None]:
     """Report the platform refusing a selection as the same error a local read raises."""
     try:
         yield
-    except ValidationError as exc:
+    except RequestValidationError as exc:
         raise SelectionError(exc.detail) from exc
 
 

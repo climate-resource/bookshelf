@@ -27,7 +27,7 @@
 # then `$BOOKSHELF_URL`, then the production URL.
 
 # %%
-from bookshelf import Bookshelf
+from bookshelf import Bookshelf, EntryNotFoundError
 
 bs = Bookshelf()
 
@@ -80,7 +80,7 @@ entry
 # %%
 try:
     book["does-not-exist"]
-except KeyError as exc:
+except EntryNotFoundError as exc:
     print(exc)
 
 # %% [markdown]

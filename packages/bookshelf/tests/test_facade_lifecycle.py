@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 import pytest
 
-from bookshelf._core.errors import ConflictError, ForbiddenError, ValidationError
+from bookshelf._core.errors import ConflictError, ForbiddenError, RequestValidationError
 from bookshelf._generated import models
 from bookshelf.facade import AsyncBookshelf, Bookshelf
 from tests import _core_payloads as payloads
@@ -109,7 +109,10 @@ def test_discard_draft_surfaces_the_published_book_refusal() -> None:
     recorded: list[httpx.Request] = []
     refusal = payloads.problem(400, "Cannot delete", "only draft books can be deleted")
 
-    with _sync(recorded, 400, refusal) as client, pytest.raises(ValidationError, match="draft"):
+    with (
+        _sync(recorded, 400, refusal) as client,
+        pytest.raises(RequestValidationError, match="draft"),
+    ):
         client.discard_draft("b1")
 
 
@@ -127,7 +130,8 @@ def test_update_draft_patches_the_named_fields() -> None:
 def test_correct_book_replaces_metadata_with_a_reason() -> None:
     recorded: list[httpx.Request] = []
     correction = models.BookCorrection(
-        metadata={"maturity": "approved"}, reason=models.Reason("signed off by science")
+        metadata={"maturity": "approved"},
+        reason=models.BookCorrectionReason("signed off by science"),
     )
 
     with _sync(recorded, 200, payloads.BOOK_CORRECTED) as client:
@@ -159,7 +163,7 @@ def test_correct_book_refuses_a_licence_change() -> None:
 
     with (
         _sync([], 422, refusal) as client,
-        pytest.raises(ValidationError, match="licence"),
+        pytest.raises(RequestValidationError, match="licence"),
     ):
         client.correct_book("b1", relicensed)
 
