@@ -3,7 +3,7 @@
   "info": {
     "title": "Bookshelf API",
     "description": "API for Climate Resource's dataset management system",
-    "version": "v1+g403065d9"
+    "version": "v1+g451d8427"
   },
   "paths": {
     "/livez": {
@@ -4399,11 +4399,11 @@
                   "type": "null"
                 }
               ],
-              "description": "Deprecated. Filter on the merge flag. ``true`` returns the canonical merging row for a digest lookup.",
+              "description": "Deprecated. Filter on the merge flag. With ``hash``, ``true`` returns the oldest merging row your organisation holds for that digest.",
               "deprecated": true,
               "title": "Dedupe"
             },
-            "description": "Deprecated. Filter on the merge flag. ``true`` returns the canonical merging row for a digest lookup.",
+            "description": "Deprecated. Filter on the merge flag. With ``hash``, ``true`` returns the oldest merging row your organisation holds for that digest.",
             "deprecated": true
           },
           {
