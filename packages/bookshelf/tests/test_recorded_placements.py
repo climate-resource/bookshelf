@@ -6,7 +6,6 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from types import SimpleNamespace
 from uuid import UUID
 
 import httpx
@@ -53,9 +52,11 @@ class _Entry:
     tracking_id: UUID = _PLACED_ID
     type: models.ResourceType = models.ResourceType.document
 
-    @property
-    def metadata(self) -> SimpleNamespace:
-        return SimpleNamespace(hash="sha256:" + "a" * 64)
+    def resource_type(self) -> models.ResourceType:
+        return self.type
+
+    def content_hash(self) -> str:
+        return "sha256:" + "a" * 64
 
     def as_path(self) -> Path:
         return self.path

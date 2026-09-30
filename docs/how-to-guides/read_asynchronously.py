@@ -79,8 +79,7 @@ async def latest_co2() -> tuple[str, int, tuple[int, int]]:
     async with AsyncBookshelf() as bs:
         book = await bs.book("rcmip-emissions", "v5.1.0")
         frame = await book["magicc"].as_df(
-            region="World",
-            variable="Emissions|CO2",
+            filters={"region": "World", "variable": "Emissions|CO2"},
             year_min=2020,
             year_max=2100,
         )
@@ -155,7 +154,9 @@ for label, shape in await shapes():
 # async def co2(request: Request):
 #     bs: AsyncBookshelf = request.app.state.bookshelf
 #     book = await bs.book("rcmip-emissions", "v5.1.0")
-#     frame = await book["magicc"].as_df(region="World", variable="Emissions|CO2")
+#     frame = await book["magicc"].as_df(
+#         filters={"region": "World", "variable": "Emissions|CO2"}, server_side=True
+#     )
 #     return frame.to_dict(orient="split")
 # ```
 

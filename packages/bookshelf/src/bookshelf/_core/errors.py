@@ -38,7 +38,7 @@ class _UnquotedKeyError(KeyError):
 
 
 class SelectionError(BookshelfError, _UnquotedKeyError):
-    """A filter names a column or index level the data does not have."""
+    """A selection names a column the data does not have, or a value a column cannot hold."""
 
 
 class APIError(BookshelfError):

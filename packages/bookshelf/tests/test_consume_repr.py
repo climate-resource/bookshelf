@@ -3,10 +3,9 @@
 A book entry may arrive from the API without a type.
 Only the handle learns it, by fetching the resource metadata,
 so a repr reading the entry instead of the handle reports "unknown" forever.
+A repr never fetches anything itself.
 """
 
-import threading
-import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -14,10 +13,8 @@ from uuid import UUID
 
 import pytest
 
-from bookshelf._consume import resources
 from bookshelf._consume.books import Book
 from bookshelf._consume.resources import AsyncBookEntry, BookEntry, Resource
-from bookshelf._core.errors import APIError
 from bookshelf._generated import models
 from bookshelf._produce import resources as produce
 from bookshelf.cache import ContentCache
@@ -75,7 +72,7 @@ async def test_an_async_entry_repr_reports_the_type_it_has_fetched(cache: Conten
 
     assert "unknown" in entry._repr_html_(), "a typeless entry has nothing better to say yet"
 
-    await entry._get_type()
+    await entry.resource_type()
 
     assert "timeseries" in entry._repr_html_()
     assert "unknown" not in entry._repr_html_()
@@ -95,13 +92,16 @@ async def test_an_async_entry_repr_uses_the_type_the_api_supplied(cache: Content
     assert client.calls == 0
 
 
-def test_a_sync_entry_repr_reports_the_type_it_fetches(cache: ContentCache) -> None:
-    """The sync twin resolves the type through its property, so it never says "unknown"."""
+def test_a_sync_entry_repr_reports_the_type_it_has_fetched(cache: ContentCache) -> None:
     client = _FakeClient()
     entry = BookEntry(client, cache, BOOK_ID, _entry(None))  # type: ignore[arg-type]
 
+    assert "unknown" in entry._repr_html_()
+    assert client.calls == 0
+
+    entry.resource_type()
+
     assert "timeseries" in entry._repr_html_()
-    assert "unknown" not in entry._repr_html_()
 
 
 async def test_both_flavours_render_the_same_rows_once_the_type_is_known(
@@ -110,7 +110,8 @@ async def test_both_flavours_render_the_same_rows_once_the_type_is_known(
     """The two reprs carry the same facts, and differ only in their title."""
     sync_entry = BookEntry(_FakeClient(), cache, BOOK_ID, _entry(None))  # type: ignore[arg-type]
     async_entry = AsyncBookEntry(_FakeClient(), cache, BOOK_ID, _entry(None))  # type: ignore[arg-type]
-    await async_entry._get_type()
+    sync_entry.resource_type()
+    await async_entry.resource_type()
 
     sync_html = sync_entry._repr_html_().replace("Bookshelf Book Entry", "TITLE")
     async_html = async_entry._repr_html_().replace("Bookshelf Async Book Entry", "TITLE")
@@ -161,7 +162,7 @@ def test_printing_an_entry_names_the_readers_its_type_supports(cache: ContentCac
     document = repr(BookEntry(_FakeClient(), cache, BOOK_ID, _entry(models.ResourceType.document)))  # type: ignore[arg-type]
 
     assert "as_scmrun()" in timeseries
-    assert "schema()" in timeseries
+    assert "series_metadata()" in timeseries
     assert "as_scmrun()" not in document
     assert "fetch()" in document
     assert "Explore" not in document
@@ -179,70 +180,26 @@ def test_the_two_reprs_report_the_same_facts(cache: ContentCache) -> None:
         assert value in html
 
 
-class _UnreachableClient:
-    """The platform a debugger session cannot reach, or is not authorised against."""
+class _ForbiddenClient:
+    """A platform the repr must never reach."""
 
     base_url = "https://bookshelf.invalid"
 
     def get_resource(self, tracking_id: Any) -> _Metadata:
-        raise APIError("not authorized", status_code=401)
+        raise AssertionError("printing a handle contacted the platform")
 
 
-def test_a_sync_entry_repr_survives_an_unreachable_platform(cache: ContentCache) -> None:
+@pytest.mark.parametrize("handle", [Resource, BookEntry])
+def test_printing_a_handle_never_contacts_the_platform(cache: ContentCache, handle: type) -> None:
     """Printing a handle is what you do when things are already going wrong."""
-    entry = BookEntry(_UnreachableClient(), cache, BOOK_ID, _entry(None))  # type: ignore[arg-type]
-
-    printed = repr(entry)
-
-    assert "unknown" in printed
-    assert "by_country" in printed
-
-
-def test_a_sync_resource_repr_survives_an_unreachable_platform(cache: ContentCache) -> None:
-    """The lean handle knows only its tracking id, and says so rather than raising."""
-    resource = Resource(_UnreachableClient(), cache, TRACKING_ID)  # type: ignore[arg-type]
-
-    printed = repr(resource)
+    if handle is BookEntry:
+        printed = repr(BookEntry(_ForbiddenClient(), cache, BOOK_ID, _entry(None)))  # type: ignore[arg-type]
+    else:
+        printed = repr(Resource(_ForbiddenClient(), cache, TRACKING_ID))  # type: ignore[arg-type]
 
     assert "unknown" in printed
     assert str(TRACKING_ID) in printed
     assert "hash" not in printed
-
-
-class _HangingClient:
-    """A platform that accepts the connection and then never answers."""
-
-    base_url = "https://bookshelf.invalid"
-
-    def __init__(self) -> None:
-        self.released = threading.Event()
-
-    def get_resource(self, tracking_id: Any) -> _Metadata:
-        self.released.wait(timeout=30)
-        return _Metadata()
-
-
-def test_a_repr_gives_up_rather_than_holding_a_debugger(
-    cache: ContentCache, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A hung platform must not hold a printed line for the client's full timeout."""
-    monkeypatch.setattr(resources, "_REPR_TIMEOUT", 0.05)
-    client = _HangingClient()
-    resource = Resource(client, cache, TRACKING_ID)  # type: ignore[arg-type]
-
-    started = time.monotonic()
-    printed = repr(resource)
-    waited = time.monotonic() - started
-    client.released.set()
-
-    assert waited < 5, "the repr waited on the platform instead of giving up"
-    assert "unknown" in printed
-    assert str(TRACKING_ID) in printed
-    readers = [thread for thread in threading.enumerate() if thread.name == "bookshelf-repr"]
-    assert readers, (
-        "the read should still be running, which is what makes the next check mean something"
-    )
-    assert all(thread.daemon for thread in readers), "a hung reader would delay interpreter exit"
 
 
 def test_a_registered_resource_names_itself_once(cache: ContentCache) -> None:

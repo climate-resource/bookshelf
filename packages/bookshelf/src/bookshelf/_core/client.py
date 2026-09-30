@@ -12,18 +12,14 @@ import time
 import warnings
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Self
+from typing import Self
 from uuid import UUID
 
 import httpx
 
-if TYPE_CHECKING:
-    import pandas as pd
-
 from bookshelf._core import ops
 from bookshelf._core.config import UNSET, AuthInput, resolve_auth, resolve_base_url
 from bookshelf._core.errors import TransportError
-from bookshelf._core.frames import require_payload, to_pandas
 from bookshelf._core.resolution import ResolvedCredential, resolve_credential
 from bookshelf._core.retry import RetryPolicy
 from bookshelf._core.types import (
@@ -238,50 +234,6 @@ class BookshelfClient:
                     return self._api_response(response)
             await asyncio.sleep(delay)
 
-    def query_resource_dataframe(
-        self,
-        tracking_id: str | UUID,
-        *,
-        format: DataFormat = "parquet",
-        select: str | None = None,
-        order: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-        filters: Mapping[str, str] | None = None,
-    ) -> "pd.DataFrame":
-        payload = self.query_resource_data(
-            tracking_id,
-            format=format,
-            select=select,
-            order=order,
-            limit=limit,
-            offset=offset,
-            filters=filters,
-        )
-        return to_pandas(require_payload(payload))
-
-    async def query_resource_dataframe_async(
-        self,
-        tracking_id: str | UUID,
-        *,
-        format: DataFormat = "parquet",
-        select: str | None = None,
-        order: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-        filters: Mapping[str, str] | None = None,
-    ) -> "pd.DataFrame":
-        payload = await self.query_resource_data_async(
-            tracking_id,
-            format=format,
-            select=select,
-            order=order,
-            limit=limit,
-            offset=offset,
-            filters=filters,
-        )
-        return to_pandas(require_payload(payload))
-
     def stream_url_to_path(self, url: str, destination: Path) -> None:
         """Stream an API issued content URL to a local path without API credentials."""
         with self._sync_client.stream("GET", url, auth=None) as response:
@@ -450,7 +402,7 @@ class BookshelfClient:
         resource_name: str,
         *,
         max_values: int | None = None,
-        filters: Mapping[str, str] | None = None,
+        filters: Mapping[str, str | list[str]] | None = None,
     ) -> models.FacetsResponse:
         return ops.parse_get_book_resource_facets(
             self._send(
@@ -466,7 +418,7 @@ class BookshelfClient:
         resource_name: str,
         *,
         max_values: int | None = None,
-        filters: Mapping[str, str] | None = None,
+        filters: Mapping[str, str | list[str]] | None = None,
     ) -> models.FacetsResponse:
         return ops.parse_get_book_resource_facets(
             await self._send_async(

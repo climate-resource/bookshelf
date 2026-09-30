@@ -64,30 +64,34 @@ with Bookshelf() as bs:
 ```python
 with Bookshelf() as bs:
     entry = bs.book("rcmip-emissions", "v5.1.0")["magicc"]
-    frame = entry.as_df(year_min=2020, year_max=2100, region="World")
-    preview = entry.query(year_min=2020, top_n=5, drop_constant=True)
+    frame = entry.as_df(year_min=2020, year_max=2100, filters={"region": "World"})
+    sample = entry.preview(year_min=2020, top_n=5, drop_constant=True)
     facets = entry.facets()
 ```
 
-`as_df()` reads the whole resource and returns pandas, using wide indexed form for timeseries resources.
+`as_df()` returns every selected row as pandas, using wide indexed form for timeseries resources.
 The converter family also includes `as_long_df()`, `as_scmrun()`, `as_polars()`, and `as_arrow()`.
-They all take `year_min`, `year_max` and `column=value` filters, applied locally after the download.
-The download goes through the verified content cache, so a second conversion costs no network work.
-An external pointer the client cannot fetch is converted by the platform instead, on every call.
-An unknown filter column raises `SelectionError`, which is also a `KeyError`.
+They all take the same selection:
 
-`query()` filters and trims on the server instead.
-It is quicker for a large entry, but the result is a preview:
+- `filters` maps a column to a value, or to a list of alternative values.
+- `year_min` and `year_max` bound an inclusive year window on a timeseries.
+- `server_side=True` has the platform select, rather than the verified cached file.
 
-- Book timeseries queries accept year bounds, constant dimension removal, top N selection, and row limits.
-- They truncate at 10000 rows by default, and `top_n` and `limit` can drop single valued index columns.
-- Their filters are bare `column=value` keywords, and an unrecognised key is ignored rather than rejected.
-- Lean resource and tabular queries accept `select`, `order`, `limit`, and `offset`,
-  plus the full `col.op` filter vocabulary.
+`as_df()`, `as_polars()` and `as_arrow()` also take `order`,
+a list of columns to sort by, each prefixed with `-` to sort descending.
+
+The cached download is shared, so a second conversion costs no network work.
+An external pointer has no cached file, so the platform selects it on every call.
+An unknown filter column raises `SelectionError`, which is also a `KeyError`, on either route.
+
+`preview()` returns a bounded `DataPreview` instead.
+It adds `limit`, `top_n` and `drop_constant`, and takes `order` on dimension columns.
+Its `completeness` says whether the sample holds every selected row.
 
 Use `bs.resource(tracking_id)` for an exact machine or provenance path.
 `fetch()` verifies the declared SHA256 before storing bytes in the local content cache.
-`as_path()` returns the verified cached file.
+`download(destination)` copies the verified file to a path you own.
+`as_path()` returns the cached file itself, which the cache may evict later.
 
 The asynchronous facade has the same capabilities with awaited I/O:
 

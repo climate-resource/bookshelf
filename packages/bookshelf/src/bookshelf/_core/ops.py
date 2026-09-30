@@ -734,7 +734,7 @@ def build_get_book_resource_facets(
     resource_name: str,
     *,
     max_values: int | None = None,
-    filters: Mapping[str, str] | None = None,
+    filters: Mapping[str, str | list[str]] | None = None,
 ) -> ApiRequest:
     params = _params(max_values=max_values)
     params.update(filters or {})

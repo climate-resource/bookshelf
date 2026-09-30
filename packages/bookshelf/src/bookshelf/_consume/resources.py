@@ -8,39 +8,41 @@ Every decision they share lives in the sibling modules, so the flavours cannot d
 from __future__ import annotations
 
 import asyncio
-import queue
-import threading
-from collections.abc import Callable, Mapping
+import shutil
+from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
 from bookshelf._consume.conversions import (
-    UnsupportedConversionError,
     explorers_for,
     readers_for,
-    reject_query_arguments,
-    require_frame_support,
-    require_timeseries_support,
     scmrun_class,
-    select_frame,
-    shape_frame,
 )
 from bookshelf._consume.frames import (
     arrow_converter,
     legacy_long_timeseries,
     long_timeseries,
     polars_converter,
-    timeseries_frame,
 )
 from bookshelf._consume.memo import remember_resource, remembered_resource
 from bookshelf._consume.presentation import Describable, Section, Sections
-from bookshelf._consume.query import TimeseriesQuery, constant_columns, timeseries_filters
+from bookshelf._consume.reading import (
+    DataPreview,
+    ResourceInfo,
+    check_frame_read,
+    check_preview,
+    preview_params,
+    selection_rejections,
+    settle_cached,
+    settle_preview,
+    settle_selected,
+)
+from bookshelf._consume.selection import Filters, Order, Selection
 from bookshelf._core.client import BookshelfClient
-from bookshelf._core.errors import BookshelfError
-from bookshelf._core.frames import read_frame
+from bookshelf._core.frames import read_frame, require_payload, to_pandas
 from bookshelf._generated import models
-from bookshelf.cache import ContentCache
+from bookshelf.cache import ContentCache, _staged
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -49,9 +51,6 @@ if TYPE_CHECKING:
     from scmdata import ScmRun
 
 _FACET_MAX_VALUES = 500
-_REPR_TIMEOUT = 2.0
-_TRIMMING_ON_RESOURCE = "timeseries trimming requires a book entry handle"
-_UNSUPPORTED_TIMESERIES_ARGS = "timeseries entries accept filters, trimming, top_n, and limit"
 
 
 class _ExternalPointer(Exception):
@@ -68,11 +67,7 @@ def _resource_sections(
     identity: dict[str, object],
 ) -> dict[str, Section]:
     """Build the sections every resource flavour renders."""
-    return {
-        "Identity": identity,
-        "Read": readers_for(resource_type),
-        "Explore": explorers_for(resource_type),
-    }
+    return {"Identity": identity, "Read": readers_for(resource_type)}
 
 
 def _entry_sections(
@@ -81,14 +76,12 @@ def _entry_sections(
     book_id: UUID,
 ) -> dict[str, Section]:
     """Build the sections both entry flavours render."""
-    return _resource_sections(
-        resource_type,
-        {
-            "tracking_id": entry.tracking_id,
-            "book_id": book_id,
-            "visibility": entry.visibility.value,
-        },
-    )
+    identity: dict[str, object] = {
+        "tracking_id": entry.tracking_id,
+        "book_id": book_id,
+        "visibility": entry.visibility.value,
+    }
+    return {**_resource_sections(resource_type, identity), "Explore": explorers_for(resource_type)}
 
 
 def _entry_header(title: str, name_in_book: str, resource_type: models.ResourceType | None) -> str:
@@ -96,8 +89,29 @@ def _entry_header(title: str, name_in_book: str, resource_type: models.ResourceT
     return f"{title} {name_in_book!r} ({describe_type(resource_type)})"
 
 
+def _copy_out(source: Path, destination: Path) -> Path:
+    """Copy a cached file to a path the caller owns, so eviction cannot take it away."""
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with _staged(destination) as staging:
+        shutil.copyfile(source, staging)
+    return destination
+
+
+def _read_cached(
+    resource_type: models.ResourceType, path: Path, selection: Selection
+) -> pd.DataFrame:
+    return settle_cached(resource_type, read_frame(path), selection)
+
+
+def _long(wide: pd.DataFrame, legacy_columns: bool) -> pd.DataFrame:
+    long = long_timeseries(wide)
+    return legacy_long_timeseries(long) if legacy_columns else long
+
+
 class _ResourceHandle(Describable):
     """Identity and lazily resolved metadata shared by both resource flavours."""
+
+    _title = "Bookshelf Resource"
 
     def __init__(
         self,
@@ -119,27 +133,6 @@ class _ResourceHandle(Describable):
         self._content_hash: str | None = None if metadata is None else metadata.hash
         self._recalled = False
 
-    def _reachable[T](self, read: Callable[[], T]) -> T | None:
-        """Read what only the platform can answer, within a deadline a printed line can afford.
-
-        A repr is what you reach for when things are already going wrong,
-        so it gives up rather than failing or holding a debugger for the client's full timeout.
-        The reader is a daemon, so a read still hanging at the deadline cannot delay exit either.
-        """
-        answers: queue.Queue[T | None] = queue.Queue(maxsize=1)
-
-        def attempt() -> None:
-            try:
-                answers.put(read())
-            except BookshelfError:
-                answers.put(None)
-
-        threading.Thread(target=attempt, name="bookshelf-repr", daemon=True).start()
-        try:
-            return answers.get(timeout=_REPR_TIMEOUT)
-        except queue.Empty:
-            return None
-
     def _recall(self) -> None:
         """Fill in the hash and type from the metadata cache, without a request."""
         if self._recalled:
@@ -160,212 +153,212 @@ class _ResourceHandle(Describable):
     def _remember(self, metadata: models.ResourceRead) -> None:
         remember_resource(self._cache, self._client, metadata)
 
+    def _summary(self) -> tuple[str, Sections]:
+        # Only what the handle already knows, so printing it never reaches the platform.
+        identity: dict[str, object] = {"tracking_id": self.tracking_id}
+        if self._content_hash is not None:
+            identity["hash"] = self._content_hash
+        if self._metadata is not None:
+            identity["visibility"] = self._metadata.visibility.value
+        return (
+            f"{self._title} ({describe_type(self._resource_type)})",
+            _resource_sections(self._resource_type, identity),
+        )
+
 
 class Resource(_ResourceHandle):
     """Lean immutable resource handle for machine and provenance reads."""
 
-    _title = "Bookshelf Resource"
-
-    @property
-    def metadata(self) -> models.ResourceRead:
-        """Return the generated resource projection."""
+    def _record(self) -> models.ResourceRead:
         if self._metadata is not None:
             return self._metadata
         metadata = self._adopt(self._client.get_resource(self.tracking_id))
         self._remember(metadata)
         return metadata
 
-    @property
-    def type(self) -> models.ResourceType:
-        """Return the canonical resource type."""
+    def resource_type(self) -> models.ResourceType:
+        """Return the canonical resource type, from memory or disk before the platform."""
         if self._resource_type is None:
             self._recall()
         if self._resource_type is None:
-            return self.metadata.type
+            return self._record().type
         return self._resource_type
+
+    def describe(self) -> ResourceInfo:
+        """Return what the platform records about the resource, fetching it at most once."""
+        return ResourceInfo.from_record(self._record())
 
     def content_hash(self) -> str:
         """Return the declared ``sha256:`` digest, from memory or disk before the platform."""
         if self._content_hash is None:
             self._recall()
         if self._content_hash is None:
-            return self.metadata.hash
+            return self._record().hash
         return self._content_hash
 
-    def _summary(self) -> tuple[str, Sections]:
-        self._recall()
-        metadata = self._metadata or self._reachable(lambda: self.metadata)
-        identity: dict[str, object] = {"tracking_id": self.tracking_id}
-        if self._content_hash is not None:
-            identity["hash"] = self._content_hash
-        if metadata is not None:
-            identity["visibility"] = metadata.visibility.value
-        return (
-            f"{self._title} ({describe_type(self._resource_type)})",
-            _resource_sections(self._resource_type, identity),
-        )
+    def _data(
+        self, params: Mapping[str, str], *, limit: int | None = None, order: str | None = None
+    ) -> pd.DataFrame:
+        with selection_rejections():
+            payload = self._client.query_resource_data(
+                self.tracking_id, limit=limit, order=order, filters=params
+            )
+        return to_pandas(require_payload(payload))
 
-    def _frame(
+    def _read(
         self,
+        caller: str,
+        filters: Filters | None,
+        year_min: int | None,
+        year_max: int | None,
+        server_side: bool,
+        order: Order | None = None,
         *,
-        select: str | None,
-        order: str | None,
-        limit: int | None,
-        offset: int | None,
-        filters: Mapping[str, str],
+        timeseries_only: bool = False,
     ) -> pd.DataFrame:
-        return self._client.query_resource_dataframe(
-            self.tracking_id,
-            select=select,
-            order=order,
-            limit=limit,
-            offset=offset,
-            filters=filters,
-        )
-
-    def _dataframe(
-        self,
-        *,
-        select: str | None,
-        order: str | None,
-        limit: int | None,
-        offset: int | None,
-        filters: Mapping[str, str],
-    ) -> pd.DataFrame:
-        resource_type = self.type
-        require_frame_support(resource_type)
-        frame = self._frame(
-            select=select,
-            order=order,
-            limit=limit,
-            offset=offset,
-            filters=filters,
-        )
-        return shape_frame(resource_type, frame)
-
-    def query(
-        self,
-        *,
-        select: str | None = None,
-        order: str | None = None,
-        year_min: int | None = None,
-        year_max: int | None = None,
-        drop_constant: bool = False,
-        top_n: int | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-        **filters: str,
-    ) -> pd.DataFrame:
-        """Return pandas data filtered on the server, using wide indexed form for timeseries."""
-        if year_min is not None or year_max is not None or drop_constant or top_n is not None:
-            raise TypeError(_TRIMMING_ON_RESOURCE)
-        return self._dataframe(
-            select=select,
-            order=order,
-            limit=limit,
-            offset=offset,
-            filters=filters,
-        )
-
-    def _selected(
-        self, *, year_min: int | None, year_max: int | None, filters: Mapping[str, str]
-    ) -> pd.DataFrame:
-        reject_query_arguments(filters)
-        resource_type = self.type
-        require_frame_support(resource_type)
-        path = self._cached_frame_file()
-        if path is None:
-            whole = self._client.query_resource_dataframe(self.tracking_id)
-        else:
-            whole = read_frame(path)
-        return select_frame(
-            resource_type, whole, year_min=year_min, year_max=year_max, filters=filters
-        )
+        selection = Selection.build(filters, year_min=year_min, year_max=year_max, order=order)
+        resource_type = self.resource_type()
+        check_frame_read(resource_type, selection, caller, timeseries_only=timeseries_only)
+        if not server_side:
+            path = self._cached_frame_file()
+            if path is not None:
+                return _read_cached(resource_type, path, selection)
+        # An external pointer has no cached file, so the platform selects it where it lives.
+        return settle_selected(resource_type, self._data(selection.data_params()), selection)
 
     def as_df(
         self,
         *,
+        filters: Filters | None = None,
         year_min: int | None = None,
         year_max: int | None = None,
-        **filters: str,
+        server_side: bool = False,
+        order: Order | None = None,
     ) -> pd.DataFrame:
-        """Return the whole resource as pandas, using wide indexed form for timeseries.
+        """Return every selected row as pandas, using wide indexed form for timeseries.
 
-        The year window and ``column=value`` filters apply locally, after the download.
+        Values listed for one filter are alternatives, and separate filters must all hold.
+        The year window is inclusive.
+        ``order`` names columns to sort by, each prefixed with ``-`` to sort descending,
+        with missing values first either way and no promised order among ties.
+        By default the selection applies to the verified cached file,
+        and ``server_side`` has the platform select instead, which transfers only the selected rows.
         """
-        return self._selected(year_min=year_min, year_max=year_max, filters=filters)
+        return self._read("as_df()", filters, year_min, year_max, server_side, order)
 
     def as_long_df(
         self,
         *,
+        filters: Filters | None = None,
         year_min: int | None = None,
         year_max: int | None = None,
+        server_side: bool = False,
         legacy_columns: bool = False,
-        **filters: str,
     ) -> pd.DataFrame:
-        """Return tidy pandas timeseries data.
+        """Return tidy pandas timeseries data, with integer ``year`` and a ``value`` column.
 
         ``legacy_columns`` reproduces the 0.4 long format instead:
         a ``values`` column, a ``year`` column of ``YYYY-01-01 00:00:00`` strings,
         and rows sorted by the dimensions and then the year.
         """
-        long = self._long(year_min=year_min, year_max=year_max, filters=filters)
-        return legacy_long_timeseries(long) if legacy_columns else long
-
-    def _long(
-        self, *, year_min: int | None, year_max: int | None, filters: Mapping[str, str]
-    ) -> pd.DataFrame:
-        require_timeseries_support(self.type, "as_long_df()")
-        return long_timeseries(
-            self._selected(year_min=year_min, year_max=year_max, filters=filters)
+        wide = self._read(
+            "as_long_df()", filters, year_min, year_max, server_side, timeseries_only=True
         )
+        return _long(wide, legacy_columns)
 
     def as_polars(
         self,
         *,
+        filters: Filters | None = None,
         year_min: int | None = None,
         year_max: int | None = None,
-        **filters: str,
+        server_side: bool = False,
+        order: Order | None = None,
     ) -> pl.DataFrame:
-        """Return the resource as a Polars DataFrame."""
+        """Return the selection as a Polars DataFrame, with the dimensions as columns."""
         convert = polars_converter()
-        return convert(self._selected(year_min=year_min, year_max=year_max, filters=filters))
+        return convert(self._read("as_polars()", filters, year_min, year_max, server_side, order))
 
     def as_arrow(
         self,
         *,
+        filters: Filters | None = None,
         year_min: int | None = None,
         year_max: int | None = None,
-        **filters: str,
+        server_side: bool = False,
+        order: Order | None = None,
     ) -> pa.Table:
-        """Return the resource as a PyArrow table."""
+        """Return the selection as a PyArrow table, with the dimensions as columns."""
         convert = arrow_converter()
-        return convert(self._selected(year_min=year_min, year_max=year_max, filters=filters))
+        return convert(self._read("as_arrow()", filters, year_min, year_max, server_side, order))
 
     def as_scmrun(
         self,
         *,
+        filters: Filters | None = None,
         year_min: int | None = None,
         year_max: int | None = None,
-        **filters: str,
+        server_side: bool = False,
     ) -> ScmRun:
         """Return timeseries data as an scmdata ScmRun.
 
         scmdata rejects rows with duplicate metadata.
         """
-        require_timeseries_support(self.type, "as_scmrun()")
         run = scmrun_class()
-        return run(self.as_df(year_min=year_min, year_max=year_max, **filters))
+        return run(
+            self._read(
+                "as_scmrun()", filters, year_min, year_max, server_side, timeseries_only=True
+            )
+        )
+
+    def preview(
+        self,
+        *,
+        limit: int = 100,
+        filters: Filters | None = None,
+        year_min: int | None = None,
+        year_max: int | None = None,
+        order: Order | None = None,
+        top_n: int | None = None,
+        drop_constant: bool = False,
+    ) -> DataPreview:
+        """Return up to ``limit`` selected rows, selected on the platform, and whether that is all.
+
+        ``order`` names columns to sort by first, each prefixed with ``-`` to sort descending.
+        ``top_n`` keeps the timeseries with the largest latest values, and cannot take an order.
+        ``drop_constant`` drops the dimensions that hold one value across the returned series.
+        """
+        selection = Selection.build(filters, year_min=year_min, year_max=year_max, order=order)
+        resource_type = self.resource_type()
+        check_preview(
+            resource_type, selection, limit=limit, top_n=top_n, drop_constant=drop_constant
+        )
+        frame = self._data(
+            preview_params(selection, top_n=top_n), limit=limit + 1, order=selection.order_param()
+        )
+        return settle_preview(resource_type, frame, limit=limit, drop_constant=drop_constant)
 
     def fetch(self) -> bytes:
         """Return verified bytes, using memory proportional to the resource size.
 
-        Use `as_path()` to stream large resources without loading them into memory.
+        Use `download()` to write large resources to disk without loading them into memory.
         """
         return self._ensure_cached().read_bytes()
 
+    def download(self, destination: str | Path) -> Path:
+        """Stream and verify the resource, then copy it to ``destination`` and return that path."""
+        destination = Path(destination)
+        try:
+            return _copy_out(self._ensure_cached(), destination)
+        except FileNotFoundError:
+            # Another process evicted the cached file between the fill and the copy.
+            return _copy_out(self._ensure_cached(), destination)
+
     def as_path(self) -> Path:
-        """Stream and verify the resource, then return its cached path."""
+        """Stream and verify the resource, then return its path in the cache.
+
+        The cache may evict the file later, so use `download()` for a copy that stays.
+        """
         return self._ensure_cached()
 
     def _cached_frame_file(self) -> Path | None:
@@ -405,82 +398,9 @@ class BookEntry(Resource):
         self.name_in_book = entry.name_in_book
         """The name this entry has in its book."""
 
-    def query(
-        self,
-        *,
-        select: str | None = None,
-        order: str | None = None,
-        year_min: int | None = None,
-        year_max: int | None = None,
-        drop_constant: bool = False,
-        top_n: int | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-        **filters: str,
-    ) -> pd.DataFrame:
-        """Return book scoped data filtered and trimmed on the server.
-
-        Timeseries go through the book timeseries endpoint, which truncates at its row limit.
-        """
-        return self._dataframe(
-            select=select,
-            order=order,
-            limit=limit,
-            offset=offset,
-            filters=timeseries_filters(
-                filters,
-                year_min=year_min,
-                year_max=year_max,
-                drop_constant=drop_constant,
-                top_n=top_n,
-            ),
-        )
-
-    def _frame(
-        self,
-        *,
-        select: str | None,
-        order: str | None,
-        limit: int | None,
-        offset: int | None,
-        filters: Mapping[str, str],
-    ) -> pd.DataFrame:
-        if self.type is not models.ResourceType.timeseries:
-            return super()._frame(
-                select=select,
-                order=order,
-                limit=limit,
-                offset=offset,
-                filters=filters,
-            )
-        if select is not None or order is not None or offset is not None:
-            raise TypeError(_UNSUPPORTED_TIMESERIES_ARGS)
-        query = TimeseriesQuery.parse(filters)
-        drops: list[str] = []
-        if query.drop_constant:
-            facets = self._client.get_book_resource_facets(
-                self.book_id,
-                self.name_in_book,
-                max_values=_FACET_MAX_VALUES,
-                filters=query.facet_filters(),
-            )
-            drops = constant_columns(facets)
-        response = self._client.get_book_resource_timeseries(
-            self.book_id,
-            self.name_in_book,
-            drop=drops,
-            limit=limit,
-            top_n=query.top_n,
-            year_min=query.year_min,
-            year_max=query.year_max,
-            filters=query.filters,
-        )
-        return timeseries_frame(response)
-
     def _summary(self) -> tuple[str, Sections]:
-        resource_type = self._resource_type or self._reachable(lambda: self.type)
-        return _entry_header(self._title, self.name_in_book, resource_type), _entry_sections(
-            self.entry, resource_type, self.book_id
+        return _entry_header(self._title, self.name_in_book, self._resource_type), _entry_sections(
+            self.entry, self._resource_type, self.book_id
         )
 
     def as_resource(self) -> Resource:
@@ -494,27 +414,21 @@ class BookEntry(Resource):
         )
 
     def facets(
-        self, *, max_values: int = _FACET_MAX_VALUES, **filters: str
+        self, *, max_values: int = _FACET_MAX_VALUES, filters: Filters | None = None
     ) -> models.FacetsResponse:
-        """Return book scoped facet values."""
+        """Return the distinct values of each column, within the book."""
+        selection = Selection.build(filters, year_min=None, year_max=None)
         return self._client.get_book_resource_facets(
             self.book_id,
             self.name_in_book,
             max_values=max_values,
-            filters=filters,
+            filters=selection.book_params(),
         )
 
-    def preview(self, *, limit: int = 100, offset: int = 0) -> models.PreviewResponse:
-        """Return a book scoped tabular preview."""
-        return self._client.get_book_resource_preview(
-            self.book_id,
-            self.name_in_book,
-            limit=limit,
-            offset=offset,
-        )
-
-    def schema(self, *, limit: int = 100, offset: int = 0) -> models.TimeseriesMetadataResponse:
-        """Return book scoped timeseries schema metadata."""
+    def series_metadata(
+        self, *, limit: int = 100, offset: int = 0
+    ) -> models.TimeseriesMetadataResponse:
+        """Return a page of the timeseries' series, one record of dimension values per series."""
         return self._client.get_book_resource_schema(
             self.book_id,
             self.name_in_book,
@@ -528,206 +442,201 @@ class AsyncResource(_ResourceHandle):
 
     _title = "Bookshelf Async Resource"
 
-    async def _get_metadata(self) -> models.ResourceRead:
+    async def _record(self) -> models.ResourceRead:
         if self._metadata is not None:
             return self._metadata
         metadata = self._adopt(await self._client.get_resource_async(self.tracking_id))
         await asyncio.to_thread(self._remember, metadata)
         return metadata
 
-    async def _get_type(self) -> models.ResourceType:
+    async def resource_type(self) -> models.ResourceType:
+        """Return the canonical resource type, from memory or disk before the platform."""
         if self._resource_type is None:
             await asyncio.to_thread(self._recall)
         if self._resource_type is None:
-            return (await self._get_metadata()).type
+            return (await self._record()).type
         return self._resource_type
+
+    async def describe(self) -> ResourceInfo:
+        """Return what the platform records about the resource, fetching it at most once."""
+        return ResourceInfo.from_record(await self._record())
 
     async def content_hash(self) -> str:
         """Return the declared ``sha256:`` digest, from memory or disk before the platform."""
         if self._content_hash is None:
             await asyncio.to_thread(self._recall)
         if self._content_hash is None:
-            return (await self._get_metadata()).hash
+            return (await self._record()).hash
         return self._content_hash
 
-    def _summary(self) -> tuple[str, Sections]:
-        # No await here, so this reports only what the handle has already learned.
-        identity: dict[str, object] = {"tracking_id": self.tracking_id}
-        if self._content_hash is not None:
-            identity["hash"] = self._content_hash
-        return (
-            f"{self._title} ({describe_type(self._resource_type)})",
-            _resource_sections(self._resource_type, identity),
-        )
+    async def _data(
+        self, params: Mapping[str, str], *, limit: int | None = None, order: str | None = None
+    ) -> pd.DataFrame:
+        with selection_rejections():
+            payload = await self._client.query_resource_data_async(
+                self.tracking_id, limit=limit, order=order, filters=params
+            )
+        return await asyncio.to_thread(to_pandas, require_payload(payload))
 
-    async def _frame(
+    async def _read(
         self,
+        caller: str,
+        filters: Filters | None,
+        year_min: int | None,
+        year_max: int | None,
+        server_side: bool,
+        order: Order | None = None,
         *,
-        select: str | None,
-        order: str | None,
-        limit: int | None,
-        offset: int | None,
-        filters: Mapping[str, str],
+        timeseries_only: bool = False,
     ) -> pd.DataFrame:
-        return await self._client.query_resource_dataframe_async(
-            self.tracking_id,
-            select=select,
-            order=order,
-            limit=limit,
-            offset=offset,
-            filters=filters,
-        )
-
-    async def _dataframe(
-        self,
-        *,
-        select: str | None,
-        order: str | None,
-        limit: int | None,
-        offset: int | None,
-        filters: Mapping[str, str],
-    ) -> pd.DataFrame:
-        resource_type = await self._get_type()
-        require_frame_support(resource_type)
-        frame = await self._frame(
-            select=select,
-            order=order,
-            limit=limit,
-            offset=offset,
-            filters=filters,
-        )
-        return shape_frame(resource_type, frame)
-
-    async def query(
-        self,
-        *,
-        select: str | None = None,
-        order: str | None = None,
-        year_min: int | None = None,
-        year_max: int | None = None,
-        drop_constant: bool = False,
-        top_n: int | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-        **filters: str,
-    ) -> pd.DataFrame:
-        """Return pandas data filtered on the server, using wide indexed form for timeseries."""
-        if year_min is not None or year_max is not None or drop_constant or top_n is not None:
-            raise TypeError(_TRIMMING_ON_RESOURCE)
-        return await self._dataframe(
-            select=select,
-            order=order,
-            limit=limit,
-            offset=offset,
-            filters=filters,
-        )
-
-    async def _selected(
-        self, *, year_min: int | None, year_max: int | None, filters: Mapping[str, str]
-    ) -> pd.DataFrame:
-        reject_query_arguments(filters)
-        resource_type = await self._get_type()
-        require_frame_support(resource_type)
-        path = await self._cached_frame_file()
-        if path is None:
-            whole = await self._client.query_resource_dataframe_async(self.tracking_id)
-        else:
-            whole = await asyncio.to_thread(read_frame, path)
-        # Filtering a whole resource can take seconds, so run it off the event loop.
-        return await asyncio.to_thread(
-            select_frame,
-            resource_type,
-            whole,
-            year_min=year_min,
-            year_max=year_max,
-            filters=filters,
-        )
+        selection = Selection.build(filters, year_min=year_min, year_max=year_max, order=order)
+        resource_type = await self.resource_type()
+        check_frame_read(resource_type, selection, caller, timeseries_only=timeseries_only)
+        if not server_side:
+            path = await self._cached_frame_file()
+            if path is not None:
+                return await asyncio.to_thread(_read_cached, resource_type, path, selection)
+        # An external pointer has no cached file, so the platform selects it where it lives.
+        frame = await self._data(selection.data_params())
+        return await asyncio.to_thread(settle_selected, resource_type, frame, selection)
 
     async def as_df(
         self,
         *,
+        filters: Filters | None = None,
         year_min: int | None = None,
         year_max: int | None = None,
-        **filters: str,
+        server_side: bool = False,
+        order: Order | None = None,
     ) -> pd.DataFrame:
-        """Return the whole resource as pandas, using wide indexed form for timeseries.
+        """Return every selected row as pandas, using wide indexed form for timeseries.
 
-        The year window and ``column=value`` filters apply locally, after the download.
+        Values listed for one filter are alternatives, and separate filters must all hold.
+        The year window is inclusive.
+        ``order`` names columns to sort by, each prefixed with ``-`` to sort descending,
+        with missing values first either way and no promised order among ties.
+        By default the selection applies to the verified cached file,
+        and ``server_side`` has the platform select instead, which transfers only the selected rows.
         """
-        return await self._selected(year_min=year_min, year_max=year_max, filters=filters)
+        return await self._read("as_df()", filters, year_min, year_max, server_side, order)
 
     async def as_long_df(
         self,
         *,
+        filters: Filters | None = None,
         year_min: int | None = None,
         year_max: int | None = None,
+        server_side: bool = False,
         legacy_columns: bool = False,
-        **filters: str,
     ) -> pd.DataFrame:
-        """Return tidy pandas timeseries data.
+        """Return tidy pandas timeseries data, with integer ``year`` and a ``value`` column.
 
         ``legacy_columns`` reproduces the 0.4 long format instead:
         a ``values`` column, a ``year`` column of ``YYYY-01-01 00:00:00`` strings,
         and rows sorted by the dimensions and then the year.
         """
-        long = await self._long(year_min=year_min, year_max=year_max, filters=filters)
-        return legacy_long_timeseries(long) if legacy_columns else long
-
-    async def _long(
-        self, *, year_min: int | None, year_max: int | None, filters: Mapping[str, str]
-    ) -> pd.DataFrame:
-        require_timeseries_support(await self._get_type(), "as_long_df()")
-        return long_timeseries(
-            await self._selected(year_min=year_min, year_max=year_max, filters=filters)
+        wide = await self._read(
+            "as_long_df()", filters, year_min, year_max, server_side, timeseries_only=True
         )
+        return await asyncio.to_thread(_long, wide, legacy_columns)
 
     async def as_polars(
         self,
         *,
+        filters: Filters | None = None,
         year_min: int | None = None,
         year_max: int | None = None,
-        **filters: str,
+        server_side: bool = False,
+        order: Order | None = None,
     ) -> pl.DataFrame:
-        """Return the resource as a Polars DataFrame."""
+        """Return the selection as a Polars DataFrame, with the dimensions as columns."""
         convert = polars_converter()
-        return convert(await self._selected(year_min=year_min, year_max=year_max, filters=filters))
+        frame = await self._read("as_polars()", filters, year_min, year_max, server_side, order)
+        return await asyncio.to_thread(convert, frame)
 
     async def as_arrow(
         self,
         *,
+        filters: Filters | None = None,
         year_min: int | None = None,
         year_max: int | None = None,
-        **filters: str,
+        server_side: bool = False,
+        order: Order | None = None,
     ) -> pa.Table:
-        """Return the resource as a PyArrow table."""
+        """Return the selection as a PyArrow table, with the dimensions as columns."""
         convert = arrow_converter()
-        return convert(await self._selected(year_min=year_min, year_max=year_max, filters=filters))
+        frame = await self._read("as_arrow()", filters, year_min, year_max, server_side, order)
+        return await asyncio.to_thread(convert, frame)
 
     async def as_scmrun(
         self,
         *,
+        filters: Filters | None = None,
         year_min: int | None = None,
         year_max: int | None = None,
-        **filters: str,
+        server_side: bool = False,
     ) -> ScmRun:
         """Return timeseries data as an scmdata ScmRun.
 
         scmdata rejects rows with duplicate metadata.
         """
-        require_timeseries_support(await self._get_type(), "as_scmrun()")
         run = scmrun_class()
-        return run(await self.as_df(year_min=year_min, year_max=year_max, **filters))
+        frame = await self._read(
+            "as_scmrun()", filters, year_min, year_max, server_side, timeseries_only=True
+        )
+        return await asyncio.to_thread(run, frame)
+
+    async def preview(
+        self,
+        *,
+        limit: int = 100,
+        filters: Filters | None = None,
+        year_min: int | None = None,
+        year_max: int | None = None,
+        order: Order | None = None,
+        top_n: int | None = None,
+        drop_constant: bool = False,
+    ) -> DataPreview:
+        """Return up to ``limit`` selected rows, selected on the platform, and whether that is all.
+
+        ``order`` names columns to sort by first, each prefixed with ``-`` to sort descending.
+        ``top_n`` keeps the timeseries with the largest latest values, and cannot take an order.
+        ``drop_constant`` drops the dimensions that hold one value across the returned series.
+        """
+        selection = Selection.build(filters, year_min=year_min, year_max=year_max, order=order)
+        resource_type = await self.resource_type()
+        check_preview(
+            resource_type, selection, limit=limit, top_n=top_n, drop_constant=drop_constant
+        )
+        frame = await self._data(
+            preview_params(selection, top_n=top_n), limit=limit + 1, order=selection.order_param()
+        )
+        return await asyncio.to_thread(
+            settle_preview, resource_type, frame, limit=limit, drop_constant=drop_constant
+        )
 
     async def fetch(self) -> bytes:
         """Return verified bytes, using memory proportional to the resource size.
 
-        Use `as_path()` to stream large resources without loading them into memory.
+        Use `download()` to write large resources to disk without loading them into memory.
         """
         path = await self._ensure_cached()
         return await asyncio.to_thread(path.read_bytes)
 
+    async def download(self, destination: str | Path) -> Path:
+        """Stream and verify the resource, then copy it to ``destination`` and return that path."""
+        destination = Path(destination)
+        try:
+            return await asyncio.to_thread(_copy_out, await self._ensure_cached(), destination)
+        except FileNotFoundError:
+            # Another process evicted the cached file between the fill and the copy.
+            return await asyncio.to_thread(_copy_out, await self._ensure_cached(), destination)
+
     async def as_path(self) -> Path:
-        """Stream and verify the resource, then return its cached path."""
+        """Stream and verify the resource, then return its path in the cache.
+
+        The cache may evict the file later, so use `download()` for a copy that stays.
+        """
         return await self._ensure_cached()
 
     async def _cached_frame_file(self) -> Path | None:
@@ -767,81 +676,7 @@ class AsyncBookEntry(AsyncResource):
         self.name_in_book = entry.name_in_book
         """The name this entry has in its book."""
 
-    async def query(
-        self,
-        *,
-        select: str | None = None,
-        order: str | None = None,
-        year_min: int | None = None,
-        year_max: int | None = None,
-        drop_constant: bool = False,
-        top_n: int | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-        **filters: str,
-    ) -> pd.DataFrame:
-        """Return book scoped data filtered and trimmed on the server.
-
-        Timeseries go through the book timeseries endpoint, which truncates at its row limit.
-        """
-        return await self._dataframe(
-            select=select,
-            order=order,
-            limit=limit,
-            offset=offset,
-            filters=timeseries_filters(
-                filters,
-                year_min=year_min,
-                year_max=year_max,
-                drop_constant=drop_constant,
-                top_n=top_n,
-            ),
-        )
-
-    async def _frame(
-        self,
-        *,
-        select: str | None,
-        order: str | None,
-        limit: int | None,
-        offset: int | None,
-        filters: Mapping[str, str],
-    ) -> pd.DataFrame:
-        if await self._get_type() is not models.ResourceType.timeseries:
-            return await super()._frame(
-                select=select,
-                order=order,
-                limit=limit,
-                offset=offset,
-                filters=filters,
-            )
-        if select is not None or order is not None or offset is not None:
-            raise TypeError(_UNSUPPORTED_TIMESERIES_ARGS)
-        query = TimeseriesQuery.parse(filters)
-        drops: list[str] = []
-        if query.drop_constant:
-            facets = await self._client.get_book_resource_facets_async(
-                self.book_id,
-                self.name_in_book,
-                max_values=_FACET_MAX_VALUES,
-                filters=query.facet_filters(),
-            )
-            drops = constant_columns(facets)
-        response = await self._client.get_book_resource_timeseries_async(
-            self.book_id,
-            self.name_in_book,
-            drop=drops,
-            limit=limit,
-            top_n=query.top_n,
-            year_min=query.year_min,
-            year_max=query.year_max,
-            filters=query.filters,
-        )
-        return timeseries_frame(response)
-
     def _summary(self) -> tuple[str, Sections]:
-        # Read the handle's own type, not the entry's.
-        # A book entry may arrive without one, and only the handle learns it from the metadata.
         return _entry_header(self._title, self.name_in_book, self._resource_type), _entry_sections(
             self.entry, self._resource_type, self.book_id
         )
@@ -857,29 +692,21 @@ class AsyncBookEntry(AsyncResource):
         )
 
     async def facets(
-        self, *, max_values: int = _FACET_MAX_VALUES, **filters: str
+        self, *, max_values: int = _FACET_MAX_VALUES, filters: Filters | None = None
     ) -> models.FacetsResponse:
-        """Return book scoped facet values."""
+        """Return the distinct values of each column, within the book."""
+        selection = Selection.build(filters, year_min=None, year_max=None)
         return await self._client.get_book_resource_facets_async(
             self.book_id,
             self.name_in_book,
             max_values=max_values,
-            filters=filters,
+            filters=selection.book_params(),
         )
 
-    async def preview(self, *, limit: int = 100, offset: int = 0) -> models.PreviewResponse:
-        """Return a book scoped tabular preview."""
-        return await self._client.get_book_resource_preview_async(
-            self.book_id,
-            self.name_in_book,
-            limit=limit,
-            offset=offset,
-        )
-
-    async def schema(
+    async def series_metadata(
         self, *, limit: int = 100, offset: int = 0
     ) -> models.TimeseriesMetadataResponse:
-        """Return book scoped timeseries schema metadata."""
+        """Return a page of the timeseries' series, one record of dimension values per series."""
         return await self._client.get_book_resource_schema_async(
             self.book_id,
             self.name_in_book,
@@ -888,11 +715,4 @@ class AsyncBookEntry(AsyncResource):
         )
 
 
-__all__ = [
-    "AsyncBookEntry",
-    "AsyncResource",
-    "BookEntry",
-    "Resource",
-    "UnsupportedConversionError",
-    "describe_type",
-]
+__all__ = ["AsyncBookEntry", "AsyncResource", "BookEntry", "Resource", "describe_type"]

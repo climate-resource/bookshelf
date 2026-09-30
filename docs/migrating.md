@@ -129,16 +129,17 @@ Each entry offers several shapes of the same resource:
 - `as_df()` returns a wide pandas frame, indexed by the metadata columns, with one column per year.
   The year columns are strings such as `"1750"`.
 - `as_long_df()` returns a tidy frame with integer `year` and a `value` column.
-- `as_polars()`, `as_arrow()` and `as_path()` are new.
+- `as_polars()`, `as_arrow()`, `preview()` and `download()` are new.
 
 `as_long_df()` is not the 0.4 long format.
 The old one named its column `values` and stored `year` as strings like `"1750-01-01 00:00:00"`.
 Pass `legacy_columns=True` to get that exact format while you update downstream code.
 
-The converters take a year window and exact match filters, applied locally after the download:
+The converters take a year window and exact match filters.
+They apply to the cached download by default, and `server_side=True` has the platform select instead:
 
 ```python
-entry.as_df(year_min=2000, year_max=2010, region="World")
+entry.as_df(year_min=2000, year_max=2010, filters={"region": "World"})
 ```
 
 A filter on a column the resource does not have raises `SelectionError`, a `KeyError`.
@@ -167,7 +168,7 @@ and `book["by_country_wide"]` raises `EntryNotFoundError`, a `KeyError`, listing
 
 A book can also carry entries that are not data, such as `build.ipynb` and `build.html`,
 the notebook that built it.
-Check `book[name].type` before treating every entry as a timeseries.
+Check `book[name].resource_type()` before treating every entry as a timeseries.
 
 ### Labels can differ between editions
 
