@@ -45,9 +45,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-from pydantic import (
-    ValidationError as PydanticValidationError,
-)
+from pydantic import ValidationError as PydanticValidationError
 
 from bookshelf._core.errors import BookshelfError
 from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
