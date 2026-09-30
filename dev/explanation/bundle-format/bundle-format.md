@@ -140,7 +140,7 @@ and it keeps the first companion bound to a given master.
 
 The server decides:
 a registration aliases onto a resource your organisation already holds with the same bytes,
-unless it pins its own tracking id.
+unless a bundle pins its tracking id.
 A manifest older than 3.10 may record a `dedupe` field, and a reader drops it.
 
 ### `managed` versus `pointer`
