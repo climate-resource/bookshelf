@@ -7,6 +7,7 @@ import re
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any
 
+from bookshelf._core.errors import SelectionError
 from bookshelf._core.frames import require_package
 from bookshelf._generated import models
 
@@ -90,7 +91,7 @@ def filter_rows(frame: pd.DataFrame, filters: Mapping[str, str]) -> pd.DataFrame
             mask &= _equal_to(frame.index.get_level_values(column), wanted)
         else:
             known = ", ".join(map(str, [*names, *frame.columns]))
-            raise KeyError(f"cannot filter on {column!r}, the columns are: {known}")
+            raise SelectionError(f"cannot filter on {column!r}, the columns are: {known}")
     return frame[mask]
 
 

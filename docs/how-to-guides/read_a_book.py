@@ -27,7 +27,7 @@
 # then `$BOOKSHELF_URL`, then the production URL.
 
 # %%
-from bookshelf import Bookshelf
+from bookshelf import Bookshelf, EntryNotFoundError
 
 bs = Bookshelf()
 
@@ -80,7 +80,7 @@ entry
 # %%
 try:
     book["does-not-exist"]
-except KeyError as exc:
+except EntryNotFoundError as exc:
     print(exc)
 
 # %% [markdown]
@@ -141,7 +141,7 @@ frame.index.names
 # `year_min` and `year_max` bound the year window.
 # Any other keyword is a `column=value` filter on the rows.
 # Both apply after the download, so every index dimension stays intact.
-# A filter on a column the resource does not have raises `KeyError`.
+# A filter on a column the resource does not have raises `SelectionError`.
 
 # %%
 world = entry.as_df(region="World", year_min=2020, year_max=2100)

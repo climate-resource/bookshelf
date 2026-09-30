@@ -79,7 +79,7 @@ _SHA256_RE = re.compile(r"^sha256:([0-9a-f]{64})$")
 ResourceName = Annotated[str, StringConstraints(pattern=RESOURCE_NAME_PATTERN.pattern)]
 
 
-class InvalidBundleError(BookshelfError):
+class InvalidBundleError(BookshelfError, ValueError):
     """A bundle on disk breaks the contract a bundle promises.
 
     The message names the invariant that failed
@@ -430,11 +430,13 @@ def _prepare_manifest(raw: dict[str, Any]) -> None:
     """
     version = raw.get("schema_version", BUNDLE_SCHEMA_VERSION)
     if not isinstance(version, str):
-        raise ValueError(f"bundle schema_version must be a string, got {version!r}")
+        raise InvalidBundleError(f"bundle schema_version must be a string, got {version!r}")
     try:
         major = int(version.split(".", 1)[0])
     except ValueError as exc:
-        raise ValueError(f"bundle schema_version {version!r} is not a valid version") from exc
+        raise InvalidBundleError(
+            f"bundle schema_version {version!r} is not a valid version"
+        ) from exc
 
     if major > _SUPPORTED_SCHEMA_MAJOR:
         raise InvalidBundleError(
@@ -1059,15 +1061,25 @@ class Bundle:
         Within the supported major, the manifest is parsed tolerantly with ``extra="ignore"``.
         A bundle written by a later minor therefore still loads
         and keeps only the fields this schema models.
-        Any other major raises :class:`InvalidBundleError`
+        Any other major, or a manifest the schema rejects, raises :class:`InvalidBundleError`
         instead of being reinterpreted under the current semantics.
 
         The read is structural.
         A bundle recorded as a draft loads here and replays as a draft.
         """
-        raw: dict[str, Any] = yaml.safe_load((root / MANIFEST_NAME).read_bytes()) or {}
+        try:
+            raw = yaml.safe_load((root / MANIFEST_NAME).read_bytes()) or {}
+        except yaml.YAMLError as exc:
+            raise InvalidBundleError(f"{MANIFEST_NAME} is not valid YAML: {exc}") from exc
+        if not isinstance(raw, dict):
+            raise InvalidBundleError(f"{MANIFEST_NAME} must contain a YAML mapping")
         _prepare_manifest(raw)
-        manifest = BundleManifest.model_validate(raw)
+        try:
+            manifest = BundleManifest.model_validate(raw)
+        except ValidationError as exc:
+            raise InvalidBundleError(
+                f"{MANIFEST_NAME} does not match the bundle schema: {exc}"
+            ) from exc
         return cls(root=root, manifest=manifest)
 
     @classmethod

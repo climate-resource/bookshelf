@@ -31,6 +31,13 @@ class AuthenticationRequiredError(BookshelfError):
     """No credential the API accepts is available, and none can be obtained here."""
 
 
+class SelectionError(BookshelfError, KeyError):
+    """A filter names a column or index level the data does not have."""
+
+    def __str__(self) -> str:
+        return BookshelfError.__str__(self)
+
+
 class APIError(BookshelfError):
     """An HTTP error response from the API.
 
@@ -90,8 +97,19 @@ class ForbiddenError(APIError):
     """Raised on HTTP 403 responses."""
 
 
-class NotFoundError(APIError):
-    """Raised on HTTP 404 responses."""
+class NotFoundError(APIError, LookupError):
+    """The named volume, version, book, entry or resource does not exist.
+
+    Raised on HTTP 404 responses,
+    and with ``status_code`` 404 when a lookup the SDK settles locally finds nothing.
+    """
+
+
+class EntryNotFoundError(NotFoundError, KeyError):
+    """A book indexes no entry by the requested name."""
+
+    def __str__(self) -> str:
+        return BookshelfError.__str__(self)
 
 
 class ConflictError(APIError):

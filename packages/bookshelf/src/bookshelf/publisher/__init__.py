@@ -48,7 +48,7 @@ It returns a :class:`PublishOutcome` saying what the publish resolved to::
         outcome = publish_bundle(Bundle.read(Path("bundle")), bs)
 """
 
-from bookshelf.publisher.bundle import Bundle, BundleManifest
+from bookshelf.publisher.bundle import Bundle, BundleManifest, InvalidBundleError
 from bookshelf.publisher.publish import PublishOutcome, publish_bundle
 from bookshelf.publisher.recipe import RecordRecipe, load_record_recipe
 from bookshelf.publisher.record import (
@@ -73,6 +73,7 @@ __all__ = [
     "DigestReference",
     "Bundle",
     "BundleManifest",
+    "InvalidBundleError",
     "PublishOutcome",
     "RecordRecipe",
     "RecordedDraftBook",
