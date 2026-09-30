@@ -71,7 +71,7 @@ def registered_resource_type(
     requested: models.ResourceType,
 ) -> models.ResourceType | None:
     """Return a trusted local type, or defer canonical alias metadata loading."""
-    if outcome.status is models.Status2.aliased:
+    if outcome.status is models.RegistrationOutcomeStatus.aliased:
         return None
     return requested
 
@@ -206,8 +206,8 @@ def check_figure_facts(
             "Pass alt_text= describing what the figure shows, or lower its visibility."
         )
     limits = (
-        ("caption", caption, _contract_limit(models.Caption)),
-        ("alt_text", alt_text, _contract_limit(models.AltText)),
+        ("caption", caption, _contract_limit(models.ResourceDiscoveryCaption)),
+        ("alt_text", alt_text, _contract_limit(models.ResourceDiscoveryAltText)),
     )
     for field, value, limit in limits:
         if value is not None and len(value) > limit:

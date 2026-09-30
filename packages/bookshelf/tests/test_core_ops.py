@@ -211,7 +211,9 @@ def test_build_put_presigned_is_absolute_and_registry_free() -> None:
         (
             ops.build_correct_book(
                 "book/one",
-                models.BookCorrection(metadata=None, reason=models.Reason("retracted")),
+                models.BookCorrection(
+                    metadata=None, reason=models.BookCorrectionReason("retracted")
+                ),
             ),
             ApiRequest(
                 method="POST",

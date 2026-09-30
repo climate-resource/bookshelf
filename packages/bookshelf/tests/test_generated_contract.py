@@ -92,3 +92,13 @@ def test_data_dictionary_hangs_only_from_book_entries() -> None:
     assert "data_dictionary" in models.ResourceSummary.model_fields
     assert "data_dictionary_source" not in models.BookEntryItem.model_fields
     assert "data_dictionary_source" not in models.ResourceSummary.model_fields
+
+
+def test_generated_class_names_are_stable() -> None:
+    names = [
+        name
+        for name, value in vars(models).items()
+        if isinstance(value, type) and value.__module__ == models.__name__
+    ]
+    # Inline classes take their owning schema and field as a name, never a positional counter.
+    assert [name for name in names if name[-1].isdigit()] == []

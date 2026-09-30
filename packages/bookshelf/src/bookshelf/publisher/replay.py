@@ -112,7 +112,7 @@ def _resource(
         name=resource.name,
         hash=resource.hash,
         type=models.ResourceType(resource.type),
-        kind=models.Kind2(resource.kind),
+        kind=models.ReplayResourceKind(resource.kind),
         visibility=models.Visibility(resource.visibility),
         metadata=dict(resource.metadata),
         generated=resource.generated,
