@@ -3,7 +3,7 @@
   "info": {
     "title": "Bookshelf API",
     "description": "API for Climate Resource's dataset management system",
-    "version": "v1+g5c911878"
+    "version": "v1+g317359a2"
   },
   "paths": {
     "/livez": {
@@ -107,36 +107,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UserResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/auth/session": {
-      "get": {
-        "tags": [
-          "auth"
-        ],
-        "summary": "Get Session",
-        "description": "Get full session information for the current user.\n\nReturns user info, organization, role, and permissions.",
-        "operationId": "authGetSession",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserSessionResponse"
                 }
               }
             }
@@ -604,6 +574,18 @@
               "title": "Include Demo"
             },
             "description": "Include seeded and stress-test fixture volumes, which are excluded by default."
+          },
+          {
+            "name": "include_tombstoned",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include tombstoned entries. Honoured for admins only and ignored for everyone else.",
+              "default": false,
+              "title": "Include Tombstoned"
+            },
+            "description": "Include tombstoned entries. Honoured for admins only and ignored for everyone else."
           }
         ],
         "responses": {
@@ -990,6 +972,18 @@
               "default": 0,
               "title": "Offset"
             }
+          },
+          {
+            "name": "include_tombstoned",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include tombstoned entries. Honoured for admins only and ignored for everyone else.",
+              "default": false,
+              "title": "Include Tombstoned"
+            },
+            "description": "Include tombstoned entries. Honoured for admins only and ignored for everyone else."
           }
         ],
         "responses": {
@@ -1270,143 +1264,6 @@
         }
       }
     },
-    "/v1/books/{book_id}/resources": {
-      "get": {
-        "tags": [
-          "resources"
-        ],
-        "summary": "List Resources",
-        "description": "List resources in a book.",
-        "operationId": "resourcesListResources",
-        "security": [
-          {},
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "book_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Book Id"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 1000,
-              "minimum": 1,
-              "default": 100,
-              "title": "Limit"
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0,
-              "title": "Offset"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EntryListResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "422": {
-            "$ref": "#/components/responses/UnprocessableEntity"
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "resources"
-        ],
-        "summary": "Create Resource",
-        "description": "Create a resource after upload is complete.\n\nRequires write permission.",
-        "operationId": "resourcesCreateResource",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "book_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Book Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ResourceCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EntryRead"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "409": {
-            "$ref": "#/components/responses/Conflict"
-          },
-          "422": {
-            "$ref": "#/components/responses/UnprocessableEntity"
-          }
-        }
-      }
-    },
     "/v1/books/{book_id}/resources/{resource_name}": {
       "get": {
         "tags": [
@@ -1463,181 +1320,6 @@
             "$ref": "#/components/responses/UnprocessableEntity"
           }
         }
-      },
-      "delete": {
-        "tags": [
-          "resources"
-        ],
-        "summary": "Delete Resource",
-        "description": "Delete a resource from a draft book.\n\nRequires write permission.",
-        "operationId": "resourcesDeleteResource",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "book_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Book Id"
-            }
-          },
-          {
-            "name": "resource_name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Resource Name"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "422": {
-            "$ref": "#/components/responses/UnprocessableEntity"
-          }
-        }
-      }
-    },
-    "/v1/books/{book_id}/uploads": {
-      "post": {
-        "tags": [
-          "resources"
-        ],
-        "summary": "Initiate Upload",
-        "description": "Initiate a file upload.\n\nReturns presigned URLs for uploading file parts.\nRequires write permission.",
-        "operationId": "resourcesInitiateUpload",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "book_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Book Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UploadInitiateRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UploadInitiateResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "422": {
-            "$ref": "#/components/responses/UnprocessableEntity"
-          }
-        }
-      }
-    },
-    "/v1/books/{book_id}/uploads/complete": {
-      "post": {
-        "tags": [
-          "resources"
-        ],
-        "summary": "Complete Upload",
-        "description": "Complete a multipart upload.\n\nRequires write permission.",
-        "operationId": "resourcesCompleteUpload",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "book_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Book Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UploadCompleteRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "422": {
-            "$ref": "#/components/responses/UnprocessableEntity"
-          }
-        }
       }
     },
     "/v1/books/{book_id}/resources/{resource_name}/download": {
@@ -1646,7 +1328,7 @@
           "resources"
         ],
         "summary": "Get Download Url",
-        "description": "Get presigned download URL for a resource.",
+        "description": "Get presigned download URL for a resource.\n\nAn external resource hands back its own link, or its scheme's resolver link.",
         "operationId": "resourcesGetDownloadUrl",
         "security": [
           {},
@@ -1709,6 +1391,9 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "410": {
+            "$ref": "#/components/responses/Gone"
+          },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
           }
@@ -1760,6 +1445,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "410": {
+            "$ref": "#/components/responses/Gone"
           },
           "413": {
             "$ref": "#/components/responses/PayloadTooLarge"
@@ -1825,6 +1513,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "410": {
+            "$ref": "#/components/responses/Gone"
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
@@ -1944,6 +1635,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "410": {
+            "$ref": "#/components/responses/Gone"
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
@@ -2097,6 +1791,9 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "410": {
+            "$ref": "#/components/responses/Gone"
+          },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
           }
@@ -2171,6 +1868,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "410": {
+            "$ref": "#/components/responses/Gone"
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
@@ -2302,6 +2002,9 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "410": {
+            "$ref": "#/components/responses/Gone"
+          },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
           }
@@ -2314,7 +2017,7 @@
           "explorer"
         ],
         "summary": "Create Chart",
-        "description": "Create a new explorer chart.\n\nRequires authentication.",
+        "description": "Create a new explorer chart.\n\nRequires authentication.\nA config with a `spec` key is a ChartSpec wrapper, anything else is the legacy config.\nEvery wrapper source must name a resource the caller can see,\nplaced under the source's volume, version, edition and resource name.\nA public or unlisted chart can only use public data, so otherwise it is a 422.",
         "operationId": "explorerCreateChart",
         "security": [
           {
@@ -2412,6 +2115,157 @@
         }
       }
     },
+    "/v1/explorer/charts/check": {
+      "post": {
+        "tags": [
+          "explorer"
+        ],
+        "summary": "Check Chart Bundle",
+        "description": "Check a chart or figure bundle against its spec schema without storing anything.\n\nOpen to anyone, like the schemas themselves.\nA wrapper that does not parse is a 422, and one that parses lists its schema `problems`.",
+        "operationId": "explorerCheckChartBundle",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ChartBundle"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FigureBundle"
+                  }
+                ],
+                "title": "Bundle"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChartCheckResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        },
+        "security": [
+          {},
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/explorer/charts/preview": {
+      "post": {
+        "tags": [
+          "explorer"
+        ],
+        "summary": "Create Chart Draft",
+        "description": "Store a chart or figure bundle for preview and return a link to it.\n\nRequires authentication.\nNothing is saved as a chart.\nThe draft is readable by anyone with the link for 7 days.\nSources are not checked,\nso a source the viewer cannot read and that has no inline rows fails to draw\nrather than failing the post.",
+        "operationId": "explorerCreateChartDraft",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ChartBundle"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FigureBundle"
+                  }
+                ],
+                "title": "Bundle"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChartDraftCreated"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/explorer/charts/preview/{draft_id}": {
+      "get": {
+        "tags": [
+          "explorer"
+        ],
+        "summary": "Get Chart Draft",
+        "description": "Get a chart bundle posted for preview.\n\nA missing and an expired draft both return 404.",
+        "operationId": "explorerGetChartDraft",
+        "security": [
+          {},
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Draft Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChartDraftResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
     "/v1/explorer/charts/{short_id}": {
       "get": {
         "tags": [
@@ -2464,7 +2318,7 @@
           "explorer"
         ],
         "summary": "Update Chart",
-        "description": "Update an explorer chart.\n\nOnly the chart owner can update it.",
+        "description": "Update an explorer chart.\n\nOnly the chart owner can update it.\nA wrapper's sources are re-checked when its config or visibility changes,\nso a private chart over non-public data cannot be made public or unlisted.",
         "operationId": "explorerUpdateChart",
         "security": [
           {
@@ -2565,7 +2419,7 @@
           "explorer"
         ],
         "summary": "Fork Chart",
-        "description": "Fork (copy) an existing chart.\n\nCreates a new chart owned by the current user with the same configuration.",
+        "description": "Fork (copy) an existing chart.\n\nCreates a new chart owned by the current user with the same configuration and visibility.\nA wrapper's sources are re-checked against the forking user.",
         "operationId": "explorerForkChart",
         "security": [
           {
@@ -2606,6 +2460,68 @@
         }
       }
     },
+    "/v1/schemas/chart-spec.v1.json": {
+      "get": {
+        "tags": [
+          "schemas"
+        ],
+        "summary": "Get Chart Spec Schema",
+        "description": "Get the JSON Schema for version 1 of ChartSpec.",
+        "operationId": "schemasGetChartSpecSchema",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/schema+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {},
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/schemas/figure-spec.v1.json": {
+      "get": {
+        "tags": [
+          "schemas"
+        ],
+        "summary": "Get Figure Spec Schema",
+        "description": "Get the JSON Schema for version 1 of FigureSpec.",
+        "operationId": "schemasGetFigureSpecSchema",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/schema+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {},
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/v1/logs/ingest": {
       "post": {
         "tags": [
@@ -2627,6 +2543,1046 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/admin/renders/{render_id}/retry": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Retry Render",
+        "description": "Re-queue the materialise job of a failed or pending render. Needs no typed confirmation.",
+        "operationId": "adminRetryRender",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "render_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Render Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetryRenderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminActionResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/admin/jobs/{job_id}/retry": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Retry Job",
+        "description": "Return a dead job, or a running one with an expired lease, to pending with fresh attempts.\n\nNeeds no typed confirmation.",
+        "operationId": "adminRetryJob",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetryJobRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminActionResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/admin/jobs/{job_id}/cancel": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Cancel Job",
+        "description": "Park a pending or running job as dead, recording the reason. The confirm label is the job id.",
+        "operationId": "adminCancelJob",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelJobRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminActionResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/admin/previews/{preview_id}/fail": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Fail Preview",
+        "description": "Force an open preview to failed and report it to its pull request.\n\nThe confirm label is the preview id.",
+        "operationId": "adminFailPreview",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "preview_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Preview Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FailPreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminActionResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/admin/overview": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Get Overview",
+        "description": "Counts of books, renders, jobs and previews, and the last ten admin actions.",
+        "operationId": "adminGetOverview",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminOverview"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/admin/renders": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List Renders",
+        "description": "List renders newest first, with the volume, book and resource each belongs to.",
+        "operationId": "adminListRenders",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/RenderStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only renders in this status.",
+              "title": "Status"
+            },
+            "description": "Only renders in this status."
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/RenderKind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only renders of this kind.",
+              "title": "Kind"
+            },
+            "description": "Only renders of this kind."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Maximum items per page (1-200).",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Maximum items per page (1-200)."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque cursor from the previous page.",
+              "title": "Cursor"
+            },
+            "description": "Opaque cursor from the previous page."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRendersPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/admin/jobs": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List Jobs",
+        "description": "List queued jobs newest first, with attempts, lease and a safe payload summary.",
+        "operationId": "adminListJobs",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/JobStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only jobs in this status.",
+              "title": "Status"
+            },
+            "description": "Only jobs in this status."
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only jobs of this kind, e.g. `materialise-render`.",
+              "title": "Kind"
+            },
+            "description": "Only jobs of this kind, e.g. `materialise-render`."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Maximum items per page (1-200).",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Maximum items per page (1-200)."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque cursor from the previous page.",
+              "title": "Cursor"
+            },
+            "description": "Opaque cursor from the previous page."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminJobsPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/admin/previews": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List Previews",
+        "description": "List previews newest first, with their pull request, age and target count.",
+        "operationId": "adminListPreviews",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/PreviewState"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only previews in this state.",
+              "title": "State"
+            },
+            "description": "Only previews in this state."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Maximum items per page (1-200).",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Maximum items per page (1-200)."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque cursor from the previous page.",
+              "title": "Cursor"
+            },
+            "description": "Opaque cursor from the previous page."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPreviewsPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/admin/books/{book_id}/uninvalidate": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Uninvalidate Book",
+        "description": "Clear ``invalidated_at``. The audit row is the record, the event ledger stays append-only.",
+        "operationId": "adminUninvalidateBook",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "book_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Book Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UninvalidateBookRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminActionResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/admin/books/{book_id}/delete": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Delete Book",
+        "description": "Tombstone or purge a draft or published book.",
+        "operationId": "adminDeleteBook",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "book_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Book Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteBookRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminActionResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/admin/books/{book_id}/discard-draft": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Discard Draft",
+        "description": "Delete a draft whoever owns it. Its resources stay in place, as with an owner's delete.",
+        "operationId": "adminDiscardDraft",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "book_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Book Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscardDraftRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminActionResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/admin/volumes/{name}/delete": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Delete Volume",
+        "description": "Tombstone or purge a volume, applying the mode to every book in it.",
+        "operationId": "adminDeleteVolume",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteVolumeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminActionResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/admin/volumes/{name}/rename": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Rename Volume",
+        "description": "Change a volume's name. Stored files are keyed by content, so none move.",
+        "operationId": "adminRenameVolume",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameVolumeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminActionResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/admin/volumes/{name}/visibility": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Set Volume Visibility",
+        "description": "Set the visibility of every live book in a volume and of the resources only those books hold.",
+        "operationId": "adminSetVolumeVisibility",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VolumeVisibilityRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminActionResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/admin/actions": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List Actions",
+        "description": "List admin actions newest first, including rejected and failed attempts.",
+        "operationId": "adminListActions",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Maximum items per page (1-200).",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Maximum items per page (1-200)."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque cursor from the previous page.",
+              "title": "Cursor"
+            },
+            "description": "Opaque cursor from the previous page."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminActionsPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
@@ -2925,73 +3881,6 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
-          },
-          "422": {
-            "$ref": "#/components/responses/UnprocessableEntity"
-          }
-        }
-      }
-    },
-    "/v1/resources/{tracking_id}/revise": {
-      "post": {
-        "tags": [
-          "lineage"
-        ],
-        "summary": "Revise Resource",
-        "description": "Register a revised resource and link it via ``WasRevisionOf``.",
-        "operationId": "lineageReviseResource",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "tracking_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Tracking Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RegisterRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReviseResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "409": {
-            "$ref": "#/components/responses/Conflict"
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
@@ -3510,10 +4399,12 @@
                   "type": "null"
                 }
               ],
-              "description": "Filter on the merge flag. ``true`` returns the canonical merging row for a digest lookup.",
+              "description": "Deprecated. Filter on the merge flag. ``true`` returns the canonical merging row for a digest lookup.",
+              "deprecated": true,
               "title": "Dedupe"
             },
-            "description": "Filter on the merge flag. ``true`` returns the canonical merging row for a digest lookup."
+            "description": "Deprecated. Filter on the merge flag. ``true`` returns the canonical merging row for a digest lookup.",
+            "deprecated": true
           },
           {
             "name": "in_book",
@@ -3768,55 +4659,6 @@
         }
       }
     },
-    "/v1/resources/{tracking_id}/locations": {
-      "get": {
-        "tags": [
-          "events"
-        ],
-        "summary": "List Resource Locations",
-        "description": "List the effective locations registered for a resource.",
-        "operationId": "eventsListResourceLocations",
-        "security": [
-          {},
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "tracking_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Tracking Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ResourceLocationsResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "422": {
-            "$ref": "#/components/responses/UnprocessableEntity"
-          }
-        }
-      }
-    },
     "/v1/resources/{tracking_id}/download": {
       "get": {
         "tags": [
@@ -3896,6 +4738,9 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "410": {
+            "$ref": "#/components/responses/Gone"
+          },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
           }
@@ -3908,7 +4753,7 @@
           "data"
         ],
         "summary": "Query Resource Data",
-        "description": "Query a resource's tabular data with PostgREST-style filters.\n\nThe output format is negotiated via the ``Accept`` header:\n``application/json`` (default, a JSON array of row objects), ``text/csv``,\nor ``application/parquet``.\n\nColumn filters use a dynamic ``col.op=value`` grammar that cannot be\nenumerated in a static schema because the columns are per-resource, so they\narrive as arbitrary query params alongside the four declared modifiers.\nOperators: ``eq`` (the default when ``.op`` is omitted), ``neq``, ``gt``,\n``gte``, ``lt``, ``lte``, ``in``, ``nin``, ``like``, ``ilike``, ``is``,\n``isnot``. Example: ``?year.gte=2020&region.in=USA,CHN``.\n\nReturns 304 when ``If-None-Match`` matches the computed ETag for published,\nnon-invalidated resources.",
+        "description": "Query a resource's tabular data with PostgREST-style filters.\n\nThe output format is negotiated via the ``Accept`` header:\n``application/json`` (default, a JSON array of row objects), ``text/csv``,\nor ``application/parquet``.\n\nColumn filters use a dynamic ``col.op=value`` grammar that cannot be\nenumerated in a static schema because the columns are per-resource, so they\narrive as arbitrary query params alongside the declared modifiers.\nA key starting with ``$`` is always a modifier, and an unknown one is a 422.\nOperators: ``eq`` (the default when ``.op`` is omitted), ``neq``, ``gt``,\n``gte``, ``lt``, ``lte``, ``in``, ``nin``, ``like``, ``ilike``, ``is``,\n``isnot``. Example: ``?year.gte=2020&region.in=USA,CHN``.\n\nReturns 304 when ``If-None-Match`` matches the computed ETag for published,\nnon-invalidated resources.",
         "operationId": "dataQueryResourceData",
         "security": [
           {},
@@ -4000,6 +4845,103 @@
             "description": "Number of rows to skip before returning results."
           },
           {
+            "name": "$top_n",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Keep the N series with the largest latest value.",
+              "title": "$Top N"
+            },
+            "description": "Keep the N series with the largest latest value."
+          },
+          {
+            "name": "$year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Years to keep, comma-separated or repeated.",
+              "title": "$Year"
+            },
+            "description": "Years to keep, comma-separated or repeated."
+          },
+          {
+            "name": "$year.min",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Earliest year to keep.",
+              "title": "$Year.Min"
+            },
+            "description": "Earliest year to keep."
+          },
+          {
+            "name": "$year.max",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Latest year to keep.",
+              "title": "$Year.Max"
+            },
+            "description": "Latest year to keep."
+          },
+          {
+            "name": "$shape",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "wide",
+                    "long"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "`wide` (default) or `long`, one row per series per year. A long read over 500,000 rows is refused.",
+              "title": "$Shape"
+            },
+            "description": "`wide` (default) or `long`, one row per series per year. A long read over 500,000 rows is refused."
+          },
+          {
             "name": "If-None-Match",
             "in": "header",
             "required": false,
@@ -4086,6 +5028,9 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "410": {
+            "$ref": "#/components/responses/Gone"
+          },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
           }
@@ -4146,6 +5091,103 @@
               "title": "Variant"
             },
             "description": "A figure's size: `thumb`, `web`, `web2x` or `master` for `.png` (default `master`), `web` or `web2x` for `.webp` (default `web`). On tabular data it is a column filter like any other."
+          },
+          {
+            "name": "$top_n",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Keep the N series with the largest latest value.",
+              "title": "$Top N"
+            },
+            "description": "Keep the N series with the largest latest value."
+          },
+          {
+            "name": "$year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Years to keep, comma-separated or repeated.",
+              "title": "$Year"
+            },
+            "description": "Years to keep, comma-separated or repeated."
+          },
+          {
+            "name": "$year.min",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Earliest year to keep.",
+              "title": "$Year.Min"
+            },
+            "description": "Earliest year to keep."
+          },
+          {
+            "name": "$year.max",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Latest year to keep.",
+              "title": "$Year.Max"
+            },
+            "description": "Latest year to keep."
+          },
+          {
+            "name": "$shape",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "wide",
+                    "long"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "`wide` (default) or `long`, one row per series per year. A long read over 500,000 rows is refused.",
+              "title": "$Shape"
+            },
+            "description": "`wide` (default) or `long`, one row per series per year. A long read over 500,000 rows is refused."
           }
         ],
         "responses": {
@@ -4233,6 +5275,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "410": {
+            "$ref": "#/components/responses/Gone"
           },
           "302": {
             "description": "Redirect to a signed URL for a stored object holding the whole read."
@@ -4752,52 +5797,6 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
-          },
-          "422": {
-            "$ref": "#/components/responses/UnprocessableEntity"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/v1/resources/registrations/bulk": {
-      "post": {
-        "tags": [
-          "registrations"
-        ],
-        "summary": "Register Resources Bulk",
-        "description": "Offline-flush replay with per-item status reporting.\n\nItems are processed independently, so one item failing does not stop the\nothers. The response status is always 200. Callers inspect each\n``BulkItemResult`` for individual outcomes.",
-        "operationId": "registrationsRegisterResourcesBulk",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BulkRegisterRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BulkRegisterResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
@@ -5352,7 +6351,7 @@
           "previews"
         ],
         "summary": "Compare Preview",
-        "description": "Report what publishing this preview would change for consumers.\n\nCounts are computed here and are complete.\nOnly the value examples are capped, so the response stays a page a browser can render.",
+        "description": "Report what publishing this preview would change for consumers.\n\nCounts are complete, and only the value examples are capped.\nA file the worker has not finished comparing is ``pending``, so ask again until none are.",
         "operationId": "previewsComparePreview",
         "security": [
           {},
@@ -5413,113 +6412,13 @@
         }
       }
     },
-    "/v1/previews/{preview_id}/books/{volume}/{version}/resources/{name}/data": {
-      "get": {
-        "tags": [
-          "previews"
-        ],
-        "summary": "Query Preview Resource Data",
-        "description": "Query one preview file's rows, through the same engine the catalogue reads use.\n\nThe file is addressed by its preview coordinates only,\nso no tracking id can be used to reach a resource this route was not meant to serve.",
-        "operationId": "previewsQueryPreviewResourceData",
-        "security": [
-          {},
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "preview_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Preview Id"
-            }
-          },
-          {
-            "name": "volume",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "Target volume name.",
-              "title": "Volume"
-            },
-            "description": "Target volume name."
-          },
-          {
-            "name": "version",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "Target book version.",
-              "title": "Version"
-            },
-            "description": "Target book version."
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Name"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Query results serialised in the negotiated media type.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "title": "ResourceDataRows",
-                  "items": {
-                    "type": "object",
-                    "additionalProperties": true
-                  }
-                }
-              },
-              "text/csv": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              },
-              "application/parquet": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "422": {
-            "$ref": "#/components/responses/UnprocessableEntity"
-          }
-        }
-      }
-    },
     "/v1/previews/{preview_id}/books/{volume}/{version}/resources/{name}/diff": {
       "get": {
         "tags": [
           "previews"
         ],
         "summary": "Query Preview Resource Diff",
-        "description": "Page through what changed inside one file of a preview book.\n\nColumn filters use the same ``col.op=value`` grammar the data route takes,\non the key columns and the axis column, and they narrow the counts as well as the page.\nA comparison that cannot be made answers 409 with the reason, so the page shows one message.",
+        "description": "Page through what changed inside one file of a preview book.\n\nColumn filters use the same ``col.op=value`` grammar the data route takes,\non the key columns and the axis column, and they narrow the counts as well as the page.\nA comparison that cannot be made answers 409 with the reason, so the page shows one message.\nThe worker builds the comparison, and until it lands the route answers 202.",
         "operationId": "previewsQueryPreviewResourceDiff",
         "security": [
           {},
@@ -5706,6 +6605,24 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "202": {
+            "description": "The comparison is still being built. Ask again after `Retry-After`.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before asking again.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceDiffPending"
+                }
+              }
+            }
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
@@ -6315,207 +7232,8 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
-          "422": {
-            "$ref": "#/components/responses/UnprocessableEntity"
-          }
-        }
-      }
-    },
-    "/{series_name}/latest/{name_in_book}": {
-      "get": {
-        "tags": [
-          "public-resolver"
-        ],
-        "summary": "Resolve Latest Url",
-        "description": "Resolve the newest published release the caller can read.\n\nReleases are ordered by SemVer precedence across versions, so a new version\nreplaces what the link points at.\nThe entry must exist in that release, and never falls back to an older one.",
-        "operationId": "publicResolverResolveLatestUrl",
-        "security": [
-          {},
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "series_name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "Series slug.",
-              "title": "Series Name"
-            },
-            "description": "Series slug."
-          },
-          {
-            "name": "name_in_book",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "Entry name within the book.",
-              "title": "Name In Book"
-            },
-            "description": "Entry name within the book."
-          },
-          {
-            "name": "format",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "enum": [
-                "png",
-                "webp",
-                "svg"
-              ],
-              "type": "string",
-              "description": "A figure's image format. Ignored for anything but a figure.",
-              "default": "png",
-              "title": "Format"
-            },
-            "description": "A figure's image format. Ignored for anything but a figure."
-          },
-          {
-            "name": "variant",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "A figure's size: `thumb`, `web`, `web2x` or `master` for `png` (default `master`), `web` or `web2x` for `webp` (default `web`). Ignored for anything but a figure.",
-              "title": "Variant"
-            },
-            "description": "A figure's size: `thumb`, `web`, `web2x` or `master` for `png` (default `master`), `web` or `web2x` for `webp` (default `web`). Ignored for anything but a figure."
-          }
-        ],
-        "responses": {
-          "302": {
-            "description": "Redirect to the resource bytes, or to a figure's inline image.",
-            "headers": {
-              "Location": {
-                "description": "Presigned or pointer URL for the resource bytes.",
-                "schema": {
-                  "type": "string",
-                  "format": "uri"
-                }
-              }
-            }
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "422": {
-            "$ref": "#/components/responses/UnprocessableEntity"
-          }
-        }
-      }
-    },
-    "/{series_name}/{version_edition}/{name_in_book}": {
-      "get": {
-        "tags": [
-          "public-resolver"
-        ],
-        "summary": "Resolve Public Url",
-        "description": "Resolve a public URL to a 302 redirect.",
-        "operationId": "publicResolverResolvePublicUrl",
-        "security": [
-          {},
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "series_name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "Series slug.",
-              "title": "Series Name"
-            },
-            "description": "Series slug."
-          },
-          {
-            "name": "version_edition",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "pattern": "^.+_e\\d{3}$",
-              "description": "``{version}_e{edition}`` slug; edition is exactly three digits.",
-              "title": "Version Edition"
-            },
-            "description": "``{version}_e{edition}`` slug; edition is exactly three digits."
-          },
-          {
-            "name": "name_in_book",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "Entry name within the book.",
-              "title": "Name In Book"
-            },
-            "description": "Entry name within the book."
-          },
-          {
-            "name": "format",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "enum": [
-                "png",
-                "webp",
-                "svg"
-              ],
-              "type": "string",
-              "description": "A figure's image format. Ignored for anything but a figure.",
-              "default": "png",
-              "title": "Format"
-            },
-            "description": "A figure's image format. Ignored for anything but a figure."
-          },
-          {
-            "name": "variant",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "A figure's size: `thumb`, `web`, `web2x` or `master` for `png` (default `master`), `web` or `web2x` for `webp` (default `web`). Ignored for anything but a figure.",
-              "title": "Variant"
-            },
-            "description": "A figure's size: `thumb`, `web`, `web2x` or `master` for `png` (default `master`), `web` or `web2x` for `webp` (default `web`). Ignored for anything but a figure."
-          }
-        ],
-        "responses": {
-          "302": {
-            "description": "Redirect to the resource bytes, or to a figure's inline image.",
-            "headers": {
-              "Location": {
-                "description": "Presigned or pointer URL for the resource bytes.",
-                "schema": {
-                  "type": "string",
-                  "format": "uri"
-                }
-              }
-            }
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
+          "410": {
+            "$ref": "#/components/responses/Gone"
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
@@ -6599,6 +7317,676 @@
         ],
         "title": "ActivityEnvelope",
         "description": "Optional Activity payload that wraps a batch of resource registrations."
+      },
+      "AdminActionResult": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run"
+          },
+          "impact": {
+            "$ref": "#/components/schemas/AdminImpact"
+          },
+          "audit_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audit Id",
+            "description": "The `admin_actions` row. Null on dry runs, which are not recorded."
+          }
+        },
+        "type": "object",
+        "required": [
+          "action",
+          "target",
+          "dry_run",
+          "impact"
+        ],
+        "title": "AdminActionResult",
+        "description": "Outcome of an admin action."
+      },
+      "AdminActionRow": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "actor_user_id": {
+            "type": "string",
+            "title": "Actor User Id"
+          },
+          "actor_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Email"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "target_type": {
+            "type": "string",
+            "title": "Target Type"
+          },
+          "target_id": {
+            "type": "string",
+            "title": "Target Id"
+          },
+          "target_label": {
+            "type": "string",
+            "title": "Target Label"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/AdminOutcome"
+          },
+          "impact": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Impact"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "created_at",
+          "actor_user_id",
+          "actor_email",
+          "action",
+          "target_type",
+          "target_id",
+          "target_label",
+          "reason",
+          "mode",
+          "outcome",
+          "impact",
+          "error"
+        ],
+        "title": "AdminActionRow",
+        "description": "One row of the admin audit log."
+      },
+      "AdminActionsPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminActionRow"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "AdminActionsPage",
+        "description": "A newest-first page of the audit log."
+      },
+      "AdminImpact": {
+        "properties": {
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Counts"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary"
+        ],
+        "title": "AdminImpact",
+        "description": "What an action does, or would do on a dry run."
+      },
+      "AdminJobRow": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts"
+          },
+          "max_attempts": {
+            "type": "integer",
+            "title": "Max Attempts"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "run_after": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Run After"
+          },
+          "locked_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locked By"
+          },
+          "locked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locked At"
+          },
+          "lease_expired": {
+            "type": "boolean",
+            "title": "Lease Expired"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "payload_summary": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Payload Summary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "attempts",
+          "max_attempts",
+          "last_error",
+          "run_after",
+          "locked_by",
+          "locked_at",
+          "lease_expired",
+          "created_at",
+          "finished_at",
+          "payload_summary"
+        ],
+        "title": "AdminJobRow",
+        "description": "One queued job."
+      },
+      "AdminJobsPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminJobRow"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "AdminJobsPage",
+        "description": "A newest-first page of jobs."
+      },
+      "AdminOutcome": {
+        "type": "string",
+        "enum": [
+          "succeeded",
+          "rejected",
+          "failed"
+        ],
+        "title": "AdminOutcome",
+        "description": "How an admin action attempt ended."
+      },
+      "AdminOverview": {
+        "properties": {
+          "books": {
+            "$ref": "#/components/schemas/BookCounts"
+          },
+          "renders": {
+            "$ref": "#/components/schemas/RenderCounts"
+          },
+          "jobs": {
+            "$ref": "#/components/schemas/JobCounts"
+          },
+          "previews": {
+            "$ref": "#/components/schemas/PreviewCounts"
+          },
+          "recent_actions": {
+            "items": {
+              "$ref": "#/components/schemas/AdminActionRow"
+            },
+            "type": "array",
+            "title": "Recent Actions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "books",
+          "renders",
+          "jobs",
+          "previews",
+          "recent_actions"
+        ],
+        "title": "AdminOverview",
+        "description": "Everything the dashboard cards show."
+      },
+      "AdminPreviewRow": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "proposal_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Proposal Id"
+          },
+          "repository": {
+            "type": "string",
+            "title": "Repository"
+          },
+          "pr_number": {
+            "type": "integer",
+            "title": "Pr Number"
+          },
+          "pr_url": {
+            "type": "string",
+            "title": "Pr Url"
+          },
+          "state": {
+            "$ref": "#/components/schemas/PreviewState"
+          },
+          "failure_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Reason"
+          },
+          "head_sha": {
+            "type": "string",
+            "title": "Head Sha"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "sealed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sealed At"
+          },
+          "age_seconds": {
+            "type": "number",
+            "title": "Age Seconds"
+          },
+          "stale": {
+            "type": "boolean",
+            "title": "Stale"
+          },
+          "book_count": {
+            "type": "integer",
+            "title": "Book Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "proposal_id",
+          "repository",
+          "pr_number",
+          "pr_url",
+          "state",
+          "failure_reason",
+          "head_sha",
+          "run_id",
+          "created_at",
+          "sealed_at",
+          "age_seconds",
+          "stale",
+          "book_count"
+        ],
+        "title": "AdminPreviewRow",
+        "description": "One preview with its pull request."
+      },
+      "AdminPreviewsPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminPreviewRow"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "AdminPreviewsPage",
+        "description": "A newest-first page of previews."
+      },
+      "AdminRenderRow": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "resource_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Resource Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/RenderKind"
+          },
+          "layout_version": {
+            "type": "string",
+            "title": "Layout Version"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RenderStatus"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "built_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Built At"
+          },
+          "superseded_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superseded At"
+          },
+          "volume_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volume Name"
+          },
+          "book_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Book Id"
+          },
+          "book_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Book Label"
+          },
+          "resource_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "resource_id",
+          "kind",
+          "layout_version",
+          "status",
+          "is_active",
+          "error",
+          "size_bytes",
+          "created_at",
+          "built_at",
+          "superseded_at",
+          "volume_name",
+          "book_id",
+          "book_label",
+          "resource_name"
+        ],
+        "title": "AdminRenderRow",
+        "description": "One render with the names of what it renders.\n\nThe volume, book and resource names come from the resource's most recent book entry,\nand are null for a resource no book holds, such as a preview file."
+      },
+      "AdminRendersPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminRenderRow"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "AdminRendersPage",
+        "description": "A newest-first page of renders."
       },
       "AgentIdentityRequest": {
         "properties": {
@@ -7029,6 +8417,35 @@
         "title": "BookCorrectionResponse",
         "description": "Response for the book correction endpoint."
       },
+      "BookCounts": {
+        "properties": {
+          "draft": {
+            "type": "integer",
+            "title": "Draft"
+          },
+          "published": {
+            "type": "integer",
+            "title": "Published"
+          },
+          "invalidated": {
+            "type": "integer",
+            "title": "Invalidated"
+          },
+          "tombstoned": {
+            "type": "integer",
+            "title": "Tombstoned"
+          }
+        },
+        "type": "object",
+        "required": [
+          "draft",
+          "published",
+          "invalidated",
+          "tombstoned"
+        ],
+        "title": "BookCounts",
+        "description": "Books by lifecycle. Each book lands in exactly one bucket, and tombstoned wins."
+      },
       "BookDetail": {
         "properties": {
           "book_id": {
@@ -7115,6 +8532,31 @@
             "title": "Invalidated At",
             "description": "Invalidation timestamp; null while the book is live."
           },
+          "tombstoned_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tombstoned At",
+            "description": "Set when an admin tombstoned the book. Its data reads answer 410."
+          },
+          "tombstone_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tombstone Reason",
+            "description": "Why the book was tombstoned."
+          },
           "entries": {
             "items": {
               "$ref": "#/components/schemas/BookEntryItem"
@@ -7197,7 +8639,7 @@
               }
             ],
             "title": "License",
-            "description": "SPDX licence identifier"
+            "description": "Licence as an SPDX licence identifier such as 'CC-BY-4.0', 'LicenseRef-<name>' for a custom licence, or 'NOASSERTION'"
           },
           "license_url": {
             "anyOf": [
@@ -7477,7 +8919,7 @@
               }
             ],
             "title": "License",
-            "description": "SPDX licence identifier"
+            "description": "Licence as an SPDX licence identifier such as 'CC-BY-4.0', 'LicenseRef-<name>' for a custom licence, or 'NOASSERTION'"
           },
           "license_url": {
             "anyOf": [
@@ -8002,6 +9444,31 @@
             ],
             "title": "Published At"
           },
+          "tombstoned_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tombstoned At",
+            "description": "Set when an admin tombstoned the book."
+          },
+          "tombstone_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tombstone Reason",
+            "description": "Why the book was tombstoned."
+          },
           "resource_count": {
             "type": "integer",
             "title": "Resource Count",
@@ -8146,6 +9613,31 @@
             ],
             "title": "Invalidated At"
           },
+          "tombstoned_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tombstoned At",
+            "description": "Set when an admin tombstoned the book. Its data reads answer 410."
+          },
+          "tombstone_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tombstone Reason",
+            "description": "Why the book was tombstoned."
+          },
           "resources": {
             "items": {
               "$ref": "#/components/schemas/ResourceSummary"
@@ -8267,126 +9759,6 @@
         "title": "BookWalkResponse",
         "description": "Response for Book edition walks, reusing the shared lineage node variants."
       },
-      "BulkItem": {
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "register",
-              "register_external",
-              "activity",
-              "invalidate"
-            ],
-            "title": "BulkItemKind",
-            "description": "Kind of item being replayed."
-          },
-          "payload": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Payload",
-            "description": "Item-kind-specific payload (validated downstream)."
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "kind",
-          "payload"
-        ],
-        "title": "BulkItem",
-        "description": "One offline-flushed item submitted to ``POST /v1/resources/registrations/bulk``."
-      },
-      "BulkItemResult": {
-        "properties": {
-          "index": {
-            "type": "integer",
-            "title": "Index",
-            "description": "Original item index."
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "ok",
-              "error"
-            ],
-            "title": "BulkItemStatus",
-            "description": "``ok`` when the item was processed, ``error`` when it failed."
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "register",
-              "register_external",
-              "activity",
-              "invalidate"
-            ],
-            "title": "BulkItemKind",
-            "description": "Echo of the item kind."
-          },
-          "result": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Result",
-            "description": "Successful result payload (kind-specific)."
-          },
-          "error": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ItemError"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Typed error object when ``status == 'error'``."
-          }
-        },
-        "type": "object",
-        "required": [
-          "index",
-          "status",
-          "kind"
-        ],
-        "title": "BulkItemResult",
-        "description": "Per-item outcome inside :class:`BulkRegisterResponse`."
-      },
-      "BulkRegisterRequest": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/BulkItem"
-            },
-            "type": "array",
-            "title": "Items",
-            "description": "Mixed-kind item list."
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "BulkRegisterRequest",
-        "description": "Request body for the offline-flush bulk endpoint."
-      },
-      "BulkRegisterResponse": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/BulkItemResult"
-            },
-            "type": "array",
-            "title": "Items"
-          }
-        },
-        "type": "object",
-        "title": "BulkRegisterResponse",
-        "description": "Response for the offline-flush bulk endpoint."
-      },
       "BundleReplayRequest": {
         "properties": {
           "activity": {
@@ -8472,165 +9844,299 @@
         "title": "BundleReplayResponse",
         "description": "Response for ``POST /v1/bundles/replay``."
       },
-      "ChartAxesConfig": {
+      "CancelJobRequest": {
         "properties": {
-          "x": {
-            "$ref": "#/components/schemas/ChartAxisConfig",
-            "description": "X-axis config"
-          },
-          "y": {
-            "$ref": "#/components/schemas/ChartAxisConfig",
-            "description": "Y-axis config"
-          }
-        },
-        "type": "object",
-        "title": "ChartAxesConfig",
-        "description": "Configuration for both chart axes."
-      },
-      "ChartAxisConfig": {
-        "properties": {
-          "label": {
+          "confirm": {
             "type": "string",
-            "title": "Label",
-            "description": "Axis label",
+            "title": "Confirm",
+            "description": "The target's exact human name: the volume name, or `volume/version_eNNN` for a book. Required to match on real runs, ignored on dry runs.",
             "default": ""
           },
-          "min": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Min",
-            "description": "Minimum value (auto if None)"
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "description": "Why the action is being taken."
           },
-          "max": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max",
-            "description": "Maximum value (auto if None)"
-          },
-          "numberFormat": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Numberformat",
-            "description": "Number format (auto/si/fixed/percent/scientific)"
-          },
-          "unit": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Unit",
-            "description": "Unit suffix for axis labels"
-          },
-          "showGridLines": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Showgridlines",
-            "description": "Show grid lines"
-          }
-        },
-        "type": "object",
-        "title": "ChartAxisConfig",
-        "description": "Configuration for a chart axis."
-      },
-      "ChartLegendConfig": {
-        "properties": {
-          "show": {
+          "dry_run": {
             "type": "boolean",
-            "title": "Show",
-            "description": "Show legend",
-            "default": true
-          },
-          "position": {
-            "type": "string",
-            "title": "Position",
-            "description": "Legend position (top/bottom/left/right)",
-            "default": "top"
+            "title": "Dry Run",
+            "description": "Return the impact preview and change nothing.",
+            "default": false
           }
         },
         "type": "object",
-        "title": "ChartLegendConfig",
-        "description": "Configuration for chart legend."
+        "required": [
+          "reason"
+        ],
+        "title": "CancelJobRequest",
+        "description": "Body for parking a job."
       },
-      "ChartSourceConfig": {
+      "ChartBundle": {
         "properties": {
-          "text": {
-            "type": "string",
-            "title": "Text",
-            "description": "Source attribution text",
-            "default": ""
-          }
-        },
-        "type": "object",
-        "title": "ChartSourceConfig",
-        "description": "Configuration for chart source/attribution."
-      },
-      "ChartTitleConfig": {
-        "properties": {
-          "text": {
-            "type": "string",
-            "title": "Text",
-            "description": "Title text",
-            "default": ""
+          "rows": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rows",
+            "description": "Long rows keyed by source id, each with `year` and `value`. A source with inline rows is drawn from them instead of being read."
           },
-          "fontSize": {
+          "version": {
             "type": "integer",
-            "maximum": 48.0,
-            "minimum": 8.0,
-            "title": "Fontsize",
-            "description": "Font size in pixels",
-            "default": 20
-          }
-        },
-        "type": "object",
-        "title": "ChartTitleConfig",
-        "description": "Configuration for chart title or subtitle."
-      },
-      "ChartTooltipConfig": {
-        "properties": {
-          "show": {
-            "type": "boolean",
-            "title": "Show",
-            "description": "Show tooltips",
-            "default": true
+            "const": 1,
+            "title": "Version",
+            "description": "Wrapper format version"
           },
-          "trigger": {
-            "type": "string",
-            "title": "Trigger",
-            "description": "Tooltip trigger (axis/item)",
-            "default": "axis"
+          "spec": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Spec",
+            "description": "ChartSpec from @climate-resource/charts, opaque apart from `version`, `x`, `y` and `series`"
+          },
+          "transforms": {
+            "items": {
+              "$ref": "#/components/schemas/IndexBaselineTransformStep"
+            },
+            "type": "array",
+            "maxItems": 1,
+            "title": "Transforms",
+            "description": "Ordered client-side value transforms (v1: at most one index-baseline)"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/ChartSource"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Sources",
+            "description": "Pinned data sources"
+          },
+          "editor": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Editor",
+            "description": "Opaque editor state, ignored by renderers"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version",
+          "spec",
+          "sources"
+        ],
+        "title": "ChartBundle",
+        "description": "A chart wrapper posted for preview, optionally carrying its rows inline."
+      },
+      "ChartCheckResponse": {
+        "properties": {
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Problems",
+            "description": "Schema violations as `path: message`. Empty means valid."
           }
         },
         "type": "object",
-        "title": "ChartTooltipConfig",
-        "description": "Configuration for chart tooltips."
+        "title": "ChartCheckResponse",
+        "description": "Where a chart or figure spec breaks its JSON Schema."
+      },
+      "ChartDraftCreated": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Draft id"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url",
+            "description": "Frontend path that renders the draft"
+          },
+          "expires_at": {
+            "type": "string",
+            "title": "Expires At",
+            "description": "When the draft stops being readable"
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Problems",
+            "description": "Where the spec breaks its JSON Schema, as `path: message`. The draft is stored anyway."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "url",
+          "expires_at"
+        ],
+        "title": "ChartDraftCreated",
+        "description": "Response after posting a chart bundle for preview."
+      },
+      "ChartDraftResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Draft id"
+          },
+          "bundle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChartBundle"
+              },
+              {
+                "$ref": "#/components/schemas/FigureBundle"
+              }
+            ],
+            "title": "Bundle"
+          },
+          "expires_at": {
+            "type": "string",
+            "title": "Expires At",
+            "description": "When the draft stops being readable"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "bundle",
+          "expires_at"
+        ],
+        "title": "ChartDraftResponse",
+        "description": "A chart bundle posted for preview."
+      },
+      "ChartSource": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Source id, written to each row's reserved `source` field"
+          },
+          "volume": {
+            "type": "string",
+            "title": "Volume",
+            "description": "Volume name"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "description": "Book version"
+          },
+          "edition": {
+            "type": "integer",
+            "title": "Edition",
+            "description": "Book edition"
+          },
+          "resource": {
+            "type": "string",
+            "title": "Resource",
+            "description": "Resource name within the book"
+          },
+          "trackingId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Trackingid",
+            "description": "Resource tracking id, used to read rows"
+          },
+          "filters": {
+            "items": {
+              "additionalProperties": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Filters",
+            "description": "Filter sets, unioned. Each maps a column to its allowed values."
+          },
+          "exclude": {
+            "items": {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Exclude",
+            "description": "Exact series to drop after the read, each a map of dimension to value"
+          },
+          "topN": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topn",
+            "description": "Keep the top N series ($top_n)"
+          },
+          "years": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChartYearWindow"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Year window"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "volume",
+          "version",
+          "edition",
+          "resource",
+          "trackingId"
+        ],
+        "title": "ChartSource",
+        "description": "One pinned Bookshelf resource feeding a saved chart."
       },
       "ChartVisibility": {
         "type": "string",
@@ -8641,6 +10147,95 @@
         ],
         "title": "ChartVisibility",
         "description": "Visibility for Data Explorer charts.\n\nDistinct from :class:`Visibility` (resources/books) because explorer charts\nare shared by unguessable ``short_id`` link, so they need an ``unlisted``\ntier rather than ``hidden``:\n\n- ``public``: listed in discovery and readable by anyone with the link.\n- ``unlisted``: not listed, but still readable by anyone with the link\n  (including anonymous callers).\n- ``private``: readable only by the owner and members of the owner's org.\n  Everyone else (including anonymous) gets a 404.\n\nDefault is ``public`` to preserve the pre-privacy behaviour of saved charts."
+      },
+      "ChartWrapper": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "const": 1,
+            "title": "Version",
+            "description": "Wrapper format version"
+          },
+          "spec": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Spec",
+            "description": "ChartSpec from @climate-resource/charts, opaque apart from `version`, `x`, `y` and `series`"
+          },
+          "transforms": {
+            "items": {
+              "$ref": "#/components/schemas/IndexBaselineTransformStep"
+            },
+            "type": "array",
+            "maxItems": 1,
+            "title": "Transforms",
+            "description": "Ordered client-side value transforms (v1: at most one index-baseline)"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/ChartSource"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Sources",
+            "description": "Pinned data sources"
+          },
+          "editor": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Editor",
+            "description": "Opaque editor state, ignored by renderers"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version",
+          "spec",
+          "sources"
+        ],
+        "title": "ChartWrapper",
+        "description": "A saved chart: a ChartSpec plus the Bookshelf data behind it."
+      },
+      "ChartYearWindow": {
+        "properties": {
+          "min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min",
+            "description": "First year kept ($year.min)"
+          },
+          "max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max",
+            "description": "Last year kept ($year.max)"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ChartYearWindow",
+        "description": "Inclusive year window applied to a source's read."
       },
       "ClaimBlock": {
         "properties": {
@@ -9106,139 +10701,112 @@
         "title": "DataDictionaryEntry",
         "description": "One column of a book entry's data dictionary.\n\nDescribes an index (dimension) column of a timeseries or dataframe resource:\nwhat it means, its type, and -- where the values are controlled --\nthe allowed vocabulary with a description per value.\nSerialises to a Frictionless Table Schema field via\n:mod:`bookshelf_api.services.data_dictionary`.\nThe shape mirrors ``bookshelf.schema.Dimension`` in the consumer library\nso the two definitions converge.\nSee ``docs/architecture/data-dictionary.md``."
       },
-      "DatasetConfig": {
+      "DeleteBookRequest": {
         "properties": {
-          "id": {
+          "confirm": {
             "type": "string",
-            "title": "Id",
-            "description": "Unique dataset ID within chart"
+            "title": "Confirm",
+            "description": "The target's exact human name: the volume name, or `volume/version_eNNN` for a book. Required to match on real runs, ignored on dry runs.",
+            "default": ""
           },
-          "source": {
-            "$ref": "#/components/schemas/DatasetSource",
-            "description": "Data source reference"
-          },
-          "filters": {
-            "additionalProperties": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "type": "object",
-            "title": "Filters",
-            "description": "Column filters (e.g., {'region': ['World']})"
-          },
-          "style": {
-            "$ref": "#/components/schemas/DatasetStyle",
-            "description": "Visual styling"
-          },
-          "label": {
+          "reason": {
             "type": "string",
-            "title": "Label",
-            "description": "Dataset label for legend"
-          }
-        },
-        "additionalProperties": true,
-        "type": "object",
-        "required": [
-          "id",
-          "source",
-          "label"
-        ],
-        "title": "DatasetConfig",
-        "description": "Configuration for a single dataset in the chart."
-      },
-      "DatasetSource": {
-        "properties": {
-          "volumeName": {
-            "type": "string",
-            "title": "Volumename",
-            "description": "Volume name"
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "description": "Why the action is being taken."
           },
-          "version": {
-            "type": "string",
-            "title": "Version",
-            "description": "Book version"
-          },
-          "edition": {
-            "type": "integer",
-            "title": "Edition",
-            "description": "Book edition number"
-          },
-          "resourceName": {
-            "type": "string",
-            "title": "Resourcename",
-            "description": "Resource filename"
-          }
-        },
-        "type": "object",
-        "required": [
-          "volumeName",
-          "version",
-          "edition",
-          "resourceName"
-        ],
-        "title": "DatasetSource",
-        "description": "Reference to a data source (volume/book/resource)."
-      },
-      "DatasetStyle": {
-        "properties": {
-          "color": {
-            "type": "string",
-            "title": "Color",
-            "description": "Line/point color (hex)",
-            "default": "#3b82f6"
-          },
-          "lineWidth": {
-            "type": "integer",
-            "maximum": 10.0,
-            "minimum": 1.0,
-            "title": "Linewidth",
-            "description": "Line width in pixels",
-            "default": 2
-          },
-          "dashPattern": {
-            "type": "string",
-            "title": "Dashpattern",
-            "description": "Line dash pattern",
-            "default": "solid"
-          },
-          "showPoints": {
+          "dry_run": {
             "type": "boolean",
-            "title": "Showpoints",
-            "description": "Show data points",
+            "title": "Dry Run",
+            "description": "Return the impact preview and change nothing.",
             "default": false
           },
-          "opacity": {
-            "anyOf": [
-              {
-                "type": "number",
-                "maximum": 1.0,
-                "minimum": 0.1
-              },
-              {
-                "type": "null"
-              }
+          "mode": {
+            "type": "string",
+            "enum": [
+              "tombstone",
+              "purge"
             ],
-            "title": "Opacity",
-            "description": "Fill/line opacity"
-          },
-          "interpolation": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Interpolation",
-            "description": "Interpolation mode (linear/smooth/step)"
+            "title": "Mode",
+            "description": "`tombstone` deletes the files but keeps the row and the version slot. `purge` removes everything and frees the slot for a republish.",
+            "default": "tombstone"
           }
         },
         "type": "object",
-        "title": "DatasetStyle",
-        "description": "Visual styling for a dataset."
+        "required": [
+          "reason"
+        ],
+        "title": "DeleteBookRequest",
+        "description": "Body for removing a book."
+      },
+      "DeleteVolumeRequest": {
+        "properties": {
+          "confirm": {
+            "type": "string",
+            "title": "Confirm",
+            "description": "The target's exact human name: the volume name, or `volume/version_eNNN` for a book. Required to match on real runs, ignored on dry runs.",
+            "default": ""
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "description": "Why the action is being taken."
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run",
+            "description": "Return the impact preview and change nothing.",
+            "default": false
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "tombstone",
+              "purge"
+            ],
+            "title": "Mode",
+            "description": "`tombstone` deletes the files but keeps the row and the version slot. `purge` removes everything and frees the slot for a republish.",
+            "default": "tombstone"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "DeleteVolumeRequest",
+        "description": "Body for removing a volume and every book in it."
+      },
+      "DiscardDraftRequest": {
+        "properties": {
+          "confirm": {
+            "type": "string",
+            "title": "Confirm",
+            "description": "The target's exact human name: the volume name, or `volume/version_eNNN` for a book. Required to match on real runs, ignored on dry runs.",
+            "default": ""
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "description": "Why the action is being taken."
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run",
+            "description": "Return the impact preview and change nothing.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "DiscardDraftRequest",
+        "description": "Body for discarding a draft book."
       },
       "DiscoveryProfile": {
         "properties": {
@@ -9300,7 +10868,7 @@
               }
             ],
             "title": "License",
-            "description": "SPDX licence identifier"
+            "description": "Licence as an SPDX licence identifier such as 'CC-BY-4.0', 'LicenseRef-<name>' for a custom licence, or 'NOASSERTION'"
           },
           "license_url": {
             "anyOf": [
@@ -9696,6 +11264,19 @@
               }
             ],
             "title": "Published At"
+          },
+          "tombstoned_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tombstoned At",
+            "description": "Set when an admin tombstoned it. Only admins ever see it."
           }
         },
         "type": "object",
@@ -9707,107 +11288,6 @@
         ],
         "title": "EditionInfo",
         "description": "Edition information within a version."
-      },
-      "EntryListItem": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "type": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ResourceType"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "format": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Format"
-          },
-          "size_bytes": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Size Bytes"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "type",
-          "format",
-          "size_bytes",
-          "created_at"
-        ],
-        "title": "EntryListItem",
-        "description": "Book-scoped resource (entry) response for list endpoints.\n\n``type``/``format``/``size_bytes`` are nullable for the same reason as\n:class:`EntryRead`: managed registrations leave them unset."
-      },
-      "EntryListResponse": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/EntryListItem"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "total": {
-            "type": "integer",
-            "title": "Total",
-            "description": "Total number of items matching the query"
-          },
-          "limit": {
-            "type": "integer",
-            "title": "Limit",
-            "description": "Maximum items per page"
-          },
-          "offset": {
-            "type": "integer",
-            "title": "Offset",
-            "description": "Number of items skipped"
-          },
-          "has_more": {
-            "type": "boolean",
-            "title": "Has More",
-            "description": "Whether more items exist"
-          }
-        },
-        "type": "object",
-        "required": [
-          "items",
-          "total",
-          "limit",
-          "offset",
-          "has_more"
-        ],
-        "title": "EntryListResponse",
-        "description": "Paginated book-scoped resource (entry) list response."
       },
       "EntryRead": {
         "properties": {
@@ -10042,114 +11522,6 @@
         "title": "EventSubject",
         "description": "What an event is about, named the way a reader would name it.\n\nAn event carries only the id of the thing it changed, which is unreadable on its own.\nThis names that thing so a feed can render it and link to its page,\nand it is ``None`` when the subject has been deleted or cannot be resolved."
       },
-      "ExplorerChartConfig": {
-        "properties": {
-          "chartType": {
-            "type": "string",
-            "title": "Charttype",
-            "description": "Chart type (line/bar/scatter)",
-            "default": "line"
-          },
-          "datasets": {
-            "items": {
-              "$ref": "#/components/schemas/DatasetConfig"
-            },
-            "type": "array",
-            "title": "Datasets",
-            "description": "Dataset configurations"
-          },
-          "axes": {
-            "$ref": "#/components/schemas/ChartAxesConfig",
-            "description": "Axes configuration"
-          },
-          "title": {
-            "$ref": "#/components/schemas/ChartTitleConfig",
-            "description": "Title config"
-          },
-          "subtitle": {
-            "$ref": "#/components/schemas/ChartTitleConfig",
-            "description": "Subtitle config"
-          },
-          "source": {
-            "$ref": "#/components/schemas/ChartSourceConfig",
-            "description": "Source config"
-          },
-          "legend": {
-            "$ref": "#/components/schemas/ChartLegendConfig",
-            "description": "Legend config"
-          },
-          "tooltip": {
-            "$ref": "#/components/schemas/ChartTooltipConfig",
-            "description": "Tooltip config"
-          },
-          "stacking": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Stacking",
-            "description": "Stack mode (none/stacked/stacked-percent)"
-          },
-          "transforms": {
-            "items": {
-              "$ref": "#/components/schemas/IndexBaselineTransformStep"
-            },
-            "type": "array",
-            "title": "Transforms",
-            "description": "Ordered value-transform pipeline (v1: index-baseline)"
-          },
-          "chartHeight": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "maximum": 1200.0,
-                "minimum": 200.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Chartheight",
-            "description": "Chart height in pixels"
-          },
-          "annotations": {
-            "anyOf": [
-              {
-                "items": {
-                  "additionalProperties": true,
-                  "type": "object"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Annotations",
-            "description": "Chart annotations (reference lines, highlights, text)"
-          },
-          "theme": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Theme",
-            "description": "Chart theme name"
-          }
-        },
-        "additionalProperties": true,
-        "type": "object",
-        "title": "ExplorerChartConfig",
-        "description": "Complete chart configuration."
-      },
       "ExplorerChartCreate": {
         "properties": {
           "title": {
@@ -10177,8 +11549,16 @@
             "description": "Chart description"
           },
           "config": {
-            "$ref": "#/components/schemas/ExplorerChartConfig",
-            "description": "Chart configuration"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChartWrapper"
+              },
+              {
+                "$ref": "#/components/schemas/FigureWrapper"
+              }
+            ],
+            "title": "Config",
+            "description": "Chart or figure configuration"
           },
           "visibility": {
             "$ref": "#/components/schemas/ChartVisibility",
@@ -10232,7 +11612,7 @@
           "dataset_count": {
             "type": "integer",
             "title": "Dataset Count",
-            "description": "Number of datasets"
+            "description": "Number of sources"
           },
           "created_at": {
             "type": "string",
@@ -10327,7 +11707,15 @@
             "title": "Description"
           },
           "config": {
-            "$ref": "#/components/schemas/ExplorerChartConfig"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChartWrapper"
+              },
+              {
+                "$ref": "#/components/schemas/FigureWrapper"
+              }
+            ],
+            "title": "Config"
           },
           "created_by": {
             "anyOf": [
@@ -10412,13 +11800,14 @@
           "config": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ExplorerChartConfig"
+                "$ref": "#/components/schemas/ChartWrapper"
               },
               {
-                "type": "null"
+                "$ref": "#/components/schemas/FigureWrapper"
               }
             ],
-            "description": "Chart configuration"
+            "title": "Config",
+            "description": "Chart or figure configuration"
           },
           "visibility": {
             "$ref": "#/components/schemas/ChartVisibility",
@@ -10528,6 +11917,35 @@
         "title": "FacetsResponse",
         "description": "Response for facets endpoint."
       },
+      "FailPreviewRequest": {
+        "properties": {
+          "confirm": {
+            "type": "string",
+            "title": "Confirm",
+            "description": "The target's exact human name: the volume name, or `volume/version_eNNN` for a book. Required to match on real runs, ignored on dry runs.",
+            "default": ""
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "description": "Why the action is being taken."
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run",
+            "description": "Return the impact preview and change nothing.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "FailPreviewRequest",
+        "description": "Body for forcing a preview to failed."
+      },
       "FieldChange": {
         "properties": {
           "path": {
@@ -10550,6 +11968,82 @@
         ],
         "title": "FieldChange",
         "description": "One field that differs, with both sides as they were declared."
+      },
+      "FigureBundle": {
+        "properties": {
+          "rows": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rows",
+            "description": "Long rows keyed by source id, each with `year` and `value`. A source with inline rows is drawn from them instead of being read."
+          },
+          "version": {
+            "type": "integer",
+            "const": 1,
+            "title": "Version",
+            "description": "Wrapper format version"
+          },
+          "figure": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Figure",
+            "description": "FigureSpec from @climate-resource/charts, opaque apart from `version` and each panel's `id` and `spec`"
+          },
+          "transforms": {
+            "items": {
+              "$ref": "#/components/schemas/IndexBaselineTransformStep"
+            },
+            "type": "array",
+            "maxItems": 1,
+            "title": "Transforms",
+            "description": "Ordered client-side value transforms (v1: at most one index-baseline)"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/FigureSource"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Sources",
+            "description": "Pinned data sources"
+          },
+          "editor": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Editor",
+            "description": "Opaque editor state, ignored by renderers"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version",
+          "figure",
+          "sources"
+        ],
+        "title": "FigureBundle",
+        "description": "A figure wrapper posted for preview, optionally carrying its rows inline."
       },
       "FigureImage": {
         "properties": {
@@ -10584,6 +12078,118 @@
         "title": "FigureImage",
         "description": "The pixel size of a figure's master, measured by the platform from its bytes."
       },
+      "FigureSource": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Source id, written to each row's reserved `source` field"
+          },
+          "volume": {
+            "type": "string",
+            "title": "Volume",
+            "description": "Volume name"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "description": "Book version"
+          },
+          "edition": {
+            "type": "integer",
+            "title": "Edition",
+            "description": "Book edition"
+          },
+          "resource": {
+            "type": "string",
+            "title": "Resource",
+            "description": "Resource name within the book"
+          },
+          "trackingId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Trackingid",
+            "description": "Resource tracking id, used to read rows"
+          },
+          "filters": {
+            "items": {
+              "additionalProperties": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Filters",
+            "description": "Filter sets, unioned. Each maps a column to its allowed values."
+          },
+          "exclude": {
+            "items": {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Exclude",
+            "description": "Exact series to drop after the read, each a map of dimension to value"
+          },
+          "topN": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topn",
+            "description": "Keep the top N series ($top_n)"
+          },
+          "years": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChartYearWindow"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Year window"
+          },
+          "panel": {
+            "type": "string",
+            "title": "Panel",
+            "description": "Id of the panel the source feeds, or `<id>.inset` for its inset"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "volume",
+          "version",
+          "edition",
+          "resource",
+          "trackingId",
+          "panel"
+        ],
+        "title": "FigureSource",
+        "description": "One pinned Bookshelf resource feeding one panel of a saved figure."
+      },
       "FigureSvgCompanion": {
         "properties": {
           "storage_path": {
@@ -10606,6 +12212,63 @@
         ],
         "title": "FigureSvgCompanion",
         "description": "A producer-supplied SVG of a figure, uploaded ahead of the registration."
+      },
+      "FigureWrapper": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "const": 1,
+            "title": "Version",
+            "description": "Wrapper format version"
+          },
+          "figure": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Figure",
+            "description": "FigureSpec from @climate-resource/charts, opaque apart from `version` and each panel's `id` and `spec`"
+          },
+          "transforms": {
+            "items": {
+              "$ref": "#/components/schemas/IndexBaselineTransformStep"
+            },
+            "type": "array",
+            "maxItems": 1,
+            "title": "Transforms",
+            "description": "Ordered client-side value transforms (v1: at most one index-baseline)"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/FigureSource"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Sources",
+            "description": "Pinned data sources"
+          },
+          "editor": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Editor",
+            "description": "Opaque editor state, ignored by renderers"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version",
+          "figure",
+          "sources"
+        ],
+        "title": "FigureWrapper",
+        "description": "A saved figure: a FigureSpec of chart panels plus the Bookshelf data behind them."
       },
       "FrontendLogEvent": {
         "properties": {
@@ -10659,16 +12322,9 @@
             "default": "index-baseline"
           },
           "baselineYear": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "integer",
             "title": "Baselineyear",
-            "description": "Baseline year; defaults to the start of the visible range."
+            "description": "Baseline year each series is indexed to"
           },
           "output": {
             "type": "string",
@@ -10682,6 +12338,9 @@
           }
         },
         "type": "object",
+        "required": [
+          "baselineYear"
+        ],
         "title": "IndexBaselineTransformStep",
         "description": "Value transform that indexes each series to a baseline year."
       },
@@ -10949,6 +12608,59 @@
         "title": "ItemError",
         "description": "Typed per-item failure inside a non-atomic registration/bulk envelope.\n\nReplaces the former ``dict[str, Any]`` error fields so code generators emit\na real model instead of an untyped object. Carries the underlying\n``BookshelfError`` status and detail. The top-level HTTP status stays ``200``\nfor non-atomic batches (callers inspect each item)."
       },
+      "JobCounts": {
+        "properties": {
+          "pending": {
+            "type": "integer",
+            "title": "Pending"
+          },
+          "running": {
+            "type": "integer",
+            "title": "Running"
+          },
+          "done": {
+            "type": "integer",
+            "title": "Done"
+          },
+          "dead": {
+            "type": "integer",
+            "title": "Dead"
+          },
+          "oldest_pending_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest Pending At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pending",
+          "running",
+          "done",
+          "dead",
+          "oldest_pending_at"
+        ],
+        "title": "JobCounts",
+        "description": "Jobs by status, and when the oldest pending one became runnable."
+      },
+      "JobStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "running",
+          "done",
+          "dead"
+        ],
+        "title": "JobStatus",
+        "description": "Lifecycle status of a queued job.\n\nAttributes\n----------\nPENDING\n    Runnable once ``run_after`` passes.\nRUNNING\n    Claimed by a worker, which holds a lease on it.\nDONE\n    Completed successfully.\nDEAD\n    Failed ``max_attempts`` times and parked for an operator."
+      },
       "LastPreview": {
         "properties": {
           "created_at": {
@@ -11207,6 +12919,30 @@
         "title": "PendingInstallation",
         "description": "An unclaimed installation the caller may be offered.\n\nEverything but the id and the flag is blank once ``claimed_elsewhere`` is true.\nThe organisation holding it is never named, and neither is the account it sits on,\nbecause either would disclose one tenant to another."
       },
+      "PlacementBook": {
+        "properties": {
+          "volume": {
+            "type": "string",
+            "title": "Volume"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "edition": {
+            "type": "integer",
+            "title": "Edition"
+          }
+        },
+        "type": "object",
+        "required": [
+          "volume",
+          "version",
+          "edition"
+        ],
+        "title": "PlacementBook",
+        "description": "The published book a placed resource is read from."
+      },
       "PreviewBaseline": {
         "properties": {
           "edition": {
@@ -11310,6 +13046,35 @@
         ],
         "title": "PreviewComparison",
         "description": "What publishing this preview would change, for every book the reader may read."
+      },
+      "PreviewCounts": {
+        "properties": {
+          "open": {
+            "type": "integer",
+            "title": "Open"
+          },
+          "sealed": {
+            "type": "integer",
+            "title": "Sealed"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "stale_open": {
+            "type": "integer",
+            "title": "Stale Open"
+          }
+        },
+        "type": "object",
+        "required": [
+          "open",
+          "sealed",
+          "failed",
+          "stale_open"
+        ],
+        "title": "PreviewCounts",
+        "description": "Previews by state. ``stale_open`` is open past the seal timeout."
       },
       "PreviewCreate": {
         "properties": {
@@ -12219,105 +13984,6 @@
         "title": "ReadinessResponse",
         "description": "Dependency readiness response."
       },
-      "RegisterRequest": {
-        "properties": {
-          "tracking_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tracking Id",
-            "description": "Client-mintable resource id; server mints UUIDv4 when omitted."
-          },
-          "type": {
-            "$ref": "#/components/schemas/ResourceType",
-            "description": "Canonical resource type."
-          },
-          "hash": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Hash",
-            "description": "Content hash in ``<algo>:<hex>`` form. Required for managed registrations; external pointers may omit it."
-          },
-          "format": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Format",
-            "description": "Optional declared storage format (``parquet`` or ``csv``). When set it must be one of the supported query formats; when omitted the format is inferred from the location suffix at query time."
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[a-z0-9][a-z0-9._-]{0,199}$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name",
-            "description": "Optional producer-chosen name for this resource, local to the bundle. Lower-case, no slashes, at most 200 characters."
-          },
-          "visibility": {
-            "$ref": "#/components/schemas/Visibility",
-            "description": "Three-tier visibility tier.",
-            "default": "hidden"
-          },
-          "metadata": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Metadata",
-            "description": "Arbitrary JSON metadata."
-          },
-          "discovery": {
-            "$ref": "#/components/schemas/ResourceDiscovery",
-            "description": "Typed discovery facts for this resource: who authored it, what it is, how to cite it and under what licence. The resource carries exactly what it is sent and takes nothing from its book, so send every fact the file should serve. An omitted fact and an explicit ``null`` both mean the resource states none."
-          },
-          "locations": {
-            "items": {
-              "$ref": "#/components/schemas/LocationInput"
-            },
-            "type": "array",
-            "title": "Locations",
-            "description": "Optional list of ``(shelf, path)`` pointers to attach."
-          },
-          "svg": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FigureSvgCompanion"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "An SVG of the figure the producer drew alongside the PNG master. Only accepted for ``type=figure``. Bound as the figure's ``figure-svg`` render, where the first SVG bound to a master wins."
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "type"
-        ],
-        "title": "RegisterRequest",
-        "description": "Request body for registering a single resource (managed flow)."
-      },
       "RegisterResourceItem": {
         "properties": {
           "tracking_id": {
@@ -12331,7 +13997,7 @@
               }
             ],
             "title": "Tracking Id",
-            "description": "Client-mintable resource id; server mints UUIDv4 when omitted."
+            "description": "Proposed resource id. The server mints a UUIDv4 when omitted. A registration whose bytes the organisation already holds aliases onto that resource, so the answer can name another id."
           },
           "type": {
             "$ref": "#/components/schemas/ResourceType",
@@ -12418,13 +14084,14 @@
               }
             ],
             "title": "External Uri",
-            "description": "External pointer URI. Must be ``https``. When set, the item is registered as an external pointer (J3) and ``locations`` may be omitted."
+            "description": "External pointer URI. Either ``https``, or an address in a configured pointer scheme such as ``rdm://slice/<tracking_id>``, which the platform links to and never reads. When set, the item is registered as an external pointer (J3) and ``locations`` may be omitted."
           },
           "dedupe": {
             "type": "boolean",
             "title": "Dedupe",
-            "description": "When ``True`` (default) the server checks whether a resource with the same content hash already exists and returns an ``aliased`` outcome if so. Set to ``False`` for per-book entry resources (notebooks, outputs) so that each edition owns a distinct resource row even when the bytes are identical.",
-            "default": true
+            "description": "Deprecated and ignored. The server decides: a registration aliases onto a resource the organisation already holds with the same bytes.",
+            "default": true,
+            "deprecated": true
           }
         },
         "additionalProperties": false,
@@ -12730,7 +14397,8 @@
           "dedupe": {
             "type": "boolean",
             "title": "Dedupe",
-            "description": "True when this row merges with later registrations of the same bytes. An aliased outcome always reports true."
+            "description": "Deprecated. True when this row merges with later registrations of the same bytes. An aliased outcome always reports true.",
+            "deprecated": true
           }
         },
         "type": "object",
@@ -12741,6 +14409,113 @@
         ],
         "title": "RegistrationOutcome",
         "description": "Outcome of a single registration call."
+      },
+      "RenameVolumeRequest": {
+        "properties": {
+          "confirm": {
+            "type": "string",
+            "title": "Confirm",
+            "description": "The target's exact human name: the volume name, or `volume/version_eNNN` for a book. Required to match on real runs, ignored on dry runs.",
+            "default": ""
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "description": "Why the action is being taken."
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run",
+            "description": "Return the impact preview and change nothing.",
+            "default": false
+          },
+          "new_name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9\\-_]+$",
+            "title": "New Name",
+            "description": "New unique volume name (alphanumeric, hyphens, underscores)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason",
+          "new_name"
+        ],
+        "title": "RenameVolumeRequest",
+        "description": "Body for renaming a volume."
+      },
+      "RenderCounts": {
+        "properties": {
+          "pending": {
+            "type": "integer",
+            "title": "Pending"
+          },
+          "ready": {
+            "type": "integer",
+            "title": "Ready"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "superseded": {
+            "type": "integer",
+            "title": "Superseded"
+          },
+          "oldest_pending_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest Pending At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pending",
+          "ready",
+          "failed",
+          "superseded",
+          "oldest_pending_at"
+        ],
+        "title": "RenderCounts",
+        "description": "Renders by status, and when the oldest pending one was created."
+      },
+      "RenderKind": {
+        "type": "string",
+        "enum": [
+          "optimised-parquet",
+          "metadata-only",
+          "served-csv",
+          "figure-thumb-png",
+          "figure-web-png",
+          "figure-web2x-png",
+          "figure-web-webp",
+          "figure-web2x-webp",
+          "figure-svg"
+        ],
+        "title": "RenderKind",
+        "description": "Discriminator for render artifact kinds.\n\nAttributes\n----------\nOPTIMISED_PARQUET\n    Row-group-sorted Parquet layout for fast range scans.\nMETADATA_ONLY\n    The dimension columns alone, small enough to cache whole.\nSERVED_CSV\n    The whole resource as CSV,\n    so an unfiltered CSV download is a stored object rather than a serialisation of one.\nFIGURE_THUMB_PNG\n    A figure's PNG master downscaled to a 400px wide PNG.\nFIGURE_WEB_PNG\n    A figure's PNG master downscaled to a 1200px wide PNG.\nFIGURE_WEB2X_PNG\n    A figure's PNG master downscaled to a 2400px wide PNG.\nFIGURE_WEB_WEBP\n    A figure's PNG master downscaled to a 1200px wide WebP.\nFIGURE_WEB2X_WEBP\n    A figure's PNG master downscaled to a 2400px wide WebP.\nFIGURE_SVG\n    A figure's SVG, supplied by the producer and never built by a layout."
+      },
+      "RenderStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "ready",
+          "failed",
+          "superseded"
+        ],
+        "title": "RenderStatus",
+        "description": "Lifecycle status of a render row.\n\nAttributes\n----------\nPENDING\n    Build has been enqueued but not yet started.\nREADY\n    Build completed successfully. Artifact is available.\nFAILED\n    Build failed, ``error`` column carries the reason.\nSUPERSEDED\n    Replaced by a newer render. Kept for audit history."
       },
       "RenderedNotebookResponse": {
         "properties": {
@@ -12974,8 +14749,9 @@
           "dedupe": {
             "type": "boolean",
             "title": "Dedupe",
-            "description": "When ``True`` (default) a resource whose content hash the org already holds resolves to that canonical resource and is reported as ``aliased``. Set to ``False`` so each edition owns a distinct row even for identical bytes.",
-            "default": true
+            "description": "Deprecated and ignored. The server decides: a resource aliases onto one the organisation already holds with the same bytes, unless the bundle pins its ``tracking_id``.",
+            "default": true,
+            "deprecated": true
           },
           "tracking_id": {
             "anyOf": [
@@ -12988,7 +14764,7 @@
               }
             ],
             "title": "Tracking Id",
-            "description": "Tracking id to register the resource under, for a producer that already names its resources. Requires ``dedupe`` off, because an alias would answer with another id. The server mints one when omitted."
+            "description": "Tracking id to register the resource under, for a producer that already names its resources. A pinned id always takes its own row, because an alias would answer with another id. The server mints one when omitted."
           },
           "size_bytes": {
             "anyOf": [
@@ -13152,7 +14928,8 @@
               "changed",
               "unchanged",
               "unavailable",
-              "not-compared"
+              "not-compared",
+              "pending"
             ],
             "title": "Status"
           },
@@ -13217,6 +14994,17 @@
             ],
             "title": "Reason",
             "description": "Why a comparison was not made, when it was not."
+          },
+          "placement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResourcePlacement"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set when the preview places an existing resource under this name. Publication adds it as an entry and copies no bytes."
           }
         },
         "type": "object",
@@ -13226,75 +15014,6 @@
         ],
         "title": "ResourceComparison",
         "description": "One named file, compared across the two sides."
-      },
-      "ResourceCreate": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Name",
-            "description": "Resource name (unique within book)"
-          },
-          "type": {
-            "$ref": "#/components/schemas/ResourceType",
-            "description": "Resource type"
-          },
-          "format": {
-            "type": "string",
-            "maxLength": 50,
-            "minLength": 1,
-            "title": "Format",
-            "description": "File format (e.g., 'csv.gz', 'parquet')"
-          },
-          "size_bytes": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Size Bytes",
-            "description": "File size in bytes"
-          },
-          "hash": {
-            "type": "string",
-            "maxLength": 64,
-            "minLength": 64,
-            "title": "Hash",
-            "description": "SHA256 hash of file (including compression)"
-          },
-          "content_hash": {
-            "type": "string",
-            "maxLength": 64,
-            "minLength": 64,
-            "title": "Content Hash",
-            "description": "SHA256 hash of uncompressed content"
-          },
-          "storage_path": {
-            "type": "string",
-            "title": "Storage Path",
-            "description": "S3 key for the stored file"
-          },
-          "metadata": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Metadata",
-            "description": "Arbitrary JSON metadata"
-          },
-          "discovery": {
-            "$ref": "#/components/schemas/ResourceDiscovery",
-            "description": "Typed discovery facts for this resource: who authored it, what it is, how to cite it and under what licence. The resource carries exactly what it is sent and takes nothing from its book, so send every fact the file should serve. An omitted fact and an explicit ``null`` both mean the resource states none."
-          }
-        },
-        "type": "object",
-        "required": [
-          "name",
-          "type",
-          "format",
-          "size_bytes",
-          "hash",
-          "content_hash",
-          "storage_path"
-        ],
-        "title": "ResourceCreate",
-        "description": "Schema for creating a resource (after upload complete)."
       },
       "ResourceDiffCell": {
         "properties": {
@@ -13451,6 +15170,19 @@
         ],
         "title": "ResourceDiffPage",
         "description": "One page of a file's diff, in one view.\n\n``counts`` are computed after the column filters and before the status filter,\nso a tick box says how many rows ticking it would add.\n``total`` is the matching rows after both, which is what the page window runs over."
+      },
+      "ResourceDiffPending": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "pending",
+            "title": "Status",
+            "default": "pending"
+          }
+        },
+        "type": "object",
+        "title": "ResourceDiffPending",
+        "description": "The comparison is still being built, so ask again after ``Retry-After`` seconds."
       },
       "ResourceDiffSeriesRow": {
         "properties": {
@@ -13676,7 +15408,7 @@
               }
             ],
             "title": "License",
-            "description": "SPDX licence identifier"
+            "description": "Licence as an SPDX licence identifier such as 'CC-BY-4.0', 'LicenseRef-<name>' for a custom licence, or 'NOASSERTION'"
           },
           "license_url": {
             "anyOf": [
@@ -13725,58 +15457,31 @@
         "title": "ResourceListResponse",
         "description": "Paginated response for resource listings."
       },
-      "ResourceLocationItem": {
+      "ResourcePlacement": {
         "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id",
-            "description": "Location row id (synthesised: resource id)."
-          },
           "tracking_id": {
             "type": "string",
             "format": "uuid",
-            "title": "Tracking Id",
-            "description": "Owning resource tracking id."
+            "title": "Tracking Id"
           },
-          "path": {
-            "type": "string",
-            "title": "Path",
-            "description": "``storage_path`` or ``external_uri`` value."
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At",
-            "description": "When the location was registered."
+          "book": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlacementBook"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The earliest published book holding the resource, ``null`` when none holds it or the reader cannot read the one that does."
           }
         },
         "type": "object",
         "required": [
-          "id",
-          "tracking_id",
-          "path",
-          "created_at"
+          "tracking_id"
         ],
-        "title": "ResourceLocationItem",
-        "description": "One physical location pointer for a resource.\n\nEach resource carries at most one location through ``storage_path``\n(managed) or ``external_uri`` (external pointer)."
-      },
-      "ResourceLocationsResponse": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/ResourceLocationItem"
-            },
-            "type": "array",
-            "title": "Items"
-          }
-        },
-        "type": "object",
-        "required": [
-          "items"
-        ],
-        "title": "ResourceLocationsResponse",
-        "description": "Response for resource locations listings."
+        "title": "ResourcePlacement",
+        "description": "A resource the preview places by tracking id rather than carrying as a file."
       },
       "ResourceRead": {
         "properties": {
@@ -13813,7 +15518,8 @@
           "dedupe": {
             "type": "boolean",
             "title": "Dedupe",
-            "description": "True when this row merges with later registrations of the same bytes. Book entries carry false so each edition owns its own row."
+            "description": "Deprecated. True when this row merges with later registrations of the same bytes. The server sets it, and a row registered under a pinned tracking id carries false.",
+            "deprecated": true
           },
           "discovery": {
             "$ref": "#/components/schemas/ResourceDiscovery",
@@ -13838,6 +15544,18 @@
             ],
             "title": "Location Url",
             "description": "Convenience copy of the first entry of ``locations``, or ``null`` when empty. For managed resources this is an opaque storage key, not a fetchable URL. Use ``GET /v1/resources/{tracking_id}/download`` to obtain a presigned URL."
+          },
+          "link_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link Url",
+            "description": "An https link to a pointer resource. An https pointer links to itself, and a pointer in a configured scheme such as ``rdm://`` links through that scheme's resolver. ``null`` for managed resources and for pointers with no resolver."
           },
           "image": {
             "anyOf": [
@@ -14031,32 +15749,63 @@
         "title": "ResourceType",
         "description": "Type of resource data."
       },
-      "ReviseResponse": {
+      "RetryJobRequest": {
         "properties": {
-          "new_resource": {
-            "$ref": "#/components/schemas/RegistrationOutcome"
-          },
-          "old_tracking_id": {
+          "confirm": {
             "type": "string",
-            "format": "uuid",
-            "title": "Old Tracking Id",
-            "description": "The resource being revised."
+            "title": "Confirm",
+            "description": "The target's exact human name: the volume name, or `volume/version_eNNN` for a book. Required to match on real runs, ignored on dry runs.",
+            "default": ""
           },
-          "revision_edge_id": {
+          "reason": {
             "type": "string",
-            "format": "uuid",
-            "title": "Revision Edge Id",
-            "description": "Id of the ``WasRevisionOf`` row."
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "description": "Why the action is being taken."
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run",
+            "description": "Return the impact preview and change nothing.",
+            "default": false
           }
         },
         "type": "object",
         "required": [
-          "new_resource",
-          "old_tracking_id",
-          "revision_edge_id"
+          "reason"
         ],
-        "title": "ReviseResponse",
-        "description": "Response for revising a single resource."
+        "title": "RetryJobRequest",
+        "description": "Body for returning a job to the queue."
+      },
+      "RetryRenderRequest": {
+        "properties": {
+          "confirm": {
+            "type": "string",
+            "title": "Confirm",
+            "description": "The target's exact human name: the volume name, or `volume/version_eNNN` for a book. Required to match on real runs, ignored on dry runs.",
+            "default": ""
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "description": "Why the action is being taken."
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run",
+            "description": "Return the impact preview and change nothing.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "RetryRenderRequest",
+        "description": "Body for re-queueing a render."
       },
       "SchemaDiff": {
         "properties": {
@@ -14528,6 +16277,35 @@
         "title": "TokenResponse",
         "description": "OAuth token response from ``POST /oauth2/token``."
       },
+      "UninvalidateBookRequest": {
+        "properties": {
+          "confirm": {
+            "type": "string",
+            "title": "Confirm",
+            "description": "The target's exact human name: the volume name, or `volume/version_eNNN` for a book. Required to match on real runs, ignored on dry runs.",
+            "default": ""
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "description": "Why the action is being taken."
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run",
+            "description": "Return the impact preview and change nothing.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "UninvalidateBookRequest",
+        "description": "Body for reversing a book invalidation."
+      },
       "UploadAlreadyExistsResponse": {
         "properties": {
           "already_exists": {
@@ -14549,64 +16327,6 @@
         ],
         "title": "UploadAlreadyExistsResponse",
         "description": "Response when content-addressed bytes are already hosted."
-      },
-      "UploadCompleteRequest": {
-        "properties": {
-          "upload_id": {
-            "type": "string",
-            "title": "Upload Id",
-            "description": "Upload ID from initiation"
-          },
-          "storage_path": {
-            "type": "string",
-            "title": "Storage Path",
-            "description": "Storage path from initiation response"
-          },
-          "parts": {
-            "items": {
-              "$ref": "#/components/schemas/UploadPartComplete"
-            },
-            "type": "array",
-            "title": "Parts",
-            "description": "List of completed parts with ETags"
-          }
-        },
-        "type": "object",
-        "required": [
-          "upload_id",
-          "storage_path",
-          "parts"
-        ],
-        "title": "UploadCompleteRequest",
-        "description": "Request to complete a multipart upload."
-      },
-      "UploadInitiateRequest": {
-        "properties": {
-          "filename": {
-            "type": "string",
-            "title": "Filename",
-            "description": "Original filename"
-          },
-          "content_type": {
-            "type": "string",
-            "title": "Content Type",
-            "description": "MIME type of the file",
-            "default": "application/octet-stream"
-          },
-          "size_bytes": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Size Bytes",
-            "description": "Expected file size in bytes"
-          }
-        },
-        "type": "object",
-        "required": [
-          "filename",
-          "size_bytes"
-        ],
-        "title": "UploadInitiateRequest",
-        "description": "Request to initiate a file upload."
       },
       "UploadInitiateResponse": {
         "properties": {
@@ -14834,26 +16554,13 @@
         "title": "UserResponse",
         "description": "Response schema for user information."
       },
-      "UserSessionResponse": {
-        "properties": {
-          "user": {
-            "$ref": "#/components/schemas/UserResponse"
-          }
-        },
-        "type": "object",
-        "required": [
-          "user"
-        ],
-        "title": "UserSessionResponse",
-        "description": "Full session information for the current user."
-      },
       "ValueDiff": {
         "properties": {
           "changed": {
             "type": "integer",
             "minimum": 0.0,
             "title": "Changed",
-            "description": "Identities where both sides hold a differing value.",
+            "description": "Identities where both sides hold a differing value. Numbers within a relative tolerance of 1e-09 count as the same value.",
             "default": 0
           },
           "null_to_value": {
@@ -15017,6 +16724,31 @@
             "format": "date-time",
             "title": "Updated At"
           },
+          "tombstoned_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tombstoned At",
+            "description": "Set when an admin tombstoned the volume. Only admins ever see it."
+          },
+          "tombstone_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tombstone Reason",
+            "description": "Why the volume was tombstoned."
+          },
           "is_demo": {
             "type": "boolean",
             "title": "Is Demo",
@@ -15108,7 +16840,7 @@
               }
             ],
             "title": "License",
-            "description": "SPDX licence identifier"
+            "description": "Licence as an SPDX licence identifier such as 'CC-BY-4.0', 'LicenseRef-<name>' for a custom licence, or 'NOASSERTION'"
           },
           "license_url": {
             "anyOf": [
@@ -15295,6 +17027,31 @@
             "format": "date-time",
             "title": "Updated At"
           },
+          "tombstoned_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tombstoned At",
+            "description": "Set when an admin tombstoned it. Only admins ever see it."
+          },
+          "tombstone_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tombstone Reason",
+            "description": "Why the volume was tombstoned."
+          },
           "discovery": {
             "$ref": "#/components/schemas/DiscoveryProfile",
             "description": "Discovery metadata, composed from the latest published book"
@@ -15443,6 +17200,31 @@
             "format": "date-time",
             "title": "Updated At"
           },
+          "tombstoned_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tombstoned At",
+            "description": "Set when an admin tombstoned the volume. Only admins ever see it."
+          },
+          "tombstone_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tombstone Reason",
+            "description": "Why the volume was tombstoned."
+          },
           "is_demo": {
             "type": "boolean",
             "title": "Is Demo",
@@ -15515,12 +17297,46 @@
                 "type": "null"
               }
             ],
-            "description": "Updated discovery profile (replaces existing)"
+            "description": "Discovery facts to change. A named field replaces its value, an unnamed field keeps it, and a field sent as null is cleared."
           }
         },
         "type": "object",
         "title": "VolumeUpdate",
-        "description": "Schema for updating a volume.\n\nThe slug ``name`` is the only immutable field, so it has no entry here.\nEverything else about a volume, its licence included, is a statement\nsomebody may need to correct later."
+        "description": "Schema for updating a volume.\n\nThe slug ``name`` is the only immutable field, so it has no entry here.\nEverything else about a volume, its licence included, is a statement\nsomebody may need to correct later.\n\n``discovery`` patches the profile, but sending ``discovery`` itself as null resets all of it."
+      },
+      "VolumeVisibilityRequest": {
+        "properties": {
+          "confirm": {
+            "type": "string",
+            "title": "Confirm",
+            "description": "The target's exact human name: the volume name, or `volume/version_eNNN` for a book. Required to match on real runs, ignored on dry runs.",
+            "default": ""
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "description": "Why the action is being taken."
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run",
+            "description": "Return the impact preview and change nothing.",
+            "default": false
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/Visibility",
+            "description": "Tier applied to every book and its resources."
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason",
+          "visibility"
+        ],
+        "title": "VolumeVisibilityRequest",
+        "description": "Body for overriding the visibility of every book in a volume."
       },
       "WalkNode": {
         "properties": {
@@ -15654,6 +17470,19 @@
             ],
             "title": "Urn",
             "description": "PROV URN for this node (container only)."
+          },
+          "tombstoned_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tombstoned At",
+            "description": "When an admin removed this node's data. The node stays so lineage explains itself."
           }
         },
         "additionalProperties": true,
@@ -15839,6 +17668,16 @@
       },
       "Conflict": {
         "description": "Conflict",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "Gone": {
+        "description": "Book Tombstoned",
         "content": {
           "application/problem+json": {
             "schema": {
