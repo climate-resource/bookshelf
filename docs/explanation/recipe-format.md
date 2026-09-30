@@ -91,7 +91,8 @@ Letting it vary would make a filter return a different volume
 depending on which edition happened to match.
 Publishing applies `volume:` to the volume before the book is replayed.
 Only the fields the recipe states are sent, so one it leaves out keeps whatever value the volume already has.
-A field set to null counts as left out, so the recipe can change a volume fact but cannot clear one.
+A field set to null counts as left out, so null never clears a volume fact.
+An explicit empty list is stated, so `keywords: []` or `maintainers: []` does clear that list.
 
 A book may override anything under `defaults:`.
 The merge is field by field rather than section by section,
