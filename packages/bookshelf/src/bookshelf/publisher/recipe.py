@@ -290,7 +290,8 @@ class ResourceSpec(_ResourceFields):
     def reference(self) -> Reference | None:
         """The platform-held resource this declaration names, or ``None`` for a fetch or a file.
 
-        Raises :class:`ValueError` where the URI takes the scheme without a coordinate or a digest,
+        Raises :class:`~bookshelf.publisher.reference.InvalidReferenceError`
+        where the URI takes the scheme without a coordinate or a digest,
         which is what makes reading it enough to validate it.
         """
         if self.uri is None or not is_reference(self.uri):
@@ -757,11 +758,11 @@ def resolve_book_visibility(
 
 
 __all__ = [
-    "InvalidRecipeError",
     "BookSpec",
     "BuildSection",
     "DefaultsSection",
     "DiscoveryFields",
+    "InvalidRecipeError",
     "RecordRecipe",
     "ResolvedBook",
     "ResourceDefaults",

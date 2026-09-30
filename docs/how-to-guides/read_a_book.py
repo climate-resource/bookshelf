@@ -168,7 +168,7 @@ window.shape
 # >
 # > `query()` on a book entry accepts bare `column=value` filters only.
 # > The platform reads a `col.op` filter such as `region.in` as a column name,
-# > so it raises `ValidationError: Unknown column in filter: region.in`.
+# > so it raises `RequestValidationError: Unknown column in filter: region.in`.
 # > A mistyped column name fails the same way.
 #
 # `query()` on the underlying resource does support `col.op`.

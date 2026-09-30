@@ -448,7 +448,8 @@ class Bookshelf:
         A correction that changes something is recorded as an event on the book, with its reason.
         One that changes nothing records no event, so check ``corrected`` when the audit matters.
         A draft is a ``ConflictError``, so use ``update_draft`` there.
-        Content, licence or visibility changes are a ``ValidationError`` because they need a new edition.
+        Content, licence or visibility changes are a ``RequestValidationError``,
+        because they need a new edition.
         """
         return self._client.correct_book(book_id, request)
 
@@ -736,7 +737,8 @@ class AsyncBookshelf:
         A correction that changes something is recorded as an event on the book, with its reason.
         One that changes nothing records no event, so check ``corrected`` when the audit matters.
         A draft is a ``ConflictError``, so use ``update_draft`` there.
-        Content, licence or visibility changes are a ``ValidationError`` because they need a new edition.
+        Content, licence or visibility changes are a ``RequestValidationError``,
+        because they need a new edition.
         """
         return await self._client.correct_book_async(book_id, request)
 
