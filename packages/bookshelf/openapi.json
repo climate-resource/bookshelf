@@ -3,7 +3,7 @@
   "info": {
     "title": "Bookshelf API",
     "description": "API for Climate Resource's dataset management system",
-    "version": "v1+g317359a2"
+    "version": "v1+g403065d9"
   },
   "paths": {
     "/livez": {
@@ -7991,12 +7991,7 @@
       "AgentIdentityRequest": {
         "properties": {
           "type": {
-            "type": "string",
-            "enum": [
-              "anonymous",
-              "service_auth"
-            ],
-            "title": "AgentRegistrationType",
+            "$ref": "#/components/schemas/AgentRegistrationType",
             "description": "Registration entrypoint: anonymous (pre-claim assertion now) or service_auth (email hint, assertion withheld until claimed)."
           },
           "login_hint": {
@@ -8042,6 +8037,13 @@
         ],
         "title": "AgentIdentityRequest",
         "description": "Body of ``POST /agent/identity``. Dispatches on ``type``."
+      },
+      "AgentRegistrationType": {
+        "type": "string",
+        "enum": [
+          "anonymous",
+          "service_auth"
+        ]
       },
       "AnonymousRegistrationResponse": {
         "properties": {
@@ -8584,14 +8586,12 @@
           "description": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 5000
+                "$ref": "#/components/schemas/DiscoveryDescription"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Description",
             "description": "Concise summary"
           },
           "authors": {
@@ -8605,53 +8605,45 @@
           "doi": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 200
+                "$ref": "#/components/schemas/DiscoveryDoi"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Doi",
             "description": "DOI for the dataset"
           },
           "citation": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryCitation"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Citation",
             "description": "Citation string for referencing this"
           },
           "license": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 255
+                "$ref": "#/components/schemas/DiscoveryLicense"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "License",
             "description": "Licence as an SPDX licence identifier such as 'CC-BY-4.0', 'LicenseRef-<name>' for a custom licence, or 'NOASSERTION'"
           },
           "license_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "License Url",
             "description": "Licence text URL"
           },
           "spatial_coverage": {
@@ -8700,118 +8692,100 @@
           "frequency": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 100
+                "$ref": "#/components/schemas/DiscoveryFrequency"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Frequency",
             "description": "Observation frequency, such as 'annual'"
           },
           "title": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 200
+                "$ref": "#/components/schemas/DiscoveryTitle"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Title",
             "description": "Human-readable display title"
           },
           "publisher": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 200
+                "$ref": "#/components/schemas/DiscoveryPublisher"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Publisher",
             "description": "Source or publisher organisation"
           },
           "publisher_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Publisher Url",
             "description": "Publisher homepage"
           },
           "homepage_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Homepage Url",
             "description": "Dataset homepage"
           },
           "documentation_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Documentation Url",
             "description": "Documentation"
           },
           "methodology_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Methodology Url",
             "description": "Methodology write-up"
           },
           "repository_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Repository Url",
             "description": "Source code repository"
           },
           "release_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Release Url",
             "description": "Landing page for this specific release"
           },
           "source_release_date": {
@@ -8830,27 +8804,23 @@
           "intended_uses": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryIntendedUses"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Intended Uses",
             "description": "What the data suits"
           },
           "limitations": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryLimitations"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Limitations",
             "description": "Known limitations"
           }
         },
@@ -8864,14 +8834,12 @@
           "description": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 5000
+                "$ref": "#/components/schemas/DiscoveryDescription"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Description",
             "description": "Concise summary"
           },
           "authors": {
@@ -8885,157 +8853,133 @@
           "doi": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 200
+                "$ref": "#/components/schemas/DiscoveryDoi"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Doi",
             "description": "DOI for the dataset"
           },
           "citation": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryCitation"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Citation",
             "description": "Citation string for referencing this"
           },
           "license": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 255
+                "$ref": "#/components/schemas/DiscoveryLicense"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "License",
             "description": "Licence as an SPDX licence identifier such as 'CC-BY-4.0', 'LicenseRef-<name>' for a custom licence, or 'NOASSERTION'"
           },
           "license_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "License Url",
             "description": "Licence text URL"
           },
           "title": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 200
+                "$ref": "#/components/schemas/DiscoveryTitle"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Title",
             "description": "Human-readable display title"
           },
           "publisher": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 200
+                "$ref": "#/components/schemas/DiscoveryPublisher"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Publisher",
             "description": "Source or publisher organisation"
           },
           "publisher_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Publisher Url",
             "description": "Publisher homepage"
           },
           "homepage_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Homepage Url",
             "description": "Dataset homepage"
           },
           "documentation_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Documentation Url",
             "description": "Documentation"
           },
           "methodology_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Methodology Url",
             "description": "Methodology write-up"
           },
           "repository_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Repository Url",
             "description": "Source code repository"
           },
           "release_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Release Url",
             "description": "Landing page for this specific release"
           },
           "source_release_date": {
@@ -9054,27 +8998,23 @@
           "intended_uses": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryIntendedUses"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Intended Uses",
             "description": "What the data suits"
           },
           "limitations": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryLimitations"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Limitations",
             "description": "Known limitations"
           }
         },
@@ -9713,12 +9653,7 @@
             "description": "The seed Book."
           },
           "direction": {
-            "type": "string",
-            "enum": [
-              "upstream",
-              "downstream"
-            ],
-            "title": "ProvWalkDirection"
+            "$ref": "#/components/schemas/ProvWalkDirection"
           },
           "depth_requested": {
             "type": "integer",
@@ -10103,14 +10038,12 @@
           "topN": {
             "anyOf": [
               {
-                "type": "integer",
-                "minimum": 1.0
+                "$ref": "#/components/schemas/TopN"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Topn",
             "description": "Keep the top N series ($top_n)"
           },
           "years": {
@@ -10443,6 +10376,14 @@
         "title": "ClaimVerifyResponse",
         "description": "Result of completing the claim ceremony."
       },
+      "ColumnDataType": {
+        "type": "string",
+        "enum": [
+          "string",
+          "number",
+          "date"
+        ]
+      },
       "ColumnMetadata": {
         "properties": {
           "key": {
@@ -10454,13 +10395,7 @@
             "title": "Label"
           },
           "type": {
-            "type": "string",
-            "enum": [
-              "string",
-              "number",
-              "date"
-            ],
-            "title": "ColumnDataType"
+            "$ref": "#/components/schemas/ColumnDataType"
           }
         },
         "type": "object",
@@ -10643,14 +10578,7 @@
             "description": "Field description"
           },
           "role": {
-            "type": "string",
-            "enum": [
-              "dimension",
-              "measure",
-              "time",
-              "attribute"
-            ],
-            "title": "DataDictionaryRole",
+            "$ref": "#/components/schemas/DataDictionaryRole",
             "description": "Column role: a multi-index 'dimension', the 'measure', the 'time' axis, or an 'attribute' qualifying the measure (e.g. unit)",
             "default": "dimension"
           },
@@ -10701,6 +10629,15 @@
         "title": "DataDictionaryEntry",
         "description": "One column of a book entry's data dictionary.\n\nDescribes an index (dimension) column of a timeseries or dataframe resource:\nwhat it means, its type, and -- where the values are controlled --\nthe allowed vocabulary with a description per value.\nSerialises to a Frictionless Table Schema field via\n:mod:`bookshelf_api.services.data_dictionary`.\nThe shape mirrors ``bookshelf.schema.Dimension`` in the consumer library\nso the two definitions converge.\nSee ``docs/architecture/data-dictionary.md``."
       },
+      "DataDictionaryRole": {
+        "type": "string",
+        "enum": [
+          "dimension",
+          "measure",
+          "time",
+          "attribute"
+        ]
+      },
       "DeleteBookRequest": {
         "properties": {
           "confirm": {
@@ -10723,12 +10660,7 @@
             "default": false
           },
           "mode": {
-            "type": "string",
-            "enum": [
-              "tombstone",
-              "purge"
-            ],
-            "title": "Mode",
+            "$ref": "#/components/schemas/DeleteMode",
             "description": "`tombstone` deletes the files but keeps the row and the version slot. `purge` removes everything and frees the slot for a republish.",
             "default": "tombstone"
           }
@@ -10739,6 +10671,13 @@
         ],
         "title": "DeleteBookRequest",
         "description": "Body for removing a book."
+      },
+      "DeleteMode": {
+        "type": "string",
+        "enum": [
+          "tombstone",
+          "purge"
+        ]
       },
       "DeleteVolumeRequest": {
         "properties": {
@@ -10762,12 +10701,7 @@
             "default": false
           },
           "mode": {
-            "type": "string",
-            "enum": [
-              "tombstone",
-              "purge"
-            ],
-            "title": "Mode",
+            "$ref": "#/components/schemas/DeleteMode",
             "description": "`tombstone` deletes the files but keeps the row and the version slot. `purge` removes everything and frees the slot for a republish.",
             "default": "tombstone"
           }
@@ -10808,19 +10742,49 @@
         "title": "DiscardDraftRequest",
         "description": "Body for discarding a draft book."
       },
+      "DiscoveryCitation": {
+        "type": "string",
+        "maxLength": 2000
+      },
+      "DiscoveryDeprecationNote": {
+        "type": "string",
+        "maxLength": 2000
+      },
+      "DiscoveryDescription": {
+        "type": "string",
+        "maxLength": 5000
+      },
+      "DiscoveryDoi": {
+        "type": "string",
+        "maxLength": 200
+      },
+      "DiscoveryFrequency": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "DiscoveryIntendedUses": {
+        "type": "string",
+        "maxLength": 2000
+      },
+      "DiscoveryLicense": {
+        "type": "string",
+        "maxLength": 255
+      },
+      "DiscoveryLimitations": {
+        "type": "string",
+        "maxLength": 2000
+      },
       "DiscoveryProfile": {
         "properties": {
           "description": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 5000
+                "$ref": "#/components/schemas/DiscoveryDescription"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Description",
             "description": "Concise summary"
           },
           "authors": {
@@ -10834,53 +10798,45 @@
           "doi": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 200
+                "$ref": "#/components/schemas/DiscoveryDoi"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Doi",
             "description": "DOI for the dataset"
           },
           "citation": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryCitation"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Citation",
             "description": "Citation string for referencing this"
           },
           "license": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 255
+                "$ref": "#/components/schemas/DiscoveryLicense"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "License",
             "description": "Licence as an SPDX licence identifier such as 'CC-BY-4.0', 'LicenseRef-<name>' for a custom licence, or 'NOASSERTION'"
           },
           "license_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "License Url",
             "description": "Licence text URL"
           },
           "spatial_coverage": {
@@ -10929,118 +10885,100 @@
           "frequency": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 100
+                "$ref": "#/components/schemas/DiscoveryFrequency"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Frequency",
             "description": "Observation frequency, such as 'annual'"
           },
           "title": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 200
+                "$ref": "#/components/schemas/DiscoveryTitle"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Title",
             "description": "Human-readable display title"
           },
           "publisher": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 200
+                "$ref": "#/components/schemas/DiscoveryPublisher"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Publisher",
             "description": "Source or publisher organisation"
           },
           "publisher_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Publisher Url",
             "description": "Publisher homepage"
           },
           "homepage_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Homepage Url",
             "description": "Dataset homepage"
           },
           "documentation_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Documentation Url",
             "description": "Documentation"
           },
           "methodology_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Methodology Url",
             "description": "Methodology write-up"
           },
           "repository_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Repository Url",
             "description": "Source code repository"
           },
           "release_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Release Url",
             "description": "Landing page for this specific release"
           },
           "source_release_date": {
@@ -11059,27 +10997,23 @@
           "intended_uses": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryIntendedUses"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Intended Uses",
             "description": "What the data suits"
           },
           "limitations": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryLimitations"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Limitations",
             "description": "Known limitations"
           },
           "deprecated": {
@@ -11091,27 +11025,23 @@
           "superseded_by": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 100
+                "$ref": "#/components/schemas/DiscoverySupersededBy"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Superseded By",
             "description": "Name of the volume that replaces this one"
           },
           "deprecation_note": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryDeprecationNote"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Deprecation Note",
             "description": "Why the volume was deprecated"
           },
           "topics": {
@@ -11141,14 +11071,12 @@
           "update_cadence": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 100
+                "$ref": "#/components/schemas/DiscoveryUpdateCadence"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Update Cadence",
             "description": "How often the source is refreshed"
           }
         },
@@ -11156,6 +11084,26 @@
         "type": "object",
         "title": "DiscoveryProfile",
         "description": "Typed discovery and release metadata for a volume.\n\nThis is the consumer-facing profile the catalogue reads, and it is a read shape only.\nIt answers what the dataset is, what it covers, how current it is\nand whether it is still fit to use,\nwithout clients having to interpret arbitrary keys in ``metadata``.\nField names follow DCAT and DataCite concepts where they line up.\nUnknown keys are rejected rather than ignored, so a caller who misspells a\nfield, or sends one the profile deliberately does not carry, hears about it\ninstead of silently losing the value.\n\nMost of these facts belong to a release rather than to the series,\nso they are baked onto the book at draft time\nand composed back onto the volume on read from the latest published book.\n:class:`VolumeDiscoveryInput` is what a caller may actually write to a volume,\nand it carries only the facts that hold across every release."
+      },
+      "DiscoveryPublisher": {
+        "type": "string",
+        "maxLength": 200
+      },
+      "DiscoverySupersededBy": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "DiscoveryTitle": {
+        "type": "string",
+        "maxLength": 200
+      },
+      "DiscoveryUpdateCadence": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "DiscoveryUrl": {
+        "type": "string",
+        "maxLength": 2000
       },
       "DownloadResponse": {
         "properties": {
@@ -11521,6 +11469,17 @@
         ],
         "title": "EventSubject",
         "description": "What an event is about, named the way a reader would name it.\n\nAn event carries only the id of the thing it changed, which is unreadable on its own.\nThis names that thing so a feed can render it and link to its page,\nand it is ``None`` when the subject has been deleted or cannot be resolved."
+      },
+      "Expiry": {
+        "type": "string",
+        "enum": [
+          "1d",
+          "7d",
+          "30d",
+          "90d",
+          "1y",
+          "never"
+        ]
       },
       "ExplorerChartCreate": {
         "properties": {
@@ -12149,14 +12108,12 @@
           "topN": {
             "anyOf": [
               {
-                "type": "integer",
-                "minimum": 1.0
+                "$ref": "#/components/schemas/TopN"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Topn",
             "description": "Keep the top N series ($top_n)"
           },
           "years": {
@@ -12273,12 +12230,7 @@
       "FrontendLogEvent": {
         "properties": {
           "level": {
-            "type": "string",
-            "enum": [
-              "info",
-              "error"
-            ],
-            "title": "FrontendLogLevel"
+            "$ref": "#/components/schemas/FrontendLogLevel"
           },
           "message": {
             "type": "string",
@@ -12304,6 +12256,13 @@
         "title": "FrontendLogEvent",
         "description": "A single log event from the frontend."
       },
+      "FrontendLogLevel": {
+        "type": "string",
+        "enum": [
+          "info",
+          "error"
+        ]
+      },
       "GitHubAccountType": {
         "type": "string",
         "enum": [
@@ -12312,6 +12271,13 @@
         ],
         "title": "GitHubAccountType",
         "description": "Kind of GitHub account an App installation sits on.\n\nAttributes\n----------\nORGANIZATION\n    A GitHub organisation.\nUSER\n    A single GitHub user account."
+      },
+      "IndexBaselineOutput": {
+        "type": "string",
+        "enum": [
+          "index100",
+          "percent-change"
+        ]
       },
       "IndexBaselineTransformStep": {
         "properties": {
@@ -12327,12 +12293,7 @@
             "description": "Baseline year each series is indexed to"
           },
           "output": {
-            "type": "string",
-            "enum": [
-              "index100",
-              "percent-change"
-            ],
-            "title": "IndexBaselineOutput",
+            "$ref": "#/components/schemas/IndexBaselineOutput",
             "description": "Show the rebased series as Index=100 or percent change.",
             "default": "index100"
           }
@@ -13649,6 +13610,13 @@
         "title": "ProposalState",
         "description": "Lifecycle state of a pull request.\n\nAttributes\n----------\nOPEN\n    The pull request is open and may gain further previews.\nCLOSED\n    The pull request was closed without merging.\nMERGED\n    The pull request was merged."
       },
+      "ProvContainerKind": {
+        "type": "string",
+        "enum": [
+          "book",
+          "volume"
+        ]
+      },
       "ProvDocument": {
         "properties": {
           "prefix": {
@@ -13752,6 +13720,21 @@
         "title": "ProvDocument",
         "description": "A PROV-JSON document.\n\nPydantic is used for the response schema so OpenAPI advertises the shape.\nThe body is intentionally permissive (extra keys allowed)."
       },
+      "ProvNodeType": {
+        "type": "string",
+        "enum": [
+          "artifact",
+          "activity",
+          "container"
+        ]
+      },
+      "ProvWalkDirection": {
+        "type": "string",
+        "enum": [
+          "upstream",
+          "downstream"
+        ]
+      },
       "ProvenanceDiff": {
         "properties": {
           "changed": {
@@ -13818,13 +13801,7 @@
             "title": "Version"
           },
           "outcome": {
-            "type": "string",
-            "enum": [
-              "published",
-              "unchanged",
-              "pending"
-            ],
-            "title": "Outcome"
+            "$ref": "#/components/schemas/PublicationBookOutcomeKind"
           }
         },
         "type": "object",
@@ -13835,6 +13812,14 @@
         ],
         "title": "PublicationBookOutcome",
         "description": "What one target of the preview resolved to, as far as the platform knows.\n\n``pending`` means no receipt exists yet, so the queued job has not reached that book."
+      },
+      "PublicationBookOutcomeKind": {
+        "type": "string",
+        "enum": [
+          "published",
+          "unchanged",
+          "pending"
+        ]
       },
       "PublicationOutcome": {
         "type": "string",
@@ -14365,14 +14350,7 @@
       "RegistrationOutcome": {
         "properties": {
           "status": {
-            "type": "string",
-            "enum": [
-              "created",
-              "merged",
-              "aliased",
-              "conflict"
-            ],
-            "title": "RegistrationStatus",
+            "$ref": "#/components/schemas/RegistrationStatus",
             "description": "``created`` for a brand-new resource, ``merged`` for an additive replay, ``aliased`` when the proposed id maps to an existing canonical id."
           },
           "tracking_id": {
@@ -14409,6 +14387,15 @@
         ],
         "title": "RegistrationOutcome",
         "description": "Outcome of a single registration call."
+      },
+      "RegistrationStatus": {
+        "type": "string",
+        "enum": [
+          "created",
+          "merged",
+          "aliased",
+          "conflict"
+        ]
       },
       "RenameVolumeRequest": {
         "properties": {
@@ -14710,12 +14697,7 @@
             "description": "Canonical resource type."
           },
           "kind": {
-            "type": "string",
-            "enum": [
-              "managed",
-              "pointer"
-            ],
-            "title": "ReplayResourceKind",
+            "$ref": "#/components/schemas/ReplayResourceKind",
             "description": "``managed`` when the platform hosts the bytes, ``pointer`` when it does not.",
             "default": "managed"
           },
@@ -14857,6 +14839,13 @@
         "title": "ReplayResource",
         "description": "One resource in the bundle.\n\n``kind`` is the explicit discriminator between the two variants.\nA ``pointer`` carries the ``external_uri`` the platform must not re-host.\nA ``managed`` resource is re-hosted by the platform,\nand its bytes are uploaded before this call through ``POST /v1/resources/uploads``,\nso it carries the resulting ``storage_path`` rather than the bytes themselves."
       },
+      "ReplayResourceKind": {
+        "type": "string",
+        "enum": [
+          "managed",
+          "pointer"
+        ]
+      },
       "ReplayResourceResult": {
         "properties": {
           "name": {
@@ -14878,14 +14867,7 @@
             "description": "The canonical tracking id this name holds. On an ``aliased`` outcome it is the resource the deployment already had. On a ``skipped`` outcome it is what the deployment holds under this name without this request writing anything, and ``null`` when it holds nothing."
           },
           "status": {
-            "type": "string",
-            "enum": [
-              "created",
-              "merged",
-              "aliased",
-              "skipped"
-            ],
-            "title": "ReplayResourceStatus",
+            "$ref": "#/components/schemas/ReplayResourceStatus",
             "description": "What this replay wrote for the resource. ``created``, ``merged`` or ``aliased`` mean it was registered. ``skipped`` means nothing was written for it, which is what a replay that converged before writing reports for every resource it carries."
           }
         },
@@ -14896,6 +14878,15 @@
         ],
         "title": "ReplayResourceResult",
         "description": "What one named resource resolved to."
+      },
+      "ReplayResourceStatus": {
+        "type": "string",
+        "enum": [
+          "created",
+          "merged",
+          "aliased",
+          "skipped"
+        ]
       },
       "ReplayUsedByHash": {
         "properties": {
@@ -15024,16 +15015,7 @@
             "title": "After"
           },
           "kind": {
-            "type": "string",
-            "enum": [
-              "changed",
-              "null_to_value",
-              "value_to_null",
-              "unchanged",
-              "added",
-              "removed"
-            ],
-            "title": "Kind"
+            "$ref": "#/components/schemas/ValueKind"
           }
         },
         "type": "object",
@@ -15294,16 +15276,7 @@
             "description": "``delta`` over the absolute baseline, ``null`` when the baseline is zero."
           },
           "kind": {
-            "type": "string",
-            "enum": [
-              "changed",
-              "null_to_value",
-              "value_to_null",
-              "unchanged",
-              "added",
-              "removed"
-            ],
-            "title": "Kind"
+            "$ref": "#/components/schemas/ValueKind"
           }
         },
         "type": "object",
@@ -15353,14 +15326,12 @@
           "description": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 5000
+                "$ref": "#/components/schemas/DiscoveryDescription"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Description",
             "description": "Concise summary"
           },
           "authors": {
@@ -15374,53 +15345,45 @@
           "doi": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 200
+                "$ref": "#/components/schemas/DiscoveryDoi"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Doi",
             "description": "DOI for the dataset"
           },
           "citation": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryCitation"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Citation",
             "description": "Citation string for referencing this"
           },
           "license": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 255
+                "$ref": "#/components/schemas/DiscoveryLicense"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "License",
             "description": "Licence as an SPDX licence identifier such as 'CC-BY-4.0', 'LicenseRef-<name>' for a custom licence, or 'NOASSERTION'"
           },
           "license_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "License Url",
             "description": "Licence text URL"
           }
         },
@@ -15891,16 +15854,7 @@
             "description": "Volume the link is scoped to."
           },
           "expiry": {
-            "type": "string",
-            "enum": [
-              "1d",
-              "7d",
-              "30d",
-              "90d",
-              "1y",
-              "never"
-            ],
-            "title": "Expiry",
+            "$ref": "#/components/schemas/Expiry",
             "description": "How long the link stays valid.",
             "default": "30d"
           },
@@ -15937,16 +15891,7 @@
             "title": "Volume Name"
           },
           "expiry": {
-            "type": "string",
-            "enum": [
-              "1d",
-              "7d",
-              "30d",
-              "90d",
-              "1y",
-              "never"
-            ],
-            "title": "Expiry"
+            "$ref": "#/components/schemas/Expiry"
           },
           "expires_at": {
             "anyOf": [
@@ -16276,6 +16221,10 @@
         ],
         "title": "TokenResponse",
         "description": "OAuth token response from ``POST /oauth2/token``."
+      },
+      "TopN": {
+        "type": "integer",
+        "minimum": 1.0
       },
       "UninvalidateBookRequest": {
         "properties": {
@@ -16631,6 +16580,17 @@
         "title": "ValueExample",
         "description": "One identity whose value differs, with both sides."
       },
+      "ValueKind": {
+        "type": "string",
+        "enum": [
+          "changed",
+          "null_to_value",
+          "value_to_null",
+          "unchanged",
+          "added",
+          "removed"
+        ]
+      },
       "VersionInfo": {
         "properties": {
           "version": {
@@ -16785,14 +16745,12 @@
           "description": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 5000
+                "$ref": "#/components/schemas/DiscoveryDescription"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Description",
             "description": "Concise summary"
           },
           "authors": {
@@ -16806,53 +16764,45 @@
           "doi": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 200
+                "$ref": "#/components/schemas/DiscoveryDoi"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Doi",
             "description": "DOI for the dataset"
           },
           "citation": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryCitation"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Citation",
             "description": "Citation string for referencing this"
           },
           "license": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 255
+                "$ref": "#/components/schemas/DiscoveryLicense"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "License",
             "description": "Licence as an SPDX licence identifier such as 'CC-BY-4.0', 'LicenseRef-<name>' for a custom licence, or 'NOASSERTION'"
           },
           "license_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryUrl"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "License Url",
             "description": "Licence text URL"
           },
           "deprecated": {
@@ -16864,27 +16814,23 @@
           "superseded_by": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 100
+                "$ref": "#/components/schemas/DiscoverySupersededBy"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Superseded By",
             "description": "Name of the volume that replaces this one"
           },
           "deprecation_note": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 2000
+                "$ref": "#/components/schemas/DiscoveryDeprecationNote"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Deprecation Note",
             "description": "Why the volume was deprecated"
           },
           "topics": {
@@ -16914,14 +16860,12 @@
           "update_cadence": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 100
+                "$ref": "#/components/schemas/DiscoveryUpdateCadence"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Update Cadence",
             "description": "How often the source is refreshed"
           }
         },
@@ -17341,13 +17285,7 @@
       "WalkNode": {
         "properties": {
           "type": {
-            "type": "string",
-            "enum": [
-              "artifact",
-              "activity",
-              "container"
-            ],
-            "title": "ProvNodeType",
+            "$ref": "#/components/schemas/ProvNodeType",
             "description": "Whether this node is a PROV Entity (resource), an Activity, or a structural container (Book / Volume Collection). Resolve a node's type before linking: container nodes navigate by Book id / Volume name rather than tracking_id."
           },
           "hops": {
@@ -17421,17 +17359,12 @@
           "container_kind": {
             "anyOf": [
               {
-                "type": "string",
-                "enum": [
-                  "book",
-                  "volume"
-                ]
+                "$ref": "#/components/schemas/ProvContainerKind"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "ProvContainerKind",
             "description": "Container subtype (container only)."
           },
           "book_id": {
@@ -17503,12 +17436,7 @@
             "description": "The seed resource."
           },
           "direction": {
-            "type": "string",
-            "enum": [
-              "upstream",
-              "downstream"
-            ],
-            "title": "ProvWalkDirection"
+            "$ref": "#/components/schemas/ProvWalkDirection"
           },
           "depth_requested": {
             "type": "integer",
