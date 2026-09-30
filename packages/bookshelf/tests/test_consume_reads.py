@@ -210,6 +210,7 @@ def test_an_unknown_filter_column_raises_the_same_error_on_both_routes(
     [
         ({"region": []}, SelectionError),
         ({"region": ["NZL", None]}, SelectionError),
+        ({"region": ["NZL", ""]}, SelectionError),
         ({"region": {"NZL"}}, SelectionError),
         ([("region", "NZL")], TypeError),
     ],
@@ -240,7 +241,7 @@ def test_a_preview_says_when_it_has_left_rows_out(tmp_path: Path) -> None:
     whole = entry.preview(limit=3)
 
     assert isinstance(cut, DataPreview)
-    assert (len(cut.data), cut.completeness, cut.complete) == (2, "partial", False)
+    assert (len(cut.data), cut.completeness) == (2, "partial")
     assert (len(whole.data), whole.completeness) == (3, "complete")
     assert [request.url.params["limit"] for request in _data_requests(seen)] == ["3", "4"]
 
@@ -443,7 +444,17 @@ def _select(frame: pd.DataFrame, filters: dict[str, Any]) -> pd.DataFrame:
 def test_numbers_match_by_value(category: list[object], wanted: object) -> None:
     frame = pd.DataFrame({"category": category, "value": [1.0, 2.0, 3.0]})
     assert _select(frame, {"category": wanted})["value"].tolist() == [1.0, 3.0]
-    assert _select(frame, {"category": "x"}).empty
+
+
+@pytest.mark.parametrize(
+    ("category", "wanted"), [([1, 2], "x"), ([1, 2], 1.5), ([1, 2], True), ([1.0, 2.0], "x")]
+)
+def test_a_value_the_column_cannot_hold_is_refused_as_on_the_platform(
+    category: list[object], wanted: object
+) -> None:
+    """The platform reads the value as the column's type, and a 422 is a SelectionError."""
+    with pytest.raises(SelectionError, match="category"):
+        _select(pd.DataFrame({"category": category}), {"category": wanted})
 
 
 def test_booleans_nullable_numbers_and_missing_values_match_like_the_platform() -> None:
@@ -472,3 +483,15 @@ def test_the_year_window_is_inclusive() -> None:
 def test_a_tabular_frame_filters_on_its_columns() -> None:
     frame = pd.DataFrame({"region": ["NZL", "AUS"], "value": [1.0, 2.0]})
     assert _select(frame, {"region": "AUS"})["value"].tolist() == [2.0]
+
+
+def test_a_tabular_preview_may_order_by_a_digit_named_column(tmp_path: Path) -> None:
+    bs, seen = _shelf(tmp_path)
+    resource = bs.resource(TRACKING_ID)
+    resource._resource_type = models.ResourceType.tabular
+
+    with pytest.raises(SelectionError, match="order"):
+        resource.preview(order="-2020")
+
+    (request,) = _data_requests(seen)
+    assert request.url.params["order"] == "2020.desc", "only a timeseries year is refused"

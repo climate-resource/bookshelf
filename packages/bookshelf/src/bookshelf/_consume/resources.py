@@ -18,6 +18,7 @@ from bookshelf._consume.conversions import (
     UnsupportedConversionError,
     explorers_for,
     readers_for,
+    require_timeseries_support,
     scmrun_class,
 )
 from bookshelf._consume.frames import (
@@ -33,7 +34,6 @@ from bookshelf._consume.reading import (
     ResourceInfo,
     check_frame_read,
     check_preview,
-    check_timeseries_read,
     preview_params,
     selection_rejections,
     settle,
@@ -191,10 +191,6 @@ class Resource(_ResourceHandle):
         """Return what the platform records about the resource, fetching it at most once."""
         return ResourceInfo.from_record(self._record())
 
-    def _summary(self) -> tuple[str, Sections]:
-        self._recall()
-        return super()._summary()
-
     def content_hash(self) -> str:
         """Return the declared ``sha256:`` digest, from memory or disk before the platform."""
         if self._content_hash is None:
@@ -267,7 +263,7 @@ class Resource(_ResourceHandle):
         a ``values`` column, a ``year`` column of ``YYYY-01-01 00:00:00`` strings,
         and rows sorted by the dimensions and then the year.
         """
-        check_timeseries_read(self.resource_type(), "as_long_df()")
+        require_timeseries_support(self.resource_type(), "as_long_df()")
         long = long_timeseries(self._read("as_long_df()", filters, year_min, year_max, server_side))
         return legacy_long_timeseries(long) if legacy_columns else long
 
@@ -309,7 +305,7 @@ class Resource(_ResourceHandle):
 
         scmdata rejects rows with duplicate metadata.
         """
-        check_timeseries_read(self.resource_type(), "as_scmrun()")
+        require_timeseries_support(self.resource_type(), "as_scmrun()")
         run = scmrun_class()
         return run(self._read("as_scmrun()", filters, year_min, year_max, server_side))
 
@@ -327,8 +323,8 @@ class Resource(_ResourceHandle):
         """Return up to ``limit`` selected rows, selected on the platform, and whether that is all.
 
         ``order`` names columns to sort by first, each prefixed with ``-`` to sort descending.
-        ``top_n`` keeps the timeseries with the largest latest values, and cannot take an order,
-        and ``drop_constant`` drops the dimensions that hold one value across the returned series.
+        ``top_n`` keeps the timeseries with the largest latest values, and cannot take an order.
+        ``drop_constant`` drops the dimensions that hold one value across the returned series.
         """
         selection = Selection.build(filters, year_min=year_min, year_max=year_max, order=order)
         resource_type = self.resource_type()
@@ -499,6 +495,7 @@ class AsyncResource(_ResourceHandle):
                 return await asyncio.to_thread(
                     settle, resource_type, whole, selection, selected=False
                 )
+        # An external pointer has no cached file, so the platform selects it where it lives.
         frame = await self._data(selection.data_params())
         return await asyncio.to_thread(settle, resource_type, frame, selection, selected=True)
 
@@ -537,7 +534,7 @@ class AsyncResource(_ResourceHandle):
         a ``values`` column, a ``year`` column of ``YYYY-01-01 00:00:00`` strings,
         and rows sorted by the dimensions and then the year.
         """
-        check_timeseries_read(await self.resource_type(), "as_long_df()")
+        require_timeseries_support(await self.resource_type(), "as_long_df()")
         wide = await self._read("as_long_df()", filters, year_min, year_max, server_side)
         long = await asyncio.to_thread(long_timeseries, wide)
         if legacy_columns:
@@ -584,7 +581,7 @@ class AsyncResource(_ResourceHandle):
 
         scmdata rejects rows with duplicate metadata.
         """
-        check_timeseries_read(await self.resource_type(), "as_scmrun()")
+        require_timeseries_support(await self.resource_type(), "as_scmrun()")
         run = scmrun_class()
         frame = await self._read("as_scmrun()", filters, year_min, year_max, server_side)
         return await asyncio.to_thread(run, frame)
@@ -603,8 +600,8 @@ class AsyncResource(_ResourceHandle):
         """Return up to ``limit`` selected rows, selected on the platform, and whether that is all.
 
         ``order`` names columns to sort by first, each prefixed with ``-`` to sort descending.
-        ``top_n`` keeps the timeseries with the largest latest values, and cannot take an order,
-        and ``drop_constant`` drops the dimensions that hold one value across the returned series.
+        ``top_n`` keeps the timeseries with the largest latest values, and cannot take an order.
+        ``drop_constant`` drops the dimensions that hold one value across the returned series.
         """
         selection = Selection.build(filters, year_min=year_min, year_max=year_max, order=order)
         resource_type = await self.resource_type()

@@ -40,8 +40,10 @@ def _values(column: str, wanted: object) -> tuple[FilterValue, ...]:
     values = tuple(_scalar(column, value) for value in wanted)
     if not values:
         raise SelectionError(f"filter {column!r} lists no values, so it would select nothing")
-    if None in values and len(values) > 1:
-        raise SelectionError(f"filter {column!r} cannot combine None with other values")
+    if len(values) > 1 and (None in values or "" in values):
+        raise SelectionError(
+            f"filter {column!r} can match a missing or empty value only on its own"
+        )
     return values
 
 
@@ -128,10 +130,6 @@ class Selection:
                 raise SelectionError(f"book routes cannot filter {column!r} on a missing value")
             texts = [wire_text(value) for value in values]
             params[column] = texts[0] if len(texts) == 1 else texts
-        if self.year_min is not None:
-            params["year.min"] = str(self.year_min)
-        if self.year_max is not None:
-            params["year.max"] = str(self.year_max)
         return params
 
     def order_param(self) -> str | None:
@@ -173,11 +171,10 @@ def _sorted(frame: pd.DataFrame, order: tuple[tuple[str, bool], ...]) -> pd.Data
         raise SelectionError(f"cannot order by {exc.args[0]!r}, it is not a column") from exc
 
 
-def _matches(values: pd.Series[Any] | pd.Index[Any], wanted: FilterValue) -> Any:
+def _matches(column: str, values: pd.Series[Any] | pd.Index[Any], wanted: FilterValue) -> Any:
     """Compare as the platform does, reading the wanted value as the column's type."""
-    import numpy as np
     import pandas as pd
-    from pandas.api.types import is_bool_dtype, is_numeric_dtype
+    from pandas.api.types import is_bool_dtype, is_integer_dtype, is_numeric_dtype
 
     series = pd.Series(values)
     if wanted is None:
@@ -186,10 +183,13 @@ def _matches(values: pd.Series[Any] | pd.Index[Any], wanted: FilterValue) -> Any
         flag = wanted if isinstance(wanted, bool) else wire_text(wanted).lower() in _TRUE_WORDS
         return (series == flag).fillna(False).to_numpy(dtype=bool)
     if is_numeric_dtype(series.dtype):
+        read = int if is_integer_dtype(series.dtype) else float
         try:
-            number = float(wanted)
+            number = read(wire_text(wanted))
         except ValueError:
-            return np.zeros(len(series), dtype=bool)
+            raise SelectionError(
+                f"filter {column!r} holds {series.dtype} values, which {wanted!r} is not"
+            ) from None
         return (series == number).fillna(False).to_numpy(dtype=bool)
     return (series.notna() & (series.astype(str) == wire_text(wanted))).to_numpy(dtype=bool)
 
@@ -213,7 +213,7 @@ def _filter_rows(
             raise SelectionError(f"cannot filter on {column!r}, the columns are: {known}")
         either = np.zeros(len(frame), dtype=bool)
         for wanted in values:
-            either |= _matches(source, wanted)
+            either |= _matches(column, source, wanted)
         mask &= either
     return frame[mask]
 

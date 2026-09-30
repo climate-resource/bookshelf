@@ -16,7 +16,6 @@ from bookshelf._consume.conversions import (
     UnsupportedConversionError,
     readers_for,
     require_frame_support,
-    require_timeseries_support,
     shape_frame,
 )
 from bookshelf._consume.frames import drop_constant_dimensions
@@ -39,11 +38,7 @@ class DataPreview:
 
     data: pd.DataFrame
     completeness: Completeness
-
-    @property
-    def complete(self) -> bool:
-        """Whether ``data`` holds every row the selection matches."""
-        return self.completeness == "complete"
+    """Whether ``data`` holds every row the request matches, after any ``top_n``."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,10 +69,6 @@ def check_frame_read(resource_type: models.ResourceType, selection: Selection, c
     """Refuse a read the resource type cannot answer, before anything is fetched."""
     require_frame_support(resource_type, caller)
     selection.check(resource_type)
-
-
-def check_timeseries_read(resource_type: models.ResourceType, caller: str) -> None:
-    require_timeseries_support(resource_type, caller)
 
 
 def settle(
@@ -116,11 +107,12 @@ def check_preview(
     # The platform reads top_n alongside an order as "the first n in that order", not a ranking.
     if top_n is not None and selection.order:
         raise SelectionError("top_n ranks by the latest value, so it cannot take an order as well")
-    if any(column.isdigit() for column, _ in selection.order):
+    timeseries = resource_type is models.ResourceType.timeseries
+    if timeseries and any(column.isdigit() for column, _ in selection.order):
         raise SelectionError(
             "preview() orders by dimension columns, so sort a complete read by year"
         )
-    if drop_constant and resource_type is not models.ResourceType.timeseries:
+    if drop_constant and not timeseries:
         raise UnsupportedConversionError("drop_constant requires a timeseries resource")
 
 
@@ -154,7 +146,6 @@ __all__ = [
     "ResourceInfo",
     "check_frame_read",
     "check_preview",
-    "check_timeseries_read",
     "preview_params",
     "selection_rejections",
     "settle",

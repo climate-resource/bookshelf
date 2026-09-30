@@ -85,8 +85,8 @@ An external pointer has no cached file, so the platform selects it on every call
 An unknown filter column raises `SelectionError` on either route.
 
 `preview()` returns a bounded `DataPreview` instead.
-It adds `limit`, `top_n` and `drop_constant`, and takes `order` on dimension columns,
-and its `completeness` says whether the sample holds every selected row.
+It adds `limit`, `top_n` and `drop_constant`, and takes `order` on dimension columns.
+Its `completeness` says whether the sample holds every selected row.
 
 Use `bs.resource(tracking_id)` for an exact machine or provenance path.
 `fetch()` verifies the declared SHA256 before storing bytes in the local content cache.

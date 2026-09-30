@@ -24,7 +24,7 @@ def _year_column(column: object) -> str:
 
 
 def wide_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
-    """Normalize long or wide timeseries data to indexed wide pandas with string year labels.
+    """Normalise long or wide timeseries data to indexed wide pandas with string year labels.
 
     A stored wide file stamps each year column with a full date,
     so those are reduced to the bare year first.
