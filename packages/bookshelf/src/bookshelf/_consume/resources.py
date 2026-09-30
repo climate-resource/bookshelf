@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import shutil
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
@@ -34,13 +34,12 @@ from bookshelf._consume.reading import (
     check_frame_read,
     check_preview,
     check_timeseries_read,
-    order_param,
     preview_params,
     selection_rejections,
     settle,
     settle_preview,
 )
-from bookshelf._consume.selection import Filters, Selection
+from bookshelf._consume.selection import Filters, Order, Selection
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.frames import read_frame, require_payload, to_pandas
 from bookshelf._generated import models
@@ -220,16 +219,18 @@ class Resource(_ResourceHandle):
         year_min: int | None,
         year_max: int | None,
         server_side: bool,
+        order: Order | None = None,
     ) -> pd.DataFrame:
-        selection = Selection.build(filters, year_min=year_min, year_max=year_max)
+        selection = Selection.build(filters, year_min=year_min, year_max=year_max, order=order)
         resource_type = self.resource_type()
         check_frame_read(resource_type, selection, caller)
         if not server_side:
             path = self._cached_frame_file()
             if path is not None:
-                return settle(resource_type, read_frame(path), selection)
+                return settle(resource_type, read_frame(path), selection, selected=False)
         # An external pointer has no cached file, so the platform selects it where it lives.
-        return settle(resource_type, self._data(selection.data_params()), None)
+        frame = self._data(selection.data_params())
+        return settle(resource_type, frame, selection, selected=True)
 
     def as_df(
         self,
@@ -238,15 +239,18 @@ class Resource(_ResourceHandle):
         year_min: int | None = None,
         year_max: int | None = None,
         server_side: bool = False,
+        order: Order | None = None,
     ) -> pd.DataFrame:
         """Return every selected row as pandas, using wide indexed form for timeseries.
 
         Values listed for one filter are alternatives, and separate filters must all hold.
         The year window is inclusive.
+        ``order`` names columns to sort by, each prefixed with ``-`` to sort descending,
+        with missing values first either way and no promised order among ties.
         By default the selection applies to the verified cached file,
         and ``server_side`` has the platform select instead, which transfers only the selected rows.
         """
-        return self._read("as_df()", filters, year_min, year_max, server_side)
+        return self._read("as_df()", filters, year_min, year_max, server_side, order)
 
     def as_long_df(
         self,
@@ -274,10 +278,11 @@ class Resource(_ResourceHandle):
         year_min: int | None = None,
         year_max: int | None = None,
         server_side: bool = False,
+        order: Order | None = None,
     ) -> pl.DataFrame:
         """Return the selection as a Polars DataFrame, with the dimensions as columns."""
         convert = polars_converter()
-        return convert(self._read("as_polars()", filters, year_min, year_max, server_side))
+        return convert(self._read("as_polars()", filters, year_min, year_max, server_side, order))
 
     def as_arrow(
         self,
@@ -286,10 +291,11 @@ class Resource(_ResourceHandle):
         year_min: int | None = None,
         year_max: int | None = None,
         server_side: bool = False,
+        order: Order | None = None,
     ) -> pa.Table:
         """Return the selection as a PyArrow table, with the dimensions as columns."""
         convert = arrow_converter()
-        return convert(self._read("as_arrow()", filters, year_min, year_max, server_side))
+        return convert(self._read("as_arrow()", filters, year_min, year_max, server_side, order))
 
     def as_scmrun(
         self,
@@ -314,21 +320,23 @@ class Resource(_ResourceHandle):
         filters: Filters | None = None,
         year_min: int | None = None,
         year_max: int | None = None,
-        order: str | Sequence[str] | None = None,
+        order: Order | None = None,
         top_n: int | None = None,
         drop_constant: bool = False,
     ) -> DataPreview:
         """Return up to ``limit`` selected rows, selected on the platform, and whether that is all.
 
         ``order`` names columns to sort by first, each prefixed with ``-`` to sort descending.
-        ``top_n`` keeps the timeseries with the largest latest values,
+        ``top_n`` keeps the timeseries with the largest latest values, and cannot take an order,
         and ``drop_constant`` drops the dimensions that hold one value across the returned series.
         """
-        selection = Selection.build(filters, year_min=year_min, year_max=year_max)
+        selection = Selection.build(filters, year_min=year_min, year_max=year_max, order=order)
         resource_type = self.resource_type()
-        check_preview(resource_type, selection, limit=limit, drop_constant=drop_constant)
+        check_preview(
+            resource_type, selection, limit=limit, top_n=top_n, drop_constant=drop_constant
+        )
         frame = self._data(
-            preview_params(selection, top_n=top_n), limit=limit + 1, order=order_param(order)
+            preview_params(selection, top_n=top_n), limit=limit + 1, order=selection.order_param()
         )
         return settle_preview(resource_type, frame, limit=limit, drop_constant=drop_constant)
 
@@ -479,17 +487,20 @@ class AsyncResource(_ResourceHandle):
         year_min: int | None,
         year_max: int | None,
         server_side: bool,
+        order: Order | None = None,
     ) -> pd.DataFrame:
-        selection = Selection.build(filters, year_min=year_min, year_max=year_max)
+        selection = Selection.build(filters, year_min=year_min, year_max=year_max, order=order)
         resource_type = await self.resource_type()
         check_frame_read(resource_type, selection, caller)
         if not server_side:
             path = await self._cached_frame_file()
             if path is not None:
                 whole = await asyncio.to_thread(read_frame, path)
-                return await asyncio.to_thread(settle, resource_type, whole, selection)
+                return await asyncio.to_thread(
+                    settle, resource_type, whole, selection, selected=False
+                )
         frame = await self._data(selection.data_params())
-        return await asyncio.to_thread(settle, resource_type, frame, None)
+        return await asyncio.to_thread(settle, resource_type, frame, selection, selected=True)
 
     async def as_df(
         self,
@@ -498,15 +509,18 @@ class AsyncResource(_ResourceHandle):
         year_min: int | None = None,
         year_max: int | None = None,
         server_side: bool = False,
+        order: Order | None = None,
     ) -> pd.DataFrame:
         """Return every selected row as pandas, using wide indexed form for timeseries.
 
         Values listed for one filter are alternatives, and separate filters must all hold.
         The year window is inclusive.
+        ``order`` names columns to sort by, each prefixed with ``-`` to sort descending,
+        with missing values first either way and no promised order among ties.
         By default the selection applies to the verified cached file,
         and ``server_side`` has the platform select instead, which transfers only the selected rows.
         """
-        return await self._read("as_df()", filters, year_min, year_max, server_side)
+        return await self._read("as_df()", filters, year_min, year_max, server_side, order)
 
     async def as_long_df(
         self,
@@ -537,10 +551,11 @@ class AsyncResource(_ResourceHandle):
         year_min: int | None = None,
         year_max: int | None = None,
         server_side: bool = False,
+        order: Order | None = None,
     ) -> pl.DataFrame:
         """Return the selection as a Polars DataFrame, with the dimensions as columns."""
         convert = polars_converter()
-        frame = await self._read("as_polars()", filters, year_min, year_max, server_side)
+        frame = await self._read("as_polars()", filters, year_min, year_max, server_side, order)
         return await asyncio.to_thread(convert, frame)
 
     async def as_arrow(
@@ -550,10 +565,11 @@ class AsyncResource(_ResourceHandle):
         year_min: int | None = None,
         year_max: int | None = None,
         server_side: bool = False,
+        order: Order | None = None,
     ) -> pa.Table:
         """Return the selection as a PyArrow table, with the dimensions as columns."""
         convert = arrow_converter()
-        frame = await self._read("as_arrow()", filters, year_min, year_max, server_side)
+        frame = await self._read("as_arrow()", filters, year_min, year_max, server_side, order)
         return await asyncio.to_thread(convert, frame)
 
     async def as_scmrun(
@@ -580,21 +596,23 @@ class AsyncResource(_ResourceHandle):
         filters: Filters | None = None,
         year_min: int | None = None,
         year_max: int | None = None,
-        order: str | Sequence[str] | None = None,
+        order: Order | None = None,
         top_n: int | None = None,
         drop_constant: bool = False,
     ) -> DataPreview:
         """Return up to ``limit`` selected rows, selected on the platform, and whether that is all.
 
         ``order`` names columns to sort by first, each prefixed with ``-`` to sort descending.
-        ``top_n`` keeps the timeseries with the largest latest values,
+        ``top_n`` keeps the timeseries with the largest latest values, and cannot take an order,
         and ``drop_constant`` drops the dimensions that hold one value across the returned series.
         """
-        selection = Selection.build(filters, year_min=year_min, year_max=year_max)
+        selection = Selection.build(filters, year_min=year_min, year_max=year_max, order=order)
         resource_type = await self.resource_type()
-        check_preview(resource_type, selection, limit=limit, drop_constant=drop_constant)
+        check_preview(
+            resource_type, selection, limit=limit, top_n=top_n, drop_constant=drop_constant
+        )
         frame = await self._data(
-            preview_params(selection, top_n=top_n), limit=limit + 1, order=order_param(order)
+            preview_params(selection, top_n=top_n), limit=limit + 1, order=selection.order_param()
         )
         return await asyncio.to_thread(
             settle_preview, resource_type, frame, limit=limit, drop_constant=drop_constant

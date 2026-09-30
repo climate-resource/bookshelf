@@ -6,7 +6,7 @@ and hands it here to be checked, selected, shaped and summarised.
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
@@ -83,19 +83,16 @@ def check_timeseries_read(resource_type: models.ResourceType, caller: str) -> No
 def settle(
     resource_type: models.ResourceType,
     frame: pd.DataFrame,
-    selection: Selection | None,
+    selection: Selection,
+    *,
+    selected: bool,
 ) -> pd.DataFrame:
-    """Shape a fetched frame, applying the selection when the platform has not already."""
+    """Shape a fetched frame, then apply what of the selection the platform has not.
+
+    The order always applies here, because the platform names wide year columns by their stored label.
+    """
     shaped = shape_frame(resource_type, frame)
-    return shaped if selection is None else selection.apply(shaped)
-
-
-def order_param(order: str | Sequence[str] | None) -> str | None:
-    """Encode column names, each prefixed with ``-`` to sort it descending."""
-    if order is None:
-        return None
-    keys = [order] if isinstance(order, str) else list(order)
-    return ",".join(f"{key[1:]}.desc" if key.startswith("-") else f"{key}.asc" for key in keys)
+    return selection.sort(shaped) if selected else selection.apply(shaped)
 
 
 def preview_params(selection: Selection, *, top_n: int | None) -> dict[str, str]:
@@ -110,11 +107,19 @@ def check_preview(
     selection: Selection,
     *,
     limit: int,
+    top_n: int | None,
     drop_constant: bool,
 ) -> None:
     check_frame_read(resource_type, selection, "preview()")
     if limit < 1:
         raise SelectionError("limit must be at least 1")
+    # The platform reads top_n alongside an order as "the first n in that order", not a ranking.
+    if top_n is not None and selection.order:
+        raise SelectionError("top_n ranks by the latest value, so it cannot take an order as well")
+    if any(column.isdigit() for column, _ in selection.order):
+        raise SelectionError(
+            "preview() orders by dimension columns, so sort a complete read by year"
+        )
     if drop_constant and resource_type is not models.ResourceType.timeseries:
         raise UnsupportedConversionError("drop_constant requires a timeseries resource")
 
@@ -150,7 +155,6 @@ __all__ = [
     "check_frame_read",
     "check_preview",
     "check_timeseries_read",
-    "order_param",
     "preview_params",
     "selection_rejections",
     "settle",

@@ -132,6 +132,8 @@ sample.completeness, sample.data.shape
 # `top_n` keeps the series with the largest latest value,
 # and `drop_constant` drops the dimensions that hold one value across the returned series.
 # These are presentation controls, useful for a chart rather than an analysis.
+# A preview orders by dimension columns only, and `top_n` cannot take an order,
+# because the platform would read the pair as the first series in that order.
 
 # %%
 top = entry.preview(filters={"region": "World"}, year_min=2020, year_max=2100, top_n=5, drop_constant=True)
@@ -178,6 +180,29 @@ remote = entry.as_df(
     server_side=True,
 )
 remote.shape
+
+# %% [markdown]
+# ## Ordering
+#
+# `order` names the columns to sort by, each prefixed with `-` to sort descending.
+# A year column works too, so this puts the largest 2100 values first.
+# Missing values sort first either way, which is why these scenarios all run to 2100.
+# Rows that tie keep no promised order.
+# Without an `order` the row order is whatever the source holds,
+# which can differ between the cached file and a server side read.
+
+# %%
+ranked = entry.as_df(
+    filters={
+        "region": "World",
+        "variable": "Emissions|CO2",
+        "scenario": ["ssp119", "ssp245", "ssp370", "ssp585"],
+    },
+    year_min=2020,
+    year_max=2100,
+    order="-2100",
+)
+ranked["2100"].droplevel(["activity_id", "mip_era", "region", "unit", "variable"])
 
 # %% [markdown]
 # ## Long format

@@ -77,12 +77,15 @@ They all take the same selection:
 - `year_min` and `year_max` bound an inclusive year window on a timeseries.
 - `server_side=True` has the platform select, rather than the verified cached file.
 
+`as_df()`, `as_polars()` and `as_arrow()` also take `order`,
+a list of columns to sort by, each prefixed with `-` to sort descending.
+
 The cached download is shared, so a second conversion costs no network work.
 An external pointer has no cached file, so the platform selects it on every call.
 An unknown filter column raises `SelectionError` on either route.
 
 `preview()` returns a bounded `DataPreview` instead.
-It adds `limit`, `order`, `top_n` and `drop_constant`,
+It adds `limit`, `top_n` and `drop_constant`, and takes `order` on dimension columns,
 and its `completeness` says whether the sample holds every selected row.
 
 Use `bs.resource(tracking_id)` for an exact machine or provenance path.

@@ -49,14 +49,20 @@ def _served(frame: pd.DataFrame, params: httpx.QueryParams) -> pd.DataFrame | st
     high = int(params.get("$year.max", 10_000))
     frame = frame.drop(columns=[c for c in years if not low <= (_year(c) or 0) <= high])
     kept = [c for c in years if c in frame.columns]
-    if "$top_n" in params:
-        frame = frame.sort_values(kept[-1], ascending=False).head(int(params["$top_n"]))
+    # As on the platform, an order replaces the ranking, and top_n then keeps the leading rows.
     if "order" in params:
         keys = [part.rpartition(".") for part in params["order"].split(",")]
+        if any(column not in frame.columns for column, _, _ in keys):
+            return f"Unknown column in order: {params['order']}"
         frame = frame.sort_values(
             [column for column, _, _ in keys],
             ascending=[direction == "asc" for _, _, direction in keys],
+            na_position="first",
         )
+    elif "$top_n" in params:
+        frame = frame.sort_values(kept[-1], ascending=False)
+    if "$top_n" in params:
+        frame = frame.head(int(params["$top_n"]))
     if "limit" in params:
         frame = frame.head(int(params["limit"]))
     return frame.reset_index(drop=True)
@@ -243,19 +249,73 @@ def test_a_preview_ranks_orders_and_trims_on_the_platform(tmp_path: Path) -> Non
     bs, seen = _shelf(tmp_path)
     entry = bs.book("primap-hist", "v2.6")["by_country"]
 
-    preview = entry.preview(
-        filters={"variable": "Emissions|CO2"},
-        order=["-region"],
-        top_n=2,
-        drop_constant=True,
-    )
+    ranked = entry.preview(filters={"variable": "Emissions|CO2"}, top_n=1, drop_constant=True)
+    ordered = entry.preview(filters={"variable": "Emissions|CO2"}, order=["-region"])
 
+    first, second = _data_requests(seen)
+    assert first.url.params["$top_n"] == "1"
+    assert second.url.params["order"] == "region.desc"
+    assert ranked.data.index.names == [None], "one series leaves no dimension that varies"
+    assert ranked.data["2001"].tolist() == [3.5]
+    assert ordered.data.index.get_level_values("region").tolist() == ["NZL", "AUS"]
+
+
+@pytest.mark.parametrize(
+    ("options", "match"), [({"order": "region", "top_n": 1}, "top_n"), ({"order": "-2001"}, "year")]
+)
+def test_a_preview_refuses_an_order_it_cannot_honour(
+    tmp_path: Path, options: dict[str, Any], match: str
+) -> None:
+    """The platform reads top_n with an order as "the first n", and knows years by stored label."""
+    bs, seen = _shelf(tmp_path)
+    entry = bs.book("primap-hist", "v2.6")["by_country"]
+
+    with pytest.raises(SelectionError, match=match):
+        entry.preview(**options)
+
+    assert _data_requests(seen) == []
+
+
+ORDERS: list[Any] = ["region", ["-region", "variable"], ["unit", "-2001"]]
+
+
+@pytest.mark.parametrize("order", ORDERS)
+def test_both_routes_order_rows_alike(tmp_path: Path, order: Any) -> None:
+    bs, seen = _shelf(tmp_path)
+    entry = bs.book("primap-hist", "v2.6")["by_country"]
+
+    local = entry.as_df(order=order)
+    remote = entry.as_df(order=order, server_side=True)
+
+    assert remote.index.tolist() == local.index.tolist()
     (request,) = _data_requests(seen)
-    assert request.url.params["$top_n"] == "2"
-    assert request.url.params["order"] == "region.desc"
-    assert preview.data.index.names == ["region"]
-    assert preview.data.index.tolist() == ["NZL", "AUS"]
-    assert preview.complete
+    assert "order" not in request.url.params, "the platform labels year columns as stored"
+
+
+def test_missing_values_sort_first_in_either_direction() -> None:
+    frame = pd.DataFrame({"x": [2.0, None, 1.0]})
+    for order in ("x", "-x"):
+        ordered = Selection.build(None, year_min=None, year_max=None, order=order).apply(frame)
+        assert ordered["x"].isna().tolist()[0]
+
+
+@pytest.mark.parametrize("server_side", [False, True])
+def test_an_unknown_order_column_raises_a_selection_error(
+    tmp_path: Path, server_side: bool
+) -> None:
+    bs, _ = _shelf(tmp_path)
+    with pytest.raises(SelectionError, match="regoin"):
+        bs.resource(TRACKING_ID).as_df(order="-regoin", server_side=server_side)
+
+
+@pytest.mark.parametrize("order", ["", "-", ["region", 3]])
+def test_a_malformed_order_fails_before_any_request(tmp_path: Path, order: Any) -> None:
+    bs, seen = _shelf(tmp_path)
+    resource = bs.resource(TRACKING_ID)
+    before = len(seen)
+    with pytest.raises(SelectionError, match="order"):
+        resource.as_df(order=order)
+    assert seen[before:] == []
 
 
 def test_an_entry_and_its_resource_preview_alike(tmp_path: Path) -> None:

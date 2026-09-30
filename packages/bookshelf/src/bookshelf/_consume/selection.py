@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 type FilterValue = str | int | float | bool | None
 type Filters = Mapping[str, FilterValue | Sequence[FilterValue]]
+type Order = str | Sequence[str]
 
 _TRUE_WORDS = frozenset({"true", "1", "yes"})
 
@@ -59,14 +60,16 @@ def _escaped(value: FilterValue) -> str:
 
 @dataclass(frozen=True, slots=True)
 class Selection:
-    """Validated filters and an inclusive year window.
+    """Validated filters, an inclusive year window and a row order.
 
     Values within one filter are alternatives, and separate filters must all hold.
+    Each order key is a column name and whether it sorts descending.
     """
 
     filters: tuple[tuple[str, tuple[FilterValue, ...]], ...] = ()
     year_min: int | None = None
     year_max: int | None = None
+    order: tuple[tuple[str, bool], ...] = ()
 
     @classmethod
     def build(
@@ -75,6 +78,7 @@ class Selection:
         *,
         year_min: int | None,
         year_max: int | None,
+        order: Order | None = None,
     ) -> Selection:
         """Validate a caller's selection before anything is fetched."""
         if filters is not None and not isinstance(filters, Mapping):
@@ -86,7 +90,7 @@ class Selection:
             (str(column), _values(str(column), wanted))
             for column, wanted in (filters or {}).items()
         )
-        return cls(tuple(normalised), year_min, year_max)
+        return cls(tuple(normalised), year_min, year_max, _order_keys(order))
 
     @property
     def has_years(self) -> bool:
@@ -130,9 +134,43 @@ class Selection:
             params["year.max"] = str(self.year_max)
         return params
 
+    def order_param(self) -> str | None:
+        """Encode the order for the ``/data`` route."""
+        if not self.order:
+            return None
+        return ",".join(f"{column}.{'desc' if desc else 'asc'}" for column, desc in self.order)
+
     def apply(self, frame: pd.DataFrame) -> pd.DataFrame:
-        """Pick the selected rows and year columns out of a shaped frame."""
-        return _filter_years(_filter_rows(frame, self.filters), self.year_min, self.year_max)
+        """Pick the selected rows and year columns out of a shaped frame, then order them."""
+        selected = _filter_years(_filter_rows(frame, self.filters), self.year_min, self.year_max)
+        return self.sort(selected)
+
+    def sort(self, frame: pd.DataFrame) -> pd.DataFrame:
+        """Order a shaped frame, with missing values first either way, as the platform does."""
+        return _sorted(frame, self.order)
+
+
+def _order_keys(order: Order | None) -> tuple[tuple[str, bool], ...]:
+    if order is None:
+        return ()
+    keys = [order] if isinstance(order, str) else list(order)
+    if not all(isinstance(key, str) and key.lstrip("-") for key in keys):
+        raise SelectionError("order takes column names, each prefixed with '-' to sort descending")
+    return tuple((key[1:], True) if key.startswith("-") else (key, False) for key in keys)
+
+
+def _sorted(frame: pd.DataFrame, order: tuple[tuple[str, bool], ...]) -> pd.DataFrame:
+    if not order:
+        return frame
+    try:
+        return frame.sort_values(
+            by=[column for column, _ in order],
+            ascending=[not desc for _, desc in order],
+            na_position="first",
+            kind="stable",
+        )
+    except KeyError as exc:
+        raise SelectionError(f"cannot order by {exc.args[0]!r}, it is not a column") from exc
 
 
 def _matches(values: pd.Series[Any] | pd.Index[Any], wanted: FilterValue) -> Any:
@@ -194,4 +232,4 @@ def _filter_years(wide: pd.DataFrame, year_min: int | None, year_max: int | None
     ]
 
 
-__all__ = ["FilterValue", "Filters", "Selection", "SelectionError", "wire_text"]
+__all__ = ["FilterValue", "Filters", "Order", "Selection", "SelectionError", "wire_text"]
