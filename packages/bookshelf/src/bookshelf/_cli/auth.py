@@ -129,7 +129,7 @@ def _login_agent_anonymous(base: str, *, json_output: bool) -> None:
     with BookshelfClient(base, auth=None) as client:
         registration = client.register_agent_identity(
             models.AgentIdentityRequest(
-                type=models.AgentIdentityRequestType.anonymous, agent_platform=_AGENT_PLATFORM
+                type=models.AgentRegistrationType.anonymous, agent_platform=_AGENT_PLATFORM
             )
         )
         assert isinstance(registration, models.AnonymousRegistrationResponse)
@@ -185,7 +185,7 @@ def _login_agent_claim(base: str, *, email: str, json_output: bool) -> None:
     with BookshelfClient(base, auth=None) as client:
         registration = client.register_agent_identity(
             models.AgentIdentityRequest(
-                type=models.AgentIdentityRequestType.service_auth,
+                type=models.AgentRegistrationType.service_auth,
                 login_hint=email,
                 agent_platform=_AGENT_PLATFORM,
             )
