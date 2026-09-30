@@ -10,6 +10,7 @@ from uuid import UUID
 import httpx
 
 from bookshelf._consume.books import AsyncBook, Book
+from bookshelf._consume.conversions import UnsupportedConversionError
 from bookshelf._consume.lookup import resolve_book, resolve_book_async
 from bookshelf._consume.memo import (
     book_ttl as _book_ttl,
@@ -17,15 +18,8 @@ from bookshelf._consume.memo import (
 from bookshelf._consume.memo import (
     default_book_ttl,
 )
-from bookshelf._consume.resources import (
-    AsyncBookEntry,
-    AsyncResource,
-    BookEntry,
-    DataPreview,
-    Resource,
-    ResourceInfo,
-    UnsupportedConversionError,
-)
+from bookshelf._consume.reading import DataPreview, ResourceInfo
+from bookshelf._consume.resources import AsyncBookEntry, AsyncResource, BookEntry, Resource
 from bookshelf._consume.selection import SelectionError
 from bookshelf._consume.volumes import AsyncVolume, Volume
 from bookshelf._core.client import BookshelfClient

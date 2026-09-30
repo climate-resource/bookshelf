@@ -11,6 +11,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from bookshelf._consume.frames import is_year_column
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 
@@ -199,6 +200,8 @@ def _filter_rows(
 ) -> pd.DataFrame:
     import numpy as np
 
+    if not filters:
+        return frame
     names = [name for name in frame.index.names if name is not None]
     mask = np.ones(len(frame), dtype=bool)
     for column, values in filters:
@@ -208,7 +211,7 @@ def _filter_rows(
         elif column in names:
             source = frame.index.get_level_values(column)
         else:
-            columns = [column for column in frame.columns if not str(column).isdigit()]
+            columns = [column for column in frame.columns if not is_year_column(column)]
             known = ", ".join(map(str, [*names, *columns]))
             raise SelectionError(f"cannot filter on {column!r}, the columns are: {known}")
         either = np.zeros(len(frame), dtype=bool)
@@ -227,9 +230,9 @@ def _filter_years(wide: pd.DataFrame, year_min: int | None, year_max: int | None
         [
             column
             for column in wide.columns
-            if not str(column).isdigit() or low <= int(column) <= high
+            if not is_year_column(column) or low <= int(column) <= high
         ]
     ]
 
 
-__all__ = ["FilterValue", "Filters", "Order", "Selection", "SelectionError", "wire_text"]
+__all__ = ["FilterValue", "Filters", "Order", "Selection", "SelectionError"]

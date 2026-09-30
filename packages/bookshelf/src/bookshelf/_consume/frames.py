@@ -23,6 +23,11 @@ def _year_column(column: object) -> str:
     return match.group(1) if match else str(column)
 
 
+def is_year_column(column: object) -> bool:
+    """Whether a wide frame's column is a year, which a shaped frame labels as a digit string."""
+    return str(column).isdigit()
+
+
 def wide_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
     """Normalise long or wide timeseries data to indexed wide pandas with string year labels.
 
@@ -39,7 +44,7 @@ def wide_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
         return wide
     frame = frame.copy(deep=False)
     frame.columns = [_year_column(column) for column in frame.columns]
-    dimensions = [column for column in frame.columns if not str(column).isdigit()]
+    dimensions = [column for column in frame.columns if not is_year_column(column)]
     if dimensions:
         return frame.set_index(dimensions)
     return frame
@@ -112,6 +117,7 @@ def arrow_converter() -> Callable[[pd.DataFrame], pa.Table]:
 __all__ = [
     "arrow_converter",
     "drop_constant_dimensions",
+    "is_year_column",
     "legacy_long_timeseries",
     "long_timeseries",
     "polars_converter",

@@ -12,13 +12,11 @@ import shutil
 from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from bookshelf._consume.conversions import (
-    UnsupportedConversionError,
     explorers_for,
     readers_for,
-    require_timeseries_support,
     scmrun_class,
 )
 from bookshelf._consume.frames import (
@@ -36,14 +34,15 @@ from bookshelf._consume.reading import (
     check_preview,
     preview_params,
     selection_rejections,
-    settle,
+    settle_cached,
     settle_preview,
+    settle_selected,
 )
 from bookshelf._consume.selection import Filters, Order, Selection
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.frames import read_frame, require_payload, to_pandas
 from bookshelf._generated import models
-from bookshelf.cache import ContentCache
+from bookshelf.cache import ContentCache, _staged
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -66,15 +65,9 @@ def describe_type(resource_type: models.ResourceType | None) -> str:
 def _resource_sections(
     resource_type: models.ResourceType | None,
     identity: dict[str, object],
-    *,
-    explore: bool = False,
 ) -> dict[str, Section]:
     """Build the sections every resource flavour renders."""
-    return {
-        "Identity": identity,
-        "Read": readers_for(resource_type),
-        "Explore": explorers_for(resource_type) if explore else (),
-    }
+    return {"Identity": identity, "Read": readers_for(resource_type)}
 
 
 def _entry_sections(
@@ -83,15 +76,12 @@ def _entry_sections(
     book_id: UUID,
 ) -> dict[str, Section]:
     """Build the sections both entry flavours render."""
-    return _resource_sections(
-        resource_type,
-        {
-            "tracking_id": entry.tracking_id,
-            "book_id": book_id,
-            "visibility": entry.visibility.value,
-        },
-        explore=True,
-    )
+    identity: dict[str, object] = {
+        "tracking_id": entry.tracking_id,
+        "book_id": book_id,
+        "visibility": entry.visibility.value,
+    }
+    return {**_resource_sections(resource_type, identity), "Explore": explorers_for(resource_type)}
 
 
 def _entry_header(title: str, name_in_book: str, resource_type: models.ResourceType | None) -> str:
@@ -102,13 +92,20 @@ def _entry_header(title: str, name_in_book: str, resource_type: models.ResourceT
 def _copy_out(source: Path, destination: Path) -> Path:
     """Copy a cached file to a path the caller owns, so eviction cannot take it away."""
     destination.parent.mkdir(parents=True, exist_ok=True)
-    staging = destination.with_name(f".{destination.name}.{uuid4().hex}.part")
-    try:
+    with _staged(destination) as staging:
         shutil.copyfile(source, staging)
-        staging.replace(destination)
-    finally:
-        staging.unlink(missing_ok=True)
     return destination
+
+
+def _read_cached(
+    resource_type: models.ResourceType, path: Path, selection: Selection
+) -> pd.DataFrame:
+    return settle_cached(resource_type, read_frame(path), selection)
+
+
+def _long(wide: pd.DataFrame, legacy_columns: bool) -> pd.DataFrame:
+    long = long_timeseries(wide)
+    return legacy_long_timeseries(long) if legacy_columns else long
 
 
 class _ResourceHandle(Describable):
@@ -216,17 +213,18 @@ class Resource(_ResourceHandle):
         year_max: int | None,
         server_side: bool,
         order: Order | None = None,
+        *,
+        timeseries_only: bool = False,
     ) -> pd.DataFrame:
         selection = Selection.build(filters, year_min=year_min, year_max=year_max, order=order)
         resource_type = self.resource_type()
-        check_frame_read(resource_type, selection, caller)
+        check_frame_read(resource_type, selection, caller, timeseries_only=timeseries_only)
         if not server_side:
             path = self._cached_frame_file()
             if path is not None:
-                return settle(resource_type, read_frame(path), selection, selected=False)
+                return _read_cached(resource_type, path, selection)
         # An external pointer has no cached file, so the platform selects it where it lives.
-        frame = self._data(selection.data_params())
-        return settle(resource_type, frame, selection, selected=True)
+        return settle_selected(resource_type, self._data(selection.data_params()), selection)
 
     def as_df(
         self,
@@ -263,9 +261,10 @@ class Resource(_ResourceHandle):
         a ``values`` column, a ``year`` column of ``YYYY-01-01 00:00:00`` strings,
         and rows sorted by the dimensions and then the year.
         """
-        require_timeseries_support(self.resource_type(), "as_long_df()")
-        long = long_timeseries(self._read("as_long_df()", filters, year_min, year_max, server_side))
-        return legacy_long_timeseries(long) if legacy_columns else long
+        wide = self._read(
+            "as_long_df()", filters, year_min, year_max, server_side, timeseries_only=True
+        )
+        return _long(wide, legacy_columns)
 
     def as_polars(
         self,
@@ -305,9 +304,12 @@ class Resource(_ResourceHandle):
 
         scmdata rejects rows with duplicate metadata.
         """
-        require_timeseries_support(self.resource_type(), "as_scmrun()")
         run = scmrun_class()
-        return run(self._read("as_scmrun()", filters, year_min, year_max, server_side))
+        return run(
+            self._read(
+                "as_scmrun()", filters, year_min, year_max, server_side, timeseries_only=True
+            )
+        )
 
     def preview(
         self,
@@ -484,20 +486,19 @@ class AsyncResource(_ResourceHandle):
         year_max: int | None,
         server_side: bool,
         order: Order | None = None,
+        *,
+        timeseries_only: bool = False,
     ) -> pd.DataFrame:
         selection = Selection.build(filters, year_min=year_min, year_max=year_max, order=order)
         resource_type = await self.resource_type()
-        check_frame_read(resource_type, selection, caller)
+        check_frame_read(resource_type, selection, caller, timeseries_only=timeseries_only)
         if not server_side:
             path = await self._cached_frame_file()
             if path is not None:
-                whole = await asyncio.to_thread(read_frame, path)
-                return await asyncio.to_thread(
-                    settle, resource_type, whole, selection, selected=False
-                )
+                return await asyncio.to_thread(_read_cached, resource_type, path, selection)
         # An external pointer has no cached file, so the platform selects it where it lives.
         frame = await self._data(selection.data_params())
-        return await asyncio.to_thread(settle, resource_type, frame, selection, selected=True)
+        return await asyncio.to_thread(settle_selected, resource_type, frame, selection)
 
     async def as_df(
         self,
@@ -534,12 +535,10 @@ class AsyncResource(_ResourceHandle):
         a ``values`` column, a ``year`` column of ``YYYY-01-01 00:00:00`` strings,
         and rows sorted by the dimensions and then the year.
         """
-        require_timeseries_support(await self.resource_type(), "as_long_df()")
-        wide = await self._read("as_long_df()", filters, year_min, year_max, server_side)
-        long = await asyncio.to_thread(long_timeseries, wide)
-        if legacy_columns:
-            return await asyncio.to_thread(legacy_long_timeseries, long)
-        return long
+        wide = await self._read(
+            "as_long_df()", filters, year_min, year_max, server_side, timeseries_only=True
+        )
+        return await asyncio.to_thread(_long, wide, legacy_columns)
 
     async def as_polars(
         self,
@@ -581,9 +580,10 @@ class AsyncResource(_ResourceHandle):
 
         scmdata rejects rows with duplicate metadata.
         """
-        require_timeseries_support(await self.resource_type(), "as_scmrun()")
         run = scmrun_class()
-        frame = await self._read("as_scmrun()", filters, year_min, year_max, server_side)
+        frame = await self._read(
+            "as_scmrun()", filters, year_min, year_max, server_side, timeseries_only=True
+        )
         return await asyncio.to_thread(run, frame)
 
     async def preview(
@@ -715,13 +715,4 @@ class AsyncBookEntry(AsyncResource):
         )
 
 
-__all__ = [
-    "AsyncBookEntry",
-    "AsyncResource",
-    "BookEntry",
-    "DataPreview",
-    "Resource",
-    "ResourceInfo",
-    "UnsupportedConversionError",
-    "describe_type",
-]
+__all__ = ["AsyncBookEntry", "AsyncResource", "BookEntry", "Resource", "describe_type"]

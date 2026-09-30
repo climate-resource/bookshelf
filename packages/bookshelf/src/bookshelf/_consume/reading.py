@@ -16,9 +16,10 @@ from bookshelf._consume.conversions import (
     UnsupportedConversionError,
     readers_for,
     require_frame_support,
+    require_timeseries_support,
     shape_frame,
 )
-from bookshelf._consume.frames import drop_constant_dimensions
+from bookshelf._consume.frames import drop_constant_dimensions, is_year_column
 from bookshelf._consume.selection import Selection, SelectionError
 from bookshelf._core.errors import ValidationError
 from bookshelf._generated import models
@@ -65,25 +66,35 @@ class ResourceInfo:
         )
 
 
-def check_frame_read(resource_type: models.ResourceType, selection: Selection, caller: str) -> None:
+def check_frame_read(
+    resource_type: models.ResourceType,
+    selection: Selection,
+    caller: str,
+    *,
+    timeseries_only: bool = False,
+) -> None:
     """Refuse a read the resource type cannot answer, before anything is fetched."""
+    if timeseries_only:
+        require_timeseries_support(resource_type, caller)
     require_frame_support(resource_type, caller)
     selection.check(resource_type)
 
 
-def settle(
-    resource_type: models.ResourceType,
-    frame: pd.DataFrame,
-    selection: Selection,
-    *,
-    selected: bool,
+def settle_cached(
+    resource_type: models.ResourceType, frame: pd.DataFrame, selection: Selection
 ) -> pd.DataFrame:
-    """Shape a fetched frame, then apply what of the selection the platform has not.
+    """Shape the whole cached file and apply the selection to it."""
+    return selection.apply(shape_frame(resource_type, frame))
 
-    The order always applies here, because the platform names wide year columns by their stored label.
+
+def settle_selected(
+    resource_type: models.ResourceType, frame: pd.DataFrame, selection: Selection
+) -> pd.DataFrame:
+    """Shape rows the platform selected, and order them here.
+
+    The platform names wide year columns by their stored label, so it cannot order by a shaped one.
     """
-    shaped = shape_frame(resource_type, frame)
-    return selection.sort(shaped) if selected else selection.apply(shaped)
+    return selection.sort(shape_frame(resource_type, frame))
 
 
 def preview_params(selection: Selection, *, top_n: int | None) -> dict[str, str]:
@@ -108,7 +119,7 @@ def check_preview(
     if top_n is not None and selection.order:
         raise SelectionError("top_n ranks by the latest value, so it cannot take an order as well")
     timeseries = resource_type is models.ResourceType.timeseries
-    if timeseries and any(column.isdigit() for column, _ in selection.order):
+    if timeseries and any(is_year_column(column) for column, _ in selection.order):
         raise SelectionError(
             "preview() orders by dimension columns, so sort a complete read by year"
         )
@@ -148,6 +159,7 @@ __all__ = [
     "check_preview",
     "preview_params",
     "selection_rejections",
-    "settle",
+    "settle_cached",
+    "settle_selected",
     "settle_preview",
 ]
