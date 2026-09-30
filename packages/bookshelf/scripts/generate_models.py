@@ -286,6 +286,8 @@ def _generate_temporary(tree: Path, version: str, runner: Runner) -> None:
             "builtin",
             "--use-annotated",
             "--set-default-enum-member",
+            "--naming-strategy",
+            "full-path",
             "--output",
             str(models_path),
         ],

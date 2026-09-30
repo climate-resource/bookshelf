@@ -127,7 +127,8 @@ def test_update_draft_patches_the_named_fields() -> None:
 def test_correct_book_replaces_metadata_with_a_reason() -> None:
     recorded: list[httpx.Request] = []
     correction = models.BookCorrection(
-        metadata={"maturity": "approved"}, reason=models.Reason("signed off by science")
+        metadata={"maturity": "approved"},
+        reason=models.BookCorrectionReason("signed off by science"),
     )
 
     with _sync(recorded, 200, payloads.BOOK_CORRECTED) as client:
