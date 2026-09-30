@@ -485,7 +485,7 @@ def test_a_tabular_frame_filters_on_its_columns() -> None:
     assert _select(frame, {"region": "AUS"})["value"].tolist() == [2.0]
 
 
-def test_a_tabular_preview_may_order_by_a_digit_named_column(tmp_path: Path) -> None:
+def test_a_tabular_preview_sends_a_digit_named_order_to_the_platform(tmp_path: Path) -> None:
     bs, seen = _shelf(tmp_path)
     resource = bs.resource(TRACKING_ID)
     resource._resource_type = models.ResourceType.tabular
