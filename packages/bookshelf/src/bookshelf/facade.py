@@ -250,7 +250,7 @@ class Bookshelf:
     def resource_by_hash(self, content_hash: str) -> Resource:
         """Resolve a content digest into the one resource your organisation holds for it.
 
-        Book entries opt out of merging, so each edition owns its own row for the same bytes.
+        A bundle pin keeps its own row for the same bytes.
         The lookup asks for the canonical merging row alone, which is what a digest names.
         """
         response = self._client.list_resources(hash=content_hash, dedupe=True, limit=2)
