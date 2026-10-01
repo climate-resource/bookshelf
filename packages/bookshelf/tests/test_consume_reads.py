@@ -777,3 +777,27 @@ def test_a_failed_column_probe_still_reports_the_unknown_column(tmp_path: Path) 
 
     with pytest.raises(SelectionError, match="Unknown column in filter: regoin"):
         bs.resource(TRACKING_ID).as_df(filters={"regoin": "NZL"}, server_side=True)
+
+
+def test_dictionary_encoded_labels_take_numpy_filters_and_drop_missing_values(
+    tmp_path: Path,
+) -> None:
+    """A cached wide read keeps its labels as parquet dictionaries, and the platform's are plain."""
+    bs, _ = _shelf(tmp_path, frame=_with_gaps())
+    entry = bs.book("primap-hist", "v2.6")["by_country"]
+    regions = np.array(["NZL", "AUS"])
+
+    local = entry.as_long_df(filters={"region": regions}, dropna=True)
+    remote = entry.as_long_df(filters={"region": regions}, dropna=True, server_side=True)
+
+    assert len(local) == 3
+    pd.testing.assert_frame_equal(_in_label_order(local), _in_label_order(remote))
+    pd.testing.assert_frame_equal(
+        local, entry.as_long_df(filters={"region": regions}).dropna().reset_index(drop=True)
+    )
+    messages = []
+    for server_side in (False, True):
+        with pytest.raises(SelectionError) as caught:
+            entry.as_df(filters={"regoin": regions}, server_side=server_side)
+        messages.append(str(caught.value))
+    assert messages[0] == messages[1]
