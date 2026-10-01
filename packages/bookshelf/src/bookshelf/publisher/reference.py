@@ -30,7 +30,9 @@ from bookshelf._core.errors import BookshelfError
 
 SCHEME = "bookshelf://"
 
-_EDITION_RE = re.compile(r"^(?P<version>.+)_e(?P<edition>\d+)$")
+# Unicode ``\d`` on purpose, so a lookalike digit is refused rather than read as part of the version.
+_EDITION_SUFFIX_RE = re.compile(r"_e(?P<digits>\d*)$")
+_FORBIDDEN_RE = re.compile(r"[\s@/?#]")
 _DIGEST_RE = re.compile(r"^sha256/(?P<hex>[0-9a-fA-F]{64})$")
 _DIGEST_LIKE_RE = re.compile(r"^sha256/[0-9a-fA-F]+(?:/.*)?$")
 
@@ -45,6 +47,37 @@ def _digest_hex(uri: str) -> str | None:
         return None
     matched = _DIGEST_RE.match(uri[len(SCHEME) :])
     return None if matched is None else matched["hex"].lower()
+
+
+def check_segment(segment: str, label: str) -> str:
+    """Return one volume, version or entry segment, raising :class:`InvalidReferenceError` when malformed."""
+    if segment in ("", ".", ".."):
+        raise InvalidReferenceError(f"{label} {segment!r} is not a name")
+    if _FORBIDDEN_RE.search(segment) is not None:
+        raise InvalidReferenceError(
+            f"{label} {segment!r} holds whitespace or one of '@', '/', '?' and '#'"
+        )
+    return segment
+
+
+def split_coordinate(coordinate: str) -> tuple[str, int | None]:
+    """Split ``<version>[_eNNN]`` into the version and the edition it pins, if any.
+
+    This is the one edition rule, shared by ``bookshelf://`` references and CLI addresses.
+    The edition is written as the platform writes it: ASCII digits, zero padded to three, from 1.
+    """
+    check_segment(coordinate, "version")
+    matched = _EDITION_SUFFIX_RE.search(coordinate)
+    if matched is None:
+        return coordinate, None
+    version, digits = coordinate[: matched.start()], matched["digits"]
+    # Comparing with the canonical spelling also refuses non-ASCII digits, which int() accepts.
+    if not version or not digits or int(digits) < 1 or f"{int(digits):03d}" != digits:
+        raise InvalidReferenceError(
+            f"{coordinate!r} has a malformed edition. "
+            "Write it as _eNNN with at least three digits, from _e001"
+        )
+    return version, int(digits)
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,15 +128,13 @@ class BookshelfReference:
                 "leaving the entry off where the book holds one or whole_book is true"
             )
         volume, coordinate, *rest = segments
-        matched = _EDITION_RE.match(coordinate)
-        if matched is None:
-            return cls(volume=volume, version=coordinate, name_in_book=rest[0] if rest else None)
-        return cls(
-            volume=volume,
-            version=matched["version"],
-            edition=int(matched["edition"]),
-            name_in_book=rest[0] if rest else None,
-        )
+        try:
+            check_segment(volume, "volume")
+            version, edition = split_coordinate(coordinate)
+            entry = check_segment(rest[0], "entry") if rest else None
+        except InvalidReferenceError as exc:
+            raise InvalidReferenceError(f"{uri!r} is not a bookshelf reference: {exc}") from exc
+        return cls(volume=volume, version=version, edition=edition, name_in_book=entry)
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,6 +196,8 @@ __all__ = [
     "DigestReference",
     "InvalidReferenceError",
     "Reference",
+    "check_segment",
     "is_reference",
     "parse_reference",
+    "split_coordinate",
 ]
