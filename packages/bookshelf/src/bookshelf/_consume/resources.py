@@ -43,7 +43,7 @@ from bookshelf._consume.reading import (
 )
 from bookshelf._consume.selection import Filters, Order, Selection, unknown_filter_column
 from bookshelf._core.client import BookshelfClient
-from bookshelf._core.errors import SelectionError
+from bookshelf._core.errors import BookshelfError, SelectionError
 from bookshelf._core.frames import ParquetScan, read_frame, require_payload, to_pandas
 from bookshelf._generated import models
 from bookshelf.cache import ContentCache, _staged
@@ -221,7 +221,11 @@ class Resource(_ResourceHandle):
             column = unknown_platform_column(exc)
             if column is None:
                 raise
-            sample = shape_frame(self.resource_type(), self._data({}, limit=1))
+            try:
+                first = self._client.query_resource_data(self.tracking_id, limit=1)
+                sample = shape_frame(self.resource_type(), to_pandas(require_payload(first)))
+            except BookshelfError:
+                raise exc from None
             raise unknown_filter_column(column, sample) from exc
         return to_pandas(require_payload(payload))
 
@@ -517,7 +521,11 @@ class AsyncResource(_ResourceHandle):
             column = unknown_platform_column(exc)
             if column is None:
                 raise
-            sample = shape_frame(await self.resource_type(), await self._data({}, limit=1))
+            try:
+                first = await self._client.query_resource_data_async(self.tracking_id, limit=1)
+                sample = shape_frame(await self.resource_type(), to_pandas(require_payload(first)))
+            except BookshelfError:
+                raise exc from None
             raise unknown_filter_column(column, sample) from exc
         return await asyncio.to_thread(to_pandas, require_payload(payload))
 

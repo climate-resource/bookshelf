@@ -244,6 +244,7 @@ def test_an_unknown_filter_column_raises_the_same_error_on_both_routes(tmp_path:
         ({"region": ["NZL", ""]}, ValueError),
         ({"region": {"NZL": 1}}, TypeError),
         ({"region": [["NZL"]]}, TypeError),
+        ({"region": pd.DataFrame({"region": ["NZL"]})}, TypeError),
         ([("region", "NZL")], TypeError),
     ],
 )
@@ -737,3 +738,42 @@ def test_a_numpy_edition_is_an_edition(tmp_path: Path) -> None:
     book = bs.book("primap-hist", "v2.6", edition=np.int64(1))
 
     assert book.metadata.edition == 1
+
+
+def test_a_set_of_values_is_sent_in_a_stable_order() -> None:
+    selection = Selection.build({"region": {"NZL", "AUS", "CHN"}}, year_min=None, year_max=None)
+    assert selection.data_params() == {"region.in": "AUS,CHN,NZL"}
+
+
+def test_dropping_missing_values_keeps_a_nullable_dtype() -> None:
+    from bookshelf._consume.frames import long_timeseries
+
+    wide = pd.DataFrame(
+        {"region": ["NZL", "AUS"], "2000": pd.array([1, None], dtype="Int64")}
+    ).set_index("region")
+
+    dense = long_timeseries(wide, dropna=True)
+
+    assert str(dense["value"].dtype) == "Int64"
+    pd.testing.assert_frame_equal(
+        dense, long_timeseries(wide).dropna(subset=["value"]).reset_index(drop=True)
+    )
+
+
+def test_a_failed_column_probe_still_reports_the_unknown_column(tmp_path: Path) -> None:
+    transport, seen = _shelf_transport()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == DATA_PATH and request.url.params.get("limit") == "1":
+            return httpx.Response(403, json={"detail": "forbidden"})
+        return transport.handler(request)  # type: ignore[no-any-return]
+
+    bs = Bookshelf(
+        BASE_URL,
+        auth=None,
+        transport=httpx.MockTransport(handler),
+        cache=ContentCache(tmp_path / "cache"),
+    )
+
+    with pytest.raises(SelectionError, match="Unknown column in filter: regoin"):
+        bs.resource(TRACKING_ID).as_df(filters={"regoin": "NZL"}, server_side=True)

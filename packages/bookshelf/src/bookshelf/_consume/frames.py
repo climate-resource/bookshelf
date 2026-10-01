@@ -98,7 +98,10 @@ def long_timeseries(frame: pd.DataFrame, *, dropna: bool = False) -> pd.DataFram
     # A wide frame of nothing but year columns carries no dimensions,
     # so its positional index is not something to melt on.
     dimensions = [name for name in wide.index.names if name is not None]
-    if dropna:
+    import numpy as np
+
+    # Extension dtypes such as Int64 would lose their type through to_numpy, so they melt.
+    if dropna and all(isinstance(dtype, np.dtype) for dtype in wide.dtypes):
         return _dense_long(wide, dimensions)
     long = wide.reset_index(drop=not dimensions).melt(
         id_vars=dimensions,
@@ -106,7 +109,7 @@ def long_timeseries(frame: pd.DataFrame, *, dropna: bool = False) -> pd.DataFram
         value_name="value",
     )
     long["year"] = long["year"].astype(int)
-    return long
+    return long.dropna(subset=["value"]).reset_index(drop=True) if dropna else long
 
 
 def _dense_long(wide: pd.DataFrame, dimensions: list[str]) -> pd.DataFrame:

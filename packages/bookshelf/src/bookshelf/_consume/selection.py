@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 import operator
 from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -54,9 +55,15 @@ def _scalar(column: str, value: object) -> FilterValue:
 
 
 def _values(column: str, wanted: object) -> tuple[FilterValue, ...]:
+    wanted = native_scalar(wanted)
     if isinstance(wanted, str | bytes | Mapping) or not isinstance(wanted, Iterable):
         return (_scalar(column, wanted),)
+    if getattr(wanted, "ndim", 1) > 1:
+        raise TypeError(f"filter {column!r} has a {type(wanted).__name__} value, not a list")
     values = tuple(_scalar(column, value) for value in wanted)
+    if isinstance(wanted, AbstractSet):
+        # A set's order varies between processes, so sort it to keep the selection stable.
+        values = tuple(sorted(values, key=lambda value: (type(value).__name__, str(value))))
     if not values:
         raise ValueError(f"filter {column!r} lists no values, so it would select nothing")
     if len(values) > 1 and (None in values or "" in values):
