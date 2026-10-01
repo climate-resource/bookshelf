@@ -18,6 +18,7 @@ from bookshelf._consume.conversions import (
     explorers_for,
     readers_for,
     scmrun_class,
+    shape_frame,
 )
 from bookshelf._consume.frames import (
     arrow_converter,
@@ -38,9 +39,11 @@ from bookshelf._consume.reading import (
     settle_cached,
     settle_preview,
     settle_selected,
+    unknown_platform_column,
 )
-from bookshelf._consume.selection import Filters, Order, Selection
+from bookshelf._consume.selection import Filters, Order, Selection, unknown_filter_column
 from bookshelf._core.client import BookshelfClient
+from bookshelf._core.errors import BookshelfError, SelectionError
 from bookshelf._core.frames import ParquetScan, read_frame, require_payload, to_pandas
 from bookshelf._generated import models
 from bookshelf.cache import ContentCache, _staged
@@ -52,6 +55,7 @@ if TYPE_CHECKING:
     from scmdata import ScmRun
 
 _FACET_MAX_VALUES = 500
+_AS_DF_INT_YEARS = "as_df(int_years=True)"
 
 
 class _ExternalPointer(Exception):
@@ -112,8 +116,8 @@ def _read_cached(
     return settle_cached(resource_type, frame, selection, coded or ())
 
 
-def _long(wide: pd.DataFrame, legacy_columns: bool) -> pd.DataFrame:
-    long = long_timeseries(wide)
+def _long(wide: pd.DataFrame, legacy_columns: bool, dropna: bool) -> pd.DataFrame:
+    long = long_timeseries(wide, dropna=dropna)
     return legacy_long_timeseries(long) if legacy_columns else long
 
 
@@ -208,10 +212,21 @@ class Resource(_ResourceHandle):
     def _data(
         self, params: Mapping[str, str], *, limit: int | None = None, order: str | None = None
     ) -> pd.DataFrame:
-        with selection_rejections():
-            payload = self._client.query_resource_data(
-                self.tracking_id, limit=limit, order=order, filters=params
-            )
+        try:
+            with selection_rejections():
+                payload = self._client.query_resource_data(
+                    self.tracking_id, limit=limit, order=order, filters=params
+                )
+        except SelectionError as exc:
+            column = unknown_platform_column(exc)
+            if column is None:
+                raise
+            try:
+                first = self._client.query_resource_data(self.tracking_id, limit=1)
+                sample = shape_frame(self.resource_type(), to_pandas(require_payload(first)))
+            except BookshelfError:
+                raise exc from None
+            raise unknown_filter_column(column, sample) from exc
         return to_pandas(require_payload(payload))
 
     def _read(
@@ -253,10 +268,17 @@ class Resource(_ResourceHandle):
         with missing values first either way and no promised order among ties.
         By default the selection applies to the verified cached file,
         and ``server_side`` has the platform select instead, which transfers only the selected rows.
+        Both pick the same rows, but without ``order`` the platform returns them in its own order.
         ``int_years`` labels a timeseries' year columns as integers rather than strings.
         """
         frame = self._read(
-            "as_df()", filters, year_min, year_max, server_side, order, timeseries_only=int_years
+            _AS_DF_INT_YEARS if int_years else "as_df()",
+            filters,
+            year_min,
+            year_max,
+            server_side,
+            order,
+            timeseries_only=int_years,
         )
         return int_year_columns(frame) if int_years else frame
 
@@ -268,9 +290,13 @@ class Resource(_ResourceHandle):
         year_max: int | None = None,
         server_side: bool = False,
         legacy_columns: bool = False,
+        dropna: bool = False,
     ) -> pd.DataFrame:
         """Return tidy pandas timeseries data, with integer ``year`` and a ``value`` column.
 
+        Every series has a row for every year, missing values included.
+        ``dropna`` leaves out the rows with no value, without ever building them,
+        which keeps a sparse resource far smaller in memory.
         ``legacy_columns`` reproduces the 0.4 long format instead:
         a ``values`` column, a ``year`` column of ``YYYY-01-01 00:00:00`` strings,
         and rows sorted by the dimensions and then the year.
@@ -278,7 +304,7 @@ class Resource(_ResourceHandle):
         wide = self._read(
             "as_long_df()", filters, year_min, year_max, server_side, timeseries_only=True
         )
-        return _long(wide, legacy_columns)
+        return _long(wide, legacy_columns, dropna)
 
     def as_polars(
         self,
@@ -344,7 +370,7 @@ class Resource(_ResourceHandle):
         """
         selection = Selection.build(filters, year_min=year_min, year_max=year_max, order=order)
         resource_type = self.resource_type()
-        check_preview(
+        limit, top_n = check_preview(
             resource_type, selection, limit=limit, top_n=top_n, drop_constant=drop_constant
         )
         frame = self._data(
@@ -486,10 +512,21 @@ class AsyncResource(_ResourceHandle):
     async def _data(
         self, params: Mapping[str, str], *, limit: int | None = None, order: str | None = None
     ) -> pd.DataFrame:
-        with selection_rejections():
-            payload = await self._client.query_resource_data_async(
-                self.tracking_id, limit=limit, order=order, filters=params
-            )
+        try:
+            with selection_rejections():
+                payload = await self._client.query_resource_data_async(
+                    self.tracking_id, limit=limit, order=order, filters=params
+                )
+        except SelectionError as exc:
+            column = unknown_platform_column(exc)
+            if column is None:
+                raise
+            try:
+                first = await self._client.query_resource_data_async(self.tracking_id, limit=1)
+                sample = shape_frame(await self.resource_type(), to_pandas(require_payload(first)))
+            except BookshelfError:
+                raise exc from None
+            raise unknown_filter_column(column, sample) from exc
         return await asyncio.to_thread(to_pandas, require_payload(payload))
 
     async def _read(
@@ -532,10 +569,17 @@ class AsyncResource(_ResourceHandle):
         with missing values first either way and no promised order among ties.
         By default the selection applies to the verified cached file,
         and ``server_side`` has the platform select instead, which transfers only the selected rows.
+        Both pick the same rows, but without ``order`` the platform returns them in its own order.
         ``int_years`` labels a timeseries' year columns as integers rather than strings.
         """
         frame = await self._read(
-            "as_df()", filters, year_min, year_max, server_side, order, timeseries_only=int_years
+            _AS_DF_INT_YEARS if int_years else "as_df()",
+            filters,
+            year_min,
+            year_max,
+            server_side,
+            order,
+            timeseries_only=int_years,
         )
         return int_year_columns(frame) if int_years else frame
 
@@ -547,9 +591,13 @@ class AsyncResource(_ResourceHandle):
         year_max: int | None = None,
         server_side: bool = False,
         legacy_columns: bool = False,
+        dropna: bool = False,
     ) -> pd.DataFrame:
         """Return tidy pandas timeseries data, with integer ``year`` and a ``value`` column.
 
+        Every series has a row for every year, missing values included.
+        ``dropna`` leaves out the rows with no value, without ever building them,
+        which keeps a sparse resource far smaller in memory.
         ``legacy_columns`` reproduces the 0.4 long format instead:
         a ``values`` column, a ``year`` column of ``YYYY-01-01 00:00:00`` strings,
         and rows sorted by the dimensions and then the year.
@@ -557,7 +605,7 @@ class AsyncResource(_ResourceHandle):
         wide = await self._read(
             "as_long_df()", filters, year_min, year_max, server_side, timeseries_only=True
         )
-        return await asyncio.to_thread(_long, wide, legacy_columns)
+        return await asyncio.to_thread(_long, wide, legacy_columns, dropna)
 
     async def as_polars(
         self,
@@ -624,7 +672,7 @@ class AsyncResource(_ResourceHandle):
         """
         selection = Selection.build(filters, year_min=year_min, year_max=year_max, order=order)
         resource_type = await self.resource_type()
-        check_preview(
+        limit, top_n = check_preview(
             resource_type, selection, limit=limit, top_n=top_n, drop_constant=drop_constant
         )
         frame = await self._data(

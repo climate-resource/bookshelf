@@ -14,6 +14,7 @@ from bookshelf._consume.memo import (
     remember_book,
     remembered_book,
 )
+from bookshelf._consume.selection import positive_int
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import BookshelfError, NotFoundError
 from bookshelf._core.names import book_coordinate, version_key
@@ -34,6 +35,15 @@ def book_order(item: models.BookListItem) -> tuple[Any, ...]:
     so the two surfaces agree on which book is the newest.
     """
     return (version_key(item.version), item.edition)
+
+
+def _checked_coordinate(version: object, edition: object) -> tuple[str, int | None]:
+    """Refuse a coordinate the platform would misread, before any request is made."""
+    if not isinstance(version, str):
+        raise TypeError(f"version must be a string such as 'v1.0', not {version!r}")
+    if not version:
+        raise ValueError("version must not be empty")
+    return version, None if edition is None else positive_int("edition", edition)
 
 
 def missing_book(volume: str, version: str, edition: int | None) -> NotFoundError:
@@ -205,6 +215,7 @@ def resolve_book(
     ``refresh`` ignores the remembered edition and resolves it and its entries afresh.
     The latest edition is always asked for, because a newer one may have been published.
     """
+    version, edition = _checked_coordinate(version, edition)
     if edition is not None and not refresh:
         remembered = remembered_book(cache, client, volume, version, edition, ttl=book_ttl)
         if remembered is not None:
@@ -241,6 +252,7 @@ async def resolve_book_async(
     refresh: bool = False,
 ) -> AsyncBook:
     """The asynchronous twin of :func:`resolve_book`."""
+    version, edition = _checked_coordinate(version, edition)
     if edition is not None and not refresh:
         remembered = await asyncio.to_thread(
             remembered_book, cache, client, volume, version, edition, ttl=book_ttl

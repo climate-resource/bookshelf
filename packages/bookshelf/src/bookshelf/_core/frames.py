@@ -75,10 +75,9 @@ def read_frame(
             import pyarrow.parquet as pq
 
             plan = ParquetScan() if scan is None else scan(pq.read_schema(path))
-            frame = pd.read_parquet(
-                path, columns=plan.columns, filters=plan.rows, read_dictionary=plan.dictionary
-            )
-            return frame if plan.rows is None else _widen_dropped_nulls(frame, pq.ParquetFile(path))
+            if plan.rows is None:
+                return pd.read_parquet(path, columns=plan.columns, read_dictionary=plan.dictionary)
+            return _widen_dropped_nulls(_read_filtered(path, plan), pq.ParquetFile(path))
         # Only an empty field is missing, as on the platform, so a code like "NA" stays text.
         return pd.read_csv(
             path,
@@ -88,6 +87,33 @@ def read_frame(
         )
     except (ValueError, OSError, EOFError, zlib.error) as exc:
         raise BookshelfError(f"cannot read the stored resource as a frame: {exc}") from exc
+
+
+def _read_filtered(path: Path, plan: ParquetScan) -> "pd.DataFrame":
+    """Filter a batch at a time, so a filter keeping most rows never holds the file twice over."""
+    import pandas as pd
+    import pyarrow as pa
+    import pyarrow.dataset as ds
+    import pyarrow.parquet as pq
+
+    fragment = next(iter(ds.dataset(path, format="parquet").get_fragments()))
+    groups = [piece.row_groups[0].id for piece in fragment.split_by_row_group(plan.rows)]
+    parquet = pq.ParquetFile(path, read_dictionary=plan.dictionary)
+    # pyarrow 18 cannot iterate no row groups, nor filter a lone batch down to nothing.
+    pieces = [
+        pa.Table.from_batches([batch]).filter(plan.rows)
+        for batch in (
+            parquet.iter_batches(row_groups=groups, columns=plan.columns, use_pandas_metadata=True)
+            if groups
+            else ()
+        )
+    ]
+    if not pieces:
+        return pd.read_parquet(
+            path, columns=plan.columns, filters=plan.rows, read_dictionary=plan.dictionary
+        )
+    frame: pd.DataFrame = pa.concat_tables(pieces).to_pandas()
+    return frame
 
 
 def _widen_dropped_nulls(frame: "pd.DataFrame", parquet: "pq.ParquetFile") -> "pd.DataFrame":

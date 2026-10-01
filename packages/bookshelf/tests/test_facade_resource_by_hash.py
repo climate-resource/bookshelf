@@ -70,3 +70,30 @@ async def test_resource_by_hash_has_an_async_twin() -> None:
 
     assert str(resource.tracking_id) == payloads.RESOURCE_READ["tracking_id"]
     assert parse_qs(recorded[0].url.query.decode())["dedupe"] == ["true"]
+
+
+@pytest.mark.parametrize(
+    "content_hash", ["sha256:abc", "md5:" + "0" * 32, "0" * 64, "sha256:" + "g" * 64, ""]
+)
+def test_resource_by_hash_refuses_a_malformed_digest_before_asking(content_hash: str) -> None:
+    recorded: list[httpx.Request] = []
+
+    with (
+        Bookshelf(BASE_URL, auth=None, transport=_transport(recorded, [])) as client,
+        pytest.raises(ValueError, match="sha256"),
+    ):
+        client.resource_by_hash(content_hash)
+
+    assert recorded == []
+
+
+async def test_the_async_resource_by_hash_refuses_a_malformed_digest() -> None:
+    recorded: list[httpx.Request] = []
+
+    async with AsyncBookshelf(
+        BASE_URL, auth=None, async_transport=_transport(recorded, [])
+    ) as client:
+        with pytest.raises(ValueError, match="sha256"):
+            await client.resource_by_hash("md5:" + "0" * 32)
+
+    assert recorded == []

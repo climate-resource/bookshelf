@@ -86,20 +86,47 @@ def int_year_columns(wide: pd.DataFrame) -> pd.DataFrame:
     return wide.rename(columns=lambda column: int(column) if is_year_column(column) else column)
 
 
-def long_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
-    """Normalize long or wide timeseries data to tidy pandas."""
+def long_timeseries(frame: pd.DataFrame, *, dropna: bool = False) -> pd.DataFrame:
+    """Normalize long or wide timeseries data to tidy pandas.
+
+    ``dropna`` leaves out the rows with no value.
+    """
     if {"year", "value"} <= set(frame.columns):
-        return frame.reset_index(drop=True)
+        long = frame.dropna(subset=["value"]) if dropna else frame
+        return long.reset_index(drop=True)
     wide = wide_timeseries(frame)
     # A wide frame of nothing but year columns carries no dimensions,
     # so its positional index is not something to melt on.
     dimensions = [name for name in wide.index.names if name is not None]
+    import numpy as np
+
+    # Extension dtypes such as Int64 would lose their type through to_numpy, so they melt.
+    if dropna and all(isinstance(dtype, np.dtype) for dtype in wide.dtypes):
+        return _dense_long(wide, dimensions)
     long = wide.reset_index(drop=not dimensions).melt(
         id_vars=dimensions,
         var_name="year",
         value_name="value",
     )
     long["year"] = long["year"].astype(int)
+    return long.dropna(subset=["value"]).reset_index(drop=True) if dropna else long
+
+
+def _dense_long(wide: pd.DataFrame, dimensions: list[str]) -> pd.DataFrame:
+    """Melt only the cells holding a value, in the order melt would leave them."""
+    import numpy as np
+    import pandas as pd
+
+    values = wide.to_numpy().T
+    present = pd.notna(values)
+    year_at, row_at = np.nonzero(present)
+    long: pd.DataFrame
+    if dimensions:
+        long = wide.index.take(row_at).to_frame(index=False)
+    else:
+        long = pd.DataFrame(index=pd.RangeIndex(len(row_at)))
+    long["year"] = np.array([int(column) for column in wide.columns], dtype=np.int64)[year_at]
+    long["value"] = values[present]
     return long
 
 
