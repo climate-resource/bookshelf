@@ -537,7 +537,13 @@ FAIL_PREVIEW = _op(
 
 def _segment(value: str | UUID) -> str:
     """Quote a path parameter as a single segment, so reserved characters cannot reshape the target."""
-    return quote(str(value), safe="")
+    text = str(value)
+    # A dot segment is resolved away somewhere on the way, even escaped, landing on the parent route.
+    if text in (".", ".."):
+        raise errors.NotFoundError(
+            f"{text!r} cannot name anything on the platform", status_code=404
+        )
+    return quote(text, safe="")
 
 
 def _json_body(model: BaseModel) -> Any:
@@ -676,6 +682,7 @@ def build_query_resource_data(
         path=QUERY_RESOURCE_DATA.path_template.format(tracking_id=_segment(tracking_id)),
         params=params,
         headers=headers,
+        expensive=True,
     )
 
 
@@ -721,6 +728,7 @@ def build_get_book_resource_timeseries(
             resource_name=_segment(resource_name),
         ),
         params=params,
+        expensive=True,
     )
 
 
@@ -745,6 +753,7 @@ def build_get_book_resource_facets(
             resource_name=_segment(resource_name),
         ),
         params=params,
+        expensive=True,
     )
 
 
@@ -767,6 +776,7 @@ def build_get_book_resource_preview(
             resource_name=_segment(resource_name),
         ),
         params=_params(limit=limit, offset=offset),
+        expensive=True,
     )
 
 
@@ -789,6 +799,7 @@ def build_get_book_resource_schema(
             resource_name=_segment(resource_name),
         ),
         params=_params(limit=limit, offset=offset),
+        expensive=True,
     )
 
 

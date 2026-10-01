@@ -193,7 +193,7 @@ def test_5xx_after_exhausted_retries_raises_server_error() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         calls["count"] += 1
-        return httpx.Response(500, text="boom")
+        return httpx.Response(503, text="unavailable")
 
     with make_client(handler) as client, pytest.raises(ServerError):
         client.list_books()

@@ -22,12 +22,15 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Protocol
 
-from filelock import FileLock
+from filelock import FileLock, Timeout
 from platformdirs import user_config_dir
 
 from bookshelf._core.auth import decode_jwt_expiry
+from bookshelf._core.errors import BookshelfError
 
 STORE_VERSION = 2
+# Seconds to wait for another process to finish writing the store.
+LOCK_TIMEOUT = 30.0
 
 
 class CredentialKind(enum.StrEnum):
@@ -349,7 +352,15 @@ class FileCredentialStore(_DocumentStore):
     def _update(self) -> Iterator[dict[str, Any]]:
         path = self.path
         path.parent.mkdir(parents=True, exist_ok=True)
-        with FileLock(path.with_name(f"{path.name}.lock")):
+        lock = FileLock(path.with_name(f"{path.name}.lock"), timeout=LOCK_TIMEOUT)
+        try:
+            lock.acquire()
+        except Timeout as exc:
+            raise BookshelfError(
+                f"timed out after {LOCK_TIMEOUT:g}s waiting for {lock.lock_file}, "
+                "which another bookshelf process is holding"
+            ) from exc
+        try:
             store, unreadable = self._load()
             before = copy.deepcopy(store)
             yield store
@@ -358,6 +369,8 @@ class FileCredentialStore(_DocumentStore):
                     # Kept aside rather than overwritten, because a newer version may have written it.
                     os.replace(path, path.with_name(f"{path.name}.unreadable"))
                 self._write(store)
+        finally:
+            lock.release()
 
     def _write(self, store: dict[str, Any]) -> None:
         path = self.path

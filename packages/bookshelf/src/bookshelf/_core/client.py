@@ -21,7 +21,7 @@ from bookshelf._core import ops
 from bookshelf._core.config import UNSET, AuthInput, resolve_auth, resolve_base_url
 from bookshelf._core.errors import TransportError
 from bookshelf._core.resolution import ResolvedCredential, resolve_credential
-from bookshelf._core.retry import RetryPolicy
+from bookshelf._core.retry import RetryPolicy, parse_retry_after
 from bookshelf._core.types import (
     ApiRequest,
     ApiResponse,
@@ -33,9 +33,18 @@ from bookshelf._generated import models
 
 _USER_AGENT = "bookshelf-python"
 
-# The httpx failures that prove no bytes reached the server.
-# A read or write timeout does not qualify, because the request may already be in flight.
-_PRE_SEND_FAILURES = (httpx.ConnectError, httpx.ConnectTimeout)
+# A host that is down or blackholed fails here first, so this caps how long it takes to say so.
+_CONNECT_TIMEOUT = 10.0
+
+
+def _public_url(url: httpx.URL) -> str:
+    """Drop the query string, which carries the signature of a presigned URL."""
+    return str(url.copy_with(query=None, fragment=None))
+
+
+def _transport_error(request: httpx.Request, exc: httpx.TransportError) -> TransportError:
+    reason = str(exc) or type(exc).__name__
+    return TransportError(f"{request.method} {_public_url(request.url)} failed: {reason}")
 
 
 class BookshelfClient:
@@ -54,7 +63,7 @@ class BookshelfClient:
         base_url: str | None = None,
         *,
         auth: AuthInput = UNSET,
-        timeout: float = 30.0,
+        timeout: float | None = 30.0,
         # The transports are the test seam: production always leaves them None.
         transport: httpx.BaseTransport | None = None,
         async_transport: httpx.AsyncBaseTransport | None = None,
@@ -107,6 +116,11 @@ class BookshelfClient:
             if opened is not None:
                 opened.auth = auth
 
+    def _httpx_timeout(self) -> httpx.Timeout:
+        if self._timeout is None:
+            return httpx.Timeout(None, connect=_CONNECT_TIMEOUT)
+        return httpx.Timeout(self._timeout, connect=min(self._timeout, _CONNECT_TIMEOUT))
+
     @property
     def _sync_client(self) -> httpx.Client:
         if self._sync is None:
@@ -115,7 +129,7 @@ class BookshelfClient:
                     self._sync = httpx.Client(
                         base_url=self._base_url,
                         auth=self._auth,
-                        timeout=self._timeout,
+                        timeout=self._httpx_timeout(),
                         headers={"user-agent": _USER_AGENT},
                         transport=self._transport,
                         # A bulk read is answered with a redirect.
@@ -131,7 +145,7 @@ class BookshelfClient:
                     self._async = httpx.AsyncClient(
                         base_url=self._base_url,
                         auth=self._auth,
-                        timeout=self._timeout,
+                        timeout=self._httpx_timeout(),
                         headers={"user-agent": _USER_AGENT},
                         transport=self._async_transport,
                         follow_redirects=True,
@@ -186,6 +200,32 @@ class BookshelfClient:
             status_code=response.status_code,
             headers=dict(response.headers),
             content=response.content,
+            url=_public_url(response.url),
+        )
+
+    def _response_retry_delay(
+        self, req: ApiRequest, attempt: int, response: httpx.Response
+    ) -> float | None:
+        return self._retry.retry_after_response(
+            req.method,
+            attempt,
+            response.status_code,
+            retry_after=parse_retry_after(response.headers.get("retry-after")),
+            expensive=req.expensive,
+        )
+
+    def _transport_retry_delay(
+        self, req: ApiRequest, attempt: int, exc: httpx.TransportError
+    ) -> float | None:
+        if isinstance(exc, httpx.ConnectTimeout):
+            # The attempt already waited out the connect timeout, so a replay only doubles the wait.
+            return None
+        # A refused connection proves no bytes reached the server, unlike a read or write timeout.
+        return self._retry.retry_after_transport_error(
+            req.method,
+            attempt,
+            pre_send=isinstance(exc, httpx.ConnectError),
+            expensive=req.expensive,
         )
 
     def _send(self, req: ApiRequest) -> ApiResponse:
@@ -200,13 +240,11 @@ class BookshelfClient:
             try:
                 response = client.send(request, auth=auth)
             except httpx.TransportError as exc:
-                delay = self._retry.retry_after_transport_error(
-                    req.method, attempt, pre_send=isinstance(exc, _PRE_SEND_FAILURES)
-                )
+                delay = self._transport_retry_delay(req, attempt, exc)
                 if delay is None:
-                    raise TransportError(str(exc)) from exc
+                    raise _transport_error(request, exc) from exc
             else:
-                delay = self._retry.retry_after_response(req.method, attempt, response.status_code)
+                delay = self._response_retry_delay(req, attempt, response)
                 if delay is None:
                     return self._api_response(response)
             time.sleep(delay)
@@ -223,36 +261,48 @@ class BookshelfClient:
             try:
                 response = await client.send(request, auth=auth)
             except httpx.TransportError as exc:
-                delay = self._retry.retry_after_transport_error(
-                    req.method, attempt, pre_send=isinstance(exc, _PRE_SEND_FAILURES)
-                )
+                delay = self._transport_retry_delay(req, attempt, exc)
                 if delay is None:
-                    raise TransportError(str(exc)) from exc
+                    raise _transport_error(request, exc) from exc
             else:
-                delay = self._retry.retry_after_response(req.method, attempt, response.status_code)
+                delay = self._response_retry_delay(req, attempt, response)
                 if delay is None:
                     return self._api_response(response)
             await asyncio.sleep(delay)
 
     def stream_url_to_path(self, url: str, destination: Path) -> None:
         """Stream an API issued content URL to a local path without API credentials."""
-        with self._sync_client.stream("GET", url, auth=None) as response:
-            if not response.is_success:
-                response.read()
-                ops.parse_get_url(self._api_response(response))
-            with destination.open("wb") as stream:
-                for chunk in response.iter_bytes():
-                    stream.write(chunk)
+        request = self._sync_client.build_request("GET", url)
+        try:
+            response = self._sync_client.send(request, auth=None, stream=True)
+            try:
+                if not response.is_success:
+                    response.read()
+                    ops.parse_get_url(self._api_response(response))
+                with destination.open("wb") as stream:
+                    for chunk in response.iter_bytes():
+                        stream.write(chunk)
+            finally:
+                response.close()
+        except httpx.TransportError as exc:
+            raise _transport_error(request, exc) from exc
 
     async def stream_url_to_path_async(self, url: str, destination: Path) -> None:
         """Stream an API issued content URL to a local path without API credentials."""
-        async with self._async_client.stream("GET", url, auth=None) as response:
-            if not response.is_success:
-                await response.aread()
-                ops.parse_get_url(self._api_response(response))
-            with destination.open("wb") as stream:
-                async for chunk in response.aiter_bytes():
-                    stream.write(chunk)
+        request = self._async_client.build_request("GET", url)
+        try:
+            response = await self._async_client.send(request, auth=None, stream=True)
+            try:
+                if not response.is_success:
+                    await response.aread()
+                    ops.parse_get_url(self._api_response(response))
+                with destination.open("wb") as stream:
+                    async for chunk in response.aiter_bytes():
+                        stream.write(chunk)
+            finally:
+                await response.aclose()
+        except httpx.TransportError as exc:
+            raise _transport_error(request, exc) from exc
 
     # --- BEGIN GENERATED OPERATIONS ---
     # Generated by packages/bookshelf/scripts/generate_client.py

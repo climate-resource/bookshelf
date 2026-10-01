@@ -10,11 +10,14 @@ from bookshelf._core.errors import (
     AuthenticationError,
     AuthenticationRequiredError,
     BookshelfError,
+    ConfigurationError,
     ConflictError,
     EntryNotFoundError,
     ForbiddenError,
+    GatewayError,
     NotFoundError,
     OAuthProtocolError,
+    RateLimitError,
     RequestValidationError,
     SelectionError,
     ServerError,
@@ -25,7 +28,7 @@ from bookshelf._core.frames import DataFrameSupportError
 from bookshelf._core.oauth import OAuthError
 from bookshelf._generated import OPENAPI_VERSION, models
 from bookshelf._produce.helpers import uuid7
-from bookshelf.cache import ContentCache
+from bookshelf.cache import CacheDirectoryError, ContentCache
 from bookshelf.facade import (
     Activity,
     AsyncActivity,
@@ -99,6 +102,8 @@ __all__ = [
     "BookEntry",
     "Bookshelf",
     "BookshelfError",
+    "CacheDirectoryError",
+    "ConfigurationError",
     "ConflictError",
     "ContentCache",
     "DataFrameSupportError",
@@ -106,6 +111,7 @@ __all__ = [
     "DraftBook",
     "EntryNotFoundError",
     "ForbiddenError",
+    "GatewayError",
     "HashMismatchError",
     "InvalidBundleError",
     "InvalidRecipeError",
@@ -113,6 +119,7 @@ __all__ = [
     "NotFoundError",
     "OAuthError",
     "OAuthProtocolError",
+    "RateLimitError",
     "PartialRegistrationError",
     "RecordRefusedError",
     "RecordingError",
