@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -61,6 +62,11 @@ def _served(frame: pd.DataFrame, params: httpx.QueryParams) -> pd.DataFrame | st
         )
     elif "$top_n" in params:
         frame = frame.sort_values(kept[-1], ascending=False)
+    else:
+        # The platform serves a render sorted on the dimensions, variable first, not the file's order.
+        dimensions = [c for c in frame.columns if c not in years]
+        keys = sorted(dimensions, key=lambda c: c != "variable")
+        frame = frame.sort_values(keys, kind="stable", na_position="last")
     if "$top_n" in params:
         frame = frame.head(int(params["$top_n"]))
     if "limit" in params:
@@ -139,6 +145,11 @@ SELECTIONS: list[dict[str, Any]] = [
 ]
 
 
+def _in_label_order(long: pd.DataFrame) -> pd.DataFrame:
+    labels = [column for column in long.columns if column != "value"]
+    return long.sort_values(labels, ignore_index=True)
+
+
 @pytest.mark.parametrize("selection", SELECTIONS)
 def test_the_platform_selects_the_same_rows_as_the_cached_file(
     tmp_path: Path, selection: dict[str, Any]
@@ -151,9 +162,24 @@ def test_the_platform_selects_the_same_rows_as_the_cached_file(
     assert not any(request.url.host == "s3.example" for request in seen)
     pd.testing.assert_frame_equal(remote, entry.as_df(**selection), check_like=True)
     pd.testing.assert_frame_equal(
-        entry.as_long_df(server_side=True, **selection),
-        entry.as_long_df(**selection),
-        check_like=True,
+        _in_label_order(entry.as_long_df(server_side=True, **selection)),
+        _in_label_order(entry.as_long_df(**selection)),
+    )
+
+
+def test_without_an_order_a_server_side_read_keeps_the_platform_row_order(tmp_path: Path) -> None:
+    """The platform reads a sorted render, so only the rows match the cached file, not their order."""
+    bs, _ = _shelf(tmp_path)
+    entry = bs.book("primap-hist", "v2.6")["by_country"]
+
+    local = entry.as_df()
+    remote = entry.as_df(server_side=True)
+
+    assert remote.index.tolist() != local.index.tolist()
+    pd.testing.assert_frame_equal(remote.sort_index(), local.sort_index())
+    order = list(local.index.names)
+    pd.testing.assert_frame_equal(
+        entry.as_df(server_side=True, order=order), entry.as_df(order=order)
     )
 
 
@@ -196,15 +222,18 @@ def test_equivalent_selections_are_equal() -> None:
     assert first == second
 
 
-@pytest.mark.parametrize("server_side", [False, True])
-def test_an_unknown_filter_column_raises_the_same_error_on_both_routes(
-    tmp_path: Path, server_side: bool
-) -> None:
+def test_an_unknown_filter_column_raises_the_same_error_on_both_routes(tmp_path: Path) -> None:
     bs, _ = _shelf(tmp_path)
-    with pytest.raises(SelectionError, match="regoin") as caught:
-        bs.resource(TRACKING_ID).as_df(filters={"regoin": "NZL"}, server_side=server_side)
+    messages = []
+    for server_side in (False, True):
+        with pytest.raises(SelectionError, match="regoin") as caught:
+            bs.resource(TRACKING_ID).as_df(filters={"regoin": "NZL"}, server_side=server_side)
+        assert isinstance(caught.value, KeyError)
+        messages.append(str(caught.value))
 
-    assert isinstance(caught.value, KeyError)
+    local, remote = messages
+    assert remote == local
+    assert "region, scenario, unit, variable" in remote
 
 
 @pytest.mark.parametrize(
@@ -213,7 +242,8 @@ def test_an_unknown_filter_column_raises_the_same_error_on_both_routes(
         ({"region": []}, ValueError),
         ({"region": ["NZL", None]}, ValueError),
         ({"region": ["NZL", ""]}, ValueError),
-        ({"region": {"NZL"}}, TypeError),
+        ({"region": {"NZL": 1}}, TypeError),
+        ({"region": [["NZL"]]}, TypeError),
         ([("region", "NZL")], TypeError),
     ],
 )
@@ -279,7 +309,7 @@ def test_a_preview_refuses_an_order_it_cannot_honour(
     assert _data_requests(seen) == []
 
 
-ORDERS: list[Any] = ["region", ["-region", "variable"], ["unit", "-2001"]]
+ORDERS: list[Any] = [["region", "variable"], ["-region", "variable"], ["unit", "-2001"]]
 
 
 @pytest.mark.parametrize("order", ORDERS)
@@ -523,3 +553,187 @@ def test_a_tabular_preview_sends_a_digit_named_order_to_the_platform(tmp_path: P
 
     (request,) = _data_requests(seen)
     assert request.url.params["order"] == "2020.desc", "only a timeseries year is refused"
+
+
+@pytest.mark.parametrize(
+    "regions",
+    [
+        np.array(["NZL", "AUS"]),
+        pd.Index(["NZL", "AUS"]),
+        pd.Series(["NZL", "AUS"]),
+        {"NZL", "AUS"},
+        frozenset({"NZL", "AUS"}),
+        ("NZL", "AUS"),
+    ],
+)
+def test_numpy_and_pandas_collections_are_filter_values(tmp_path: Path, regions: Any) -> None:
+    bs, _ = _shelf(tmp_path)
+    entry = bs.book("primap-hist", "v2.6")["by_country"]
+
+    expected = entry.as_df(filters={"region": ["NZL", "AUS"]})
+
+    pd.testing.assert_frame_equal(entry.as_df(filters={"region": regions}), expected)
+    pd.testing.assert_frame_equal(
+        entry.as_df(filters={"region": regions}, server_side=True), expected, check_like=True
+    )
+
+
+def test_numpy_scalars_are_filter_values_and_years() -> None:
+    frame = pd.DataFrame({"category": [1, 2, 1], "flag": [True, False, True]})
+    assert len(_select(frame, {"category": np.int64(1)})) == 2
+    assert len(_select(frame, {"category": [np.int64(1), np.float64(2.0)]})) == 3
+    assert len(_select(frame, {"flag": np.bool_(True)})) == 2
+    selection = Selection.build(None, year_min=np.int64(2000), year_max=np.int32(2001))
+    assert (selection.year_min, selection.year_max) == (2000, 2001)
+    assert type(selection.year_min) is int
+    assert Selection.build({"c": np.int64(1)}, year_min=None, year_max=None) == Selection.build(
+        {"c": 1}, year_min=None, year_max=None
+    )
+
+
+@pytest.mark.parametrize("year", [True, np.bool_(True), 2000.0, "2000"])
+def test_a_year_bound_must_be_an_integer(year: Any) -> None:
+    with pytest.raises(TypeError, match="year_min"):
+        Selection.build(None, year_min=year, year_max=None)
+
+
+@pytest.mark.parametrize(
+    ("limit", "error"), [(2.5, TypeError), (True, TypeError), ("3", TypeError), (0, ValueError)]
+)
+def test_a_preview_limit_must_be_a_positive_integer(
+    tmp_path: Path, limit: Any, error: type[Exception]
+) -> None:
+    bs, seen = _shelf(tmp_path)
+    entry = bs.book("primap-hist", "v2.6")["by_country"]
+
+    with pytest.raises(error, match="limit"):
+        entry.preview(limit=limit)
+
+    assert _data_requests(seen) == []
+
+
+@pytest.mark.parametrize(("top_n", "error"), [(1.5, TypeError), (True, TypeError), (0, ValueError)])
+def test_a_preview_top_n_must_be_a_positive_integer(
+    tmp_path: Path, top_n: Any, error: type[Exception]
+) -> None:
+    bs, seen = _shelf(tmp_path)
+
+    with pytest.raises(error, match="top_n"):
+        bs.resource(TRACKING_ID).preview(top_n=top_n)
+
+    assert _data_requests(seen) == []
+
+
+def test_a_preview_takes_a_numpy_limit(tmp_path: Path) -> None:
+    bs, seen = _shelf(tmp_path)
+
+    preview = bs.resource(TRACKING_ID).preview(limit=np.int64(2))
+
+    assert len(preview.data) == 2
+    assert [request.url.params["limit"] for request in _data_requests(seen)] == ["3"]
+
+
+def test_int_years_on_tabular_data_names_int_years(tmp_path: Path) -> None:
+    bs, _ = _shelf(tmp_path)
+    resource = bs.resource(TRACKING_ID)
+    resource._resource_type = models.ResourceType.tabular
+
+    with pytest.raises(UnsupportedConversionError, match="int_years"):
+        resource.as_df(int_years=True)
+
+
+def test_selecting_every_row_and_year_does_not_copy_the_frame() -> None:
+    frame = pd.DataFrame({"region": ["World", "World"], "2000": [1.0, 2.0]}).set_index("region")
+    selection = Selection.build({"region": "World"}, year_min=1990, year_max=2100)
+
+    assert selection.apply(frame) is frame
+
+
+def _with_gaps() -> pd.DataFrame:
+    frame = WIDE.copy()
+    frame.loc[0, "2000-01-01"] = float("nan")
+    frame.loc[1, ["2000-01-01", "2001-01-01 00:00:00"]] = float("nan")
+    return frame
+
+
+@pytest.mark.parametrize("server_side", [False, True])
+def test_as_long_df_can_drop_missing_values(tmp_path: Path, server_side: bool) -> None:
+    bs, _ = _shelf(tmp_path, frame=_with_gaps())
+    entry = bs.book("primap-hist", "v2.6")["by_country"]
+
+    full = entry.as_long_df(server_side=server_side)
+    dense = entry.as_long_df(server_side=server_side, dropna=True)
+
+    assert len(full) == 6, "missing values stay by default"
+    assert len(dense) == 3
+    pd.testing.assert_frame_equal(dense, full.dropna(subset=["value"]).reset_index(drop=True))
+    legacy = entry.as_long_df(server_side=server_side, dropna=True, legacy_columns=True)
+    assert legacy["values"].notna().all()
+    assert len(legacy) == 3
+
+
+def test_dropping_missing_values_from_a_frame_with_no_dimensions() -> None:
+    from bookshelf._consume.frames import long_timeseries
+
+    wide = pd.DataFrame([[1.0, float("nan")]], columns=["2000", "2001"])
+
+    dense = long_timeseries(wide, dropna=True)
+
+    pd.testing.assert_frame_equal(
+        dense, long_timeseries(wide).dropna(subset=["value"]).reset_index(drop=True)
+    )
+
+
+async def test_the_async_as_long_df_can_drop_missing_values(tmp_path: Path) -> None:
+    transport, _ = _shelf_transport(frame=_with_gaps())
+    async with AsyncBookshelf(
+        BASE_URL, auth=None, async_transport=transport, cache=ContentCache(tmp_path / "cache")
+    ) as bs:
+        book = await bs.book("primap-hist", "v2.6")
+        dense = await book["by_country"].as_long_df(dropna=True)
+
+    assert len(dense) == 3
+
+
+@pytest.mark.parametrize(
+    ("version", "edition", "error"),
+    [
+        (None, None, TypeError),
+        ("", None, ValueError),
+        (2.6, None, TypeError),
+        ("v2.6", -1, ValueError),
+        ("v2.6", 0, ValueError),
+        ("v2.6", True, TypeError),
+        ("v2.6", 1.0, TypeError),
+    ],
+)
+def test_a_malformed_book_coordinate_fails_before_any_request(
+    tmp_path: Path, version: Any, edition: Any, error: type[Exception]
+) -> None:
+    bs, seen = _shelf(tmp_path)
+
+    with pytest.raises(error):
+        bs.book("primap-hist", version, edition=edition)
+
+    assert seen == []
+
+
+async def test_the_async_book_checks_its_coordinate_too(tmp_path: Path) -> None:
+    transport, seen = _shelf_transport()
+    async with AsyncBookshelf(
+        BASE_URL, auth=None, async_transport=transport, cache=ContentCache(tmp_path / "cache")
+    ) as bs:
+        with pytest.raises(TypeError, match="version"):
+            await bs.book("primap-hist", None)  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="edition"):
+            await bs.book("primap-hist", "v2.6", edition=-1)
+
+    assert seen == []
+
+
+def test_a_numpy_edition_is_an_edition(tmp_path: Path) -> None:
+    bs, _ = _shelf(tmp_path)
+
+    book = bs.book("primap-hist", "v2.6", edition=np.int64(1))
+
+    assert book.metadata.edition == 1

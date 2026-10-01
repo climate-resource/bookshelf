@@ -20,7 +20,7 @@ from bookshelf._consume.conversions import (
     shape_frame,
 )
 from bookshelf._consume.frames import drop_constant_dimensions, is_year_column
-from bookshelf._consume.selection import Selection
+from bookshelf._consume.selection import Selection, positive_int
 from bookshelf._core.errors import RequestValidationError, SelectionError
 from bookshelf._generated import models
 
@@ -28,6 +28,8 @@ if TYPE_CHECKING:
     import pandas as pd
 
 type Completeness = Literal["complete", "partial"]
+
+_UNKNOWN_FILTER = "Unknown column in filter: "
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,10 +124,12 @@ def check_preview(
     limit: int,
     top_n: int | None,
     drop_constant: bool,
-) -> None:
+) -> tuple[int, int | None]:
+    """Refuse a preview the platform would misread, and return its limit and top_n as ints."""
     check_frame_read(resource_type, selection, "preview()")
-    if limit < 1:
-        raise ValueError("limit must be at least 1")
+    limit = positive_int("limit", limit)
+    if top_n is not None:
+        top_n = positive_int("top_n", top_n)
     # The platform reads top_n alongside an order as "the first n in that order", not a ranking.
     if top_n is not None and selection.order:
         raise ValueError("top_n ranks by the latest value, so it cannot take an order as well")
@@ -134,6 +138,7 @@ def check_preview(
         raise ValueError("preview() orders by dimension columns, so sort a complete read by year")
     if drop_constant and not timeseries:
         raise UnsupportedConversionError("drop_constant requires a timeseries resource")
+    return limit, top_n
 
 
 def settle_preview(
@@ -161,6 +166,14 @@ def selection_rejections() -> Iterator[None]:
         raise SelectionError(exc.detail) from exc
 
 
+def unknown_platform_column(error: SelectionError) -> str | None:
+    """Name the column a platform refusal says is missing, so the error can list the real ones."""
+    cause = error.__cause__
+    if isinstance(cause, RequestValidationError) and cause.detail.startswith(_UNKNOWN_FILTER):
+        return cause.detail.removeprefix(_UNKNOWN_FILTER)
+    return None
+
+
 __all__ = [
     "DataPreview",
     "ResourceInfo",
@@ -171,4 +184,5 @@ __all__ = [
     "settle_cached",
     "settle_selected",
     "settle_preview",
+    "unknown_platform_column",
 ]

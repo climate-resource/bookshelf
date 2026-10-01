@@ -7,7 +7,8 @@ so this module owns its validation, its local matching and its wire encoding.
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping, Sequence
+import operator
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -22,20 +23,38 @@ if TYPE_CHECKING:
     import pyarrow.compute as pc
 
 type FilterValue = str | int | float | bool | None
-type Filters = Mapping[str, FilterValue | Sequence[FilterValue]]
+type Filters = Mapping[str, FilterValue | Iterable[FilterValue]]
 type Order = str | Sequence[str]
 
 _TRUE_WORDS = frozenset({"true", "1", "yes"})
 
 
+def native_scalar(value: object) -> object:
+    """Unwrap a numpy scalar, such as one taken from a frame, to the Python value it holds."""
+    if type(value).__module__ == "numpy" and getattr(value, "ndim", None) == 0:
+        return value.item()  # type: ignore[attr-defined]
+    return value
+
+
+def positive_int(name: str, value: object) -> int:
+    """Return a count or edition as an int, refusing a bool, a fraction or anything below 1."""
+    value = native_scalar(value)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{name} must be a whole number, not {value!r}")
+    if value < 1:
+        raise ValueError(f"{name} must be at least 1, not {value}")
+    return value
+
+
 def _scalar(column: str, value: object) -> FilterValue:
+    value = native_scalar(value)
     if value is None or isinstance(value, str | bool | int | float):
         return value
     raise TypeError(f"filter {column!r} has a {type(value).__name__} value, not a scalar")
 
 
 def _values(column: str, wanted: object) -> tuple[FilterValue, ...]:
-    if isinstance(wanted, str) or not isinstance(wanted, Sequence):
+    if isinstance(wanted, str | bytes | Mapping) or not isinstance(wanted, Iterable):
         return (_scalar(column, wanted),)
     values = tuple(_scalar(column, value) for value in wanted)
     if not values:
@@ -52,6 +71,18 @@ def wire_text(value: FilterValue) -> str:
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
     return str(value)
+
+
+def _year_bound(name: str, bound: object) -> int | None:
+    if bound is None:
+        return None
+    bound = native_scalar(bound)
+    if isinstance(bound, bool):
+        raise TypeError(f"{name} must be an integer year")
+    try:
+        return operator.index(bound)  # type: ignore[arg-type]
+    except TypeError:
+        raise TypeError(f"{name} must be an integer year") from None
 
 
 def _escaped(value: FilterValue) -> str:
@@ -83,14 +114,16 @@ class Selection:
         """Validate a caller's selection before anything is fetched."""
         if filters is not None and not isinstance(filters, Mapping):
             raise TypeError("filters must be a mapping of column name to value or values")
-        for name, bound in (("year_min", year_min), ("year_max", year_max)):
-            if bound is not None and (isinstance(bound, bool) or not isinstance(bound, int)):
-                raise TypeError(f"{name} must be an integer year")
         normalised = sorted(
             (str(column), _values(str(column), wanted))
             for column, wanted in (filters or {}).items()
         )
-        return cls(tuple(normalised), year_min, year_max, _order_keys(order))
+        return cls(
+            tuple(normalised),
+            _year_bound("year_min", year_min),
+            _year_bound("year_max", year_max),
+            _order_keys(order),
+        )
 
     @property
     def has_years(self) -> bool:
@@ -292,14 +325,21 @@ def _filter_rows(
         elif column in names:
             source = frame.index.get_level_values(column)
         else:
-            columns = [column for column in frame.columns if not is_year_column(column)]
-            known = ", ".join(map(str, [*names, *columns]))
-            raise SelectionError(f"cannot filter on {column!r}, the columns are: {known}")
+            raise unknown_filter_column(column, frame)
         either = np.zeros(len(frame), dtype=bool)
         for wanted in values:
             either |= _matches(column, source, wanted)
         mask &= either
-    return frame[mask]
+    # A filter that keeps every row, such as region World on a global file, need not copy it.
+    return frame if mask.all() else frame[mask]
+
+
+def unknown_filter_column(column: str, frame: pd.DataFrame) -> SelectionError:
+    """Name the columns a shaped frame can be filtered on, for a filter that named another."""
+    names = [name for name in frame.index.names if name is not None]
+    columns = [column for column in frame.columns if not is_year_column(column)]
+    known = ", ".join(map(str, [*names, *columns]))
+    return SelectionError(f"cannot filter on {column!r}, the columns are: {known}")
 
 
 def _year_bounds(year_min: int | None, year_max: int | None) -> tuple[float, float]:
@@ -312,13 +352,20 @@ def _filter_years(wide: pd.DataFrame, year_min: int | None, year_max: int | None
     if year_min is None and year_max is None:
         return wide
     low, high = _year_bounds(year_min, year_max)
-    return wide[
-        [
-            column
-            for column in wide.columns
-            if not is_year_column(column) or low <= int(column) <= high
-        ]
+    kept = [
+        column
+        for column in wide.columns
+        if not is_year_column(column) or low <= int(column) <= high
     ]
+    return wide if len(kept) == len(wide.columns) else wide[kept]
 
 
-__all__ = ["FilterValue", "Filters", "Order", "Selection"]
+__all__ = [
+    "FilterValue",
+    "Filters",
+    "Order",
+    "Selection",
+    "native_scalar",
+    "positive_int",
+    "unknown_filter_column",
+]
