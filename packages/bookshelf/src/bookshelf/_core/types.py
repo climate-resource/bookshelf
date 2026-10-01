@@ -37,6 +37,8 @@ class ApiRequest:
     form_body: dict[str, str] | None = None
     content: bytes | None = None
     absolute_url: str | None = None
+    expensive: bool = False
+    """The server may do heavy work for this request, so it is never replayed after a failure there."""
 
     @property
     def target(self) -> str:
@@ -55,11 +57,15 @@ class ApiRequest:
 
 @dataclass(frozen=True, slots=True)
 class ApiResponse:
-    """The transport-independent result of executing an :class:`ApiRequest`."""
+    """The transport-independent result of executing an :class:`ApiRequest`.
+
+    ``url`` is the URL that answered, without its query string, so an error can name it safely.
+    """
 
     status_code: int
     headers: dict[str, str]
     content: bytes
+    url: str | None = None
 
     @property
     def media_type(self) -> str:

@@ -58,7 +58,12 @@ def set_api_url(value: str | None) -> None:
 
 def base_url() -> str:
     """Resolve the deployment to act against, honouring the top-level ``--api-url``."""
-    return resolve_base_url(_api_url)
+    try:
+        return resolve_base_url(_api_url)
+    except errors.ConfigurationError as exc:
+        # Some commands resolve the URL before entering command_errors.
+        note(f"Error: {exc}")
+        raise typer.Exit(code=EXIT_USAGE) from exc
 
 
 def requested_api_url() -> str | None:
@@ -201,9 +206,12 @@ def _exit_code_for(exc: errors.BookshelfError) -> int:
         return EXIT_FORBIDDEN
     if isinstance(exc, errors.NotFoundError):
         return EXIT_NOT_FOUND
-    if isinstance(exc, errors.ServerError | errors.TransportError):
+    if isinstance(
+        exc,
+        errors.ServerError | errors.TransportError | errors.RateLimitError | errors.GatewayError,
+    ):
         return EXIT_NETWORK
-    if isinstance(exc, errors.RequestValidationError):
+    if isinstance(exc, errors.RequestValidationError | errors.ConfigurationError):
         return EXIT_USAGE
     return EXIT_UNEXPECTED
 
@@ -257,7 +265,11 @@ def command_errors() -> Generator[None]:
         raise typer.Exit(code=exc.exit_code) from exc
     except errors.BookshelfError as exc:
         exit_code = _exit_code_for(exc)
-        detail = exc.detail if isinstance(exc, errors.APIError) else str(exc)
+        # Without a problem document the request it failed on is the most useful context.
+        if isinstance(exc, errors.APIError) and exc.problem is not None:
+            detail = exc.detail
+        else:
+            detail = str(exc)
         note(f"Error: {detail}")
         remedy = _remedy_for(exit_code)
         if remedy is not None:

@@ -5,10 +5,12 @@ so both client surfaces fail identically.
 """
 
 import json
+from http import HTTPStatus
 from typing import Any
 
 from pydantic import ValidationError as PydanticValidationError
 
+from bookshelf._core.retry import RATE_LIMITED, parse_retry_after
 from bookshelf._core.types import ApiResponse
 from bookshelf._generated import models
 
@@ -21,6 +23,10 @@ class BookshelfError(Exception):
 
 class TransportError(BookshelfError):
     """A network-level failure with no HTTP response (after transient retries)."""
+
+
+class ConfigurationError(BookshelfError):
+    """A setting such as the API URL is malformed."""
 
 
 class AuthConfigurationError(BookshelfError):
@@ -124,6 +130,40 @@ class ServerError(APIError):
     """Raised on HTTP 5xx responses (after transient retries)."""
 
 
+class RateLimitError(APIError):
+    """Raised on HTTP 429 responses (after waiting out the retries the server allowed).
+
+    Attributes:
+        retry_after: Seconds the server asked the client to wait, when it said.
+    """
+
+    def __init__(
+        self,
+        detail: str,
+        *,
+        status_code: int = RATE_LIMITED,
+        retry_after: float | None = None,
+        problem: models.Problem | None = None,
+        request_method: str | None = None,
+        request_url: str | None = None,
+    ) -> None:
+        super().__init__(
+            detail,
+            status_code=status_code,
+            problem=problem,
+            request_method=request_method,
+            request_url=request_url,
+        )
+        self.retry_after = retry_after
+
+
+class GatewayError(APIError):
+    """A proxy or CDN in front of the API refused the request with a non-JSON error page.
+
+    The request may never have reached the API, so the status says nothing about the data.
+    """
+
+
 class OAuthProtocolError(APIError):
     """An OAuth ``{"error": ...}`` body from the agent authorization server.
 
@@ -172,19 +212,51 @@ def _parse_problem(response: ApiResponse) -> models.Problem | None:
         return None
 
 
-def _fallback_detail(response: ApiResponse) -> str:
-    """Best-effort detail for non-problem error bodies (e.g. FastAPI 422 or a bare proxy 502)."""
+_NOT_JSON = object()
+
+
+def _json_body(response: ApiResponse) -> Any:
+    if response.media_type == "text/html":
+        return _NOT_JSON
     try:
-        body = json.loads(response.content)
+        return json.loads(response.content)
     except ValueError:
-        return response.content.decode("utf-8", errors="replace")[:200] or "no response body"
+        return _NOT_JSON
+
+
+def _non_json_detail(response: ApiResponse) -> str:
+    """Describe a body that is not JSON by its status and type, since it is usually a proxy page."""
+    try:
+        status = f"HTTP {response.status_code} {HTTPStatus(response.status_code).phrase}"
+    except ValueError:
+        status = f"HTTP {response.status_code}"
+    if not response.content:
+        return f"{status} with an empty body"
+    return f"{status} with a {response.media_type or 'untyped'} body"
+
+
+def _json_detail(body: Any) -> str:
+    """Best-effort detail for JSON bodies that are not problem documents (e.g. FastAPI's own 422)."""
     if isinstance(body, dict):
         detail = body.get("detail")
         if isinstance(detail, str):
             return detail
+        if isinstance(detail, list):
+            return _describe_field_errors(detail) or json.dumps(detail)[:200]
         if detail is not None:
-            return json.dumps(detail)
+            return json.dumps(detail)[:200]
     return json.dumps(body)[:200]
+
+
+def _describe_field_errors(field_errors: list[Any]) -> str:
+    described = []
+    for error in field_errors:
+        if isinstance(error, dict) and "msg" in error:
+            location = ".".join(str(part) for part in error.get("loc") or ())
+            described.append(f"{location}: {error['msg']}" if location else str(error["msg"]))
+        else:
+            described.append(json.dumps(error))
+    return ", ".join(described)
 
 
 def error_from_response(
@@ -199,18 +271,41 @@ def error_from_response(
     ``declared`` is whether the op's contract lists this status.
     An undeclared status maps to :class:`UnexpectedResponseError`
     so contract drift surfaces loudly instead of masquerading as a domain error.
+    A body that is not JSON came from something in front of the API,
+    so its status maps without consulting the contract, and the body itself is never quoted.
     """
+    status_code = response.status_code
     problem = _parse_problem(response)
-    detail = problem.detail if problem is not None else _fallback_detail(response)
-    if response.status_code >= 500:
+    body = None if problem is not None else _json_body(response)
+    is_json = body is not _NOT_JSON
+    if problem is not None:
+        detail = problem.detail
+    elif is_json:
+        detail = _json_detail(body)
+    else:
+        detail = _non_json_detail(response)
+    request_url = response.url or request_url
+    if status_code == RATE_LIMITED:
+        return RateLimitError(
+            detail,
+            retry_after=parse_retry_after(response.headers.get("retry-after")),
+            problem=problem,
+            request_method=request_method,
+            request_url=request_url,
+        )
+    if status_code >= 500:
         exc_type: type[APIError] = ServerError
-    elif declared and response.status_code in _ERROR_BY_STATUS:
-        exc_type = _ERROR_BY_STATUS[response.status_code]
+    elif not is_json:
+        exc_type = AuthenticationError if status_code == 401 else GatewayError
+    elif declared and status_code in _ERROR_BY_STATUS:
+        exc_type = _ERROR_BY_STATUS[status_code]
     else:
         exc_type = UnexpectedResponseError
+    if exc_type is RequestValidationError and problem is not None and problem.errors:
+        detail = f"{detail}: {_describe_field_errors(problem.errors)}"
     return exc_type(
         detail,
-        status_code=response.status_code,
+        status_code=status_code,
         problem=problem,
         request_method=request_method,
         request_url=request_url,

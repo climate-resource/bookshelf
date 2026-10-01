@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 import httpx
 
 from bookshelf._core.auth import StaticToken
+from bookshelf._core.errors import ConfigurationError
 
 PRODUCTION_API_URL = "https://bookshelf.climateresource.com.au"
 PRODUCTION_API_HOST = urlparse(PRODUCTION_API_URL).hostname or ""
@@ -41,6 +42,7 @@ def resolve_base_url(base_url: str | None) -> str:
     The argument wins, then ``$BOOKSHELF_URL`` (canonical),
     then ``$BOOKSHELF_API_URL`` (accepted alias), then ``DEFAULT_API_URL``.
     The result never carries a trailing slash.
+    A value that is not an http or https URL with a host raises :class:`ConfigurationError`.
     ``$BOOKSHELF_REMOTE`` named the 0.4 S3 bucket and has no effect here, so setting it warns.
     """
     if os.environ.get("BOOKSHELF_REMOTE"):
@@ -49,12 +51,19 @@ def resolve_base_url(base_url: str | None) -> str:
             "set BOOKSHELF_URL to choose a deployment",
             stacklevel=2,
         )
-    return (
+    resolved = (
         base_url
         or os.environ.get("BOOKSHELF_URL")
         or os.environ.get("BOOKSHELF_API_URL")
         or DEFAULT_API_URL
     ).rstrip("/")
+    parsed = urlparse(resolved)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise ConfigurationError(
+            f"invalid Bookshelf API URL {resolved!r}: "
+            "BOOKSHELF_URL (or base_url) needs an http:// or https:// URL with a host"
+        )
+    return resolved
 
 
 def resolve_auth(auth: httpx.Auth | str | None) -> httpx.Auth | None:

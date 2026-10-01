@@ -477,7 +477,7 @@ def test_5xx_maps_to_server_error_with_fallback_detail() -> None:
     with pytest.raises(errors.ServerError) as excinfo:
         ops.parse_get_book(response)
     assert excinfo.value.status_code == 502
-    assert excinfo.value.detail == "no response body"
+    assert excinfo.value.detail == "HTTP 502 Bad Gateway with an empty body"
 
 
 def test_fastapi_validation_body_falls_back_to_detail_field() -> None:

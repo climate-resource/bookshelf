@@ -45,6 +45,14 @@ def _staged(path: Path) -> Iterator[Path]:
         temporary.unlink(missing_ok=True)
 
 
+def _ensure_directory(path: Path) -> None:
+    """Create ``path`` and its parents, raising a ``BookshelfError`` when something else is in the way."""
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except (FileExistsError, NotADirectoryError) as exc:
+        raise BookshelfError(f"cache directory {path} is not usable: {exc.strerror}") from exc
+
+
 def default_cache_dir() -> Path:
     """Return the cache directory: ``$BOOKSHELF_CACHE_DIR``, or the platform default.
 
@@ -129,7 +137,7 @@ class ContentCache:
     def __init__(self, base_dir: Path | None = None, *, max_bytes: int = DEFAULT_MAX_BYTES) -> None:
         self.base_dir = Path(base_dir) if base_dir is not None else default_cache_dir()
         self.max_bytes = max_bytes
-        self.base_dir.mkdir(parents=True, exist_ok=True)
+        _ensure_directory(self.base_dir)
         self._metadata = MetadataCache(self.base_dir / "metadata")
 
     def get(self, content_hash: str) -> Path | None:
@@ -188,6 +196,8 @@ class ContentCache:
     def stage(self, content_hash: str) -> Iterator[Path]:
         """Yield a unique staging path and atomically commit it on success."""
         path = self._path_for(content_hash)
+        # The directory can be removed under a live cache, so every write recreates it.
+        _ensure_directory(self.base_dir)
         with _staged(path) as temporary:
             yield temporary
         # The entry just committed survives even over the cap, so the caller can still read it.
@@ -219,13 +229,15 @@ class ContentCache:
     def _lock_path(self, content_hash: str) -> Path:
         # Lock files are never removed, because unlinking one another process holds breaks the lock.
         locks = self.base_dir / ".locks"
-        locks.mkdir(exist_ok=True)
+        _ensure_directory(locks)
         return locks / f"{self._path_for(content_hash).name}.lock"
 
     def _entries(self) -> list[Path]:
         # Only digest-named files count as entries.
         # Prune and clear therefore never touch foreign files
         # in a user-supplied cache directory.
+        if not self.base_dir.is_dir():
+            return []
         return [
             path for path in self.base_dir.iterdir() if path.is_file() and _is_digest(path.name)
         ]

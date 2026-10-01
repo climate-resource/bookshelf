@@ -8,7 +8,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from filelock import FileLock
 
+from bookshelf import BookshelfError
 from bookshelf._core import credentials
 from bookshelf._core.credentials import (
     CredentialKind,
@@ -315,3 +317,18 @@ def test_a_login_sets_an_unreadable_file_aside_rather_than_overwriting_it(path: 
     loaded = FileCredentialStore(path).load()
     assert loaded is not None
     assert loaded.access_token == "tok"
+
+
+def test_a_held_lock_times_out_instead_of_hanging(
+    path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(credentials, "LOCK_TIMEOUT", 0.1)
+    store = FileCredentialStore(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    with (
+        FileLock(path.with_name(f"{path.name}.lock")),
+        pytest.raises(BookshelfError, match="credentials.json.lock"),
+    ):
+        # A second lock object in one process behaves like another process holding the file.
+        login(store, "t1")

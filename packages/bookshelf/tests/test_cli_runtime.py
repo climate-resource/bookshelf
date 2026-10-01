@@ -5,7 +5,9 @@ from datetime import UTC, datetime
 
 import pytest
 import typer
+from typer.testing import CliRunner
 
+from bookshelf._cli import app
 from bookshelf._cli._runtime import command_errors, emit_document, emit_payload, iso
 from bookshelf._core import errors
 
@@ -21,6 +23,9 @@ from bookshelf._core import errors
         (errors.TransportError("refused"), 6),
         (errors.ConflictError("clash", status_code=409), 1),
         (errors.UnexpectedResponseError("odd", status_code=418), 1),
+        (errors.RateLimitError("slow down", status_code=429), 6),
+        (errors.GatewayError("blocked", status_code=403), 6),
+        (errors.ConfigurationError("bad url"), 2),
     ],
 )
 def test_exit_code_table(exc: errors.BookshelfError, expected: int) -> None:
@@ -105,3 +110,29 @@ def test_an_env_token_refusal_names_the_env_token_remedy(
     err = capsys.readouterr().err
     assert "$BOOKSHELF_TOKEN" in err
     assert "auth login" not in err
+
+
+def test_an_error_without_a_problem_names_the_request(capsys: pytest.CaptureFixture[str]) -> None:
+    exc = errors.ServerError(
+        "HTTP 502 Bad Gateway with a text/html body",
+        status_code=502,
+        request_method="GET",
+        request_url="https://bookshelf.test/v1/books",
+    )
+    with pytest.raises(typer.Exit), command_errors():
+        raise exc
+    assert "GET https://bookshelf.test/v1/books" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("command", [["search"], ["auth", "login", "--agent"]])
+@pytest.mark.parametrize("url", ["not-a-url", "ftp://x"])
+def test_a_malformed_api_url_is_a_usage_error(
+    monkeypatch: pytest.MonkeyPatch, command: list[str], url: str
+) -> None:
+    monkeypatch.setenv("BOOKSHELF_URL", url)
+
+    result = CliRunner().invoke(app, command)
+
+    assert result.exit_code == 2
+    assert "BOOKSHELF_URL" in result.stderr
+    assert result.exception is None or isinstance(result.exception, SystemExit)

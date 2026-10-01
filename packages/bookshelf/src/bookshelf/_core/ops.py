@@ -537,7 +537,9 @@ FAIL_PREVIEW = _op(
 
 def _segment(value: str | UUID) -> str:
     """Quote a path parameter as a single segment, so reserved characters cannot reshape the target."""
-    return quote(str(value), safe="")
+    quoted = quote(str(value), safe="")
+    # A bare dot segment would be resolved away, landing on the parent route.
+    return quoted.replace(".", "%2E") if quoted in (".", "..") else quoted
 
 
 def _json_body(model: BaseModel) -> Any:
@@ -676,6 +678,7 @@ def build_query_resource_data(
         path=QUERY_RESOURCE_DATA.path_template.format(tracking_id=_segment(tracking_id)),
         params=params,
         headers=headers,
+        expensive=True,
     )
 
 
@@ -721,6 +724,7 @@ def build_get_book_resource_timeseries(
             resource_name=_segment(resource_name),
         ),
         params=params,
+        expensive=True,
     )
 
 
@@ -745,6 +749,7 @@ def build_get_book_resource_facets(
             resource_name=_segment(resource_name),
         ),
         params=params,
+        expensive=True,
     )
 
 
@@ -767,6 +772,7 @@ def build_get_book_resource_preview(
             resource_name=_segment(resource_name),
         ),
         params=_params(limit=limit, offset=offset),
+        expensive=True,
     )
 
 
@@ -789,6 +795,7 @@ def build_get_book_resource_schema(
             resource_name=_segment(resource_name),
         ),
         params=_params(limit=limit, offset=offset),
+        expensive=True,
     )
 
 
