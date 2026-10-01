@@ -128,6 +128,7 @@ Each entry offers several shapes of the same resource:
 - `as_scmrun()` returns an `scmdata.ScmRun`, like `timeseries()` did.
 - `as_df()` returns a wide pandas frame, indexed by the metadata columns, with one column per year.
   The year columns are strings such as `"1750"`.
+  Pass `int_years=True` to label them as integers instead.
 - `as_long_df()` returns a tidy frame with integer `year` and a `value` column.
 - `as_polars()`, `as_arrow()`, `preview()` and `download()` are new.
 

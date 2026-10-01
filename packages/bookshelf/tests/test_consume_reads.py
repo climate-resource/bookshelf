@@ -364,6 +364,30 @@ def test_drop_constant_needs_a_timeseries(tmp_path: Path) -> None:
         resource.preview(drop_constant=True)
 
 
+@pytest.mark.parametrize("server_side", [False, True])
+def test_int_years_labels_the_year_columns_as_integers(tmp_path: Path, server_side: bool) -> None:
+    bs, _ = _shelf(tmp_path)
+    resource = bs.resource(TRACKING_ID)
+
+    frame = resource.as_df(year_min=2001, order="-2001", server_side=server_side, int_years=True)
+
+    assert list(frame.columns) == [2001]
+    assert frame[2001].tolist() == [3.5, 2.5, 1.5]
+    pd.testing.assert_frame_equal(
+        frame, resource.as_df(year_min=2001, order="-2001").set_axis([2001], axis=1)
+    )
+
+
+def test_int_years_needs_a_timeseries(tmp_path: Path) -> None:
+    bs, seen = _shelf(tmp_path)
+    resource = bs.resource(TRACKING_ID)
+    resource._resource_type = models.ResourceType.tabular
+
+    with pytest.raises(UnsupportedConversionError):
+        resource.as_df(int_years=True)
+    assert not any(request.url.host == "s3.example" for request in seen)
+
+
 def test_an_external_pointer_is_selected_by_the_platform(tmp_path: Path) -> None:
     """The platform reads an external pointer where it lives, which a presigned fetch cannot."""
     bs, seen = _shelf(tmp_path, external=True)
@@ -389,11 +413,13 @@ async def test_the_async_reads_match_the_sync_ones(tmp_path: Path) -> None:
         entry = book["by_country"]
         local = await entry.as_df(filters={"region": "AUS"})
         remote = await entry.as_df(filters={"region": "AUS"}, server_side=True)
+        years = await entry.as_df(filters={"region": "AUS"}, int_years=True)
         preview = await entry.preview(limit=1)
         info = await entry.describe()
 
     pd.testing.assert_frame_equal(local, expected)
     pd.testing.assert_frame_equal(remote, expected, check_like=True)
+    assert list(years.columns) == [2000, 2001]
     assert preview.completeness == "partial"
     assert info.type is models.ResourceType.timeseries
 

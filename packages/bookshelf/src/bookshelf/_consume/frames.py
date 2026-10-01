@@ -50,6 +50,11 @@ def wide_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
     return frame
 
 
+def int_year_columns(wide: pd.DataFrame) -> pd.DataFrame:
+    """Relabel a shaped wide frame's year columns as integers."""
+    return wide.rename(columns=lambda column: int(column) if is_year_column(column) else column)
+
+
 def long_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
     """Normalize long or wide timeseries data to tidy pandas."""
     if {"year", "value"} <= set(frame.columns):
@@ -117,6 +122,7 @@ def arrow_converter() -> Callable[[pd.DataFrame], pa.Table]:
 __all__ = [
     "arrow_converter",
     "drop_constant_dimensions",
+    "int_year_columns",
     "is_year_column",
     "legacy_long_timeseries",
     "long_timeseries",
