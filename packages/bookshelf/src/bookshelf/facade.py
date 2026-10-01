@@ -185,7 +185,7 @@ class Bookshelf:
                 Left out, credentials come from the environment or a stored login.
             timeout: Seconds to wait for each request.
             book_ttl: Seconds a remembered pinned edition is trusted before it is checked again.
-                Left out, ``$BOOKSHELF_CACHE_BOOK_TTL`` or one day.
+                Left out, ``$BOOKSHELF_CACHE_BOOK_TTL`` or one hour.
             cache: Where downloads and remembered records are kept.
                 Left out, ``$BOOKSHELF_CACHE_DIR`` or the platform cache directory.
         """
@@ -449,16 +449,25 @@ class Bookshelf:
         """
         return self._client.correct_book(book_id, request)
 
-    def book(self, volume: str, version: str, *, edition: int | None = None) -> Book:
+    def book(
+        self, volume: str, version: str, *, edition: int | None = None, refresh: bool = False
+    ) -> Book:
         """Resolve a published Book, defaulting to the latest edition.
 
         A pinned edition is remembered on disk, so resolving it again makes no request
         until ``book_ttl`` seconds have passed.
-        After that one request checks it is still published before it is trusted again.
+        After that one request checks it is still published and refreshes its metadata and visibility.
+        ``refresh=True`` skips what is remembered and resolves the edition and its entries afresh.
         The latest edition is always asked for, because a newer one may have been published.
         """
         return resolve_book(
-            self._client, self._cache, volume, version, edition, book_ttl=self._book_ttl
+            self._client,
+            self._cache,
+            volume,
+            version,
+            edition,
+            book_ttl=self._book_ttl,
+            refresh=refresh,
         )
 
 
@@ -488,7 +497,7 @@ class AsyncBookshelf:
                 Left out, credentials come from the environment or a stored login.
             timeout: Seconds to wait for each request.
             book_ttl: Seconds a remembered pinned edition is trusted before it is checked again.
-                Left out, ``$BOOKSHELF_CACHE_BOOK_TTL`` or one day.
+                Left out, ``$BOOKSHELF_CACHE_BOOK_TTL`` or one hour.
             cache: Where downloads and remembered records are kept.
                 Left out, ``$BOOKSHELF_CACHE_DIR`` or the platform cache directory.
         """
@@ -744,13 +753,20 @@ class AsyncBookshelf:
         version: str,
         *,
         edition: int | None = None,
+        refresh: bool = False,
     ) -> AsyncBook:
         """Resolve a published async Book, defaulting to the latest edition.
 
         The asynchronous twin of [`Bookshelf.book`][bookshelf.Bookshelf.book], with the same memoisation.
         """
         return await resolve_book_async(
-            self._client, self._cache, volume, version, edition, book_ttl=self._book_ttl
+            self._client,
+            self._cache,
+            volume,
+            version,
+            edition,
+            book_ttl=self._book_ttl,
+            refresh=refresh,
         )
 
 

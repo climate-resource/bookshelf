@@ -133,7 +133,9 @@ class _VolumeBase(Describable):
 class Volume(_VolumeBase):
     """A volume indexed by version, resolving each into a published Book."""
 
-    def book(self, version: str | None = None, *, edition: int | None = None) -> Book:
+    def book(
+        self, version: str | None = None, *, edition: int | None = None, refresh: bool = False
+    ) -> Book:
         """Resolve one published Book, defaulting to the newest version and edition."""
         return resolve_book(
             self._client,
@@ -142,6 +144,7 @@ class Volume(_VolumeBase):
             self._resolve(version),
             edition,
             book_ttl=self._book_ttl,
+            refresh=refresh,
         )
 
     def __getitem__(self, version: str) -> Book:
@@ -156,7 +159,9 @@ class AsyncVolume(_VolumeBase):
     # An index cannot be awaited, so the hint names the coroutine.
     _access = 'await volume.book("{version}")'
 
-    async def book(self, version: str | None = None, *, edition: int | None = None) -> AsyncBook:
+    async def book(
+        self, version: str | None = None, *, edition: int | None = None, refresh: bool = False
+    ) -> AsyncBook:
         """Resolve one published Book, defaulting to the newest version and edition."""
         return await resolve_book_async(
             self._client,
@@ -165,6 +170,7 @@ class AsyncVolume(_VolumeBase):
             self._resolve(version),
             edition,
             book_ttl=self._book_ttl,
+            refresh=refresh,
         )
 
 

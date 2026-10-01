@@ -3,6 +3,7 @@
 A resource's hash and type are fixed for its lifetime.
 A published edition's identity and entry list are fixed too, unless it is retracted,
 so a remembered edition is trusted for a while and then checked with one request.
+Its metadata and visibility can be corrected, so that check refreshes them.
 Records are scoped by server, because ids differ between deployments.
 """
 
@@ -20,7 +21,7 @@ from bookshelf._core.names import flatten_to_resource_name
 from bookshelf._generated import models
 from bookshelf.cache import ContentCache
 
-DEFAULT_BOOK_TTL = 24 * 60 * 60.0
+DEFAULT_BOOK_TTL = 60 * 60.0
 _CONTENT_HASH = re.compile(r"^sha256:[0-9a-fA-F]{64}$")
 
 
@@ -37,7 +38,7 @@ def book_ttl(value: float) -> float:
 def default_book_ttl() -> float:
     """Seconds a remembered book edition is trusted before it is checked again.
 
-    ``$BOOKSHELF_CACHE_BOOK_TTL`` overrides the one day default.
+    ``$BOOKSHELF_CACHE_BOOK_TTL`` overrides the one hour default.
     """
     override = os.environ.get("BOOKSHELF_CACHE_BOOK_TTL")
     if not override:
@@ -129,13 +130,6 @@ def remembered_book(
     return RememberedBook(book, entries, stale=age > ttl)
 
 
-def confirm_book(
-    cache: ContentCache, client: BookshelfClient, volume: str, version: str, edition: int
-) -> None:
-    """Restart the trust window of a remembered edition the platform still publishes."""
-    cache._metadata.touch(_book_key(client, volume, version, edition))
-
-
 def forget_book(
     cache: ContentCache, client: BookshelfClient, volume: str, version: str, edition: int
 ) -> None:
@@ -165,7 +159,6 @@ __all__ = [
     "DEFAULT_BOOK_TTL",
     "RememberedBook",
     "book_ttl",
-    "confirm_book",
     "default_book_ttl",
     "forget_book",
     "remember_book",
