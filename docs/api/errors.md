@@ -34,6 +34,7 @@ Its 4xx raises `GatewayError` and its 5xx raises `ServerError`.
 The message names the status and the URL, never the page.
 
 A malformed `BOOKSHELF_URL` or `base_url` raises `ConfigurationError`.
+A cache directory blocked by a file raises `CacheDirectoryError`, which is also an `OSError`.
 
 ## Retries
 
@@ -83,6 +84,8 @@ The client retries a request a few times before it raises, backing off with jitt
 ::: bookshelf.AuthConfigurationError
 
 ::: bookshelf.ConfigurationError
+
+::: bookshelf.CacheDirectoryError
 
 ::: bookshelf.ActionsTokenError
 

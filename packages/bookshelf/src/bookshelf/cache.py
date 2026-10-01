@@ -45,12 +45,19 @@ def _staged(path: Path) -> Iterator[Path]:
         temporary.unlink(missing_ok=True)
 
 
+class CacheDirectoryError(BookshelfError, OSError):
+    """The cache directory cannot be created, because a file is in the way."""
+
+    def __str__(self) -> str:
+        return f"cache directory {self.filename} is not usable: {self.strerror}"
+
+
 def _ensure_directory(path: Path) -> None:
-    """Create ``path`` and its parents, raising a ``BookshelfError`` when something else is in the way."""
+    """Create ``path`` and its parents, raising `CacheDirectoryError` when a file is in the way."""
     try:
         path.mkdir(parents=True, exist_ok=True)
     except (FileExistsError, NotADirectoryError) as exc:
-        raise BookshelfError(f"cache directory {path} is not usable: {exc.strerror}") from exc
+        raise CacheDirectoryError(exc.errno, exc.strerror, str(path)) from exc
 
 
 def default_cache_dir() -> Path:
@@ -299,6 +306,7 @@ class ContentCache:
 
 
 __all__ = [
+    "CacheDirectoryError",
     "CacheSummary",
     "ContentCache",
     "DEFAULT_MAX_BYTES",
