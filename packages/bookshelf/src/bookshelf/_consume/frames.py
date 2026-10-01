@@ -49,7 +49,7 @@ def wide_timeseries(frame: pd.DataFrame, coded: Collection[str] = ()) -> pd.Data
     dimensions = [column for column in frame.columns if not is_year_column(column)]
     if not dimensions:
         return frame
-    if not coded or not frame.columns.is_unique:
+    if not coded:
         return frame.set_index(dimensions)
     index = _dimension_index(frame, dimensions, coded)
     # Deleting from the shallow copy, unlike drop(), spares pandas 2 a copy of every year column.

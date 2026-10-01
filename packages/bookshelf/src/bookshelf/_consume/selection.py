@@ -199,12 +199,15 @@ def _dictionary_columns(
     """Name the text dimensions a wide file can build its index from as dictionary codes.
 
     A single dimension makes a flat index, which ``set_index`` builds cheaply.
-    pandas metadata or a stored dictionary would make pandas pick a dtype the codes cannot reproduce.
+    pandas metadata or a stored dictionary would make pandas pick a dtype the codes cannot reproduce,
+    and repeated labels leave the frame to ``set_index``.
     """
     import pyarrow as pa
 
     dimensions = [field for field in schema if not is_year_column(year_label(field.name))]
     if len(dimensions) < 2 or schema.pandas_metadata is not None:
+        return None
+    if len({year_label(name) for name in schema.names}) < len(schema.names):
         return None
     if any(pa.types.is_dictionary(field.type) for field in dimensions):
         return None

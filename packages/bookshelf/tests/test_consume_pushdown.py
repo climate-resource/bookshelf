@@ -60,6 +60,11 @@ SPARSE = pd.DataFrame(
 
 SINGLE = pd.DataFrame({"region": ["NZL", "AUS", None], "2000-01-01": [1.0, 2.0, 3.0]})
 
+# Both year columns shape to "2000", so the shaped frame repeats a label.
+REPEATED_YEAR = pd.DataFrame(
+    {"region": ["NZL", "AUS"], "model": ["m", "n"], "2000-01-01": [1.0, 2.0], "2000": [3.0, 4.0]}
+)
+
 TABLE = pd.DataFrame(
     {
         "code": ["NA", "NZ", None, "AU"],
@@ -99,6 +104,7 @@ CASES: list[tuple[models.ResourceType, pd.DataFrame, dict[str, Any]]] = [
     (TIMESERIES, SPARSE, {"filters": {"quantile": None}, "year_max": 2000}),
     (TIMESERIES, SINGLE, {}),
     (TIMESERIES, SINGLE, {"filters": {"region": "NZL"}}),
+    (TIMESERIES, REPEATED_YEAR, {}),
     (TIMESERIES, LONG, {"filters": {"region": "AUS"}, "year_min": 2001}),
     (TIMESERIES, LONG_UNEVEN, {"filters": {"region": "NZL"}}),
     (TABULAR, TABLE, {"filters": {"code": "NA"}}),
