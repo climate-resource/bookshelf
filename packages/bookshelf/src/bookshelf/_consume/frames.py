@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from typing import TYPE_CHECKING
 
 from bookshelf._core.frames import require_package
@@ -28,14 +28,14 @@ def is_year_column(column: object) -> bool:
     return str(column).isdigit()
 
 
-def wide_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
+def wide_timeseries(frame: pd.DataFrame, coded: Collection[str] = ()) -> pd.DataFrame:
     """Normalise long or wide timeseries data to indexed wide pandas with string year labels.
 
     A stored wide file stamps each year column with a full date,
     so those are reduced to the bare year first.
+    ``coded`` names text dimensions read as dictionaries, whose codes build the index directly.
+    The result then shares its year columns with ``frame``.
     """
-    import pandas as pd
-
     if {"year", "value"} <= set(frame.columns):
         dimensions = [column for column in frame.columns if column not in {"year", "value"}]
         if not dimensions:
@@ -49,9 +49,9 @@ def wide_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
     dimensions = [column for column in frame.columns if not is_year_column(column)]
     if not dimensions:
         return frame
-    if not any(isinstance(frame[column].dtype, pd.CategoricalDtype) for column in dimensions):
+    if not coded or not frame.columns.is_unique:
         return frame.set_index(dimensions)
-    index = _dimension_index(frame, dimensions)
+    index = _dimension_index(frame, dimensions, coded)
     # Deleting from the shallow copy, unlike drop(), spares pandas 2 a copy of every year column.
     for column in dimensions:
         del frame[column]
@@ -59,7 +59,9 @@ def wide_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
     return frame
 
 
-def _dimension_index(frame: pd.DataFrame, dimensions: list[str]) -> pd.MultiIndex:
+def _dimension_index(
+    frame: pd.DataFrame, dimensions: list[str], coded: Collection[str]
+) -> pd.MultiIndex:
     """Build the index ``set_index`` would, reusing categorical codes instead of hashing every row."""
     import pandas as pd
 
@@ -67,7 +69,7 @@ def _dimension_index(frame: pd.DataFrame, dimensions: list[str]) -> pd.MultiInde
     codes = []
     for column in dimensions:
         values = frame[column].array
-        if not isinstance(values, pd.Categorical):
+        if column not in coded or not isinstance(values, pd.Categorical):
             values = pd.Categorical(frame[column])
         elif len(categories := values.remove_unused_categories().categories):
             values = values.set_categories(categories.sort_values())

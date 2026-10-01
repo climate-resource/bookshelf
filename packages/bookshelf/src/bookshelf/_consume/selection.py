@@ -156,18 +156,6 @@ class Selection:
                 for name, label in labels.items()
                 if not is_year_column(label) or label in filtered or low <= int(label) <= high
             ]
-        dictionary = None
-        # pandas metadata can restore a text column as another dtype, which a dictionary read would lose.
-        if timeseries and schema.pandas_metadata is None:
-            # pyarrow skips null-only row groups of a dictionary column filtered on being null.
-            null_matched = {column for column, values in self.filters if values == (None,)}
-            dictionary = [
-                field.name
-                for field in schema
-                if not is_year_column(year_label(field.name))
-                and _is_text(field.type)
-                and field.name not in null_matched
-            ]
         rows = None
         for column, values in self.filters:
             # A missing or repeated name is left for apply() to report.
@@ -178,7 +166,8 @@ class Selection:
             condition = _parquet_match(column, schema.field(column).type, values)
             if condition is not None:
                 rows = condition if rows is None else rows & condition
-        return ParquetScan(columns=columns, rows=rows, dictionary=dictionary or None)
+        dictionary = _dictionary_columns(schema, self.filters) if timeseries else None
+        return ParquetScan(columns=columns, rows=rows, dictionary=dictionary)
 
     def apply(self, frame: pd.DataFrame) -> pd.DataFrame:
         """Pick the selected rows and year columns out of a shaped frame, then order them."""
@@ -202,6 +191,31 @@ def _parquet_match(
     if _is_text(data_type):
         return field.isin([wire_text(value) for value in values])
     return None
+
+
+def _dictionary_columns(
+    schema: pa.Schema, filters: tuple[tuple[str, tuple[FilterValue, ...]], ...]
+) -> list[str] | None:
+    """Name the text dimensions a wide file can build its index from as dictionary codes.
+
+    A single dimension makes a flat index, which ``set_index`` builds cheaply.
+    pandas metadata or a stored dictionary would make pandas pick a dtype the codes cannot reproduce.
+    """
+    import pyarrow as pa
+
+    dimensions = [field for field in schema if not is_year_column(year_label(field.name))]
+    if len(dimensions) < 2 or schema.pandas_metadata is not None:
+        return None
+    if any(pa.types.is_dictionary(field.type) for field in dimensions):
+        return None
+    # pyarrow skips null-only row groups of a dictionary column filtered on being null.
+    null_matched = {column for column, values in filters if values == (None,)}
+    names = [
+        field.name
+        for field in dimensions
+        if _is_text(field.type) and field.name not in null_matched
+    ]
+    return names or None
 
 
 def _is_text(data_type: pa.DataType) -> bool:

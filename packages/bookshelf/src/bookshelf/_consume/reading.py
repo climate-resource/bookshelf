@@ -6,7 +6,7 @@ and hands it here to be checked, selected, shaped and summarised.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
@@ -81,12 +81,15 @@ def check_frame_read(
 
 
 def settle_cached(
-    resource_type: models.ResourceType, frame: pd.DataFrame, selection: Selection
+    resource_type: models.ResourceType,
+    frame: pd.DataFrame,
+    selection: Selection,
+    coded: Collection[str] = (),
 ) -> pd.DataFrame:
     """Shape the cached file and apply the selection to it."""
     import pandas as pd
 
-    shaped = shape_frame(resource_type, frame)
+    shaped = shape_frame(resource_type, frame, coded)
     selected = selection.apply(shaped)
     # pyarrow numbers the rows it filtered afresh, so rows pandas filtered are renumbered too.
     picked = bool(selection.filters or selection.order)

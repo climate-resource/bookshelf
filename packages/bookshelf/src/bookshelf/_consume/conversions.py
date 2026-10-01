@@ -6,6 +6,7 @@ The handles themselves only choose how to fetch the data.
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from typing import TYPE_CHECKING
 
 from bookshelf._consume.frames import wide_timeseries
@@ -66,10 +67,12 @@ def explorers_for(resource_type: models.ResourceType | None) -> tuple[str, ...]:
     return _CAPABILITIES.get(resource_type, _NOTHING_BUT_BYTES)[1]
 
 
-def shape_frame(resource_type: models.ResourceType, frame: pd.DataFrame) -> pd.DataFrame:
+def shape_frame(
+    resource_type: models.ResourceType, frame: pd.DataFrame, coded: Collection[str] = ()
+) -> pd.DataFrame:
     """Return timeseries data in wide indexed form and leave other data untouched."""
     if resource_type is models.ResourceType.timeseries:
-        return wide_timeseries(frame)
+        return wide_timeseries(frame, coded)
     return frame
 
 

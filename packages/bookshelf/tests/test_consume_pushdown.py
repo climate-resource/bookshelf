@@ -5,6 +5,7 @@ from typing import Any
 
 import pandas as pd
 import pyarrow as pa
+import pyarrow.compute as pc
 import pyarrow.dataset as ds
 import pyarrow.parquet as pq
 import pytest
@@ -57,6 +58,8 @@ SPARSE = pd.DataFrame(
     }
 ).astype({"harmonised": "string"})
 
+SINGLE = pd.DataFrame({"region": ["NZL", "AUS", None], "2000-01-01": [1.0, 2.0, 3.0]})
+
 TABLE = pd.DataFrame(
     {
         "code": ["NA", "NZ", None, "AU"],
@@ -94,6 +97,8 @@ CASES: list[tuple[models.ResourceType, pd.DataFrame, dict[str, Any]]] = [
     (TIMESERIES, SPARSE, {}),
     (TIMESERIES, SPARSE, {"filters": {"region": "NZL"}}),
     (TIMESERIES, SPARSE, {"filters": {"quantile": None}, "year_max": 2000}),
+    (TIMESERIES, SINGLE, {}),
+    (TIMESERIES, SINGLE, {"filters": {"region": "NZL"}}),
     (TIMESERIES, LONG, {"filters": {"region": "AUS"}, "year_min": 2001}),
     (TIMESERIES, LONG_UNEVEN, {"filters": {"region": "NZL"}}),
     (TABULAR, TABLE, {"filters": {"code": "NA"}}),
@@ -193,6 +198,29 @@ def test_a_wide_read_keeps_the_text_dimensions_as_dictionaries() -> None:
     assert scan.dictionary == ["region", "quantile", "harmonised"]
     tabular = Selection.build(None, year_min=None, year_max=None).parquet_scan(TABULAR, schema)
     assert tabular.dictionary is None, "a tabular frame would hand the categoricals back"
+
+
+def test_only_a_multi_level_index_is_built_from_dictionaries() -> None:
+    schema = pa.Schema.from_pandas(SINGLE, preserve_index=False).remove_metadata()
+
+    scan = Selection.build(None, year_min=None, year_max=None).parquet_scan(TIMESERIES, schema)
+
+    assert scan.dictionary is None, (
+        "one dimension makes a flat index, which set_index builds cheaply"
+    )
+
+
+def test_a_stored_dictionary_column_keeps_its_categorical_level(tmp_path: Path) -> None:
+    table = pa.Table.from_pandas(SPARSE, preserve_index=False).replace_schema_metadata(None)
+    table = table.set_column(0, "region", pc.dictionary_encode(table["region"]))
+    path = tmp_path / "resource"
+    pq.write_table(table, path)
+    selection = Selection.build(None, year_min=None, year_max=None)
+
+    assert selection.parquet_scan(TIMESERIES, pq.read_schema(path)).dictionary is None
+    planned = _read_cached(TIMESERIES, path, selection)
+    assert isinstance(planned.index.levels[0], pd.CategoricalIndex)
+    pd.testing.assert_frame_equal(planned, _unplanned(TIMESERIES, path, selection))
 
 
 def test_a_file_with_pandas_metadata_keeps_its_dtypes() -> None:
