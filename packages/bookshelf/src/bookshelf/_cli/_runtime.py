@@ -17,7 +17,7 @@ import typer
 
 from bookshelf._core import errors
 from bookshelf._core.config import resolve_base_url
-from bookshelf._core.resolution import CredentialSource, resolve_credential
+from bookshelf._core.resolution import LOGIN_REMEDY, CredentialSource, resolve_credential
 
 EXIT_OK = 0
 EXIT_UNEXPECTED = 1
@@ -237,7 +237,11 @@ def _forbidden_remedy() -> str:
 
 def _remedy_for(exit_code: int) -> str | None:
     if exit_code == EXIT_AUTH_REQUIRED:
-        return resolve_credential(base_url()).describe().remedy
+        try:
+            return resolve_credential(base_url()).describe().remedy
+        except Exception:
+            # The remedy is a hint, so failing to resolve one must not mask the error being reported.
+            return LOGIN_REMEDY
     if exit_code == EXIT_FORBIDDEN:
         return _forbidden_remedy()
     return None

@@ -75,7 +75,8 @@ def split_coordinate(coordinate: str) -> tuple[str, int | None]:
     if not version or not digits or int(digits) < 1 or f"{int(digits):03d}" != digits:
         raise InvalidReferenceError(
             f"{coordinate!r} has a malformed edition. "
-            "Write it as _eNNN with at least three digits, from _e001"
+            "Write it as _eNNN with at least three digits, from _e001, "
+            "and append one to a version that itself ends in _e and digits"
         )
     return version, int(digits)
 

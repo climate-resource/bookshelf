@@ -54,10 +54,10 @@ def search(
 ) -> None:
     """Search volumes with free text and filters, which combine with AND."""
     with command_errors():
-        filtered = any(
-            (query, topic, keyword, region, publisher, licence, coverage_year, type_)
-        ) or (deprecated is not None)
-        if facets and filtered:
+        filtered = any((topic, keyword, region, publisher, licence, coverage_year, type_)) or (
+            deprecated is not None
+        )
+        if facets and (filtered or query):
             raise CliError(
                 "--facets lists every filter value and takes no query or filters. "
                 "Run 'bookshelf search --facets' on its own.",
@@ -122,7 +122,7 @@ def _emit_facets(catalogue: models.VolumeFacets, json_output: bool) -> None:
 
 
 def show(
-    address: str = typer.Argument(help="volume[@version[_eNNN]][/file]"),
+    address: str = typer.Argument(metavar="ADDRESS", help="volume[@version[_eNNN]][/file]"),
     json_output: bool = typer.Option(False, "--json", help="Emit the description as JSON."),
 ) -> None:
     """Resolve one address and describe what is there, at whatever depth it is given."""

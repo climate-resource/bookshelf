@@ -487,11 +487,11 @@ def _spent(record: StoredCredentials, now: datetime) -> bool:
     """Say whether a record is past use without a fresh login: its token expired with nothing to renew it."""
     if record.expires_at is None or record.expires_at > now:
         return False
-    if record.kind is CredentialKind.AGENT:
-        return record.identity_assertion is None or (
-            record.assertion_expires_at is not None and record.assertion_expires_at <= now
-        )
-    return record.refresh_token is None
+    if record.refresh_token is not None:
+        return False
+    if record.kind is CredentialKind.AGENT and record.identity_assertion is not None:
+        return record.assertion_expires_at is not None and record.assertion_expires_at <= now
+    return True
 
 
 @auth_app.command("switch")

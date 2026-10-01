@@ -378,10 +378,21 @@ def test_list_marks_a_credential_that_can_no_longer_be_renewed() -> None:
         )
     )
 
+    credentials.default_store().save_login(
+        credentials.StoredCredentials(
+            access_token="refreshing-agent",
+            api_url="http://127.0.0.1:7",
+            kind=credentials.CredentialKind.AGENT,
+            subject="agent:c",
+            expires_at=past,
+            refresh_token="refresh",
+        )
+    )
+
     result = runner.invoke(app, ["auth", "list", "--json"])
 
     assert result.exit_code == 0, result.output
     expired = {
         json.loads(line)["id"]: json.loads(line)["expired"] for line in result.stdout.splitlines()
     }
-    assert expired == {"a@example.com": True, "b@example.com": False}
+    assert expired == {"a@example.com": True, "b@example.com": False, "agent:c": False}

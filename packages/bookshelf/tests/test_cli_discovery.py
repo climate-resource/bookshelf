@@ -183,3 +183,22 @@ def test_search_accepts_the_license_spelling(monkeypatch: pytest.MonkeyPatch) ->
     row = _run_json(monkeypatch, "search", "--license", "CC-BY-4.0")
 
     assert row["name"] == payloads.VOLUME["name"]
+
+
+def test_a_free_text_miss_does_not_point_at_facets(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "bookshelf._cli.discovery.BookshelfClient",
+        lambda url: BookshelfClient(
+            url,
+            auth=None,
+            transport=httpx.MockTransport(
+                lambda _request: httpx.Response(200, json=payloads.BOOK_LIST)
+            ),
+        ),
+    )
+    monkeypatch.setenv("BOOKSHELF_URL", API_URL)
+
+    result = runner.invoke(app, ["search", "nothing-like-this"])
+
+    assert result.exit_code == 0, result.output
+    assert "--facets" not in result.stderr
