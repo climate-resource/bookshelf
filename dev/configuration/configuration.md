@@ -54,7 +54,9 @@ Cached content never expires, and the oldest entries are removed once the cache 
 | Variable                   | Effect                                                                                             |
 | -------------------------- | -------------------------------------------------------------------------------------------------- |
 | `BOOKSHELF_CACHE_DIR`      | Moves the local content cache. `BOOKSHELF_CACHE_LOCATION` is accepted as an alias.                 |
-| `BOOKSHELF_CACHE_BOOK_TTL` | Seconds a remembered pinned edition is trusted before it is checked again. The default is one day. |
+| `BOOKSHELF_CACHE_BOOK_TTL` | Seconds a remembered pinned edition is trusted before it is checked again. The default is one hour. |
 
 `book_ttl=` on `Bookshelf` and `AsyncBookshelf` overrides `BOOKSHELF_CACHE_BOOK_TTL` for one client.
+The check also refreshes the edition's metadata and visibility, so `book_ttl=0` always reads them live.
+`book(..., refresh=True)` skips the remembered edition and fetches it and its entries afresh.
 `bookshelf cache` inspects and clears the cache.
