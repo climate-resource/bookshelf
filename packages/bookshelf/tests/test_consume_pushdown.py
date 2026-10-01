@@ -182,3 +182,12 @@ def test_a_cached_read_numbers_its_rows_afresh(tmp_path: Path) -> None:
 
     assert frame.index.tolist() == [0, 1]
     assert frame["count"].tolist() == [4, 2]
+
+
+def test_an_unselected_read_keeps_a_custom_range_index(tmp_path: Path) -> None:
+    path = tmp_path / "resource"
+    TABLE.set_axis(pd.RangeIndex(10, 14)).to_parquet(path)
+
+    frame = _read_cached(TABULAR, path, Selection.build(None, year_min=None, year_max=None))
+
+    assert frame.index.equals(pd.RangeIndex(10, 14))

@@ -89,7 +89,10 @@ def settle_cached(
     shaped = shape_frame(resource_type, frame)
     selected = selection.apply(shaped)
     # pyarrow numbers the rows it filtered afresh, so rows pandas filtered are renumbered too.
-    return selected.reset_index(drop=True) if isinstance(shaped.index, pd.RangeIndex) else selected
+    picked = bool(selection.filters or selection.order)
+    if picked and isinstance(shaped.index, pd.RangeIndex):
+        return selected.reset_index(drop=True)
+    return selected
 
 
 def settle_selected(
