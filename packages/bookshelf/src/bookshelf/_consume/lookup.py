@@ -218,7 +218,12 @@ def resolve_book(
             else:
                 remember_book(cache, client, volume, version, live, remembered.entries)
                 return Book(client, cache, live, remembered.entries)
-    chosen = find_book(client, volume, version, edition)
+    try:
+        chosen = find_book(client, volume, version, edition)
+    except NotFoundError:
+        if edition is not None:
+            forget_book(cache, client, volume, version, edition)
+        raise
     entries = all_entries(client, chosen.id)
     if edition is not None:
         remember_book(cache, client, volume, version, chosen, entries)
@@ -253,7 +258,12 @@ async def resolve_book_async(
                     remember_book, cache, client, volume, version, live, remembered.entries
                 )
                 return AsyncBook(client, cache, live, remembered.entries)
-    chosen = await find_book_async(client, volume, version, edition)
+    try:
+        chosen = await find_book_async(client, volume, version, edition)
+    except NotFoundError:
+        if edition is not None:
+            await asyncio.to_thread(forget_book, cache, client, volume, version, edition)
+        raise
     entries = await all_entries_async(client, chosen.id)
     if edition is not None:
         await asyncio.to_thread(remember_book, cache, client, volume, version, chosen, entries)
