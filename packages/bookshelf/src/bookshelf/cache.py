@@ -106,10 +106,6 @@ class MetadataCache:
         except OSError:
             return None
 
-    def touch(self, key: str) -> None:
-        """Mark the record under ``key`` as freshly confirmed."""
-        self._path_for(key).touch()
-
     def discard(self, key: str) -> None:
         """Remove one record if it exists."""
         self._path_for(key).unlink(missing_ok=True)

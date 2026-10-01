@@ -184,6 +184,76 @@ def test_an_expired_record_is_checked_with_one_request() -> None:
     assert trusted == []
 
 
+def test_an_expired_record_adopts_the_corrected_metadata() -> None:
+    _sync([], [BOOK_PAGE, ENTRIES_PAGE]).book("example", "v1.0.0", edition=2)
+    corrected = dict(BOOK_PUBLISHED, metadata={"maturity": "approved"}, visibility="public")
+
+    checked: list[httpx.Request] = []
+    book = _sync(checked, [corrected], book_ttl=0).book("example", "v1.0.0", edition=2)
+    assert book.metadata.metadata == {"maturity": "approved"}
+    assert book.metadata.visibility.value == "public"
+    assert book.entry_names == ("by_country",)
+
+    trusted: list[httpx.Request] = []
+    again = _sync(trusted, []).book("example", "v1.0.0", edition=2)
+    assert trusted == []
+    assert again.metadata.metadata == {"maturity": "approved"}
+
+
+@pytest.mark.asyncio
+async def test_the_async_surface_adopts_the_corrected_metadata_too() -> None:
+    _sync([], [BOOK_PAGE, ENTRIES_PAGE]).book("example", "v1.0.0", edition=2)
+    corrected = dict(BOOK_PUBLISHED, metadata={"maturity": "approved"})
+
+    bs = AsyncBookshelf(
+        BASE_URL, auth=None, book_ttl=0, async_transport=_transport([], [corrected])
+    )
+    book = await bs.book("example", "v1.0.0", edition=2)
+
+    assert book.metadata.metadata == {"maturity": "approved"}
+
+
+def test_refresh_resolves_a_fresh_record_and_its_entries_again() -> None:
+    _sync([], [BOOK_PAGE, ENTRIES_PAGE]).book("example", "v1.0.0", edition=2)
+    corrected = dict(
+        BOOK_PAGE, items=[dict(BOOK_PAGE["items"][0], metadata={"maturity": "approved"})]
+    )
+    more = dict(
+        ENTRIES_PAGE,
+        items=[*ENTRIES_PAGE["items"], dict(ENTRIES_PAGE["items"][0], name_in_book="extra")],
+    )
+
+    checked: list[httpx.Request] = []
+    book = _sync(checked, [corrected, more]).book("example", "v1.0.0", edition=2, refresh=True)
+
+    assert [request.url.path for request in checked] == [
+        "/v1/books",
+        f"/v1/books/{BOOK_ID}/entries",
+    ]
+    assert book.metadata.metadata == {"maturity": "approved"}
+    assert book.entry_names == ("by_country", "extra")
+
+    trusted: list[httpx.Request] = []
+    again = _sync(trusted, []).book("example", "v1.0.0", edition=2)
+    assert trusted == []
+    assert again.entry_names == ("by_country", "extra")
+
+
+@pytest.mark.asyncio
+async def test_the_async_surface_refreshes_too() -> None:
+    _sync([], [BOOK_PAGE, ENTRIES_PAGE]).book("example", "v1.0.0", edition=2)
+
+    checked: list[httpx.Request] = []
+    await _async(checked, [BOOK_PAGE, ENTRIES_PAGE]).book(
+        "example", "v1.0.0", edition=2, refresh=True
+    )
+
+    assert [request.url.path for request in checked] == [
+        "/v1/books",
+        f"/v1/books/{BOOK_ID}/entries",
+    ]
+
+
 @pytest.mark.parametrize(
     "answer",
     [
@@ -266,7 +336,7 @@ def test_a_bad_ttl_in_the_environment_falls_back_to_the_default(
     with pytest.warns(UserWarning, match="BOOKSHELF_CACHE_BOOK_TTL"):
         bs = _sync([], [])
 
-    assert bs._book_ttl == 24 * 60 * 60
+    assert bs._book_ttl == 60 * 60
 
 
 def test_a_version_that_flattens_onto_another_is_not_confused_with_it() -> None:

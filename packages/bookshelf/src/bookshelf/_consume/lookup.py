@@ -6,11 +6,10 @@ These walk the pages once so both the facade and a Volume resolve a book the sam
 """
 
 import asyncio
-from typing import Any
+from typing import Any, Literal
 
 from bookshelf._consume.books import AsyncBook, Book
 from bookshelf._consume.memo import (
-    confirm_book,
     forget_book,
     remember_book,
     remembered_book,
@@ -142,25 +141,49 @@ async def find_book_async(
     return chosen
 
 
-def _still_published(client: BookshelfClient, book_id: str) -> bool | None:
-    """Check a remembered edition, or ``None`` when the platform could not say."""
+def _republished(
+    client: BookshelfClient, remembered: models.BookListItem
+) -> models.BookListItem | Literal[False] | None:
+    """Re-read a remembered edition.
+
+    Returns the listing refreshed with what can change after publication,
+    ``False`` once the edition is no longer published, or ``None`` when the platform could not say.
+    """
     try:
-        return client.get_book(book_id).status is models.BookStatus.published
+        return _refreshed(remembered, client.get_book(remembered.id))
     except NotFoundError:
         return False
     except BookshelfError:
         return None
 
 
-async def _still_published_async(client: BookshelfClient, book_id: str) -> bool | None:
-    """The asynchronous twin of :func:`_still_published`."""
+async def _republished_async(
+    client: BookshelfClient, remembered: models.BookListItem
+) -> models.BookListItem | Literal[False] | None:
+    """The asynchronous twin of :func:`_republished`."""
     try:
-        book = await client.get_book_async(book_id)
+        return _refreshed(remembered, await client.get_book_async(remembered.id))
     except NotFoundError:
         return False
     except BookshelfError:
         return None
-    return book.status is models.BookStatus.published
+
+
+def _refreshed(
+    remembered: models.BookListItem, live: models.BookResponse
+) -> models.BookListItem | Literal[False]:
+    if live.status is not models.BookStatus.published:
+        return False
+    return remembered.model_copy(
+        update={
+            "status": live.status,
+            "visibility": live.visibility,
+            "metadata": live.metadata,
+            "published_at": live.published_at,
+            "tombstoned_at": live.tombstoned_at,
+            "tombstone_reason": live.tombstone_reason,
+        }
+    )
 
 
 def resolve_book(
@@ -171,26 +194,30 @@ def resolve_book(
     edition: int | None,
     *,
     book_ttl: float,
+    refresh: bool = False,
 ) -> Book:
     """Resolve a published Book and the entries it indexes.
 
     A pinned edition is remembered on disk, so resolving it again makes no request
     until ``book_ttl`` seconds have passed.
-    After that one request checks it is still published before it is trusted again.
+    After that one request checks it is still published and refreshes its metadata and visibility,
+    so ``book_ttl=0`` always reads them live.
+    ``refresh`` ignores the remembered edition and resolves it and its entries afresh.
     The latest edition is always asked for, because a newer one may have been published.
     """
-    if edition is not None:
+    if edition is not None and not refresh:
         remembered = remembered_book(cache, client, volume, version, edition, ttl=book_ttl)
         if remembered is not None:
             if not remembered.stale:
                 return Book(client, cache, remembered.book, remembered.entries)
-            published = _still_published(client, remembered.book.id)
-            if published is False:
+            live = _republished(client, remembered.book)
+            if live is None:
+                return Book(client, cache, remembered.book, remembered.entries)
+            if live is False:
                 forget_book(cache, client, volume, version, edition)
             else:
-                if published:
-                    confirm_book(cache, client, volume, version, edition)
-                return Book(client, cache, remembered.book, remembered.entries)
+                remember_book(cache, client, volume, version, live, remembered.entries)
+                return Book(client, cache, live, remembered.entries)
     chosen = find_book(client, volume, version, edition)
     entries = all_entries(client, chosen.id)
     if edition is not None:
@@ -206,22 +233,26 @@ async def resolve_book_async(
     edition: int | None,
     *,
     book_ttl: float,
+    refresh: bool = False,
 ) -> AsyncBook:
     """The asynchronous twin of :func:`resolve_book`."""
-    if edition is not None:
+    if edition is not None and not refresh:
         remembered = await asyncio.to_thread(
             remembered_book, cache, client, volume, version, edition, ttl=book_ttl
         )
         if remembered is not None:
             if not remembered.stale:
                 return AsyncBook(client, cache, remembered.book, remembered.entries)
-            published = await _still_published_async(client, remembered.book.id)
-            if published is False:
+            live = await _republished_async(client, remembered.book)
+            if live is None:
+                return AsyncBook(client, cache, remembered.book, remembered.entries)
+            if live is False:
                 await asyncio.to_thread(forget_book, cache, client, volume, version, edition)
             else:
-                if published:
-                    await asyncio.to_thread(confirm_book, cache, client, volume, version, edition)
-                return AsyncBook(client, cache, remembered.book, remembered.entries)
+                await asyncio.to_thread(
+                    remember_book, cache, client, volume, version, live, remembered.entries
+                )
+                return AsyncBook(client, cache, live, remembered.entries)
     chosen = await find_book_async(client, volume, version, edition)
     entries = await all_entries_async(client, chosen.id)
     if edition is not None:
