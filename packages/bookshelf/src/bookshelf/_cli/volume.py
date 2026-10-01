@@ -15,13 +15,14 @@ from bookshelf._cli._runtime import (
     CliError,
     base_url,
     command_errors,
+    command_group,
     emit_payload,
     iso,
 )
 from bookshelf._generated import models
 from bookshelf.facade import Bookshelf
 
-volume_app = typer.Typer(help="Create, update and delete volumes.", no_args_is_help=True)
+volume_app = command_group("Create, update and delete volumes.")
 
 
 def _metadata(path: Path | None) -> dict[str, Any] | None:

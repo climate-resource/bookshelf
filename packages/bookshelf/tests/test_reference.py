@@ -127,3 +127,33 @@ def test_the_coordinate_parser_refuses_a_digest() -> None:
 def test_a_malformed_digest_is_refused_rather_than_read_as_a_book(uri: str) -> None:
     with pytest.raises(ValueError, match="64 hex characters"):
         parse_reference(uri)
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "bookshelf://hadcrut/v1_e2/x",
+        "bookshelf://hadcrut/v1_e0002/x",
+        "bookshelf://hadcrut/v1_e000/x",
+        "bookshelf://hadcrut/v1_e/x",
+        "bookshelf://hadcrut/_e001/x",
+        "bookshelf://hadcrut/v1_e٠٠١/x",
+        "bookshelf://hadcrut/v1/x?y",
+        "bookshelf://hadcrut/v1/x#y",
+        "bookshelf://hadcrut/v1@x/y",
+        "bookshelf://./v1/x",
+        "bookshelf://hadcrut/../x",
+        "bookshelf://hadcrut/v1/..",
+        "bookshelf://hadcrut/v 1/x",
+    ],
+)
+def test_a_malformed_coordinate_is_rejected(uri: str) -> None:
+    with pytest.raises(InvalidReferenceError):
+        BookshelfReference.parse(uri)
+
+
+def test_an_edition_past_999_keeps_its_digits() -> None:
+    reference = BookshelfReference.parse("bookshelf://hadcrut/v1_e1000/x")
+
+    assert reference.edition == 1000
+    assert reference.coordinate == "v1_e1000"

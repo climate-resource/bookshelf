@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 
 from bookshelf._cli import app
 from bookshelf._core import credentials
+from bookshelf._core.client import BookshelfClient
 
 API_URL = "http://127.0.0.1:9"
 runner = CliRunner()
@@ -223,6 +224,7 @@ def test_whoami_offline_reports_stored_identity() -> None:
     assert report["kind"] == "user"
     assert report["id"] == "reader@example.com"
     assert report["organization_id"] == "org_123"
+    assert report["permissions"] is None
 
 
 def test_whoami_offline_reports_environment_shadowing(
@@ -334,3 +336,63 @@ def test_api_url_after_the_subcommand_is_a_usage_error() -> None:
     assert result.exit_code == 2
     # Typer colours the option name, so the styling comes off before the message is read.
     assert "No such option: --api-url" in _ANSI.sub("", result.output)
+
+
+def test_whoami_names_the_env_token_when_the_server_rejects_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BOOKSHELF_TOKEN", "garbage")
+    monkeypatch.setattr(
+        "bookshelf._cli.auth.BookshelfClient",
+        lambda url, auth: BookshelfClient(
+            url,
+            auth=auth,
+            transport=httpx.MockTransport(
+                lambda _request: httpx.Response(401, json={"detail": "bad token"})
+            ),
+        ),
+    )
+
+    result = runner.invoke(app, ["auth", "whoami"])
+
+    assert result.exit_code == 3
+    assert "$BOOKSHELF_TOKEN" in result.stderr
+    assert "auth login" not in result.stderr
+    assert "malformed" in result.stderr
+
+
+def test_list_marks_a_credential_that_can_no_longer_be_renewed() -> None:
+    past = datetime(2020, 1, 1, tzinfo=UTC)
+    credentials.default_store().save_login(
+        credentials.StoredCredentials(
+            access_token="spent", api_url=API_URL, subject="a@example.com", expires_at=past
+        )
+    )
+    credentials.default_store().save_login(
+        credentials.StoredCredentials(
+            access_token="renewable",
+            api_url="http://127.0.0.1:8",
+            subject="b@example.com",
+            expires_at=past,
+            refresh_token="refresh",
+        )
+    )
+
+    credentials.default_store().save_login(
+        credentials.StoredCredentials(
+            access_token="refreshing-agent",
+            api_url="http://127.0.0.1:7",
+            kind=credentials.CredentialKind.AGENT,
+            subject="agent:c",
+            expires_at=past,
+            refresh_token="refresh",
+        )
+    )
+
+    result = runner.invoke(app, ["auth", "list", "--json"])
+
+    assert result.exit_code == 0, result.output
+    expired = {
+        json.loads(line)["id"]: json.loads(line)["expired"] for line in result.stdout.splitlines()
+    }
+    assert expired == {"a@example.com": True, "b@example.com": False, "agent:c": False}

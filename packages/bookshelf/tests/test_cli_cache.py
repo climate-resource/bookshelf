@@ -80,3 +80,17 @@ def test_clear_leaves_foreign_files_alone(cache_dir: Path) -> None:
     assert json.loads(result.stdout)["bytes_freed"] == 4
     assert foreign.read_text() == "keep me"
     assert cache.summary().entries == 0
+
+
+def test_an_unusable_cache_dir_is_a_usage_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    blocker = tmp_path / "a-file"
+    blocker.write_text("")
+    monkeypatch.setenv("BOOKSHELF_CACHE_DIR", str(blocker / "x"))
+
+    result = runner.invoke(app, ["cache", "info"])
+
+    assert result.exit_code == 2
+    assert "BOOKSHELF_CACHE_DIR" in result.stderr
+    assert result.exception is None or isinstance(result.exception, SystemExit)

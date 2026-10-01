@@ -6,6 +6,7 @@ and ``--agent`` selects which.
 """
 
 import time
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -19,6 +20,7 @@ from bookshelf._cli._runtime import (
     CliError,
     base_url,
     command_errors,
+    command_group,
     emit,
     emit_json,
     emit_payload,
@@ -43,7 +45,7 @@ CLAIM_GRANT = "urn:workos:agent-auth:grant-type:claim"
 
 _AGENT_PLATFORM = "bookshelf-cli"
 
-auth_app = typer.Typer(help="Manage authentication for the Bookshelf API.", no_args_is_help=True)
+auth_app = command_group("Manage authentication for the Bookshelf API.")
 
 
 @auth_app.command("login")
@@ -363,6 +365,7 @@ def _fill_offline(report: dict[str, Any], credential: ResolvedCredential) -> Non
     report["kind"] = described.kind
     report["id"] = described.subject
     report["organization_id"] = described.organization_id
+    report["permissions"] = None
     report["expires_at"] = iso(described.expires_at)
     if described.claimed is not None:
         report["claimed"] = described.claimed
@@ -375,10 +378,15 @@ def _fill_online(report: dict[str, Any], base: str, credential: ResolvedCredenti
         with BookshelfClient(base, auth=credential.auth(strict=True)) as client:
             me = client.get_current_user()
     except errors.AuthenticationError as exc:
+        described = credential.describe()
+        inspect = (
+            " Run 'bookshelf auth whoami --offline' to inspect the stored record."
+            if credential.source is CredentialSource.STORED_LOGIN
+            else ""
+        )
         raise CliError(
-            "the credential in play is revoked or expired (the server rejected it). "
-            "Run 'bookshelf auth login' to sign in again, "
-            "or 'bookshelf auth whoami --offline' to inspect the stored record.",
+            f"the server rejected {described.label} as malformed, revoked or expired. "
+            f"{described.remedy}{inspect}",
             exit_code=EXIT_AUTH_REQUIRED,
         ) from exc
     described = credential.describe()
@@ -453,6 +461,7 @@ def auth_list(
         store = default_store()
         records = store.records()
         active = store.active_kinds()
+        now = datetime.now(UTC)
         if not records:
             note("No stored identities. Run 'bookshelf auth login' to add one.")
             return
@@ -463,6 +472,7 @@ def auth_list(
                     "id": record.subject,
                     "api_url": record.api_url,
                     "active": active.get(record.api_url) == record.kind,
+                    "expired": _spent(record, now),
                     "claimed": record.claimed,
                     "expires_at": iso(record.expires_at),
                     "assertion_expires_at": iso(record.assertion_expires_at),
@@ -471,6 +481,17 @@ def auth_list(
             ),
             json_output=json_output,
         )
+
+
+def _spent(record: StoredCredentials, now: datetime) -> bool:
+    """Say whether a record is past use without a fresh login: its token expired with nothing to renew it."""
+    if record.expires_at is None or record.expires_at > now:
+        return False
+    if record.refresh_token is not None:
+        return False
+    if record.kind is CredentialKind.AGENT and record.identity_assertion is not None:
+        return record.assertion_expires_at is not None and record.assertion_expires_at <= now
+    return True
 
 
 @auth_app.command("switch")

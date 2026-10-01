@@ -6,16 +6,10 @@ The segment after the slash is an Entry's ``name_in_book``.
 Parsing failures are a usage error and never reach the API.
 """
 
-import re
 from dataclasses import dataclass
 
 from bookshelf._cli._runtime import EXIT_USAGE, CliError
-
-_ADDRESS_PATTERN = re.compile(
-    r"^(?P<volume>[^@/\s]+)"
-    r"(?:@(?P<version>[^/\s]+?)(?:_e(?P<edition>\d{3}))?)?"
-    r"(?:/(?P<entry>[^/\s]+))?$"
-)
+from bookshelf.publisher.reference import InvalidReferenceError, check_segment, split_coordinate
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,20 +33,28 @@ class Address:
 
 
 def parse_address(text: str) -> Address:
-    """Parse an address string, raising a usage :class:`CliError` when malformed."""
-    match = _ADDRESS_PATTERN.match(text)
-    if match is None:
+    """Parse an address string, raising a usage :class:`CliError` when malformed.
+
+    The edition follows the same rule as a ``bookshelf://`` reference.
+    """
+    head, has_entry, entry = text.partition("/")
+    volume, has_version, coordinate = head.partition("@")
+    try:
+        check_segment(volume, "volume")
+        version, edition = split_coordinate(coordinate) if has_version else (None, None)
+        if has_entry:
+            check_segment(entry, "file")
+    except InvalidReferenceError as exc:
         raise CliError(
-            f"malformed address {text!r}. "
+            f"malformed address {text!r}: {exc}. "
             "Use volume[@version[_eNNN]][/file], e.g. primap-hist@1.0_e003/by_country.",
             exit_code=EXIT_USAGE,
-        )
-    edition = match.group("edition")
+        ) from exc
     return Address(
-        volume=match.group("volume"),
-        version=match.group("version"),
-        edition=int(edition) if edition is not None else None,
-        entry=match.group("entry"),
+        volume=volume,
+        version=version,
+        edition=edition,
+        entry=entry if has_entry else None,
     )
 
 

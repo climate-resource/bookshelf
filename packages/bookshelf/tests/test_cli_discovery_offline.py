@@ -28,3 +28,14 @@ def test_network_failure_uses_the_network_exit_code(
     result = runner.invoke(app, ["search"])
 
     assert result.exit_code == 6
+
+
+def test_an_unknown_search_type_names_the_valid_ones(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BOOKSHELF_URL", API_URL)
+
+    result = runner.invoke(app, ["search", "--type", "nonsense"])
+
+    assert result.exit_code == 2
+    assert "timeseries" in result.stderr
