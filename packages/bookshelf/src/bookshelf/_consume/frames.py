@@ -34,6 +34,8 @@ def wide_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
     A stored wide file stamps each year column with a full date,
     so those are reduced to the bare year first.
     """
+    import pandas as pd
+
     if {"year", "value"} <= set(frame.columns):
         dimensions = [column for column in frame.columns if column not in {"year", "value"}]
         if not dimensions:
@@ -45,9 +47,36 @@ def wide_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
     frame = frame.copy(deep=False)
     frame.columns = [year_label(column) for column in frame.columns]
     dimensions = [column for column in frame.columns if not is_year_column(column)]
-    if dimensions:
+    if not dimensions:
+        return frame
+    if not any(isinstance(frame[column].dtype, pd.CategoricalDtype) for column in dimensions):
         return frame.set_index(dimensions)
+    index = _dimension_index(frame, dimensions)
+    # Deleting from the shallow copy, unlike drop(), spares pandas 2 a copy of every year column.
+    for column in dimensions:
+        del frame[column]
+    frame.index = index
     return frame
+
+
+def _dimension_index(frame: pd.DataFrame, dimensions: list[str]) -> pd.MultiIndex:
+    """Build the index ``set_index`` would, reusing categorical codes instead of hashing every row."""
+    import pandas as pd
+
+    levels = []
+    codes = []
+    for column in dimensions:
+        values = frame[column].array
+        if not isinstance(values, pd.Categorical):
+            values = pd.Categorical(frame[column])
+        elif len(categories := values.remove_unused_categories().categories):
+            values = values.set_categories(categories.sort_values())
+        else:
+            # An all-missing dictionary loses the text type the dense column would keep.
+            values = values.set_categories(pd.Index([], dtype=pd.Index([""]).dtype))
+        levels.append(values.categories)
+        codes.append(values.codes)
+    return pd.MultiIndex(levels=levels, codes=codes, names=dimensions, verify_integrity=False)
 
 
 def int_year_columns(wide: pd.DataFrame) -> pd.DataFrame:

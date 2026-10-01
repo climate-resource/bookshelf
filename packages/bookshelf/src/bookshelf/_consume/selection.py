@@ -156,6 +156,18 @@ class Selection:
                 for name, label in labels.items()
                 if not is_year_column(label) or label in filtered or low <= int(label) <= high
             ]
+        dictionary = None
+        # pandas metadata can restore a text column as another dtype, which a dictionary read would lose.
+        if timeseries and schema.pandas_metadata is None:
+            # pyarrow skips null-only row groups of a dictionary column filtered on being null.
+            null_matched = {column for column, values in self.filters if values == (None,)}
+            dictionary = [
+                field.name
+                for field in schema
+                if not is_year_column(year_label(field.name))
+                and _is_text(field.type)
+                and field.name not in null_matched
+            ]
         rows = None
         for column, values in self.filters:
             # A missing or repeated name is left for apply() to report.
@@ -166,7 +178,7 @@ class Selection:
             condition = _parquet_match(column, schema.field(column).type, values)
             if condition is not None:
                 rows = condition if rows is None else rows & condition
-        return ParquetScan(columns=columns, rows=rows)
+        return ParquetScan(columns=columns, rows=rows, dictionary=dictionary or None)
 
     def apply(self, frame: pd.DataFrame) -> pd.DataFrame:
         """Pick the selected rows and year columns out of a shaped frame, then order them."""
@@ -182,18 +194,23 @@ def _parquet_match(
     column: str, data_type: pa.DataType, values: tuple[FilterValue, ...]
 ) -> pc.Expression | None:
     """Match one filter in pyarrow, or ``None`` where pandas' reading of the value could differ."""
-    import pyarrow as pa
     import pyarrow.compute as pc
 
     field = pc.field(column)
     if values == (None,):
         return field.is_null(nan_is_null=True)
+    if _is_text(data_type):
+        return field.isin([wire_text(value) for value in values])
+    return None
+
+
+def _is_text(data_type: pa.DataType) -> bool:
+    import pyarrow as pa
+
     types = pa.types
     if types.is_dictionary(data_type):
         data_type = data_type.value_type
-    if types.is_string(data_type) or types.is_large_string(data_type):
-        return field.isin([wire_text(value) for value in values])
-    return None
+    return bool(types.is_string(data_type) or types.is_large_string(data_type))
 
 
 def _order_keys(order: Order | None) -> tuple[tuple[str, bool], ...]:

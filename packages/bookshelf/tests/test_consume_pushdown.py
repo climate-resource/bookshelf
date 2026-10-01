@@ -13,7 +13,7 @@ from bookshelf._consume.reading import settle_cached
 from bookshelf._consume.resources import _read_cached
 from bookshelf._consume.selection import Selection
 from bookshelf._core.errors import SelectionError
-from bookshelf._core.frames import read_frame
+from bookshelf._core.frames import ParquetScan, read_frame
 from bookshelf._generated import models
 from tests.test_legacy import WIDE
 
@@ -44,6 +44,18 @@ NULLABLE = pd.DataFrame(
         "flag": pd.array([True, None, False], dtype="boolean"),
     }
 )
+
+SPARSE = pd.DataFrame(
+    {
+        "region": ["NZL", None, "AUS", "NZL"],
+        "quantile": ["0.5", "0.17", None, "0.5"],
+        "harmonised": [None, None, None, None],
+        "untyped": [None, None, None, None],
+        "year_count": [3, 1, 2, 3],
+        "2000-01-01": [1.0, 2.0, 3.0, 4.0],
+        "2001-01-01": [1.5, 2.5, 3.5, 4.5],
+    }
+).astype({"harmonised": "string"})
 
 TABLE = pd.DataFrame(
     {
@@ -79,6 +91,9 @@ CASES: list[tuple[models.ResourceType, pd.DataFrame, dict[str, Any]]] = [
     (TIMESERIES, WIDE, {"year_min": 1990, "year_max": 1995}),
     (TIMESERIES, WIDE, {"filters": {"region": "XXX"}}),
     (TIMESERIES, WIDE, {"filters": {"2000": 1.0}, "year_min": 2001}),
+    (TIMESERIES, SPARSE, {}),
+    (TIMESERIES, SPARSE, {"filters": {"region": "NZL"}}),
+    (TIMESERIES, SPARSE, {"filters": {"quantile": None}, "year_max": 2000}),
     (TIMESERIES, LONG, {"filters": {"region": "AUS"}, "year_min": 2001}),
     (TIMESERIES, LONG_UNEVEN, {"filters": {"region": "NZL"}}),
     (TABULAR, TABLE, {"filters": {"code": "NA"}}),
@@ -113,11 +128,20 @@ def test_a_planned_read_matches_reading_the_whole_file(
         year_max=selection.get("year_max"),
     )
 
-    planned = _read_cached(resource_type, path, built)
+    planned = _used_levels(_read_cached(resource_type, path, built))
     # pandas 2 infers an empty index's type from how the empty frame was made.
     pd.testing.assert_frame_equal(
-        planned, _unplanned(resource_type, path, built), check_index_type=not planned.empty
+        planned,
+        _used_levels(_unplanned(resource_type, path, built)),
+        check_index_type=not planned.empty,
     )
+
+
+def _used_levels(frame: pd.DataFrame) -> pd.DataFrame:
+    """pyarrow drops rows before the index exists, so a planned read has no levels for them."""
+    if isinstance(frame.index, pd.MultiIndex):
+        return frame.set_axis(frame.index.remove_unused_levels())
+    return frame
 
 
 def test_an_unknown_filter_column_still_raises(tmp_path: Path) -> None:
@@ -158,7 +182,39 @@ def test_only_filters_pandas_would_read_the_same_way_are_planned() -> None:
     scan = Selection.build({"region": "NZL"}, year_min=2000, year_max=None).parquet_scan(
         TIMESERIES, long
     )
-    assert scan == (None, None), "a long file pivots after reading, so its rows stay whole"
+    assert scan == ParquetScan(), "a long file pivots after reading, so its rows stay whole"
+
+
+def test_a_wide_read_keeps_the_text_dimensions_as_dictionaries() -> None:
+    schema = pa.Schema.from_pandas(SPARSE, preserve_index=False).remove_metadata()
+
+    scan = Selection.build(None, year_min=None, year_max=None).parquet_scan(TIMESERIES, schema)
+
+    assert scan.dictionary == ["region", "quantile", "harmonised"]
+    tabular = Selection.build(None, year_min=None, year_max=None).parquet_scan(TABULAR, schema)
+    assert tabular.dictionary is None, "a tabular frame would hand the categoricals back"
+
+
+def test_a_file_with_pandas_metadata_keeps_its_dtypes() -> None:
+    schema = pa.Schema.from_pandas(SPARSE, preserve_index=False)
+    assert schema.pandas_metadata is not None
+
+    scan = Selection.build(None, year_min=None, year_max=None).parquet_scan(TIMESERIES, schema)
+
+    assert scan.dictionary is None
+
+
+def test_a_dictionary_read_builds_the_same_index(tmp_path: Path) -> None:
+    path = _store(tmp_path, SPARSE, row_group_size=2)
+    selection = Selection.build({"region": ["NZL", "AUS"]}, year_min=None, year_max=None)
+
+    wide = _read_cached(TIMESERIES, path, selection)
+
+    assert not any(isinstance(level, pd.CategoricalIndex) for level in wide.index.levels)
+    assert wide.index.levels[0].tolist() == ["AUS", "NZL"], (
+        "unused values are dropped, the rest sorted"
+    )
+    assert wide.index.get_level_values("harmonised").isna().all()
 
 
 def test_the_planned_filter_skips_row_groups_with_statistics(tmp_path: Path) -> None:
