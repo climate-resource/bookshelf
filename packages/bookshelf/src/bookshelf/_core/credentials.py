@@ -352,22 +352,25 @@ class FileCredentialStore(_DocumentStore):
     def _update(self) -> Iterator[dict[str, Any]]:
         path = self.path
         path.parent.mkdir(parents=True, exist_ok=True)
-        lock = path.with_name(f"{path.name}.lock")
+        lock = FileLock(path.with_name(f"{path.name}.lock"), timeout=LOCK_TIMEOUT)
         try:
-            with FileLock(lock, timeout=LOCK_TIMEOUT):
-                store, unreadable = self._load()
-                before = copy.deepcopy(store)
-                yield store
-                if store != before:
-                    if unreadable:
-                        # Kept aside rather than overwritten, because a newer version may have written it.
-                        os.replace(path, path.with_name(f"{path.name}.unreadable"))
-                    self._write(store)
+            lock.acquire()
         except Timeout as exc:
             raise BookshelfError(
-                f"timed out after {LOCK_TIMEOUT:g}s waiting for {lock}, "
+                f"timed out after {LOCK_TIMEOUT:g}s waiting for {lock.lock_file}, "
                 "which another bookshelf process is holding"
             ) from exc
+        try:
+            store, unreadable = self._load()
+            before = copy.deepcopy(store)
+            yield store
+            if store != before:
+                if unreadable:
+                    # Kept aside rather than overwritten, because a newer version may have written it.
+                    os.replace(path, path.with_name(f"{path.name}.unreadable"))
+                self._write(store)
+        finally:
+            lock.release()
 
     def _write(self, store: dict[str, Any]) -> None:
         path = self.path

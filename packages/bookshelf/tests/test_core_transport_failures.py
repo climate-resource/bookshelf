@@ -241,21 +241,30 @@ def test_a_validation_failure_names_the_fields(sleeps: list[float]) -> None:
 
 
 @pytest.mark.parametrize("name", [".", ".."])
-def test_a_dot_segment_cannot_reshape_the_path(sleeps: list[float], name: str) -> None:
+def test_a_dot_segment_never_reaches_the_platform(sleeps: list[float], name: str) -> None:
+    """A CDN can decode an escaped dot and resolve it, so only refusing it is safe."""
     seen: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
-        seen.append(request.url.raw_path.decode())
-        return httpx.Response(
-            404,
-            json=payloads.problem(404, "Not Found", "no such volume"),
-            headers={"content-type": "application/problem+json"},
-        )
+        seen.append(request.url.path)
+        return httpx.Response(200, json=payloads.VOLUME)
 
     with make_client(handler) as client, pytest.raises(NotFoundError):
         client.get_volume(name)
 
-    assert seen == ["/v1/volumes/" + "%2E" * len(name)]
+    assert seen == []
+
+
+@pytest.mark.parametrize("url", ["http://localhost:8000", "https://api.test/prefix"])
+def test_a_local_or_prefixed_base_url_is_accepted(url: str) -> None:
+    assert BookshelfClient(url, auth=None).base_url == url
+
+
+def test_timeouts_can_be_switched_off() -> None:
+    with BookshelfClient(BASE_URL, auth=None, timeout=None) as client:
+        timeout = client._sync_client.timeout
+
+    assert timeout.read is None
 
 
 def test_a_connection_failure_names_the_url(sleeps: list[float]) -> None:
@@ -307,7 +316,7 @@ def test_a_streamed_download_failure_names_the_url(tmp_path: Any) -> None:
     assert "secret" not in str(excinfo.value)
 
 
-@pytest.mark.parametrize("url", ["not-a-url", "ftp://x", "https://"])
+@pytest.mark.parametrize("url", ["not-a-url", "ftp://x", "https://", "http://[::1"])
 def test_a_malformed_base_url_is_a_configuration_error(url: str) -> None:
     with pytest.raises(ConfigurationError, match="BOOKSHELF_URL"):
         BookshelfClient(url, auth=None)

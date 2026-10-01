@@ -158,9 +158,9 @@ class RateLimitError(APIError):
 
 
 class GatewayError(APIError):
-    """A proxy or CDN in front of the API refused the request with a non-JSON error page.
+    """A non-JSON 4xx, from a proxy or CDN in front of the API or from object storage.
 
-    The request may never have reached the API, so the status says nothing about the data.
+    The API itself never answered, so the status says nothing about whether the data exists.
     """
 
 

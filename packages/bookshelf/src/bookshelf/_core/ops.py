@@ -537,9 +537,13 @@ FAIL_PREVIEW = _op(
 
 def _segment(value: str | UUID) -> str:
     """Quote a path parameter as a single segment, so reserved characters cannot reshape the target."""
-    quoted = quote(str(value), safe="")
-    # A bare dot segment would be resolved away, landing on the parent route.
-    return quoted.replace(".", "%2E") if quoted in (".", "..") else quoted
+    text = str(value)
+    # A dot segment is resolved away somewhere on the way, even escaped, landing on the parent route.
+    if text in (".", ".."):
+        raise errors.NotFoundError(
+            f"{text!r} cannot name anything on the platform", status_code=404
+        )
+    return quote(text, safe="")
 
 
 def _json_body(model: BaseModel) -> Any:

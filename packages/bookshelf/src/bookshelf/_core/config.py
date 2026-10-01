@@ -57,8 +57,12 @@ def resolve_base_url(base_url: str | None) -> str:
         or os.environ.get("BOOKSHELF_API_URL")
         or DEFAULT_API_URL
     ).rstrip("/")
-    parsed = urlparse(resolved)
-    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+    try:
+        parsed = urlparse(resolved)
+        usable = parsed.scheme in ("http", "https") and bool(parsed.hostname)
+    except ValueError:
+        usable = False
+    if not usable:
         raise ConfigurationError(
             f"invalid Bookshelf API URL {resolved!r}: "
             "BOOKSHELF_URL (or base_url) needs an http:// or https:// URL with a host"

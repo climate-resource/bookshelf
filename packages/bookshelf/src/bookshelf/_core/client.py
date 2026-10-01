@@ -63,7 +63,7 @@ class BookshelfClient:
         base_url: str | None = None,
         *,
         auth: AuthInput = UNSET,
-        timeout: float = 30.0,
+        timeout: float | None = 30.0,
         # The transports are the test seam: production always leaves them None.
         transport: httpx.BaseTransport | None = None,
         async_transport: httpx.AsyncBaseTransport | None = None,
@@ -116,6 +116,11 @@ class BookshelfClient:
             if opened is not None:
                 opened.auth = auth
 
+    def _httpx_timeout(self) -> httpx.Timeout:
+        if self._timeout is None:
+            return httpx.Timeout(None, connect=_CONNECT_TIMEOUT)
+        return httpx.Timeout(self._timeout, connect=min(self._timeout, _CONNECT_TIMEOUT))
+
     @property
     def _sync_client(self) -> httpx.Client:
         if self._sync is None:
@@ -124,9 +129,7 @@ class BookshelfClient:
                     self._sync = httpx.Client(
                         base_url=self._base_url,
                         auth=self._auth,
-                        timeout=httpx.Timeout(
-                            self._timeout, connect=min(self._timeout, _CONNECT_TIMEOUT)
-                        ),
+                        timeout=self._httpx_timeout(),
                         headers={"user-agent": _USER_AGENT},
                         transport=self._transport,
                         # A bulk read is answered with a redirect.
@@ -142,9 +145,7 @@ class BookshelfClient:
                     self._async = httpx.AsyncClient(
                         base_url=self._base_url,
                         auth=self._auth,
-                        timeout=httpx.Timeout(
-                            self._timeout, connect=min(self._timeout, _CONNECT_TIMEOUT)
-                        ),
+                        timeout=self._httpx_timeout(),
                         headers={"user-agent": _USER_AGENT},
                         transport=self._async_transport,
                         follow_redirects=True,
