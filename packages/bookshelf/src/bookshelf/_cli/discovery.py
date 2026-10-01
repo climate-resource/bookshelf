@@ -7,12 +7,14 @@ import typer
 from bookshelf._cli._address import Address, parse_address
 from bookshelf._cli._runtime import (
     EXIT_NOT_FOUND,
+    EXIT_USAGE,
     CliError,
     base_url,
     command_errors,
     emit_payload,
     emit_payloads,
     iso,
+    note,
 )
 from bookshelf._consume.lookup import book_order
 from bookshelf._core.client import BookshelfClient
@@ -27,11 +29,15 @@ def search(
     keyword: list[str] = typer.Option([], "--keyword", help="Keyword the volume must carry."),
     region: list[str] = typer.Option([], "--region", help="Region the volume must cover."),
     publisher: str | None = typer.Option(None, "--publisher", help="Publisher organisation."),
-    licence: str | None = typer.Option(None, "--licence", help="SPDX licence identifier."),
+    licence: str | None = typer.Option(
+        None, "--licence", "--license", help="SPDX licence identifier."
+    ),
     coverage_year: int | None = typer.Option(
         None, "--coverage-year", help="Year the volume's data must cover."
     ),
-    type_: str | None = typer.Option(None, "--type", help="Resource type the volume contains."),
+    type_: models.ResourceType | None = typer.Option(
+        None, "--type", help="Resource type the volume contains."
+    ),
     deprecated: bool | None = typer.Option(
         None,
         "--deprecated/--no-deprecated",
@@ -40,12 +46,23 @@ def search(
     limit: int = typer.Option(20, "--limit", min=1, max=1000, help="Maximum results."),
     offset: int = typer.Option(0, "--offset", min=0, help="Results to skip."),
     facets: bool = typer.Option(
-        False, "--facets", help="List the valid filter values instead of searching."
+        False,
+        "--facets",
+        help="List every valid filter value instead of searching. Takes no query or filters.",
     ),
     json_output: bool = typer.Option(False, "--json", help="One JSON object per result."),
 ) -> None:
     """Search volumes with free text and filters, which combine with AND."""
     with command_errors():
+        filtered = any(
+            (query, topic, keyword, region, publisher, licence, coverage_year, type_)
+        ) or (deprecated is not None)
+        if facets and filtered:
+            raise CliError(
+                "--facets lists every filter value and takes no query or filters. "
+                "Run 'bookshelf search --facets' on its own.",
+                exit_code=EXIT_USAGE,
+            )
         with BookshelfClient(base_url()) as client:
             if facets:
                 _emit_facets(client.get_catalogue_facets(), json_output)
@@ -64,6 +81,16 @@ def search(
                 offset=offset,
             )
         emit_payloads((_volume_row(item) for item in volumes.items), json_output=json_output)
+        if volumes.has_more:
+            shown = offset + len(volumes.items)
+            note(
+                f"Showing {offset + 1}-{shown} of {volumes.total}. "
+                f"Pass --offset {shown} for the next page."
+            )
+        elif not volumes.items and filtered:
+            note(
+                "No volumes match. Run 'bookshelf search --facets' to see the valid filter values."
+            )
 
 
 def _volume_row(item: models.VolumeListItem) -> dict[str, Any]:
@@ -86,7 +113,7 @@ def _emit_facets(catalogue: models.VolumeFacets, json_output: bool) -> None:
         "keywords": catalogue.keywords or [],
         "regions": catalogue.regions or [],
         "publishers": catalogue.publishers or [],
-        "licences": catalogue.licenses or [],
+        "licenses": catalogue.licenses or [],
         "types": catalogue.resource_types or [],
         "coverage_start_year": catalogue.coverage_start_year,
         "coverage_end_year": catalogue.coverage_end_year,
@@ -95,7 +122,7 @@ def _emit_facets(catalogue: models.VolumeFacets, json_output: bool) -> None:
 
 
 def show(
-    address: str = typer.Argument(help=r"volume\[@version\[_eNNN]]\[/file]"),
+    address: str = typer.Argument(help="volume[@version[_eNNN]][/file]"),
     json_output: bool = typer.Option(False, "--json", help="Emit the description as JSON."),
 ) -> None:
     """Resolve one address and describe what is there, at whatever depth it is given."""
@@ -190,7 +217,7 @@ def _show_book(detail: models.BookResponse, label: str, json_output: bool) -> No
                     "type": resource.type,
                     "format": resource.format,
                     "bytes": resource.size_bytes,
-                    "content_hash": resource.content_hash,
+                    "content_hash": resource.hash,
                 }
                 for resource in resources
             ],
@@ -211,12 +238,12 @@ def _show_entry(detail: models.BookResponse, label: str, entry: str, json_output
         )
     emit_payload(
         {
-            "tracking_id": match.id,
+            "tracking_id": str(match.tracking_id),
             "name": match.name,
             "type": match.type,
             "format": match.format,
             "bytes": match.size_bytes,
-            "content_hash": match.content_hash,
+            "content_hash": match.hash,
             "book": label,
         },
         json_output=json_output,

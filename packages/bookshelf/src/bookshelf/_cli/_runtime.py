@@ -15,7 +15,6 @@ from typing import Any
 
 import typer
 
-from bookshelf._consume.presentation import human_bytes
 from bookshelf._core import errors
 from bookshelf._core.config import resolve_base_url
 from bookshelf._core.resolution import CredentialSource, resolve_credential
@@ -36,6 +35,16 @@ class CliError(Exception):
     def __init__(self, message: str, *, exit_code: int = EXIT_UNEXPECTED) -> None:
         super().__init__(message)
         self.exit_code = exit_code
+
+
+def command_group(help_text: str) -> typer.Typer:
+    """Return a command group whose help, usage errors and tracebacks are the same plain text on a TTY."""
+    return typer.Typer(
+        help=help_text,
+        no_args_is_help=True,
+        rich_markup_mode=None,
+        pretty_exceptions_enable=False,
+    )
 
 
 _api_url: str | None = None
@@ -96,13 +105,25 @@ def _label(key: str) -> str:
     return (_byte_count_stem(key) or key).replace("_", " ").capitalize()
 
 
+def _binary_bytes(count: int) -> str:
+    """Render a byte count in binary units, so a cap set in GiB reads back as the same number."""
+    if count < 1024:
+        return f"{count} B"
+    size = float(count)
+    for unit in ("KiB", "MiB", "GiB", "TiB"):
+        size /= 1024
+        if size < 1024 or unit == "TiB":
+            break
+    return f"{size:.1f} {unit}"
+
+
 def _scalar(key: str, value: object) -> str:
     if value is None:
         return "-"
     if isinstance(value, bool):
         return "yes" if value else "no"
     if isinstance(value, int) and _byte_count_stem(key) is not None:
-        return human_bytes(value)
+        return _binary_bytes(value)
     return str(value)
 
 
@@ -121,6 +142,7 @@ def _rows(document: Mapping[str, Any]) -> Generator[str]:
     """Yield one aligned row per entry, indenting whatever nests under it.
 
     Each mapping aligns to its own widest label, so a nested block reads as its own column.
+    A blank line separates sibling blocks, so one block's last row never reads as the next one's.
     """
     width = max((len(_label(key)) for key in document), default=0)
     for key, value in document.items():
@@ -128,7 +150,9 @@ def _rows(document: Mapping[str, Any]) -> Generator[str]:
         blocks = _blocks(value)
         if blocks is not None:
             yield label
-            for block in blocks:
+            for position, block in enumerate(blocks):
+                if position:
+                    yield ""
                 yield from (f"  {line}" for line in _rows(block))
         elif isinstance(value, list):
             yield f"{label:<{width}} {', '.join(str(item) for item in value) or '-'}"
@@ -164,10 +188,10 @@ def emit_payloads(documents: Iterable[Mapping[str, Any]], *, json_output: bool) 
 
 
 def iso(moment: datetime | None) -> str | None:
-    """Render a datetime as UTC ISO-8601 with a ``Z`` suffix."""
+    """Render a datetime as UTC ISO-8601 to the second, with a ``Z`` suffix."""
     if moment is None:
         return None
-    return moment.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    return moment.astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _exit_code_for(exc: errors.BookshelfError) -> int:
@@ -213,10 +237,7 @@ def _forbidden_remedy() -> str:
 
 def _remedy_for(exit_code: int) -> str | None:
     if exit_code == EXIT_AUTH_REQUIRED:
-        return (
-            "Run 'bookshelf auth login' to sign in, or "
-            "'bookshelf auth login --agent' to register an agent identity."
-        )
+        return resolve_credential(base_url()).describe().remedy
     if exit_code == EXIT_FORBIDDEN:
         return _forbidden_remedy()
     return None
@@ -252,6 +273,7 @@ __all__ = [
     "CliError",
     "base_url",
     "command_errors",
+    "command_group",
     "emit",
     "emit_json",
     "emit_payload",

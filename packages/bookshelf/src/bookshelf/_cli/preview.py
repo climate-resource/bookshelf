@@ -18,6 +18,7 @@ from bookshelf._cli._runtime import (
     CliError,
     base_url,
     command_errors,
+    command_group,
     emit_payload,
     note,
 )
@@ -32,7 +33,7 @@ from bookshelf._generated import models
 from bookshelf.publisher.bundle import InvalidBundleError
 from bookshelf.publisher.preview import PreviewIdentity, upload_preview
 
-preview_app = typer.Typer(help="Store pull request previews.", no_args_is_help=True)
+preview_app = command_group("Store pull request previews.")
 
 
 def _summary(preview: models.PreviewDetail) -> dict[str, Any]:

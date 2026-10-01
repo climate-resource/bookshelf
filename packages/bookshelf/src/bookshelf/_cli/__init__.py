@@ -7,7 +7,8 @@ and the exit code carries the meaning (see :mod:`bookshelf._cli._runtime`).
 
 import typer
 
-from bookshelf._cli._runtime import set_api_url
+from bookshelf import __version__
+from bookshelf._cli._runtime import command_group, emit, set_api_url
 from bookshelf._cli.auth import auth_app
 from bookshelf._cli.cache import cache_app
 from bookshelf._cli.discovery import search, show
@@ -16,13 +17,26 @@ from bookshelf._cli.producer import discard, publish, record, validate
 from bookshelf._cli.uploads import upload
 from bookshelf._cli.volume import volume_app
 
-app = typer.Typer(help="Bookshelf data platform CLI.", no_args_is_help=True)
+app = command_group("Bookshelf data platform CLI.")
+
+
+def _print_version(value: bool) -> None:
+    if value:
+        emit(f"bookshelf {__version__}")
+        raise typer.Exit
 
 
 @app.callback()
 def main_options(
     api_url: str | None = typer.Option(
         None, "--api-url", help="Deployment to act against. Defaults to $BOOKSHELF_URL."
+    ),
+    _version: bool = typer.Option(
+        False,
+        "--version",
+        callback=_print_version,
+        is_eager=True,
+        help="Print the installed version and exit.",
     ),
 ) -> None:
     """Options every command shares, read before the subcommand runs."""

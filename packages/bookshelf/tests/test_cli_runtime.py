@@ -1,11 +1,12 @@
 """The CLI exit-code table and the one renderer every command's output goes through."""
 
 import json
+from datetime import UTC, datetime
 
 import pytest
 import typer
 
-from bookshelf._cli._runtime import command_errors, emit_document, emit_payload
+from bookshelf._cli._runtime import command_errors, emit_document, emit_payload, iso
 from bookshelf._core import errors
 
 
@@ -36,9 +37,12 @@ def test_exit_code_table(exc: errors.BookshelfError, expected: int) -> None:
         ({"dedupe": False, "converged": True}, "Dedupe    no\nConverged yes"),
         ({"topics": ["a", "b"]}, "Topics a, b"),
         ({"topics": []}, "Topics -"),
-        ({"size_bytes": 2048}, "Size 2.0 kB"),
-        ({"bytes_freed": 2048}, "Freed 2.0 kB"),
-        ({"bytes": 2048}, "Bytes 2.0 kB"),
+        ({"size_bytes": 2048}, "Size 2.0 KiB"),
+        ({"bytes_freed": 2048}, "Freed 2.0 KiB"),
+        ({"bytes": 2048}, "Bytes 2.0 KiB"),
+        ({"bytes": 512}, "Bytes 512 B"),
+        ({"max_bytes": 5 * 1024**3}, "Max 5.0 GiB"),
+        ({"max_bytes": 3 * 1024**4}, "Max 3.0 TiB"),
         ({"total_versions": 2}, "Total versions 2"),
     ],
 )
@@ -61,7 +65,7 @@ def test_emit_document_indents_nested_blocks(capsys: pytest.CaptureFixture[str])
 def test_emit_document_repeats_a_block_per_item(capsys: pytest.CaptureFixture[str]) -> None:
     emit_document({"books": [{"volume": "a"}, {"volume": "b"}]})
 
-    assert capsys.readouterr().out.rstrip("\n") == "Books\n  Volume a\n  Volume b"
+    assert capsys.readouterr().out.rstrip("\n") == "Books\n  Volume a\n\n  Volume b"
 
 
 def test_emit_document_keeps_every_item_of_a_mixed_list(
@@ -81,4 +85,23 @@ def test_emit_payload_writes_the_same_keys_either_way(capsys: pytest.CaptureFixt
     assert json.loads(capsys.readouterr().out) == document
 
     emit_payload(document, json_output=False)
-    assert capsys.readouterr().out.rstrip("\n") == "Outcome created\nSize    2.0 kB"
+    assert capsys.readouterr().out.rstrip("\n") == "Outcome created\nSize    2.0 KiB"
+
+
+def test_iso_drops_microseconds() -> None:
+    assert iso(datetime(2026, 10, 1, 4, 22, 25, 123456, tzinfo=UTC)) == "2026-10-01T04:22:25Z"
+
+
+def test_an_env_token_refusal_names_the_env_token_remedy(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A stored login cannot help while $BOOKSHELF_TOKEN shadows it."""
+    monkeypatch.setenv("BOOKSHELF_TOKEN", "garbage")
+    monkeypatch.setenv("BOOKSHELF_URL", "https://bookshelf.test")
+
+    with pytest.raises(typer.Exit), command_errors():
+        raise errors.AuthenticationError("no", status_code=401)
+
+    err = capsys.readouterr().err
+    assert "$BOOKSHELF_TOKEN" in err
+    assert "auth login" not in err
