@@ -158,10 +158,7 @@ def _bundle_errors(root: Path) -> Generator[None]:
     try:
         yield
     except InvalidBundleError as exc:
-        raise CliError(
-            f"{exc}. Run 'bookshelf record' to rebuild the bundle.",
-            exit_code=EXIT_INVALID_BUNDLE,
-        ) from exc
+        raise CliError(f"{exc}. {exc.remedy}", exit_code=EXIT_INVALID_BUNDLE) from exc
     except (OSError, ValueError) as exc:
         raise CliError(
             f"cannot read a bundle at {root}: {exc}. Run 'bookshelf record' to build one.",
@@ -227,7 +224,7 @@ def validate(
             loaded = Bundle.read_validated(bundle)
             framing = loaded.require_framing()
         summary = {
-            "bundle_path": str(bundle),
+            "bundle_path": str(bundle.resolve()),
             "resources": len(loaded.manifest.resources),
             "book_entries": len(framing.entries),
             "placements": [
@@ -236,7 +233,10 @@ def validate(
                 if entry.is_placement
             ],
             "published": framing.published,
-            "processing": [list(pair) for pair in framing.processing or ()],
+            "processing": [
+                {"code_ref": code_ref, "config_hash": config_hash}
+                for code_ref, config_hash in framing.processing or ()
+            ],
         }
         emit_payload(summary, json_output=json_output)
 

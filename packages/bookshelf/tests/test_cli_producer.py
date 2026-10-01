@@ -18,7 +18,8 @@ from bookshelf._cli._runtime import (
     EXIT_USAGE,
 )
 from bookshelf._core.client import BookshelfClient
-from bookshelf.publisher.bundle import Bundle, resource_filename
+from bookshelf._produce.provenance import canonical_config_hash, derive_activity_id
+from bookshelf.publisher.bundle import Bundle, BundleActivity, resource_filename
 from bookshelf.publisher.publish import PublishOutcome
 from tests import _core_payloads as payloads
 from tests.conftest import BundleFactory
@@ -57,7 +58,7 @@ def test_validate_reports_the_bundle_summary(make_bundle: BundleFactory) -> None
 
     assert result.exit_code == EXIT_OK
     assert _payload(result.stdout) == {
-        "bundle_path": str(bundle.root),
+        "bundle_path": str(bundle.root.resolve()),
         "resources": 2,
         "book_entries": 2,
         "placements": [],
@@ -85,7 +86,48 @@ def test_validate_defaults_to_the_bundle_directory(
     result = runner.invoke(app, ["validate", "--json"])
 
     assert result.exit_code == EXIT_OK
-    assert _payload(result.stdout)["bundle_path"] == "bundle"
+    assert _payload(result.stdout)["bundle_path"] == str((tmp_path / "bundle").resolve())
+
+
+def test_validate_reports_processing_as_named_pairs(make_bundle: BundleFactory) -> None:
+    bundle = make_bundle()
+    code_ref = "https://github.com/example/lab.git@" + "a" * 40
+    config_hash = canonical_config_hash({})
+    bundle.set_activity(
+        BundleActivity(
+            activity_id=derive_activity_id(
+                kind="run", code_ref=code_ref, config_hash=config_hash, parameters={}
+            ),
+            kind="run",
+            code_ref=code_ref,
+            config_hash=config_hash,
+        )
+    )
+    bundle.require_framing().processing = [(code_ref, config_hash)]
+    bundle.write()
+
+    as_json = runner.invoke(app, ["validate", str(bundle.root), "--json"])
+    as_text = runner.invoke(app, ["validate", str(bundle.root)])
+
+    assert _payload(as_json.stdout)["processing"] == [
+        {"code_ref": code_ref, "config_hash": config_hash}
+    ]
+    assert "['" not in as_text.stdout
+    assert f"Config hash {config_hash}" in " ".join(as_text.stdout.split())
+
+
+def test_validate_names_the_upgrade_for_a_newer_major(tmp_path: Path) -> None:
+    root = tmp_path / "bundle"
+    root.mkdir()
+    (root / "manifest.lock").write_text("schema_version: '4.0'\nresources: []\n")
+
+    result = runner.invoke(app, ["validate", str(root)])
+
+    assert result.exit_code == EXIT_INVALID_BUNDLE
+    stderr = _plain(result.stderr)
+    assert "Upgrade bookshelf to read it." in stderr
+    assert ".." not in stderr
+    assert "bookshelf record" not in stderr
 
 
 def test_validate_renders_a_refused_bundle_with_its_remedy(make_bundle: BundleFactory) -> None:

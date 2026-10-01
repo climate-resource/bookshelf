@@ -30,10 +30,12 @@ and no timestamps.
 from __future__ import annotations
 
 import importlib.metadata
+import ipaddress
 import re
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated, Any, Literal
+from urllib.parse import urlsplit
 from uuid import UUID
 
 import yaml
@@ -48,10 +50,15 @@ from pydantic import (
 from pydantic import ValidationError as PydanticValidationError
 
 from bookshelf._core.errors import BookshelfError
-from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
-from bookshelf._core.names import RESOURCE_NAME_PATTERN
+from bookshelf._core.hashing import canonical_json_bytes, sha256_hex, sha256_path
+from bookshelf._core.names import (
+    RESOURCE_NAME_PATTERN,
+    validate_book_version,
+    validate_volume_name,
+)
 from bookshelf._generated import models
 from bookshelf._produce import helpers
+from bookshelf._produce.provenance import canonical_config_hash, derive_activity_id
 from bookshelf._produce.types import Role
 
 BUNDLE_SCHEMA_VERSION = "3.10"
@@ -79,14 +86,22 @@ _SHA256_RE = re.compile(r"^sha256:([0-9a-f]{64})$")
 ResourceName = Annotated[str, StringConstraints(pattern=RESOURCE_NAME_PATTERN.pattern)]
 
 
+_REBUILD = "Run 'bookshelf record' to rebuild the bundle."
+
+
 class InvalidBundleError(BookshelfError, ValueError):
     """A bundle on disk breaks the contract a bundle promises.
 
     The message names the invariant that failed
     and carries the detail a caller needs to render it.
+    ``remedy`` is the sentence that tells the producer how to fix it.
     A caller therefore either holds a bundle that keeps its contract
     or holds an error explaining why it does not.
     """
+
+    def __init__(self, message: str, *, remedy: str = _REBUILD) -> None:
+        super().__init__(message)
+        self.remedy = remedy
 
 
 def _sha256_hex(hash_: str) -> str:
@@ -249,8 +264,13 @@ class BundleResource(BaseModel):
         A pointer exists to name bytes the platform must not re-host,
         so one without an ``external_uri`` names nothing and could never be replayed.
         """
-        if self.kind == "pointer" and self.external_uri is None:
-            raise ValueError("a pointer resource records the external_uri it points at")
+        if self.kind == "pointer":
+            if self.external_uri is None:
+                raise ValueError("a pointer resource records the external_uri it points at")
+            if self.size is not None:
+                raise ValueError("a pointer resource carries no size, because it has no bytes")
+        elif self.external_uri is not None:
+            raise ValueError("a managed resource carries no external_uri")
         return self
 
 
@@ -336,7 +356,7 @@ class BundleBook(BaseModel):
 
     volume: str
     version: str
-    visibility: str = "hidden"
+    visibility: Literal["hidden", "org", "public"] = "hidden"
     license: str | None = None
     authors: list[dict[str, Any]] = Field(default_factory=list)
     discovery: dict[str, Any] | None = None
@@ -441,14 +461,64 @@ def _prepare_manifest(raw: dict[str, Any]) -> None:
     if major > _SUPPORTED_SCHEMA_MAJOR:
         raise InvalidBundleError(
             f"bundle schema_version {version!r} is a newer major than this client models "
-            f"(schema {BUNDLE_SCHEMA_VERSION}). Upgrade bookshelf to read it."
+            f"(schema {BUNDLE_SCHEMA_VERSION})",
+            remedy="Upgrade bookshelf to read it.",
         )
     if major < _SUPPORTED_SCHEMA_MAJOR:
         raise InvalidBundleError(
             f"bundle schema_version {version!r} keys its resources by tracking id, "
-            f"and this client addresses them by name (schema {BUNDLE_SCHEMA_VERSION}). "
-            "Re-record the bundle."
+            f"and this client addresses them by name (schema {BUNDLE_SCHEMA_VERSION})"
         )
+
+
+def _describe(exc: PydanticValidationError) -> str:
+    """Name each field the schema refused, on one line and without pydantic's documentation links."""
+    return ", ".join(
+        f"{'.'.join(str(part) for part in error['loc']) or 'manifest'}: {error['msg']}"
+        for error in exc.errors(include_url=False)
+    )
+
+
+# Mirrors the platform: ``https`` to a public host, or a ``<scheme>://<form>/<name>[@<pin>]``
+# pointer whose scheme the platform could never open.
+_OPENABLE_SCHEMES = frozenset({"http", "https", "file", "s3"})
+_POINTER_URI = re.compile(
+    r"^(?P<scheme>[a-z][a-z0-9]*)://[a-z]+/(?P<name>[A-Za-z0-9._~-]+)(?:@[A-Za-z0-9._~-]+)?$"
+)
+
+
+def _external_uri_problem(uri: str) -> str | None:
+    """Return why the platform would refuse ``uri`` as a pointer target, or ``None``."""
+    if any(ord(char) < 0x20 for char in uri):
+        return "contains control characters"
+    parts = urlsplit(uri)
+    scheme = parts.scheme.lower()
+    if scheme != "https":
+        pointer = _POINTER_URI.fullmatch(uri)
+        if (
+            pointer is None
+            or pointer["scheme"] in _OPENABLE_SCHEMES
+            or pointer["name"] in {".", ".."}
+        ):
+            return "is neither an https URL nor a '<scheme>://<form>/<name>[@<pin>]' pointer"
+        return None
+    if not parts.hostname:
+        return "names no host"
+    try:
+        address = ipaddress.ip_address(parts.hostname)
+    except ValueError:
+        return None
+    return None if address.is_global else "points at a private or reserved address"
+
+
+def _byte_filename(resource: BundleResource) -> str:
+    """Return the byte-file name ``resource`` would have, refusing a hash that names none."""
+    try:
+        return resource_filename(resource.hash, resource.type)
+    except ValueError as exc:
+        raise InvalidBundleError(
+            f"resource {resource.name!r} has a non-canonical hash {resource.hash!r}"
+        ) from exc
 
 
 def _version_key(version: str) -> tuple[int, ...]:
@@ -838,16 +908,27 @@ class Bundle:
         self.manifest.resources.append(record)
         return record
 
+    def _contained(self, filename: str) -> Path:
+        """Return the path of ``filename`` under ``resources/``, refusing one that resolves outside the bundle.
+
+        The hash alone cannot catch a byte file swapped for a symlink to identical bytes elsewhere.
+        """
+        path = self.resources_dir / filename
+        resolved = path.resolve()
+        if not resolved.is_relative_to(self.root.resolve()):
+            raise InvalidBundleError(f"{path} resolves to {resolved}, outside the bundle")
+        return path
+
     def resource_bytes(self, record: BundleResource) -> bytes:
         """Read back the recorded bytes for ``record`` from ``resources/``.
 
         Routes through :func:`resource_filename`.
         A non-canonical ``hash`` in a crafted manifest
         therefore raises :class:`ValueError`
-        instead of reading a traversed path outside ``resources/``.
+        instead of reading a traversed path outside ``resources/``,
+        and a byte file that resolves outside the bundle raises :class:`InvalidBundleError`.
         """
-        byte_path = self.resources_dir / resource_filename(record.hash, record.type)
-        return byte_path.read_bytes()
+        return self._contained(resource_filename(record.hash, record.type)).read_bytes()
 
     def svg_bytes(self, record: BundleResource) -> bytes:
         """Read back the svg companion for ``record`` from ``resources/``.
@@ -858,7 +939,7 @@ class Bundle:
         """
         if record.svg_hash is None:
             raise ValueError(f"resource {record.name!r} records no svg companion")
-        return (self.resources_dir / companion_filename(record.svg_hash)).read_bytes()
+        return self._contained(companion_filename(record.svg_hash)).read_bytes()
 
     def require_framing(self) -> BundleBook:
         """Return the recorded book framing, or raise :class:`InvalidBundleError`.
@@ -878,15 +959,21 @@ class Bundle:
         - the bundle records a book framing
         - that book is marked for publication
         - the book has at least one entry
+        - the volume and version are labels the platform can address
+        - every resource name is unique, and so is every entry name
         - every entry names a resource recorded in the same manifest,
           except a placement, whose name must not name one
         - no resource is placed twice, because the platform refuses a repeated placement
         - every pinned ``tracking_id`` is unique
         - every ``used`` name is recorded earlier in the manifest than what consumes it
+        - the book's ``processing`` matches the activity, and the activity's ``config_hash``
+          is the digest of its parameters unless its ``activity_id`` is the one derived from them
         - every public figure records a nonblank ``alt_text``, because the platform refuses one without
         - every resource's catalogue metadata is one the contract accepts,
           so a caption or alt text over its limit is refused before any upload
-        - every managed resource's bytes are present and still hash to the recorded hash,
+        - every pointer names a target the platform accepts, and has no bytes in the bundle
+        - every managed resource's bytes are present inside the bundle,
+          are as long as the recorded ``size``, and still hash to the recorded hash,
           which a non-canonical hash cannot satisfy because it names no byte file
         - every recorded ``svg_hash`` sits on a ``figure`` and names companion bytes that still hash to it
 
@@ -900,8 +987,18 @@ class Bundle:
             raise InvalidBundleError("bundle does not record a publish operation")
         if not framing.entries:
             raise InvalidBundleError("bundle has no book entries")
+        try:
+            validate_volume_name(framing.volume)
+            validate_book_version(framing.version)
+        except ValueError as exc:
+            raise InvalidBundleError(str(exc)) from exc
 
-        recorded = {resource.name for resource in self.manifest.resources}
+        recorded: set[str] = set()
+        for resource in self.manifest.resources:
+            if resource.name in recorded:
+                raise InvalidBundleError(f"resource name {resource.name!r} is recorded twice")
+            recorded.add(resource.name)
+
         placed: set[UUID] = set()
         for entry in framing.entries:
             if entry.tracking_id is None:
@@ -919,6 +1016,11 @@ class Bundle:
                     "which another entry already places"
                 )
             placed.add(entry.tracking_id)
+        named: set[str] = set()
+        for entry in framing.entries:
+            if entry.name in named:
+                raise InvalidBundleError(f"book entry {entry.name!r} appears twice in the book")
+            named.add(entry.name)
 
         pinned: set[UUID] = set()
         for resource in self.manifest.resources:
@@ -943,28 +1045,83 @@ class Bundle:
                     )
             seen.add(resource.name)
 
+        self._check_activity(framing)
         self.check_discovery()
         self.check_plans()
 
+        managed_hashes = {
+            resource.hash for resource in self.manifest.resources if resource.kind == "managed"
+        }
         for resource in self.manifest.resources:
-            if resource.kind != "managed":
+            if resource.kind == "pointer":
+                self._check_pointer(resource, managed_hashes)
                 continue
-            try:
-                data = self.resource_bytes(resource)
-            except ValueError as exc:
-                raise InvalidBundleError(
-                    f"resource {resource.name!r} has a non-canonical hash {resource.hash!r}"
-                ) from exc
-            except OSError as exc:
-                raise InvalidBundleError(
-                    f"resource {resource.name!r} has no bytes in the bundle: {exc}"
-                ) from exc
-            actual = sha256_hex(data)
-            if actual != resource.hash:
-                raise InvalidBundleError(
-                    f"resource {resource.name!r} has hash {resource.hash}, got {actual}"
-                )
+            self._check_managed(resource)
             self._check_svg(resource)
+
+    def _check_activity(self, framing: BundleBook) -> None:
+        """Refuse an activity envelope, or a processing record, edited after recording."""
+        activity = self.manifest.activity
+        expected = [] if activity is None else [(activity.code_ref, activity.config_hash)]
+        if framing.processing is not None and list(framing.processing) != expected:
+            raise InvalidBundleError(
+                f"book processing {[list(pair) for pair in framing.processing]} "
+                f"does not match the activity that generated its members {[list(pair) for pair in expected]}"
+            )
+        if activity is None:
+            return
+        # A producer may record a better digest than the parameters', or name its own activity,
+        # but a hash and an id that both disagree with the parameters mean the envelope was edited.
+        derived_id = derive_activity_id(
+            kind=activity.kind,
+            code_ref=activity.code_ref,
+            config_hash=activity.config_hash,
+            parameters=activity.parameters,
+        )
+        if (
+            activity.config_hash != canonical_config_hash(activity.parameters)
+            and activity.activity_id != derived_id
+        ):
+            raise InvalidBundleError(
+                f"activity config_hash {activity.config_hash} is not the digest of its parameters, "
+                f"and activity_id {activity.activity_id} is not derived from them"
+            )
+
+    def _check_pointer(self, resource: BundleResource, managed_hashes: set[str]) -> None:
+        """Refuse a pointer the platform would refuse, or one that was a managed resource."""
+        problem = _external_uri_problem(resource.external_uri or "")
+        if problem is not None:
+            raise InvalidBundleError(
+                f"pointer {resource.name!r} target {resource.external_uri!r} {problem}"
+            )
+        if resource.hash in managed_hashes:
+            return
+        filename = _byte_filename(resource)
+        if (self.resources_dir / filename).exists():
+            raise InvalidBundleError(
+                f"pointer {resource.name!r} has bytes in the bundle at {RESOURCES_DIRNAME}/{filename}, "
+                "so it was recorded as a managed resource"
+            )
+
+    def _check_managed(self, resource: BundleResource) -> None:
+        """Refuse managed bytes that are missing, outside the bundle, or not what the manifest says."""
+        filename = _byte_filename(resource)
+        path = self._contained(filename)
+        try:
+            size = path.stat().st_size
+            actual = sha256_path(path)
+        except OSError as exc:
+            raise InvalidBundleError(
+                f"resource {resource.name!r} has no bytes in the bundle: {exc}"
+            ) from exc
+        if actual != resource.hash:
+            raise InvalidBundleError(
+                f"resource {resource.name!r} has hash {resource.hash}, got {actual}"
+            )
+        if resource.size is not None and resource.size != size:
+            raise InvalidBundleError(
+                f"resource {resource.name!r} records size {resource.size}, but its bytes are {size}"
+            )
 
     def _check_svg(self, resource: BundleResource) -> None:
         """Refuse a companion the platform would refuse, before any bytes upload."""
@@ -975,13 +1132,13 @@ class Bundle:
                 f"resource {resource.name!r} is a {resource.type} and records an svg companion, "
                 "which only a figure may carry"
             )
+        path = self._contained(companion_filename(resource.svg_hash))
         try:
-            data = self.svg_bytes(resource)
+            actual = sha256_path(path)
         except OSError as exc:
             raise InvalidBundleError(
                 f"resource {resource.name!r} has no svg companion bytes in the bundle: {exc}"
             ) from exc
-        actual = sha256_hex(data)
         if actual != resource.svg_hash:
             raise InvalidBundleError(
                 f"resource {resource.name!r} has svg hash {resource.svg_hash}, got {actual}"
@@ -1080,7 +1237,7 @@ class Bundle:
             manifest = BundleManifest.model_validate(raw)
         except PydanticValidationError as exc:
             raise InvalidBundleError(
-                f"{MANIFEST_NAME} does not match the bundle schema: {exc}"
+                f"{MANIFEST_NAME} does not match the bundle schema: {_describe(exc)}"
             ) from exc
         return cls(root=root, manifest=manifest)
 

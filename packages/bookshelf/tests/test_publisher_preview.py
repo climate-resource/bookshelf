@@ -7,6 +7,7 @@ import pytest
 from bookshelf._core import errors
 from bookshelf._core.client import BookshelfClient
 from bookshelf._generated import models
+from bookshelf._produce.provenance import canonical_config_hash
 from bookshelf._produce.serialise import sha256_hex
 from bookshelf.publisher.bundle import Bundle, BundleActivity, BundleBook, InvalidBundleError
 from bookshelf.publisher.preview import PreviewIdentity, upload_preview
@@ -37,7 +38,7 @@ ACTIVITY = BundleActivity(
     activity_id=UUID("0197a000-0000-7000-8000-0000000000a1"),
     kind="feedstock",
     code_ref="git+https://github.com/climate-resource/feedstock@" + SHA,
-    config_hash="sha256:" + "b" * 64,
+    config_hash=canonical_config_hash({"notebook": "build"}),
     parameters={"notebook": "build"},
 )
 

@@ -240,8 +240,10 @@ It names what the activity is rather than when it ran, so recording the same bui
 `runner` is left out, because the same build on a laptop and on CI is the same activity.
 
 `config_hash` is what says two runs were configured the same way.
-A producer that has a better digest records it.
+A producer that has a better digest records it, and leaves `activity_id` derived.
 Otherwise it is the digest of the canonical JSON of `parameters`.
+Validation refuses an envelope whose `config_hash` is not that digest and whose `activity_id` is not derived,
+because nothing then vouches for either.
 
 A bundle records **one** activity.
 Recording a second envelope that differs in any field is an error.
@@ -287,6 +289,7 @@ A reader older than 3.9 drops the field and leaves the volume alone.
 
 `processing` is provenance, and it is not part of the seal.
 It answers "which code produced this", and nothing more.
+When stated, it holds the activity's `[code_ref, config_hash]`, or is empty for a bundle with no activity.
 A rebuild whose code changed but whose data did not converges on the existing edition.
 It is recorded so `bookshelf validate` reads as a complete account of the build.
 
@@ -307,9 +310,7 @@ An entry must name a resource recorded in the same manifest,
 which is what keeps a bundle self-contained.
 The entry's name is the resource's name, and it is unique within a book,
 because the platform registers a replayed resource under the name its entry takes.
-A writer enforces both when it appends an entry.
-Validation checks the reference and not the uniqueness,
-so an implementation that reads a hand-edited manifest should check the names itself.
+A writer enforces both when it appends an entry, and validation checks both again.
 
 An entry with a `tracking_id` is a placement.
 It puts a resource the platform already holds in the book without copying its bytes:
@@ -377,20 +378,30 @@ A replayable book contains all the required information to later be streamed to 
 1. The manifest records a `book`.
 2. That book has `published: true`.
 3. That book has at least one entry.
-4. Every entry's `name` matches a resource recorded in the same manifest,
+4. The book's `volume` is 1 to 100 ASCII letters, digits, `_` or `-`, and is not `latest`.
+   Its `version` is at most 50 characters, opens on a letter or digit,
+   and otherwise uses only ASCII letters, digits, `.`, `_`, `+` or `-`.
+5. Every resource `name` is unique, and so is every entry `name`.
+6. Every entry's `name` matches a resource recorded in the same manifest,
    except a placement, whose `name` must match none.
    No two placements share a `tracking_id`.
-5. Every resource with `type: figure` and `visibility: public` records a nonblank `alt_text`.
+7. The book's `processing`, when stated, matches the activity,
+   and the activity's `config_hash` is the digest of its `parameters` unless its `activity_id` is derived.
+8. Every resource with `type: figure` and `visibility: public` records a nonblank `alt_text`.
    The platform refuses a public figure without one,
    so a replay would fail only after every byte had uploaded.
-6. Every resource's catalogue fields are ones the contract accepts.
+9. Every resource's catalogue fields are ones the contract accepts.
    A `caption` over 500 characters or an `alt_text` over 1000 fails here, for the same reason.
-7. Every resource with `kind: managed` has a byte file, and those bytes hash to the recorded `hash`.
-   A resource whose `hash` is not canonical fails here, because it names no byte file.
-8. Every resource recording an `svg_hash` has `type: figure`,
-   and `resources/<hex>.svg` holds bytes that hash to it.
+10. Every resource with `kind: pointer` names an `https` URL with a public host,
+    or a `<scheme>://<form>/<name>[@<pin>]` address in a scheme the platform cannot open.
+    It has no byte file under `resources/`, unless a managed resource shares its hash.
+11. Every resource with `kind: managed` has a byte file that resolves inside the bundle,
+    those bytes hash to the recorded `hash`, and their length is the recorded `size`.
+    A resource whose `hash` is not canonical fails here, because it names no byte file.
+12. Every resource recording an `svg_hash` has `type: figure`,
+    and `resources/<hex>.svg` resolves inside the bundle and holds bytes that hash to it.
 
-Rules 7 and 8 re-hash rather than trusting the manifest.
+Rules 11 and 12 re-hash rather than trusting the manifest.
 A bundle edited between being recorded and being used is refused,
 so what is published is what the reviewer saw.
 

@@ -44,6 +44,38 @@ def flatten_to_resource_name(value: str) -> str:
     return validate_resource_name(flattened)
 
 
+_MAX_VOLUME_LENGTH = 100
+_VOLUME_NAME_PATTERN = re.compile(rf"^[A-Za-z0-9_-]{{1,{_MAX_VOLUME_LENGTH}}}$")
+_RESERVED_VOLUME_NAMES = frozenset({"latest"})
+
+_MAX_VERSION_LENGTH = 50
+# Stricter than the platform, which bounds only the length,
+# because a version also travels in URL paths and in ``volume@version_eNNN`` addresses.
+_BOOK_VERSION_PATTERN = re.compile(rf"^[A-Za-z0-9][A-Za-z0-9._+-]{{0,{_MAX_VERSION_LENGTH - 1}}}$")
+
+
+def validate_volume_name(value: str) -> str:
+    """Return ``value`` unchanged, or raise ``ValueError`` if the platform would refuse the volume."""
+    if not _VOLUME_NAME_PATTERN.fullmatch(value):
+        raise ValueError(
+            f"volume {value!r} must use only ASCII letters, digits, '_' or '-', "
+            f"at most {_MAX_VOLUME_LENGTH} characters"
+        )
+    if value.lower() in _RESERVED_VOLUME_NAMES:
+        raise ValueError(f"volume {value!r} is reserved for the latest-release link")
+    return value
+
+
+def validate_book_version(value: str) -> str:
+    """Return ``value`` unchanged, or raise ``ValueError`` if it cannot address a book."""
+    if not _BOOK_VERSION_PATTERN.fullmatch(value):
+        raise ValueError(
+            f"version {value!r} must start with a letter or digit and use only "
+            f"ASCII letters, digits, '.', '_', '+' or '-', at most {_MAX_VERSION_LENGTH} characters"
+        )
+    return value
+
+
 def book_coordinate(version: str, edition: int | None = None) -> str:
     """Return the ``{version}_e{edition:03}`` label a book is addressed by."""
     return version if edition is None else f"{version}_e{edition:03}"
@@ -100,6 +132,8 @@ __all__ = [
     "RESOURCE_NAME_PATTERN",
     "book_coordinate",
     "flatten_to_resource_name",
+    "validate_book_version",
     "validate_resource_name",
+    "validate_volume_name",
     "version_key",
 ]
