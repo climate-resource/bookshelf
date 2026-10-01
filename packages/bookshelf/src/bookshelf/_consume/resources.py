@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import shutil
 from collections.abc import Mapping
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -21,6 +22,7 @@ from bookshelf._consume.conversions import (
 )
 from bookshelf._consume.frames import (
     arrow_converter,
+    int_year_columns,
     legacy_long_timeseries,
     long_timeseries,
     polars_converter,
@@ -100,7 +102,8 @@ def _copy_out(source: Path, destination: Path) -> Path:
 def _read_cached(
     resource_type: models.ResourceType, path: Path, selection: Selection
 ) -> pd.DataFrame:
-    return settle_cached(resource_type, read_frame(path), selection)
+    frame = read_frame(path, scan=partial(selection.parquet_scan, resource_type))
+    return settle_cached(resource_type, frame, selection)
 
 
 def _long(wide: pd.DataFrame, legacy_columns: bool) -> pd.DataFrame:
@@ -234,6 +237,7 @@ class Resource(_ResourceHandle):
         year_max: int | None = None,
         server_side: bool = False,
         order: Order | None = None,
+        int_years: bool = False,
     ) -> pd.DataFrame:
         """Return every selected row as pandas, using wide indexed form for timeseries.
 
@@ -243,8 +247,12 @@ class Resource(_ResourceHandle):
         with missing values first either way and no promised order among ties.
         By default the selection applies to the verified cached file,
         and ``server_side`` has the platform select instead, which transfers only the selected rows.
+        ``int_years`` labels a timeseries' year columns as integers rather than strings.
         """
-        return self._read("as_df()", filters, year_min, year_max, server_side, order)
+        frame = self._read(
+            "as_df()", filters, year_min, year_max, server_side, order, timeseries_only=int_years
+        )
+        return int_year_columns(frame) if int_years else frame
 
     def as_long_df(
         self,
@@ -508,6 +516,7 @@ class AsyncResource(_ResourceHandle):
         year_max: int | None = None,
         server_side: bool = False,
         order: Order | None = None,
+        int_years: bool = False,
     ) -> pd.DataFrame:
         """Return every selected row as pandas, using wide indexed form for timeseries.
 
@@ -517,8 +526,12 @@ class AsyncResource(_ResourceHandle):
         with missing values first either way and no promised order among ties.
         By default the selection applies to the verified cached file,
         and ``server_side`` has the platform select instead, which transfers only the selected rows.
+        ``int_years`` labels a timeseries' year columns as integers rather than strings.
         """
-        return await self._read("as_df()", filters, year_min, year_max, server_side, order)
+        frame = await self._read(
+            "as_df()", filters, year_min, year_max, server_side, order, timeseries_only=int_years
+        )
+        return int_year_columns(frame) if int_years else frame
 
     async def as_long_df(
         self,

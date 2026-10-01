@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 _DATED_YEAR = re.compile(r"^(\d{4})-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}:\d{2})?$")
 
 
-def _year_column(column: object) -> str:
+def year_label(column: object) -> str:
     """Reduce a dated column such as ``2000-01-01`` or ``2000-01-01 00:00:00`` to its year."""
     match = _DATED_YEAR.match(str(column))
     return match.group(1) if match else str(column)
@@ -43,11 +43,16 @@ def wide_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
         wide.columns = [str(column) for column in wide.columns]
         return wide
     frame = frame.copy(deep=False)
-    frame.columns = [_year_column(column) for column in frame.columns]
+    frame.columns = [year_label(column) for column in frame.columns]
     dimensions = [column for column in frame.columns if not is_year_column(column)]
     if dimensions:
         return frame.set_index(dimensions)
     return frame
+
+
+def int_year_columns(wide: pd.DataFrame) -> pd.DataFrame:
+    """Relabel a shaped wide frame's year columns as integers."""
+    return wide.rename(columns=lambda column: int(column) if is_year_column(column) else column)
 
 
 def long_timeseries(frame: pd.DataFrame) -> pd.DataFrame:
@@ -117,9 +122,11 @@ def arrow_converter() -> Callable[[pd.DataFrame], pa.Table]:
 __all__ = [
     "arrow_converter",
     "drop_constant_dimensions",
+    "int_year_columns",
     "is_year_column",
     "legacy_long_timeseries",
     "long_timeseries",
     "polars_converter",
     "wide_timeseries",
+    "year_label",
 ]
