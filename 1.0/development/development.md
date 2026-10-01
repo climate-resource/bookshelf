@@ -4,27 +4,24 @@ The repository is a uv workspace
 with one published distribution under `packages/bookshelf`.
 Python 3.12 or newer is required.
 
-Install the locked SDK environment:
+Set up the environment and the pre-commit hooks:
 
 ```bash
-uv sync --python 3.12 --package bookshelf --all-extras --dev --locked
+make virtual-environment
 ```
 
-Run the validation suite:
+Run the checks and the tests the way CI does:
 
 ```bash
-uv run --python 3.12 --package bookshelf --all-extras pytest packages/bookshelf
-uv run --python 3.12 ruff check packages/bookshelf
-uv run --python 3.12 ruff format --check packages/bookshelf
+make checks
+make test
 ```
 
-Run strict type checking from the package directory,
-so its nested configuration applies:
+`make checks` runs pre-commit (ruff and the other hooks) and then strict type checking.
+Run mypy from `packages/bookshelf`, so its nested configuration applies.
 
-```bash
-cd packages/bookshelf
-uv run --python 3.12 --locked --all-extras mypy src
-```
+Keep `--group test` on any direct pytest run.
+It carries pytest-asyncio, and without it every async test is skipped while the suite still passes.
 
 ## Bundle goldens
 
@@ -49,11 +46,15 @@ A pyarrow upgrade changes the parquet bytes and so changes the recorded hashes.
 It shows up in the golden as a changed `writer.pyarrow` next to those hashes,
 so the cause is visible in the diff.
 
-Generated models come from the vendored OpenAPI contract.
+Generated models and the generated client come from the vendored OpenAPI contract.
 Do not edit them by hand.
 Regenerate and review them with:
 
 ```bash
-uv run --python 3.12 --project packages/bookshelf --locked --group codegen \
+uv run --project packages/bookshelf --locked --group codegen \
   python packages/bookshelf/scripts/generate_models.py
+uv run --project packages/bookshelf --locked \
+  python packages/bookshelf/scripts/generate_client.py
 ```
+
+CI runs both and fails when either leaves a diff.

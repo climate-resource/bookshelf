@@ -79,8 +79,7 @@ async def latest_co2() -> tuple[str, int, tuple[int, int]]:
     async with AsyncBookshelf() as bs:
         book = await bs.book("rcmip-emissions", "v5.1.0")
         frame = await book["magicc"].as_df(
-            region="World",
-            variable="Emissions|CO2",
+            filters={"region": "World", "variable": "Emissions|CO2"},
             year_min=2020,
             year_max=2100,
         )
@@ -155,7 +154,9 @@ for label, shape in await shapes():
 # async def co2(request: Request):
 #     bs: AsyncBookshelf = request.app.state.bookshelf
 #     book = await bs.book("rcmip-emissions", "v5.1.0")
-#     frame = await book["magicc"].as_df(region="World", variable="Emissions|CO2")
+#     frame = await book["magicc"].as_df(
+#         filters={"region": "World", "variable": "Emissions|CO2"}, server_side=True
+#     )
 #     return frame.to_dict(orient="split")
 # ```
 
@@ -164,14 +165,15 @@ for label, shape in await shapes():
 #
 # The producer surface mirrors too.
 # The activity is an `async with`,
-# and `register`, `draft_book`, `attach` and `publish` are all awaited.
+# and `draft_book`, `register`, `attach` and `publish` are all awaited.
 #
 # ```python
 # async with AsyncBookshelf() as bs:
+#     draft = await bs.draft_book("my-volume", version="v1.0.0", license="CC-BY-4.0")
+#
 #     async with bs.activity(config={"scenario": "ssp245"}) as activity:
 #         output = await activity.register(frame, type="timeseries")
 #
-#     draft = await bs.draft_book("my-volume", version="v1.0.0", license="CC-BY-4.0")
 #     await draft.attach(output, name_in_book="ssp245")
 #     await draft.publish()
 # ```

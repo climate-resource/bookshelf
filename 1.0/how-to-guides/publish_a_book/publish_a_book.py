@@ -99,8 +99,7 @@ bs = RecordingBookshelf(
 source = bs.book("rcmip-emissions", "v5.1.0")["magicc"]
 
 frame = source.as_df(
-    region="World",
-    variable="Emissions|CO2",
+    filters={"region": "World", "variable": "Emissions|CO2"},
     year_min=2020,
     year_max=2100,
 )

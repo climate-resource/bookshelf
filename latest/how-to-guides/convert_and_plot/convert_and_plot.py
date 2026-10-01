@@ -28,7 +28,7 @@ entry = bs.book("rcmip-emissions", "v5.1.0")["magicc"]
 # %% [markdown]
 # ## The converter family
 #
-# Every converter reads the whole resource and takes the same local year window and filters.
+# Every converter returns every selected row and takes the same year window and filters.
 # They differ only in what they hand back.
 #
 # - `as_df()` returns wide indexed pandas.
@@ -45,7 +45,7 @@ entry = bs.book("rcmip-emissions", "v5.1.0")["magicc"]
 # ```
 
 # %%
-selection = dict(region="World", variable="Emissions|CO2", year_min=2000, year_max=2100)
+selection = dict(filters={"region": "World", "variable": "Emissions|CO2"}, year_min=2000, year_max=2100)
 
 entry.as_polars(**selection).shape
 
@@ -62,7 +62,7 @@ entry.as_arrow(**selection).schema.names[:8]
 # `as_scmrun()` is the route into the wider Climate Resource tooling.
 # `ScmRun` requires `region`, `unit`, `variable`, `model` and `scenario` to be present,
 # so those index dimensions have to be intact.
-# The converters filter locally and never drop a dimension, so that holds.
+# The converters never drop a dimension, so that holds.
 
 # %%
 run = entry.as_scmrun(year_min=1900, year_max=2100)
@@ -92,12 +92,10 @@ plt.tight_layout()
 # Pandas works just as well when `scmdata` is not wanted.
 
 # %%
-wide = entry.query(
-    region="World",
-    variable="Emissions|CO2",
+wide = entry.as_df(
+    filters={"region": "World", "variable": "Emissions|CO2"},
     year_min=1990,
     year_max=2100,
-    drop_constant=True,
 )
 fig, ax = plt.subplots(figsize=(10, 5), dpi=120)
 wide.T.plot(ax=ax, legend=False)
@@ -108,7 +106,8 @@ plt.tight_layout()
 # ## Files and the content cache
 #
 # The converters hand back a frame.
-# To get the stored file itself, use `fetch()` for bytes or `as_path()` for a local path.
+# To get the stored file itself, use `fetch()` for bytes or `download(destination)` for a copy on disk.
+# `as_path()` returns the cached file itself, which the cache may evict later.
 #
 # Both verify the declared SHA256 before handing anything back.
 # A mismatch raises `HashMismatchError` rather than returning suspect data.

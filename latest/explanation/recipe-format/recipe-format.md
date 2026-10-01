@@ -89,7 +89,10 @@ Everything else in `volume:` can.
 `keywords` is declared once because it doesn't change between books.
 Letting it vary would make a filter return a different volume
 depending on which edition happened to match.
-Changes to the volume metadata are updated on the next publish.
+Publishing applies `volume:` to the volume before the book is replayed.
+Only the fields the recipe states are sent, so one it leaves out keeps whatever value the volume already has.
+A field set to null counts as left out, so null never clears a volume fact.
+An explicit empty list is stated, so `keywords: []` or `maintainers: []` does clear that list.
 
 A book may override anything under `defaults:`.
 The merge is field by field rather than section by section,
@@ -208,7 +211,7 @@ and an output credited to whoever derived it.
   The platform holds the resource already, so both come from it.
   Stating either is rejected rather than checked, because a recipe cannot know them in advance.
 - **A resource always declares its `type`**, which is never inferred from the file extension.
-  It is one of `tabular`, `timeseries`, `geospatial`, `document` or `binary`,
+  It is one of `tabular`, `timeseries`, `geospatial`, `document`, `binary` or `figure`,
   the same set the platform registers a resource under,
   so a recipe that loads cannot name a type registration would refuse.
   This is the field that usually belongs under `defaults:`, because it does not move between books.
@@ -282,7 +285,8 @@ for name, resource in entries.items():
 Each entry's bytes are downloaded and verified through the consuming cache.
 No resources are registered, and each result keeps the published tracking id.
 Repeated calls reuse the resolved dictionary.
-A one-entry book still returns a dictionary; an empty book returns an empty dictionary.
+A one-entry book still returns a dictionary.
+An empty book returns an empty dictionary.
 The same restriction on recorded `used=` applies to these entries.
 
 The flag defaults to `false` and requires a boolean value.
@@ -307,7 +311,7 @@ resources:
 
 This creates a resource that isn't attached to a book,
 but can be used as a resource and will appear on the provenance graph.
-These files can only be access by an organisation member.
+These files can only be accessed by an organisation member.
 
 `used=[compass]` records the lineage back to the upload,
 under the digest the recipe declares it by,
@@ -344,13 +348,14 @@ raw = build.use("raw")                # fetched, verified against the declared s
 
 data = pd.read_csv(raw.path)
 ...
-build.write("by_country", by_country, used=[raw])
-build.write("by_region", by_region, used=[raw])
+build.book.write("by_country", by_country, used=[raw])
+build.book.write("by_region", by_region, used=[raw])
 ```
 
 `setup` returns a `Build`, which provides the high-level functions to help build a book.
-`.use` and `.write` used here are a convenience wrapper on top of the lower level `activity` primitives.
-`build.bs` and `build.book` reach the SDK underneath for anything the recipe does not cover.
+`build.use` resolves a resource the recipe declares.
+`build.book` is the draft book, and its `write` registers a frame and attaches it in one call.
+`build.bs` reaches the SDK underneath for anything the recipe does not cover.
 For our simple feedstocks this will make it easier to understand,
 while preserving the lower level functionality for more complex workflows.
 
