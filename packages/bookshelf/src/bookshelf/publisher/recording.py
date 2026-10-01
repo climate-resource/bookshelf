@@ -658,7 +658,13 @@ class RecordingSink:
         if code_ref is None:
             code_ref = derive_code_ref()
         parameters = dict(config or {})
-        settled_hash = config_hash or canonical_config_hash(parameters)
+        derived_hash = canonical_config_hash(parameters)
+        if activity_id is not None and config_hash not in (None, derived_hash):
+            raise BookshelfError(
+                "a recorded activity takes an explicit activity_id or config_hash, not both. "
+                "Validation needs one of them derived from the parameters to vouch for the other."
+            )
+        settled_hash = config_hash or derived_hash
         self._open_activity = RecordingActivity(
             self.bundle,
             self._client,

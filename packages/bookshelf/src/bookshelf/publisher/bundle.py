@@ -491,7 +491,11 @@ def _external_uri_problem(uri: str) -> str | None:
     """Return why the platform would refuse ``uri`` as a pointer target, or ``None``."""
     if any(ord(char) < 0x20 for char in uri):
         return "contains control characters"
-    parts = urlsplit(uri)
+    try:
+        parts = urlsplit(uri)
+        host, _ = parts.hostname, parts.port
+    except ValueError:
+        return "is not a valid URL"
     scheme = parts.scheme.lower()
     if scheme != "https":
         pointer = _POINTER_URI.fullmatch(uri)
@@ -502,10 +506,10 @@ def _external_uri_problem(uri: str) -> str | None:
         ):
             return "is neither an https URL nor a '<scheme>://<form>/<name>[@<pin>]' pointer"
         return None
-    if not parts.hostname:
+    if not host:
         return "names no host"
     try:
-        address = ipaddress.ip_address(parts.hostname)
+        address = ipaddress.ip_address(host)
     except ValueError:
         return None
     return None if address.is_global else "points at a private or reserved address"
@@ -909,7 +913,7 @@ class Bundle:
         return record
 
     def _contained(self, filename: str) -> Path:
-        """Return the path of ``filename`` under ``resources/``, refusing one that resolves outside the bundle.
+        """Return the resolved path of ``filename`` under ``resources/``, refusing one outside the bundle.
 
         The hash alone cannot catch a byte file swapped for a symlink to identical bytes elsewhere.
         """
@@ -917,7 +921,7 @@ class Bundle:
         resolved = path.resolve()
         if not resolved.is_relative_to(self.root.resolve()):
             raise InvalidBundleError(f"{path} resolves to {resolved}, outside the bundle")
-        return path
+        return resolved
 
     def resource_bytes(self, record: BundleResource) -> bytes:
         """Read back the recorded bytes for ``record`` from ``resources/``.

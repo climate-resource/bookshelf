@@ -3,11 +3,15 @@
 import tracemalloc
 import uuid
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
+from bookshelf._core.client import BookshelfClient
+from bookshelf._core.errors import BookshelfError
 from bookshelf._core.hashing import sha256_hex
 from bookshelf._produce.provenance import canonical_config_hash, derive_activity_id
+from bookshelf.cache import ContentCache
 from bookshelf.publisher.bundle import (
     Bundle,
     BundleActivity,
@@ -15,6 +19,7 @@ from bookshelf.publisher.bundle import (
     InvalidBundleError,
     resource_filename,
 )
+from bookshelf.publisher.recording import RecordingSink
 from tests.conftest import BundleFactory
 
 CODE_REF = "https://github.com/example/lab.git@" + "a" * 40
@@ -324,3 +329,32 @@ def test_a_newer_major_names_the_upgrade_as_its_remedy(tmp_path: Path) -> None:
 
     assert not str(raised.value).endswith(".")
     assert raised.value.remedy == "Upgrade bookshelf to read it."
+
+
+def test_recording_refuses_an_activity_that_nothing_vouches_for(tmp_path: Path) -> None:
+    """Validate would refuse it, so the recorder refuses it first."""
+    sink = RecordingSink(
+        Bundle(tmp_path / "bundle"), Mock(spec=BookshelfClient), ContentCache(tmp_path / "cache")
+    )
+
+    with pytest.raises(BookshelfError, match="activity_id or config_hash"):
+        sink.activity(
+            code_ref=CODE_REF,
+            config={"year": 2024},
+            activity_id=uuid.uuid4(),
+            config_hash="sha256:" + "1" * 64,
+        )
+
+
+@pytest.mark.parametrize(
+    "uri", ["https://[::1/data.csv", "https://example.com:port/data.csv"], ids=["ipv6", "port"]
+)
+def test_a_malformed_pointer_url_is_an_invalid_bundle(tmp_path: Path, uri: str) -> None:
+    bundle = Bundle(tmp_path / "bundle")
+    bundle.set_book(_book())
+    bundle.add_pointer(external_uri=uri, hash_=sha256_hex(b"x"), type_="tabular", name="ptr")
+    bundle.add_book_entry(name="ptr")
+    bundle.mark_book_published()
+
+    with pytest.raises(InvalidBundleError, match="pointer 'ptr'"):
+        bundle.validate()
