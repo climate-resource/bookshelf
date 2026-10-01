@@ -394,6 +394,57 @@ def test_an_unreadable_recipe_is_an_invalid_recipe(tmp_path: Path, content: byte
         load_record_recipe(path)
 
 
+@pytest.mark.parametrize("make", ["absent", "directory"])
+def test_a_recipe_that_cannot_be_opened_is_an_invalid_recipe(tmp_path: Path, make: str) -> None:
+    path = tmp_path / "bookshelf.yaml"
+    if make == "directory":
+        path.mkdir()
+
+    with pytest.raises(InvalidRecipeError, match="cannot read"):
+        load_record_recipe(path)
+
+
+def test_a_key_stated_twice_is_rejected_rather_than_the_last_one_winning(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        """\
+        volume:
+          name: my-dataset
+        books:
+          - version: "v1.0"
+            license: MIT
+            license: CC-BY-4.0
+        """,
+    )
+
+    with pytest.raises(InvalidRecipeError, match="'license' more than once"):
+        load_record_recipe(path)
+
+
+def test_an_unhashable_key_is_an_invalid_recipe(tmp_path: Path) -> None:
+    with pytest.raises(InvalidRecipeError, match="not valid YAML"):
+        load_record_recipe(_write(tmp_path, "? [a]\n: 1\n"))
+
+
+def test_a_merge_key_may_still_be_overridden(tmp_path: Path) -> None:
+    """Overriding a merged key is the point of a merge, so it is not a repeated key."""
+    path = _write(
+        tmp_path,
+        """\
+        volume:
+          name: my-dataset
+        books:
+          - &base
+            version: "v1.0"
+            license: MIT
+          - <<: *base
+            version: "v2.0"
+        """,
+    )
+
+    assert load_record_recipe(path).versions == ("v1.0", "v2.0")
+
+
 def test_books_stated_as_a_mapping_is_rejected(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
@@ -466,7 +517,7 @@ def test_an_unquoted_numeric_version_is_rejected_telling_the_author_to_quote_it(
         volume:
           name: my-dataset
         books:
-          - version: 2.6
+          - version: 2.70
             license: MIT
         """,
     )
@@ -475,13 +526,15 @@ def test_an_unquoted_numeric_version_is_rejected_telling_the_author_to_quote_it(
         load_record_recipe(path)
 
     message = str(excinfo.value)
-    assert 'Quote it as "2.6"' in message
+    # YAML has already read 2.70 as 2.7, so quoting what it read is the collision itself.
+    assert '"2.7"' not in message
+    assert "Quote it exactly as you wrote it" in message
     assert "2.70 and 2.7 would collide" in message
 
 
 @pytest.mark.parametrize(
     ("value", "read_as"),
-    [("yes", "bool"), ("2025-08-22", "date"), ("2", "int")],
+    [("yes", "a boolean"), ("2025-08-22", "a date"), ("2", "an integer")],
 )
 def test_a_version_that_is_not_a_string_names_what_yaml_read_it_as(
     tmp_path: Path, value: str, read_as: str
@@ -502,7 +555,7 @@ def test_a_version_that_is_not_a_string_names_what_yaml_read_it_as(
         load_record_recipe(path)
 
     message = str(excinfo.value)
-    assert f"YAML read it as a {read_as}" in message
+    assert f"YAML read it as {read_as}" in message
     assert "Quote it exactly as you wrote it" in message
     assert "would collide" not in message
 

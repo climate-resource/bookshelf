@@ -18,7 +18,6 @@ import importlib.util
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
 
 import typer
 import yaml
@@ -41,6 +40,7 @@ from bookshelf.facade import Bookshelf
 from bookshelf.publisher import (
     Bundle,
     RecordRecipe,
+    RecordRefusedError,
     load_record_recipe,
     parse_parameters,
     publish_bundle,
@@ -68,19 +68,6 @@ def _require_publish_extra() -> None:
             "Run 'uv sync --extra publish', or install 'bookshelf[publish]'.",
             exit_code=EXIT_USAGE,
         )
-
-
-def _parameters(values: list[str]) -> dict[str, Any]:
-    """Parse ``-p KEY=VALUE`` pairs, treating a malformed pair as a usage error.
-
-    ``parse_parameters`` raises the base ``BookshelfError``,
-    which maps to the unexpected-failure code.
-    A caller's typo is not an unexpected failure.
-    """
-    try:
-        return parse_parameters(values)
-    except BookshelfError as exc:
-        raise CliError(str(exc), exit_code=EXIT_USAGE) from exc
 
 
 def _load_recipe(path: Path) -> RecordRecipe:
@@ -188,7 +175,7 @@ def record(
         "--parameter",
         "-p",
         metavar="KEY=VALUE",
-        help="Build parameter, read as a YAML scalar. Repeatable.",
+        help="Value for a top-level assignment in the build file, read as YAML. Repeatable.",
     ),
     force: bool = typer.Option(False, "--force", help="Replace an existing bundle directory."),
     json_output: bool = typer.Option(False, "--json", help="Emit the summary as JSON."),
@@ -207,13 +194,17 @@ def record(
         loaded = _load_recipe(recipe)
         selected = _resolve_version(version, loaded)
         resolved_build = _resolve_build(build, loaded, recipe)
-        summary = run_record(
-            build_path=resolved_build,
-            recipe_path=recipe,
-            bundle_path=bundle,
-            version=selected,
-            parameters=_parameters(parameter),
-        )
+        try:
+            summary = run_record(
+                build_path=resolved_build,
+                recipe_path=recipe,
+                bundle_path=bundle,
+                version=selected,
+                parameters=parse_parameters(parameter),
+            )
+        except RecordRefusedError as exc:
+            # A refusal is the caller's to fix, where the base error would read as a crash.
+            raise CliError(str(exc), exit_code=EXIT_USAGE) from exc
         emit_payload(summary, json_output=json_output)
 
 
