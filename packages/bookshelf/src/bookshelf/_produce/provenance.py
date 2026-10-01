@@ -15,8 +15,10 @@ from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
 _ACTIVITY_NAMESPACE = UUID("6f2a1d3e-9c47-5b8a-a1f0-3d7e5c2b4a96")
 
 
-def derive_code_ref() -> str:
-    """Return ``<remote-url>@<sha>[+dirty]`` for the current git checkout.
+def derive_code_ref(path: Path | None = None) -> str:
+    """Return ``<remote-url>@<sha>[+dirty]`` for the git checkout holding ``path``.
+
+    ``path`` defaults to the working directory.
 
     Raises :class:`~bookshelf._core.errors.BookshelfError` naming the unmet requirement,
     whether git cannot be run, this is not a usable repository, or it has no commits.
@@ -35,7 +37,7 @@ def derive_code_ref() -> str:
 
     # Backstop, so nothing gitpython raises escapes as anything but a BookshelfError.
     try:
-        return _derive_code_ref()
+        return _derive_code_ref(Path.cwd() if path is None else path)
     except (git.GitError, OSError) as exc:
         raise BookshelfError(
             f"Cannot derive code_ref: git could not be queried ({exc}). Pass code_ref= explicitly."
@@ -66,12 +68,12 @@ def _sanitise_remote_url(url: str) -> str:
     return urlunsplit(parsed._replace(netloc=netloc))
 
 
-def _derive_code_ref() -> str:
-    """Read the code ref from the repository containing the working directory."""
+def _derive_code_ref(path: Path) -> str:
+    """Read the code ref from the repository containing ``path``."""
     import git
 
     try:
-        repo = git.Repo(Path.cwd(), search_parent_directories=True)
+        repo = git.Repo(path, search_parent_directories=True)
     except git.NoSuchPathError as exc:
         raise BookshelfError(
             "Cannot derive code_ref: the working directory no longer exists. "

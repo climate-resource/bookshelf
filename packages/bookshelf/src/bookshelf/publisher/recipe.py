@@ -22,7 +22,7 @@ Three rules shape everything here:
 
 import re
 from collections.abc import Collection
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Self, get_args
 
@@ -88,6 +88,23 @@ _MOVED_KEYS = (
 
 class InvalidRecipeError(BookshelfError, ValueError):
     """A recipe on disk breaks a rule the recipe format promises."""
+
+
+class _UniqueKeyLoader(yaml.SafeLoader):
+    """A safe loader that refuses a key stated twice in one mapping, where YAML keeps the last."""
+
+    def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict[Any, Any]:
+        seen: set[Any] = set()
+        for key_node, _ in node.value:
+            if key_node.tag == "tag:yaml.org,2002:merge":
+                continue
+            key = self.construct_object(key_node, deep=deep)  # type: ignore[no-untyped-call]
+            if key in seen:
+                raise yaml.constructor.ConstructorError(
+                    None, None, f"states {key!r} more than once", key_node.start_mark
+                )
+            seen.add(key)
+        return super().construct_mapping(node, deep=deep)
 
 
 class _Section(BaseModel):
@@ -619,15 +636,27 @@ def _unquoted_version(version: Any) -> str:  # noqa: ANN401
     the file.
     """
     if isinstance(version, float):
+        # YAML has already dropped any trailing zero, so the value read cannot be what to quote.
         return (
-            f'version {version} is a number. Quote it as "{version}", '
+            f"version {version} is a number. Quote it exactly as you wrote it, "
             "because an unquoted version is read as a YAML float "
             "and 2.70 and 2.7 would collide"
         )
+    read_as = _YAML_TYPE_NAMES.get(type(version), f"a {type(version).__name__}")
     return (
-        f"version {version} is not a string, because YAML read it as a {type(version).__name__}. "
+        f"version {version} is not a string, because YAML read it as {read_as}. "
         "Quote it exactly as you wrote it, because a version is a string"
     )
+
+
+_YAML_TYPE_NAMES: dict[type, str] = {
+    bool: "a boolean",
+    int: "an integer",
+    date: "a date",
+    datetime: "a timestamp",
+    list: "a list",
+    dict: "a mapping",
+}
 
 
 def _merge_resources(defaults: DefaultsSection, body: dict[str, Any]) -> Any:  # noqa: ANN401
@@ -669,8 +698,14 @@ def load_record_recipe(path: Path) -> RecordRecipe:
     A recipe that breaks one raises :class:`InvalidRecipeError`.
     """
     try:
-        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except (yaml.YAMLError, UnicodeDecodeError) as exc:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise InvalidRecipeError(f"cannot read {path}: {exc.strerror or exc}") from exc
+    except UnicodeDecodeError as exc:
+        raise InvalidRecipeError(f"{path} is not valid YAML: {exc}") from exc
+    try:
+        raw = yaml.load(text, Loader=_UniqueKeyLoader)  # noqa: S506
+    except yaml.YAMLError as exc:
         raise InvalidRecipeError(f"{path} is not valid YAML: {exc}") from exc
     if raw is None:
         raw = {}

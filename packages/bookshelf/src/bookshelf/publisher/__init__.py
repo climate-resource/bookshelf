@@ -53,6 +53,7 @@ from bookshelf.publisher.publish import PublishOutcome, publish_bundle
 from bookshelf.publisher.recipe import InvalidRecipeError, RecordRecipe, load_record_recipe
 from bookshelf.publisher.record import (
     Build,
+    RecordRefusedError,
     parse_parameters,
     run_record,
     setup,
@@ -62,6 +63,7 @@ from bookshelf.publisher.recording import (
     RecordedResource,
     RecordingActivity,
     RecordingBookshelf,
+    RecordingError,
     RecordingSink,
 )
 from bookshelf.publisher.reference import (
@@ -82,10 +84,12 @@ __all__ = [
     "InvalidReferenceError",
     "PublishOutcome",
     "RecordRecipe",
+    "RecordRefusedError",
     "RecordedDraftBook",
     "RecordedResource",
     "RecordingActivity",
     "RecordingBookshelf",
+    "RecordingError",
     "RecordingSink",
     "Build",
     "ResolvedResource",

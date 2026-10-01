@@ -23,6 +23,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from bookshelf._core.errors import BookshelfError
+
 
 @dataclass
 class ExecutedNotebook:
@@ -118,26 +120,53 @@ def _execute_python_cell(
         if not _defines_parameter_default(statement, overridden)
     ]
     with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
-        exec(compile(module, filename, "exec"), globals_dict)  # noqa: S102
+        try:
+            exec(compile(module, filename, "exec"), globals_dict)  # noqa: S102
+        except SystemExit as exc:
+            raise BookshelfError(
+                f"the build called sys.exit({exc.code!r}) in {filename}, so nothing was recorded. "
+                "A recorded build runs to its end, so raise an exception to stop it with a reason"
+            ) from exc
     outputs: list[dict[str, Any]] = []
-    if stdout.getvalue():
-        outputs.append({"name": "stdout", "output_type": "stream", "text": stdout.getvalue()})
-    if stderr.getvalue():
-        outputs.append({"name": "stderr", "output_type": "stream", "text": stderr.getvalue()})
+    for name, stream in (("stdout", stdout), ("stderr", stderr)):
+        if text := stream.getvalue():
+            # A lone surrogate cannot be encoded, so it is escaped rather than failing the render.
+            printable = text.encode("utf-8", "backslashreplace").decode("utf-8")
+            outputs.append({"name": name, "output_type": "stream", "text": printable})
     return outputs
+
+
+def assigned_names(build_path: Path) -> frozenset[str] | None:
+    """Return the top-level names a build file assigns, which are the ones a parameter can supersede.
+
+    ``None`` for a file that does not parse, because executing it reports the syntax error better.
+    """
+    source = build_path.read_text(encoding="utf-8")
+    names: set[str] = set()
+    for cell in _source_cells(source):
+        try:
+            module = ast.parse(cell)
+        except SyntaxError:
+            return None
+        for statement in module.body:
+            names.update(_assigned_names(statement))
+    return frozenset(names)
+
+
+def _assigned_names(statement: ast.stmt) -> set[str]:
+    """Return the plain names a top-level assignment binds."""
+    if isinstance(statement, ast.Assign):
+        targets = statement.targets
+    elif isinstance(statement, ast.AnnAssign):
+        targets = [statement.target]
+    else:
+        return set()
+    return {target.id for target in targets if isinstance(target, ast.Name)}
 
 
 def _defines_parameter_default(statement: ast.stmt, names: frozenset[str]) -> bool:
     """Identify a top-level default superseded by a record parameter."""
-    if isinstance(statement, ast.Assign):
-        return any(
-            isinstance(target, ast.Name) and target.id in names for target in statement.targets
-        )
-    return (
-        isinstance(statement, ast.AnnAssign)
-        and isinstance(statement.target, ast.Name)
-        and statement.target.id in names
-    )
+    return not _assigned_names(statement).isdisjoint(names)
 
 
 def _notebook_json(cells: list[dict[str, Any]], *, params: Mapping[str, Any]) -> str:
@@ -189,5 +218,6 @@ def _render_executed_notebook(ipynb_path: Path, html_path: Path) -> None:
 
 __all__ = [
     "ExecutedNotebook",
+    "assigned_names",
     "execute_python_build",
 ]

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import keyword
 import shutil
 import tempfile
 from collections.abc import Iterator, Mapping, Sequence
@@ -19,9 +21,10 @@ from bookshelf._generated import models
 from bookshelf._produce import helpers
 from bookshelf._produce.books import DraftBook
 from bookshelf._produce.facade import nests_discovery
+from bookshelf._produce.provenance import derive_code_ref
 from bookshelf.facade import Bookshelf
-from bookshelf.publisher.bundle import Bundle
-from bookshelf.publisher.notebook import ExecutedNotebook, execute_python_build
+from bookshelf.publisher.bundle import MANIFEST_NAME, Bundle
+from bookshelf.publisher.notebook import ExecutedNotebook, assigned_names, execute_python_build
 from bookshelf.publisher.recipe import (
     DiscoveryFields,
     RecordRecipe,
@@ -30,8 +33,12 @@ from bookshelf.publisher.recipe import (
     load_record_recipe,
     resolve_book_visibility,
 )
-from bookshelf.publisher.recording import RecordedDraftBook, RecordingBookshelf
+from bookshelf.publisher.recording import RecordedDraftBook, RecordingBookshelf, RecordingError
 from bookshelf.publisher.resource import ResolvedResource
+
+
+class RecordRefusedError(BookshelfError, ValueError):
+    """The recorder refused what it was asked to do before running the build."""
 
 
 @dataclass(slots=True)
@@ -41,6 +48,7 @@ class _RecordingContext:
     bundle: Bundle
     recipe_dir: Path | None = None
     parameters: dict[str, Any] = field(default_factory=dict)
+    code_ref: str | None = None
     bookshelf: RecordingBookshelf | None = None
     book: RecordedDraftBook | None = None
     setup_called: bool = False
@@ -146,6 +154,7 @@ def setup(
             resolved=context.resolved,
             recipe_dir=context.recipe_dir,
             parameters=context.parameters,
+            code_ref=context.code_ref,
         )
         discovery = _resolved_discovery(context.resolved)
         book = context.bookshelf.draft_book(
@@ -214,8 +223,19 @@ def run_record(
         raise BookshelfError("record requires a standalone Jupytext .py build file")
     if not build.is_file():
         raise BookshelfError(f"build file not found: {build}")
+    _check_parameters(parameters or {}, build=build)
 
     target = bundle_path.resolve()
+    _check_replaceable(
+        target,
+        protected={
+            "the recipe": recipe_path,
+            "the build file": build,
+            "the working directory": workdir,
+        },
+    )
+    # Read before the staging directory lands in the clone, and before the build can move the cwd.
+    code_ref = _code_ref(workdir)
     target.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(
         prefix=f".{target.name}-record-",
@@ -228,6 +248,7 @@ def run_record(
             bundle=bundle,
             recipe_dir=recipe_path.resolve().parent,
             parameters=dict(parameters or {}),
+            code_ref=code_ref,
         )
         token = _ACTIVE_RECORDING.set(context)
         try:
@@ -255,6 +276,72 @@ def run_record(
         "book_entries": len(bundle.manifest.book.entries) if bundle.manifest.book else 0,
         "published": bool(bundle.manifest.book and bundle.manifest.book.published),
     }
+
+
+def _code_ref(workdir: Path) -> str | None:
+    """Derive the code ref up front, leaving a failure for the activity to report if it needs one.
+
+    A build may pass ``code_ref=`` itself, so a checkout without git is not yet an error.
+    """
+    try:
+        return derive_code_ref(workdir)
+    except BookshelfError:
+        return None
+
+
+def _check_replaceable(target: Path, *, protected: Mapping[str, Path]) -> None:
+    """Refuse a bundle target that replacing would destroy something other than a bundle."""
+    if not target.exists():
+        return
+    if not target.is_dir():
+        raise RecordRefusedError(
+            f"{target} is not a directory, so it is not a bundle to replace. "
+            "Pass --bundle naming a bundle directory or a path that does not exist yet"
+        )
+    for what, path in protected.items():
+        if path.resolve().is_relative_to(target):
+            raise RecordRefusedError(
+                f"{target} holds {what}, so replacing it would delete the feedstock. "
+                "Pass --bundle naming a directory of its own, such as 'bundle'"
+            )
+    if any(target.iterdir()) and not (target / MANIFEST_NAME).is_file():
+        raise RecordRefusedError(
+            f"{target} is not a bundle, because it holds no {MANIFEST_NAME}, "
+            "so record will not replace it. "
+            "Pass --bundle naming a different directory, or remove this one yourself"
+        )
+
+
+def _check_parameters(parameters: Mapping[str, Any], *, build: Path | None = None) -> None:
+    """Refuse a parameter the build cannot take or the manifest cannot record, before the build runs."""
+    for key, value in parameters.items():
+        if (
+            not isinstance(key, str)
+            or not key.isidentifier()
+            or keyword.iskeyword(key)
+            or (key.startswith("__") and key.endswith("__"))
+        ):
+            raise RecordRefusedError(
+                f"parameter {key!r} is not a variable a build file can assign. "
+                "Name a top-level assignment in the build file"
+            )
+        try:
+            json.dumps(value, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise RecordRefusedError(
+                f"parameter {key!r} cannot be recorded, because the manifest stores parameters "
+                f"as JSON ({exc}). Quote a date or any other value as a string"
+            ) from exc
+    assigned = None if build is None else assigned_names(build)
+    if assigned is None:
+        return
+    unknown = [key for key in parameters if key not in assigned]
+    if unknown:
+        listed = ", ".join(repr(name) for name in sorted(assigned)) or "nothing"
+        raise RecordRefusedError(
+            f"parameter {unknown[0]!r} matches no top-level assignment in {build}, "
+            f"so it would change nothing. The build assigns {listed}"
+        )
 
 
 def _record_processing(bundle: Bundle) -> None:
@@ -291,6 +378,10 @@ def _record_executed_documents(
     if context.bookshelf is None or context.book is None:
         raise BookshelfError("build file must call bookshelf.setup explicitly")
     notebook_kind, html_kind = DOCUMENT_KINDS
+    manifest = context.bundle.manifest
+    taken = {resource.name for resource in manifest.resources}
+    if manifest.book is not None:
+        taken.update(entry.name for entry in manifest.book.entries)
     documents = [
         (executed.ipynb_path, f"{executed.name}.ipynb", notebook_kind),
         (executed.html_path, f"{executed.name}.html", html_kind),
@@ -298,6 +389,11 @@ def _record_executed_documents(
     for path, filename, kind in documents:
         # One name: a replayed resource is registered under the name its book entry takes.
         name = flatten_to_resource_name(filename)
+        if name in taken:
+            raise RecordingError(
+                f"resource name {name!r} is reserved for the executed notebook the recorder attaches. "
+                "Rename what the build records under it"
+            )
         resource = context.bookshelf.recording_sink.record_document(
             path.read_bytes(),
             name=name,
@@ -322,18 +418,26 @@ def _replace_bundle(staging: Path, target: Path) -> None:
 
 
 def parse_parameters(values: Sequence[str]) -> dict[str, Any]:
-    """Parse command-line key and value pairs as YAML scalars."""
+    """Parse command-line key and value pairs as YAML scalars.
+
+    Raises :class:`RecordRefusedError` for a pair that does not parse, or a value the manifest cannot record.
+    """
     parsed: dict[str, Any] = {}
     for value in values:
         key, separator, raw = value.partition("=")
         if not separator or not key:
-            raise BookshelfError(f"invalid parameter {value!r}, expected key=value")
-        parsed[key] = yaml.safe_load(raw)
+            raise RecordRefusedError(f"invalid parameter {value!r}, expected key=value")
+        try:
+            parsed[key] = yaml.safe_load(raw)
+        except yaml.YAMLError as exc:
+            raise RecordRefusedError(f"parameter {key!r} is not valid YAML: {exc}") from exc
+    _check_parameters(parsed)
     return parsed
 
 
 __all__ = [
     "Build",
+    "RecordRefusedError",
     "parse_parameters",
     "run_record",
     "setup",

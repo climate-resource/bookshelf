@@ -301,7 +301,12 @@ def test_a_book_reference_cannot_be_cited_as_lineage(
         with pytest.raises(ValueError) as excinfo:
             build.book.write("by_country", b"payload", type="document", used=[raw])
 
-    assert "this bundle does not record" in str(excinfo.value)
+    message = str(excinfo.value)
+    assert isinstance(excinfo.value, BookshelfError)
+    assert "bookshelf://primap-hist/v2.7_e002/by_country" in message
+    assert "book coordinate" in message
+    assert "bookshelf://sha256/" in message
+    assert "build.use()" not in message
 
 
 def test_a_uri_resource_fetches_once_and_reads_back(tmp_path: Path, server: _Server) -> None:

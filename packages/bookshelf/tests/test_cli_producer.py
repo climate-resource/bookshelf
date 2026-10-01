@@ -179,6 +179,35 @@ def test_record_refuses_an_existing_bundle_without_force(tmp_path: Path) -> None
     assert "--force" in _plain(result.stderr)
 
 
+def _record_args(tmp_path: Path, *extra: str) -> list[str]:
+    recipe = _recipe(tmp_path / "bookshelf.yaml")
+    build = tmp_path / "build.py"
+    build.write_text("x = 1\n")
+    return ["record", str(build), "--recipe", str(recipe), "--version", VERSION, *extra]
+
+
+def test_record_force_refuses_a_directory_that_is_not_a_bundle(tmp_path: Path) -> None:
+    inputs = tmp_path / "inputs"
+    inputs.mkdir()
+    (inputs / "raw.csv").write_text("a,b\n")
+
+    result = runner.invoke(app, _record_args(tmp_path, "--bundle", str(inputs), "--force"))
+
+    assert result.exit_code == EXIT_USAGE
+    assert "not a bundle" in _plain(result.stderr)
+    assert (inputs / "raw.csv").read_text() == "a,b\n"
+
+
+@pytest.mark.parametrize("parameter", ["x=[1,2", "x=2024-01-01", "a-b=1", "y=1"])
+def test_record_reports_an_unusable_parameter_as_usage(tmp_path: Path, parameter: str) -> None:
+    result = runner.invoke(
+        app, _record_args(tmp_path, "--bundle", str(tmp_path / "bundle"), "-p", parameter)
+    )
+
+    assert result.exit_code == EXIT_USAGE, result.output
+    assert not (tmp_path / "bundle").exists()
+
+
 def test_record_names_the_fix_when_no_build_file_resolves(tmp_path: Path) -> None:
     recipe = _recipe(tmp_path / "bookshelf.yaml", notebook=None)
 

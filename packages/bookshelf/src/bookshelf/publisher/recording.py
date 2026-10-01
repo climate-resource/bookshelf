@@ -59,6 +59,11 @@ from bookshelf.publisher.resource import (
     resolve_resource,
 )
 
+
+class RecordingError(BookshelfError, ValueError):
+    """A build asked the recorder for something a bundle cannot hold."""
+
+
 WRITE_ACTIVITY_KIND = "process"
 """The kind the implicit ``book.write`` activity records under.
 
@@ -608,9 +613,11 @@ class RecordingSink:
         lookup_book: LookupBook | None = None,
         lookup_digest: LookupDigest | None = None,
         parameters: Mapping[str, Any] | None = None,
+        code_ref: str | None = None,
     ) -> None:
         self.bundle = bundle
         self._parameters = dict(parameters or {})
+        self._code_ref = code_ref
         self._client = client
         self._cache = cache
         self._resolved = resolved
@@ -656,7 +663,7 @@ class RecordingSink:
                 "the block that is already open, or through book.write."
             )
         if code_ref is None:
-            code_ref = derive_code_ref()
+            code_ref = self._code_ref or derive_code_ref()
         parameters = dict(config or {})
         settled_hash = config_hash or canonical_config_hash(parameters)
         self._open_activity = RecordingActivity(
@@ -888,7 +895,10 @@ class RecordingSink:
         """
         activity = self.bundle.manifest.activity
         if activity is None:
-            raise BookshelfError("a recorded build requires an activity before execution documents")
+            raise RecordingError(
+                "the build recorded no outputs, and a recorded book carries what its build made. "
+                "Write one with book.write(...), or register one inside bs.activity(...)"
+            )
         materialised = serialise(data, type="document")
         resource_id = helpers.uuid7()
         used = _recorded_activity_used(self.bundle, exclude=self._sidecar_edges)
@@ -929,6 +939,7 @@ class RecordingBookshelf(Bookshelf):
         resolved: ResolvedBook | None = None,
         recipe_dir: Path | None = None,
         parameters: Mapping[str, Any] | None = None,
+        code_ref: str | None = None,
     ) -> None:
         super().__init__(base_url, auth=auth)
         self.bundle = bundle
@@ -943,6 +954,7 @@ class RecordingBookshelf(Bookshelf):
             resolved=resolved,
             recipe_dir=recipe_dir,
             parameters=parameters,
+            code_ref=code_ref,
             # A bookshelf reference is a read, so it goes through the same facade a consumer uses.
             lookup_book=self.book,
             lookup_digest=self.resource_by_hash,
@@ -965,11 +977,14 @@ def _recorded_name(name: str | None) -> str:
     Replay addresses every resource by name, so a recorded one cannot go without.
     """
     if name is None:
-        raise ValueError(
+        raise RecordingError(
             "a recorded resource needs a name, which replay addresses it by. "
             "Pass name= to the registration."
         )
-    return validate_resource_name(name)
+    try:
+        return validate_resource_name(name)
+    except ValueError as exc:
+        raise RecordingError(f"resource {exc}") from exc
 
 
 def _used_reference(value: UsedInput, names: Mapping[UUID, str]) -> str | _UsedDigest:
@@ -989,7 +1004,15 @@ def _used_reference(value: UsedInput, names: Mapping[UUID, str]) -> str | _UsedD
     citable = getattr(value, "citable_hash", None)
     if isinstance(citable, str):
         return _UsedDigest(content_hash=citable)
-    raise ValueError(
+    coordinate = getattr(value, "reference", None)
+    if isinstance(coordinate, str):
+        raise RecordingError(
+            f"used= cites {coordinate}, which the recipe names by book coordinate. "
+            "A coordinate input cannot be cited, because that book may belong to another "
+            "organisation and replay resolves inputs within yours. "
+            "Declare the input by digest instead, as bookshelf://sha256/<hex>, to cite it."
+        )
+    raise RecordingError(
         f"used= cites resource {reference.tracking_id}, which this bundle does not record. "
         "A recorded resource cites the inputs the same bundle carries, "
         "or a resource the recipe names by digest, which travels under that digest. "
@@ -1162,5 +1185,6 @@ __all__ = [
     "RecordedResource",
     "RecordingActivity",
     "RecordingBookshelf",
+    "RecordingError",
     "RecordingSink",
 ]
