@@ -170,7 +170,7 @@ world.shape
 # By default the selection applies to the verified cached file,
 # so the first read downloads the whole entry and later reads cost nothing.
 # `server_side=True` has the platform select instead, which transfers only the selected rows.
-# The same rows come back either way, though not always in the same order (see below).
+# The result is the same either way.
 
 # %%
 remote = entry.as_df(
@@ -209,8 +209,6 @@ ranked["2100"].droplevel(["activity_id", "mip_era", "region", "unit", "variable"
 #
 # `as_long_df()` returns the tidy form,
 # one row per series and year, with an integer `year` and a `value` column.
-# Years with no value keep their row.
-# `dropna=True` leaves those rows out, which keeps a sparse resource far smaller in memory.
 
 # %%
 entry.as_long_df(
