@@ -11,12 +11,15 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from bookshelf._consume.frames import is_year_column
+from bookshelf._consume.frames import is_year_column, year_label
 from bookshelf._core.errors import SelectionError
+from bookshelf._core.frames import ParquetScan
 from bookshelf._generated import models
 
 if TYPE_CHECKING:
     import pandas as pd
+    import pyarrow as pa
+    import pyarrow.compute as pc
 
 type FilterValue = str | int | float | bool | None
 type Filters = Mapping[str, FilterValue | Sequence[FilterValue]]
@@ -133,6 +136,37 @@ class Selection:
             return None
         return ",".join(f"{column}.{'desc' if desc else 'asc'}" for column, desc in self.order)
 
+    def parquet_scan(self, resource_type: models.ResourceType, schema: pa.Schema) -> ParquetScan:
+        """Plan the part of the selection pyarrow can apply while reading a stored parquet file.
+
+        Only what provably keeps every row and column :meth:`apply` would is planned,
+        so :meth:`apply` still runs afterwards and stays the one definition of a match.
+        """
+        timeseries = resource_type is models.ResourceType.timeseries
+        long = timeseries and {"year", "value"} <= set(schema.names)
+        columns = None
+        if timeseries and not long and self.has_years:
+            low, high = _year_bounds(self.year_min, self.year_max)
+            labels = {name: year_label(name) for name in schema.names}
+            columns = [
+                name
+                for name, label in labels.items()
+                if not is_year_column(label) or low <= int(label) <= high
+            ]
+        rows = None
+        for column, values in self.filters:
+            # A missing or repeated name is left for apply() to report.
+            if schema.get_field_index(column) < 0:
+                continue
+            if timeseries and (
+                is_year_column(year_label(column)) or long and column in {"year", "value"}
+            ):
+                continue
+            condition = _parquet_match(column, schema.field(column).type, values)
+            if condition is not None:
+                rows = condition if rows is None else rows & condition
+        return ParquetScan(columns=columns, rows=rows)
+
     def apply(self, frame: pd.DataFrame) -> pd.DataFrame:
         """Pick the selected rows and year columns out of a shaped frame, then order them."""
         selected = _filter_years(_filter_rows(frame, self.filters), self.year_min, self.year_max)
@@ -141,6 +175,24 @@ class Selection:
     def sort(self, frame: pd.DataFrame) -> pd.DataFrame:
         """Order a shaped frame, with missing values first either way, as the platform does."""
         return _sorted(frame, self.order)
+
+
+def _parquet_match(
+    column: str, data_type: pa.DataType, values: tuple[FilterValue, ...]
+) -> pc.Expression | None:
+    """Match one filter in pyarrow, or ``None`` where pandas' reading of the value could differ."""
+    import pyarrow as pa
+    import pyarrow.compute as pc
+
+    field = pc.field(column)
+    if values == (None,):
+        return field.is_null(nan_is_null=True)
+    types = pa.types
+    if types.is_dictionary(data_type):
+        data_type = data_type.value_type
+    if types.is_string(data_type) or types.is_large_string(data_type):
+        return field.isin([wire_text(value) for value in values])
+    return None
 
 
 def _order_keys(order: Order | None) -> tuple[tuple[str, bool], ...]:
@@ -215,11 +267,16 @@ def _filter_rows(
     return frame[mask]
 
 
+def _year_bounds(year_min: int | None, year_max: int | None) -> tuple[float, float]:
+    low = year_min if year_min is not None else -math.inf
+    high = year_max if year_max is not None else math.inf
+    return low, high
+
+
 def _filter_years(wide: pd.DataFrame, year_min: int | None, year_max: int | None) -> pd.DataFrame:
     if year_min is None and year_max is None:
         return wide
-    low = year_min if year_min is not None else -math.inf
-    high = year_max if year_max is not None else math.inf
+    low, high = _year_bounds(year_min, year_max)
     return wide[
         [
             column

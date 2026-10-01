@@ -83,8 +83,13 @@ def check_frame_read(
 def settle_cached(
     resource_type: models.ResourceType, frame: pd.DataFrame, selection: Selection
 ) -> pd.DataFrame:
-    """Shape the whole cached file and apply the selection to it."""
-    return selection.apply(shape_frame(resource_type, frame))
+    """Shape the cached file and apply the selection to it."""
+    import pandas as pd
+
+    shaped = shape_frame(resource_type, frame)
+    selected = selection.apply(shaped)
+    # pyarrow numbers the rows it filtered afresh, so rows pandas filtered are renumbered too.
+    return selected.reset_index(drop=True) if isinstance(shaped.index, pd.RangeIndex) else selected
 
 
 def settle_selected(

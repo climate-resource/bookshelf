@@ -8,14 +8,17 @@ import importlib
 import io
 import json
 import zlib
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 from bookshelf._core.errors import BookshelfError
 from bookshelf._core.types import DataPayload, NotModified
 
 if TYPE_CHECKING:
     import pandas as pd
+    import pyarrow as pa
+    import pyarrow.compute as pc
 
 
 class DataFrameSupportError(BookshelfError):
@@ -41,15 +44,35 @@ def require_payload(result: DataPayload | NotModified) -> DataPayload:
     return result
 
 
-def read_frame(path: Path) -> "pd.DataFrame":
-    """Read a whole stored resource, which the platform only holds as parquet or csv."""
+class ParquetScan(NamedTuple):
+    """The columns and rows to read from a parquet file, ``None`` meaning all of them.
+
+    A scan may keep more than the selection needs, but never less.
+    """
+
+    columns: list[str] | None = None
+    rows: "pc.Expression | None" = None
+
+
+def read_frame(
+    path: Path, *, scan: "Callable[[pa.Schema], ParquetScan] | None" = None
+) -> "pd.DataFrame":
+    """Read a stored resource, which the platform only holds as parquet or csv.
+
+    ``scan`` plans a parquet read from the file's schema,
+    so pyarrow skips unread columns and filters rows before they reach pandas.
+    Row groups whose statistics rule out the filter are not read at all.
+    """
     import pandas as pd
 
     with path.open("rb") as stream:
         magic = stream.read(4)
     try:
         if magic == b"PAR1":
-            return pd.read_parquet(path)
+            import pyarrow.parquet as pq
+
+            plan = ParquetScan() if scan is None else scan(pq.read_schema(path))
+            return pd.read_parquet(path, columns=plan.columns, filters=plan.rows)
         # Only an empty field is missing, as on the platform, so a code like "NA" stays text.
         return pd.read_csv(
             path,

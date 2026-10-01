@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import shutil
 from collections.abc import Mapping
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -100,7 +101,8 @@ def _copy_out(source: Path, destination: Path) -> Path:
 def _read_cached(
     resource_type: models.ResourceType, path: Path, selection: Selection
 ) -> pd.DataFrame:
-    return settle_cached(resource_type, read_frame(path), selection)
+    frame = read_frame(path, scan=partial(selection.parquet_scan, resource_type))
+    return settle_cached(resource_type, frame, selection)
 
 
 def _long(wide: pd.DataFrame, legacy_columns: bool) -> pd.DataFrame:
