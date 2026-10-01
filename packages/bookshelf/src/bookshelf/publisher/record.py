@@ -326,7 +326,12 @@ def _check_parameters(parameters: Mapping[str, Any], *, build: Path | None = Non
                 "Name a top-level assignment in the build file"
             )
         try:
-            json.dumps(value, allow_nan=False)
+            # Encoding is what refuses a lone surrogate, which JSON would otherwise escape.
+            dumped = json.dumps(value, allow_nan=False, ensure_ascii=False).encode("utf-8")
+            if json.loads(dumped) != value:
+                raise ValueError(
+                    "JSON would record a different value, such as text for a number key"
+                )
         except (TypeError, ValueError) as exc:
             raise RecordRefusedError(
                 f"parameter {key!r} cannot be recorded, because the manifest stores parameters "
@@ -339,7 +344,7 @@ def _check_parameters(parameters: Mapping[str, Any], *, build: Path | None = Non
     if unknown:
         listed = ", ".join(repr(name) for name in sorted(assigned)) or "nothing"
         raise RecordRefusedError(
-            f"parameter {unknown[0]!r} matches no top-level assignment in {build}, "
+            f"parameter {unknown[0]!r} matches no top-level 'name = value' assignment in {build}, "
             f"so it would change nothing. The build assigns {listed}"
         )
 

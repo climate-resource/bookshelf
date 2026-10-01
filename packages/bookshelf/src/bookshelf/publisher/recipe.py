@@ -21,7 +21,7 @@ Three rules shape everything here:
 """
 
 import re
-from collections.abc import Collection
+from collections.abc import Collection, Hashable
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Self, get_args
@@ -99,6 +99,8 @@ class _UniqueKeyLoader(yaml.SafeLoader):
             if key_node.tag == "tag:yaml.org,2002:merge":
                 continue
             key = self.construct_object(key_node, deep=deep)  # type: ignore[no-untyped-call]
+            if not isinstance(key, Hashable):
+                continue
             if key in seen:
                 raise yaml.constructor.ConstructorError(
                     None, None, f"states {key!r} more than once", key_node.start_mark

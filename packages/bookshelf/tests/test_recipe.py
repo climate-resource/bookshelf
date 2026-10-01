@@ -421,6 +421,11 @@ def test_a_key_stated_twice_is_rejected_rather_than_the_last_one_winning(tmp_pat
         load_record_recipe(path)
 
 
+def test_an_unhashable_key_is_an_invalid_recipe(tmp_path: Path) -> None:
+    with pytest.raises(InvalidRecipeError, match="not valid YAML"):
+        load_record_recipe(_write(tmp_path, "? [a]\n: 1\n"))
+
+
 def test_a_merge_key_may_still_be_overridden(tmp_path: Path) -> None:
     """Overriding a merged key is the point of a merge, so it is not a repeated key."""
     path = _write(

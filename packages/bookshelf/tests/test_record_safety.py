@@ -233,6 +233,22 @@ class TestParameters:
         with pytest.raises(RecordRefusedError, match="cannot be recorded"):
             parse_parameters([value])
 
+    @pytest.mark.parametrize(
+        "value", ["X={1: a, b: c}", "X={1: 2}"], ids=["mixed-keys", "int-keys"]
+    )
+    def test_a_mapping_json_would_record_differently_is_refused(self, value: str) -> None:
+        with pytest.raises(RecordRefusedError, match="cannot be recorded"):
+            parse_parameters([value])
+
+    @pytest.mark.usefixtures("pinned_code_ref")
+    def test_a_lone_surrogate_from_python_is_refused_before_the_build_runs(
+        self, tmp_path: Path
+    ) -> None:
+        _feedstock(tmp_path, "X = 'a'\n" + _WRITES_ONE)
+
+        with pytest.raises(RecordRefusedError, match="cannot be recorded"):
+            _record(tmp_path, tmp_path / "bundle", parameters={"X": "\udc80"})
+
     def test_malformed_yaml_is_refused(self) -> None:
         with pytest.raises(RecordRefusedError, match="not valid YAML"):
             parse_parameters(["X=[1,2"])
