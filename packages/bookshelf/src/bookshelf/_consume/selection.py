@@ -143,24 +143,25 @@ class Selection:
         so :meth:`apply` still runs afterwards and stays the one definition of a match.
         """
         timeseries = resource_type is models.ResourceType.timeseries
-        long = timeseries and {"year", "value"} <= set(schema.names)
+        # A long file pivots after reading, so dropping rows first could drop whole year columns.
+        if timeseries and {"year", "value"} <= set(schema.names):
+            return ParquetScan()
+        filtered = {column for column, _ in self.filters}
         columns = None
-        if timeseries and not long and self.has_years:
+        if timeseries and self.has_years:
             low, high = _year_bounds(self.year_min, self.year_max)
             labels = {name: year_label(name) for name in schema.names}
             columns = [
                 name
                 for name, label in labels.items()
-                if not is_year_column(label) or low <= int(label) <= high
+                if not is_year_column(label) or label in filtered or low <= int(label) <= high
             ]
         rows = None
         for column, values in self.filters:
             # A missing or repeated name is left for apply() to report.
             if schema.get_field_index(column) < 0:
                 continue
-            if timeseries and (
-                is_year_column(year_label(column)) or long and column in {"year", "value"}
-            ):
+            if timeseries and is_year_column(year_label(column)):
                 continue
             condition = _parquet_match(column, schema.field(column).type, values)
             if condition is not None:

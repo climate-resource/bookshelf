@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     import pandas as pd
     import pyarrow as pa
     import pyarrow.compute as pc
+    import pyarrow.parquet as pq
 
 
 class DataFrameSupportError(BookshelfError):
@@ -72,7 +73,8 @@ def read_frame(
             import pyarrow.parquet as pq
 
             plan = ParquetScan() if scan is None else scan(pq.read_schema(path))
-            return pd.read_parquet(path, columns=plan.columns, filters=plan.rows)
+            frame = pd.read_parquet(path, columns=plan.columns, filters=plan.rows)
+            return frame if plan.rows is None else _widen_dropped_nulls(frame, pq.ParquetFile(path))
         # Only an empty field is missing, as on the platform, so a code like "NA" stays text.
         return pd.read_csv(
             path,
@@ -82,6 +84,43 @@ def read_frame(
         )
     except (ValueError, OSError, EOFError, zlib.error) as exc:
         raise BookshelfError(f"cannot read the stored resource as a frame: {exc}") from exc
+
+
+def _widen_dropped_nulls(frame: "pd.DataFrame", parquet: "pq.ParquetFile") -> "pd.DataFrame":
+    """Give back the dtypes a whole read picks for integer and bool columns holding nulls.
+
+    pandas reads such a column as float or object, so filtering out its nulls would narrow it.
+    """
+    import numpy as np
+
+    narrow = {
+        column: dtype.kind
+        for column, dtype in frame.dtypes.items()
+        if isinstance(dtype, np.dtype) and dtype.kind in "iub"
+    }
+    widened = {
+        column: "float64" if kind in "iu" else object
+        for column, kind in narrow.items()
+        if _holds_nulls(parquet, str(column))
+    }
+    return frame.astype(widened) if widened else frame
+
+
+def _holds_nulls(parquet: "pq.ParquetFile", column: str) -> bool:
+    """Whether a top-level column holds a null, from the statistics where the file has them."""
+    metadata = parquet.metadata
+    leaves = [i for i in range(metadata.num_columns) if metadata.schema.column(i).path == column]
+    if len(leaves) != 1:
+        return False
+    for group in range(metadata.num_row_groups):
+        statistics = metadata.row_group(group).column(leaves[0]).statistics
+        if statistics is not None and statistics.has_null_count:
+            nulls = statistics.null_count
+        else:
+            nulls = parquet.read_row_group(group, columns=[column]).column(0).null_count
+        if nulls:
+            return True
+    return False
 
 
 def to_pandas(payload: DataPayload) -> "pd.DataFrame":

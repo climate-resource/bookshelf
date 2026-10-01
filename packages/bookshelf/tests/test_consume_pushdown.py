@@ -29,6 +29,22 @@ LONG = pd.DataFrame(
     }
 )
 
+LONG_UNEVEN = pd.DataFrame(
+    {
+        "region": ["NZL", "NZL", "AUS"],
+        "year": [2000, 2001, 2002],
+        "value": [1.0, 1.5, 3.0],
+    }
+)
+
+NULLABLE = pd.DataFrame(
+    {
+        "code": ["NA", "NZ", "AU"],
+        "count": pd.array([1, None, 3], dtype="Int64"),
+        "flag": pd.array([True, None, False], dtype="boolean"),
+    }
+)
+
 TABLE = pd.DataFrame(
     {
         "code": ["NA", "NZ", None, "AU"],
@@ -42,7 +58,9 @@ TABLE = pd.DataFrame(
 def _store(tmp_path: Path, frame: pd.DataFrame, **options: Any) -> Path:
     path = tmp_path / "resource"
     if options:
-        pq.write_table(pa.Table.from_pandas(frame, preserve_index=False), path, **options)
+        # Without pandas metadata, as the producer writes, a nullable integer reads as float.
+        table = pa.Table.from_pandas(frame, preserve_index=False).replace_schema_metadata(None)
+        pq.write_table(table, path, **options)
     else:
         frame.to_parquet(path)
     return path
@@ -60,13 +78,17 @@ CASES: list[tuple[models.ResourceType, pd.DataFrame, dict[str, Any]]] = [
     (TIMESERIES, WIDE, {"filters": {"unit": "Mt CO2/yr"}, "year_max": 2000}),
     (TIMESERIES, WIDE, {"year_min": 1990, "year_max": 1995}),
     (TIMESERIES, WIDE, {"filters": {"region": "XXX"}}),
+    (TIMESERIES, WIDE, {"filters": {"2000": 1.0}, "year_min": 2001}),
     (TIMESERIES, LONG, {"filters": {"region": "AUS"}, "year_min": 2001}),
+    (TIMESERIES, LONG_UNEVEN, {"filters": {"region": "NZL"}}),
     (TABULAR, TABLE, {"filters": {"code": "NA"}}),
     (TABULAR, TABLE, {"filters": {"code": None}}),
     (TABULAR, TABLE, {"filters": {"code": ""}}),
     (TABULAR, TABLE, {"filters": {"share": None}}),
     (TABULAR, TABLE, {"filters": {"count": [2, 4.0]}}),
     (TABULAR, TABLE, {"filters": {"flag": "true", "code": ["NA", "AU"]}}),
+    (TABULAR, NULLABLE, {"filters": {"code": "NA"}}),
+    (TABULAR, NULLABLE, {"filters": {"code": ["NA", "AU"], "count": "1"}}),
 ]
 
 
@@ -133,10 +155,10 @@ def test_only_filters_pandas_would_read_the_same_way_are_planned() -> None:
             is None
         )
     long = pa.Schema.from_pandas(LONG, preserve_index=False)
-    scan = Selection.build({"year": 2000}, year_min=2000, year_max=None).parquet_scan(
+    scan = Selection.build({"region": "NZL"}, year_min=2000, year_max=None).parquet_scan(
         TIMESERIES, long
     )
-    assert scan == (None, None), "a long file's year rows are whole series once pivoted"
+    assert scan == (None, None), "a long file pivots after reading, so its rows stay whole"
 
 
 def test_the_planned_filter_skips_row_groups_with_statistics(tmp_path: Path) -> None:
@@ -148,3 +170,15 @@ def test_the_planned_filter_skips_row_groups_with_statistics(tmp_path: Path) -> 
     (fragment,) = ds.dataset(path).get_fragments()
 
     assert len(fragment.split_by_row_group(scan.rows)) == 2
+
+
+def test_a_cached_read_numbers_its_rows_afresh(tmp_path: Path) -> None:
+    """As a ``server_side`` read does, whether or not pyarrow filtered the rows."""
+    path = tmp_path / "resource.csv"
+    TABLE.to_csv(path, index=False)
+    selection = Selection.build({"count": [2, 4]}, year_min=None, year_max=None, order="-count")
+
+    frame = _read_cached(TABULAR, path, selection)
+
+    assert frame.index.tolist() == [0, 1]
+    assert frame["count"].tolist() == [4, 2]
