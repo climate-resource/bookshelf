@@ -49,10 +49,12 @@ class ParquetScan(NamedTuple):
     """The columns and rows to read from a parquet file, ``None`` meaning all of them.
 
     A scan may keep more than the selection needs, but never less.
+    ``dictionary`` names text columns to read as categoricals, which hold each value once.
     """
 
     columns: list[str] | None = None
     rows: "pc.Expression | None" = None
+    dictionary: list[str] | None = None
 
 
 def read_frame(
@@ -73,7 +75,9 @@ def read_frame(
             import pyarrow.parquet as pq
 
             plan = ParquetScan() if scan is None else scan(pq.read_schema(path))
-            frame = pd.read_parquet(path, columns=plan.columns, filters=plan.rows)
+            frame = pd.read_parquet(
+                path, columns=plan.columns, filters=plan.rows, read_dictionary=plan.dictionary
+            )
             return frame if plan.rows is None else _widen_dropped_nulls(frame, pq.ParquetFile(path))
         # Only an empty field is missing, as on the platform, so a code like "NA" stays text.
         return pd.read_csv(

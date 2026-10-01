@@ -10,7 +10,6 @@ from __future__ import annotations
 import asyncio
 import shutil
 from collections.abc import Mapping
-from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -42,7 +41,7 @@ from bookshelf._consume.reading import (
 )
 from bookshelf._consume.selection import Filters, Order, Selection
 from bookshelf._core.client import BookshelfClient
-from bookshelf._core.frames import read_frame, require_payload, to_pandas
+from bookshelf._core.frames import ParquetScan, read_frame, require_payload, to_pandas
 from bookshelf._generated import models
 from bookshelf.cache import ContentCache, _staged
 
@@ -102,8 +101,15 @@ def _copy_out(source: Path, destination: Path) -> Path:
 def _read_cached(
     resource_type: models.ResourceType, path: Path, selection: Selection
 ) -> pd.DataFrame:
-    frame = read_frame(path, scan=partial(selection.parquet_scan, resource_type))
-    return settle_cached(resource_type, frame, selection)
+    scans: list[ParquetScan] = []
+
+    def scan(schema: pa.Schema) -> ParquetScan:
+        scans.append(selection.parquet_scan(resource_type, schema))
+        return scans[-1]
+
+    frame = read_frame(path, scan=scan)
+    coded = scans[0].dictionary if scans else None
+    return settle_cached(resource_type, frame, selection, coded or ())
 
 
 def _long(wide: pd.DataFrame, legacy_columns: bool) -> pd.DataFrame:

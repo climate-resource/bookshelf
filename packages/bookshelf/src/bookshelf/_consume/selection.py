@@ -166,7 +166,8 @@ class Selection:
             condition = _parquet_match(column, schema.field(column).type, values)
             if condition is not None:
                 rows = condition if rows is None else rows & condition
-        return ParquetScan(columns=columns, rows=rows)
+        dictionary = _dictionary_columns(schema, self.filters) if timeseries else None
+        return ParquetScan(columns=columns, rows=rows, dictionary=dictionary)
 
     def apply(self, frame: pd.DataFrame) -> pd.DataFrame:
         """Pick the selected rows and year columns out of a shaped frame, then order them."""
@@ -182,18 +183,51 @@ def _parquet_match(
     column: str, data_type: pa.DataType, values: tuple[FilterValue, ...]
 ) -> pc.Expression | None:
     """Match one filter in pyarrow, or ``None`` where pandas' reading of the value could differ."""
-    import pyarrow as pa
     import pyarrow.compute as pc
 
     field = pc.field(column)
     if values == (None,):
         return field.is_null(nan_is_null=True)
+    if _is_text(data_type):
+        return field.isin([wire_text(value) for value in values])
+    return None
+
+
+def _dictionary_columns(
+    schema: pa.Schema, filters: tuple[tuple[str, tuple[FilterValue, ...]], ...]
+) -> list[str] | None:
+    """Name the text dimensions a wide file can build its index from as dictionary codes.
+
+    A single dimension makes a flat index, which ``set_index`` builds cheaply.
+    pandas metadata or a stored dictionary would make pandas pick a dtype the codes cannot reproduce,
+    and repeated labels leave the frame to ``set_index``.
+    """
+    import pyarrow as pa
+
+    dimensions = [field for field in schema if not is_year_column(year_label(field.name))]
+    if len(dimensions) < 2 or schema.pandas_metadata is not None:
+        return None
+    if len({year_label(name) for name in schema.names}) < len(schema.names):
+        return None
+    if any(pa.types.is_dictionary(field.type) for field in dimensions):
+        return None
+    # pyarrow skips null-only row groups of a dictionary column filtered on being null.
+    null_matched = {column for column, values in filters if values == (None,)}
+    names = [
+        field.name
+        for field in dimensions
+        if _is_text(field.type) and field.name not in null_matched
+    ]
+    return names or None
+
+
+def _is_text(data_type: pa.DataType) -> bool:
+    import pyarrow as pa
+
     types = pa.types
     if types.is_dictionary(data_type):
         data_type = data_type.value_type
-    if types.is_string(data_type) or types.is_large_string(data_type):
-        return field.isin([wire_text(value) for value in values])
-    return None
+    return bool(types.is_string(data_type) or types.is_large_string(data_type))
 
 
 def _order_keys(order: Order | None) -> tuple[tuple[str, bool], ...]:

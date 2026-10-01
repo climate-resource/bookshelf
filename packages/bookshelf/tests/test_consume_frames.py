@@ -74,3 +74,21 @@ def test_a_missing_polars_fails_when_the_converter_is_resolved(
         polars_converter()
 
     assert "as_polars()" in str(raised.value)
+
+
+def test_wide_timeseries_keeps_categorical_dimensions_it_was_handed() -> None:
+    """A /data payload can carry categoricals, which only a dictionary read may flatten."""
+    stored = pd.DataFrame(
+        {
+            "region": pd.Categorical(
+                ["NZL", "AUS"], categories=["NZL", "AUS", "USA"], ordered=True
+            ),
+            "variable": ["a", "b"],
+            "2000-01-01": [1.0, 2.0],
+        }
+    )
+
+    pd.testing.assert_frame_equal(
+        wide_timeseries(stored),
+        stored.rename(columns={"2000-01-01": "2000"}).set_index(["region", "variable"]),
+    )
