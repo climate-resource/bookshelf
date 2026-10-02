@@ -97,3 +97,23 @@ async def test_the_async_resource_by_hash_refuses_a_malformed_digest() -> None:
             await client.resource_by_hash("md5:" + "0" * 32)
 
     assert recorded == []
+
+
+async def test_resource_by_hash_asks_for_upper_case_hex_in_lower_case() -> None:
+    """The platform stores digests in lower case, so an upper case one would never match."""
+    digest = "sha256:" + "ab" * 32
+    recorded: list[httpx.Request] = []
+
+    with Bookshelf(
+        BASE_URL, auth=None, transport=_transport(recorded, [payloads.RESOURCE_READ])
+    ) as client:
+        client.resource_by_hash("sha256:" + "AB" * 32)
+    async with AsyncBookshelf(
+        BASE_URL, auth=None, async_transport=_transport(recorded, [payloads.RESOURCE_READ])
+    ) as async_client:
+        await async_client.resource_by_hash("sha256:" + "Ab" * 32)
+
+    assert [parse_qs(request.url.query.decode())["hash"] for request in recorded] == [
+        [digest],
+        [digest],
+    ]

@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import errno
 import hashlib
 import json
 import os
@@ -46,18 +47,39 @@ def _staged(path: Path) -> Iterator[Path]:
 
 
 class CacheDirectoryError(BookshelfError, OSError):
-    """The cache directory cannot be created, because a file is in the way."""
+    """The cache directory cannot be created or written, such as when a file is in the way."""
 
     def __str__(self) -> str:
         return f"cache directory {self.filename} is not usable: {self.strerror}"
 
 
+def _refused(exc: OSError) -> bool:
+    return isinstance(exc, PermissionError | FileExistsError | NotADirectoryError) or (
+        exc.errno == errno.EROFS
+    )
+
+
 def _ensure_directory(path: Path) -> None:
-    """Create ``path`` and its parents, raising `CacheDirectoryError` when a file is in the way."""
+    """Create ``path`` and its parents, raising `CacheDirectoryError` when that is refused."""
     try:
         path.mkdir(parents=True, exist_ok=True)
-    except (FileExistsError, NotADirectoryError) as exc:
+    except OSError as exc:
+        if not _refused(exc):
+            raise
         raise CacheDirectoryError(exc.errno, exc.strerror, str(path)) from exc
+
+
+@contextlib.contextmanager
+def _writable(base_dir: Path) -> Iterator[None]:
+    """Report the OS refusing a write under ``base_dir`` as `CacheDirectoryError`."""
+    try:
+        yield
+    except CacheDirectoryError:
+        raise
+    except OSError as exc:
+        if not _refused(exc):
+            raise
+        raise CacheDirectoryError(exc.errno, exc.strerror, str(base_dir)) from exc
 
 
 def default_cache_dir() -> Path:
@@ -152,7 +174,9 @@ class ContentCache:
         path = self._path_for(content_hash)
         if not path.is_file():
             return None
-        path.touch()
+        # The timestamp only orders eviction, so a cache the OS will not write still serves hits.
+        with contextlib.suppress(OSError):
+            path.touch(exist_ok=True)
         return path
 
     def fetch(self, content_hash: str, download: Callable[[Path], None]) -> Path:
@@ -165,7 +189,7 @@ class ContentCache:
         hit = self._verified(content_hash)
         if hit is not None:
             return hit
-        with FileLock(self._lock_path(content_hash)):
+        with _writable(self.base_dir), FileLock(self._lock_path(content_hash)):
             hit = self._verified(content_hash)
             if hit is not None:
                 return hit
@@ -184,18 +208,19 @@ class ContentCache:
         hit = await asyncio.to_thread(self._verified, content_hash)
         if hit is not None:
             return hit
-        async with AsyncFileLock(self._lock_path(content_hash)):
-            hit = await asyncio.to_thread(self._verified, content_hash)
-            if hit is not None:
-                return hit
-            with self.stage(content_hash) as temporary:
-                await download(temporary)
-                await asyncio.to_thread(verify_path, temporary, content_hash)
-            return self._committed(content_hash)
+        with _writable(self.base_dir):
+            async with AsyncFileLock(self._lock_path(content_hash)):
+                hit = await asyncio.to_thread(self._verified, content_hash)
+                if hit is not None:
+                    return hit
+                with self.stage(content_hash) as temporary:
+                    await download(temporary)
+                    await asyncio.to_thread(verify_path, temporary, content_hash)
+                return self._committed(content_hash)
 
     def put(self, content_hash: str, content: bytes) -> Path:
         """Atomically store content under its hash and enforce the size cap."""
-        with self.stage(content_hash) as temporary:
+        with _writable(self.base_dir), self.stage(content_hash) as temporary:
             temporary.write_bytes(content)
         return self._path_for(content_hash)
 
@@ -230,7 +255,10 @@ class ContentCache:
         # Another process sharing the cache can evict the entry as soon as it lands.
         path = self._path_for(content_hash)
         if not path.is_file():  # pragma: no cover
-            raise BookshelfError("another process evicted the resource as it was stored")
+            missing = FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
+            raise BookshelfError(
+                "another process evicted the resource as it was stored"
+            ) from missing
         return path
 
     def _lock_path(self, content_hash: str) -> Path:

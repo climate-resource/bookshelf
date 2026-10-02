@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import shutil
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -100,6 +100,11 @@ def _copy_out(source: Path, destination: Path) -> Path:
     with _staged(destination) as staging:
         shutil.copyfile(source, staging)
     return destination
+
+
+def _evicted(exc: BaseException) -> bool:
+    """Whether a cached read failed because another process removed the file under it."""
+    return isinstance(exc, FileNotFoundError) or isinstance(exc.__cause__, FileNotFoundError)
 
 
 def _read_cached(
@@ -244,9 +249,12 @@ class Resource(_ResourceHandle):
         resource_type = self.resource_type()
         check_frame_read(resource_type, selection, caller, timeseries_only=timeseries_only)
         if not server_side:
-            path = self._cached_frame_file()
-            if path is not None:
-                return _read_cached(resource_type, path, selection)
+            try:
+                return self._through_cache(
+                    lambda path: _read_cached(resource_type, path, selection), managed_only=True
+                )
+            except _ExternalPointer:
+                pass
         # An external pointer has no cached file, so the platform selects it where it lives.
         return settle_selected(resource_type, self._data(selection.data_params()), selection)
 
@@ -383,16 +391,12 @@ class Resource(_ResourceHandle):
 
         Use `download()` to write large resources to disk without loading them into memory.
         """
-        return self._ensure_cached().read_bytes()
+        return self._through_cache(Path.read_bytes)
 
     def download(self, destination: str | Path) -> Path:
         """Stream and verify the resource, then copy it to ``destination`` and return that path."""
         destination = Path(destination)
-        try:
-            return _copy_out(self._ensure_cached(), destination)
-        except FileNotFoundError:
-            # Another process evicted the cached file between the fill and the copy.
-            return _copy_out(self._ensure_cached(), destination)
+        return self._through_cache(lambda path: _copy_out(path, destination))
 
     def as_path(self) -> Path:
         """Stream and verify the resource, then return its path in the cache.
@@ -401,12 +405,14 @@ class Resource(_ResourceHandle):
         """
         return self._ensure_cached()
 
-    def _cached_frame_file(self) -> Path | None:
-        """Return the verified cached file, or ``None`` for an external pointer."""
+    def _through_cache[T](self, read: Callable[[Path], T], *, managed_only: bool = False) -> T:
+        """Run ``read`` on the cached file, downloading it again once if the cache drops it."""
         try:
-            return self._ensure_cached(managed_only=True)
-        except _ExternalPointer:
-            return None
+            return read(self._ensure_cached(managed_only=managed_only))
+        except (FileNotFoundError, BookshelfError) as exc:
+            if not _evicted(exc):
+                raise
+        return read(self._ensure_cached(managed_only=managed_only))
 
     def _ensure_cached(self, *, managed_only: bool = False) -> Path:
         def download(destination: Path) -> None:
@@ -544,9 +550,12 @@ class AsyncResource(_ResourceHandle):
         resource_type = await self.resource_type()
         check_frame_read(resource_type, selection, caller, timeseries_only=timeseries_only)
         if not server_side:
-            path = await self._cached_frame_file()
-            if path is not None:
-                return await asyncio.to_thread(_read_cached, resource_type, path, selection)
+            try:
+                return await self._through_cache(
+                    lambda path: _read_cached(resource_type, path, selection), managed_only=True
+                )
+            except _ExternalPointer:
+                pass
         # An external pointer has no cached file, so the platform selects it where it lives.
         frame = await self._data(selection.data_params())
         return await asyncio.to_thread(settle_selected, resource_type, frame, selection)
@@ -687,17 +696,12 @@ class AsyncResource(_ResourceHandle):
 
         Use `download()` to write large resources to disk without loading them into memory.
         """
-        path = await self._ensure_cached()
-        return await asyncio.to_thread(path.read_bytes)
+        return await self._through_cache(Path.read_bytes)
 
     async def download(self, destination: str | Path) -> Path:
         """Stream and verify the resource, then copy it to ``destination`` and return that path."""
         destination = Path(destination)
-        try:
-            return await asyncio.to_thread(_copy_out, await self._ensure_cached(), destination)
-        except FileNotFoundError:
-            # Another process evicted the cached file between the fill and the copy.
-            return await asyncio.to_thread(_copy_out, await self._ensure_cached(), destination)
+        return await self._through_cache(lambda path: _copy_out(path, destination))
 
     async def as_path(self) -> Path:
         """Stream and verify the resource, then return its path in the cache.
@@ -706,12 +710,18 @@ class AsyncResource(_ResourceHandle):
         """
         return await self._ensure_cached()
 
-    async def _cached_frame_file(self) -> Path | None:
-        """Return the verified cached file, or ``None`` for an external pointer."""
+    async def _through_cache[T](
+        self, read: Callable[[Path], T], *, managed_only: bool = False
+    ) -> T:
+        """Run ``read`` on the cached file, downloading it again once if the cache drops it."""
         try:
-            return await self._ensure_cached(managed_only=True)
-        except _ExternalPointer:
-            return None
+            path = await self._ensure_cached(managed_only=managed_only)
+            return await asyncio.to_thread(read, path)
+        except (FileNotFoundError, BookshelfError) as exc:
+            if not _evicted(exc):
+                raise
+        path = await self._ensure_cached(managed_only=managed_only)
+        return await asyncio.to_thread(read, path)
 
     async def _ensure_cached(self, *, managed_only: bool = False) -> Path:
         async def download(destination: Path) -> None:
