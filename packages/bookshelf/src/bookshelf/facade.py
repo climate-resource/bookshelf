@@ -146,11 +146,13 @@ def _book_update(
     return models.BookUpdate(**fields)
 
 
-def _check_digest(content_hash: str) -> None:
+def _canonical_digest(content_hash: str) -> str:
+    """Refuse a malformed digest, and lower its hex digits the way the platform stores them."""
     if not isinstance(content_hash, str) or not _DIGEST.fullmatch(content_hash):
         raise ValueError(
             f"a content digest is 'sha256:' and 64 hex characters, not {content_hash!r}"
         )
+    return content_hash.lower()
 
 
 def _one_resource(content_hash: str, items: Sequence[models.ResourceRead]) -> models.ResourceRead:
@@ -259,7 +261,7 @@ class Bookshelf:
         A bundle pin keeps its own row for the same bytes.
         The lookup asks for the canonical merging row alone, which is what a digest names.
         """
-        _check_digest(content_hash)
+        content_hash = _canonical_digest(content_hash)
         response = self._client.list_resources(hash=content_hash, dedupe=True, limit=2)
         metadata = _one_resource(content_hash, response.items)
         return Resource(self._client, self._cache, metadata.tracking_id, metadata=metadata)
@@ -555,7 +557,7 @@ class AsyncBookshelf:
 
     async def resource_by_hash(self, content_hash: str) -> AsyncResource:
         """Resolve a content digest into the one resource your organisation holds for it."""
-        _check_digest(content_hash)
+        content_hash = _canonical_digest(content_hash)
         response = await self._client.list_resources_async(hash=content_hash, dedupe=True, limit=2)
         metadata = _one_resource(content_hash, response.items)
         return AsyncResource(self._client, self._cache, metadata.tracking_id, metadata=metadata)
