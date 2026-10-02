@@ -1,6 +1,7 @@
 """Concurrent fetches of one hash download it once, whether they race in threads, tasks or processes."""
 
 import asyncio
+import errno
 import hashlib
 import multiprocessing
 import os
@@ -137,10 +138,14 @@ def test_a_cache_path_that_is_a_file_raises_a_bookshelf_error(
         ContentCache(tmp_path / relative)
 
 
+def _skip_unless_modes_bind() -> None:
+    if not hasattr(os, "geteuid") or os.geteuid() == 0:
+        pytest.skip("mode bits do not stop this user writing")
+
+
 @pytest.fixture
 def read_only(tmp_path: Path) -> Iterator[Path]:
-    if os.geteuid() == 0:
-        pytest.skip("root writes through a read-only mode")
+    _skip_unless_modes_bind()
     base = tmp_path / "cache"
     base.mkdir()
     base.chmod(0o555)
@@ -166,8 +171,7 @@ async def test_a_read_only_cache_raises_a_cache_directory_error_async(read_only:
 
 
 def test_a_cache_made_read_only_after_use_raises_a_cache_directory_error(tmp_path: Path) -> None:
-    if os.geteuid() == 0:
-        pytest.skip("root writes through a read-only mode")
+    _skip_unless_modes_bind()
     base = tmp_path / "cache"
     cache = ContentCache(base)
     cache.fetch(CONTENT_HASH, lambda path: path.write_bytes(CONTENT))
@@ -182,3 +186,17 @@ def test_a_cache_made_read_only_after_use_raises_a_cache_directory_error(tmp_pat
     finally:
         for directory in (base, base / ".locks"):
             directory.chmod(0o755)
+
+
+def test_a_hit_on_a_read_only_file_system_still_serves_the_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cache = ContentCache(tmp_path / "cache")
+    stored = cache.fetch(CONTENT_HASH, lambda path: path.write_bytes(CONTENT))
+
+    def refuse(self: Path, *args: object, **kwargs: object) -> None:
+        raise OSError(errno.EROFS, os.strerror(errno.EROFS), str(self))
+
+    monkeypatch.setattr(Path, "touch", refuse)
+
+    assert cache.fetch(CONTENT_HASH, lambda path: path.write_bytes(b"unused")) == stored

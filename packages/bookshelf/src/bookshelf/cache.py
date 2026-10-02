@@ -174,7 +174,9 @@ class ContentCache:
         path = self._path_for(content_hash)
         if not path.is_file():
             return None
-        path.touch()
+        # The timestamp only orders eviction, so a cache the OS will not write still serves hits.
+        with contextlib.suppress(OSError):
+            path.touch(exist_ok=True)
         return path
 
     def fetch(self, content_hash: str, download: Callable[[Path], None]) -> Path:
