@@ -202,32 +202,73 @@ def test_a_pointer_carrying_a_size_is_refused(make_bundle: BundleFactory) -> Non
         Bundle.read(bundle.root)
 
 
-@pytest.mark.parametrize(
-    "uri",
-    [
-        "file:///etc/passwd",
-        "/etc/passwd",
-        "http://example.com/data.csv",
-        "s3://bucket/key",
-        "https:///no-host",
-        "https://127.0.0.1/data.csv",
-        "https://example.com/\ndata.csv",
-    ],
-    ids=["file", "bare-path", "http", "s3", "no-host", "loopback", "control"],
-)
-def test_a_pointer_the_platform_would_refuse_is_refused(tmp_path: Path, uri: str) -> None:
+def _pointer_bundle(tmp_path: Path, uri: str) -> Bundle:
+    """A recorded pointer bundle whose target is then edited by hand to ``uri``."""
     bundle = Bundle(tmp_path / "bundle")
     bundle.set_book(_book())
-    bundle.add_pointer(external_uri=uri, hash_=sha256_hex(b"x"), type_="tabular", name="ptr")
+    bundle.add_pointer(
+        external_uri="https://example.com/data.csv",
+        hash_=sha256_hex(b"x"),
+        type_="tabular",
+        name="ptr",
+    )
     bundle.add_book_entry(name="ptr")
     bundle.mark_book_published()
+    bundle.manifest.resources[0].external_uri = uri
+    return bundle
+
+
+_REFUSED_POINTERS = {
+    "file": "file:///etc/passwd",
+    "bare-path": "/etc/passwd",
+    "http": "http://example.com/data.csv",
+    "s3": "s3://bucket/key",
+    "no-host": "https:///no-host",
+    "loopback": "https://127.0.0.1/data.csv",
+    "control": "https://example.com/\ndata.csv",
+    "hex": "https://0x7f000001/data.csv",
+    "decimal": "https://2130706433/data.csv",
+    "short": "https://127.1/data.csv",
+    "octal": "https://0177.0.0.1/data.csv",
+    "localhost": "https://localhost/data.csv",
+    "localhost-dot": "https://localhost./data.csv",
+    "localhost-sub": "https://api.localhost/data.csv",
+    "loopback-dot": "https://127.0.0.1./data.csv",
+    "mapped": "https://[::ffff:127.0.0.1]/data.csv",
+    "fullwidth": "https://\uff11\uff12\uff17.0.0.1/data.csv",
+    "bad-octal": "https://08.0.0.1/data.csv",
+    "percent": "https://%31%32%37.0.0.1/data.csv",
+}
+
+
+@pytest.mark.parametrize("uri", _REFUSED_POINTERS.values(), ids=_REFUSED_POINTERS.keys())
+def test_a_pointer_the_platform_would_refuse_is_refused(tmp_path: Path, uri: str) -> None:
+    bundle = _pointer_bundle(tmp_path, uri)
 
     with pytest.raises(InvalidBundleError, match="pointer 'ptr'"):
         bundle.validate()
 
 
+@pytest.mark.parametrize("uri", _REFUSED_POINTERS.values(), ids=_REFUSED_POINTERS.keys())
+def test_a_pointer_the_platform_would_refuse_is_never_recorded(tmp_path: Path, uri: str) -> None:
+    bundle = Bundle(tmp_path / "bundle")
+
+    with pytest.raises(BookshelfError, match="ptr"):
+        bundle.add_pointer(external_uri=uri, hash_=sha256_hex(b"x"), type_="tabular", name="ptr")
+
+    assert bundle.manifest.resources == []
+
+
 @pytest.mark.parametrize(
-    "uri", ["https://example.com/data.csv", "rdm://dataset/primap-hist@v2.8"], ids=str
+    "uri",
+    [
+        "https://example.com/data.csv",
+        "https://example.com./data.csv",
+        "https://8.8.8.8/data.csv",
+        "https://deadbeef.example/data.csv",
+        "rdm://dataset/primap-hist@v2.8",
+    ],
+    ids=str,
 )
 def test_a_pointer_the_platform_accepts_validates(tmp_path: Path, uri: str) -> None:
     bundle = Bundle(tmp_path / "bundle")
@@ -350,11 +391,7 @@ def test_recording_refuses_an_activity_that_nothing_vouches_for(tmp_path: Path) 
     "uri", ["https://[::1/data.csv", "https://example.com:port/data.csv"], ids=["ipv6", "port"]
 )
 def test_a_malformed_pointer_url_is_an_invalid_bundle(tmp_path: Path, uri: str) -> None:
-    bundle = Bundle(tmp_path / "bundle")
-    bundle.set_book(_book())
-    bundle.add_pointer(external_uri=uri, hash_=sha256_hex(b"x"), type_="tabular", name="ptr")
-    bundle.add_book_entry(name="ptr")
-    bundle.mark_book_published()
+    bundle = _pointer_bundle(tmp_path, uri)
 
     with pytest.raises(InvalidBundleError, match="pointer 'ptr'"):
         bundle.validate()

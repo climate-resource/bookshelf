@@ -268,6 +268,37 @@ class TestWhatTheBuildRecords:
         with pytest.raises(BookshelfError, match="'build.ipynb' is reserved"):
             _record(tmp_path, tmp_path / "bundle")
 
+    @pytest.mark.parametrize(
+        "uri",
+        ["http://example.com/x", "https://10.0.0.1/x", "file:///etc/passwd", "https://127.1/x"],
+        ids=["http", "private", "file", "short-loopback"],
+    )
+    def test_a_pointer_validate_would_refuse_is_never_recorded(
+        self, tmp_path: Path, uri: str
+    ) -> None:
+        build = (
+            "import bookshelf\n\nbs, book = bookshelf.setup()\n"
+            f"ptr = bs.register_external(type='tabular', name='ptr', uri={uri!r})\n"
+            "book.attach(ptr)\nbook.publish()\n"
+        )
+        _feedstock(tmp_path, build)
+
+        with pytest.raises(BookshelfError, match="private or reserved|neither an https"):
+            _record(tmp_path, tmp_path / "bundle")
+
+        assert not (tmp_path / "bundle").exists()
+
+    def test_a_duplicate_resource_name_is_a_bookshelf_error(self, tmp_path: Path) -> None:
+        _feedstock(
+            tmp_path,
+            _WRITES_ONE.replace(
+                "book.publish()", 'book.write("data", b"again", type="document")\nbook.publish()'
+            ),
+        )
+
+        with pytest.raises(BookshelfError, match="'data' is already recorded"):
+            _record(tmp_path, tmp_path / "bundle")
+
     def test_a_lone_surrogate_in_the_output_still_renders(self, tmp_path: Path) -> None:
         _feedstock(tmp_path, _WRITES_ONE + "print('\\udcff')\n")
 

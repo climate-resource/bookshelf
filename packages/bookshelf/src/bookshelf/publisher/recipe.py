@@ -34,6 +34,7 @@ from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf._produce import helpers
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
+from bookshelf.publisher.bundle import external_uri_problem
 from bookshelf.publisher.reference import (
     BookshelfReference,
     Reference,
@@ -347,6 +348,12 @@ class ResourceSpec(_ResourceFields):
             raise ValueError(
                 "a uri resource declares the sha256 the fetch is checked against. "
                 "Add sha256, or check the file in and use path instead"
+            )
+        problem = None if self.uri is None else external_uri_problem(self.uri)
+        if problem is not None:
+            raise ValueError(
+                f"uri {self.uri!r} {problem}, so the platform would refuse it as the input's pointer. "
+                "Fetch it from a public https URL, or check the file in and use path instead"
             )
         if self.type is None:
             raise ValueError(

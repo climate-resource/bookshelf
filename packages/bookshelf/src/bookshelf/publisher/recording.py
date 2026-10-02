@@ -45,6 +45,7 @@ from bookshelf.publisher.bundle import (
     Bundle,
     BundleActivity,
     BundleBook,
+    RecordingError,
     resource_filename,
     synthesise_pointer_hash,
 )
@@ -58,11 +59,6 @@ from bookshelf.publisher.resource import (
     locate_reference,
     resolve_resource,
 )
-
-
-class RecordingError(BookshelfError, ValueError):
-    """A build asked the recorder for something a bundle cannot hold."""
-
 
 WRITE_ACTIVITY_KIND = "process"
 """The kind the implicit ``book.write`` activity records under.
