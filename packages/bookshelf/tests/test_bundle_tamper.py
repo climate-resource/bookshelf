@@ -502,3 +502,13 @@ def test_a_retired_dedupe_from_an_older_minor_still_validates(make_bundle: Bundl
     bundle.manifest_path.write_text(edited, encoding="utf-8")
 
     Bundle.read_validated(bundle.root)
+
+
+def test_dedupe_in_a_current_manifest_is_refused(make_bundle: BundleFactory) -> None:
+    bundle = make_bundle()
+    text = bundle.manifest_path.read_text(encoding="utf-8")
+    edited = text.replace("- generated: false\n", "- dedupe: true\n  generated: false\n", 1)
+    bundle.manifest_path.write_text(edited, encoding="utf-8")
+
+    with pytest.raises(InvalidBundleError, match=re.escape("resources[0].dedupe")):
+        Bundle.read_validated(bundle.root)

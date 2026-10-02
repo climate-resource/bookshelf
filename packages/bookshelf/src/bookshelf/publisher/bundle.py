@@ -557,17 +557,22 @@ def _unknown_keys(raw: dict[str, Any]) -> list[str]:
     entries = book.get("entries") if isinstance(book, dict) else None
     for index, entry in enumerate(entries if isinstance(entries, list) else ()):
         found += _stray(entry, BundleBookEntry, f"book.entries[{index}].")
+    try:
+        older = _version_key(str(raw.get("schema_version", BUNDLE_SCHEMA_VERSION))) < (3, 10)
+    except ValueError:
+        older = False
+    retired = _RETIRED_RESOURCE_KEYS if older else frozenset()
     resources = raw.get("resources")
     for index, resource in enumerate(resources if isinstance(resources, list) else ()):
         where = f"resources[{index}]."
-        found += _stray(resource, BundleResource, where, retired=_RETIRED_RESOURCE_KEYS)
+        found += _stray(resource, BundleResource, where, retired=retired)
         authors = resource.get("authors") if isinstance(resource, dict) else None
         for position, author in enumerate(authors if isinstance(authors, list) else ()):
             found += _stray(author, models.Author, f"{where}authors[{position}].")
     return found
 
 
-# Fields an older minor wrote that a reader drops rather than refuses.
+# Fields a minor older than 3.10 wrote, which a reader drops rather than refuses.
 _RETIRED_RESOURCE_KEYS = frozenset({"dedupe"})
 
 
