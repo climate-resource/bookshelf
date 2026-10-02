@@ -196,6 +196,17 @@ class TestTheBundleTarget:
         with pytest.raises(RecordRefusedError, match=r"keep\.txt"):
             _record(tmp_path, tmp_path / "bundle")
 
+    def test_a_directory_named_like_finder_metadata_is_left_alone(self, tmp_path: Path) -> None:
+        _feedstock(tmp_path)
+        _record(tmp_path, tmp_path / "bundle")
+        (tmp_path / "bundle" / ".DS_Store").mkdir()
+        (tmp_path / "bundle" / ".DS_Store" / "keep.txt").write_text("keep", encoding="utf-8")
+
+        with pytest.raises(RecordRefusedError, match=r"\.DS_Store"):
+            _record(tmp_path, tmp_path / "bundle")
+
+        assert (tmp_path / "bundle" / ".DS_Store" / "keep.txt").is_file()
+
     def test_a_symlinked_bundle_is_refused_and_its_target_kept(self, tmp_path: Path) -> None:
         root = tmp_path / "feedstock"
         _feedstock(root)

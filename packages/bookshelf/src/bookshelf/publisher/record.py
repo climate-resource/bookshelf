@@ -359,7 +359,9 @@ def _bundle_content_problem(root: Path) -> str | None:
     except (OSError, ValueError, yaml.YAMLError):
         return f"its {MANIFEST_NAME} is not a bundle manifest"
     for child in sorted(root.iterdir()):
-        if child.name not in _BUNDLE_TOP_LEVEL:
+        if child.name not in _BUNDLE_TOP_LEVEL or (
+            child.name == ".DS_Store" and (child.is_symlink() or not child.is_file())
+        ):
             return f"it also holds {child.name}"
     resources = root / RESOURCES_DIRNAME
     if resources.is_symlink() or (resources.exists() and not resources.is_dir()):

@@ -528,7 +528,7 @@ def _host_problem(host: str) -> str | None:
 
     A DNS name that resolves to a private address is not caught, because that needs a lookup.
     """
-    host = unicodedata.normalize("NFKC", host).lower().rstrip(".")
+    host = unicodedata.normalize("NFKC", host).replace("\u3002", ".").lower().rstrip(".")
     if not host or "%" in host:
         return "names no valid host"
     if host == "localhost" or host.endswith(".localhost"):
@@ -559,14 +559,24 @@ def _unknown_keys(raw: dict[str, Any]) -> list[str]:
         found += _stray(entry, BundleBookEntry, f"book.entries[{index}].")
     resources = raw.get("resources")
     for index, resource in enumerate(resources if isinstance(resources, list) else ()):
-        found += _stray(resource, BundleResource, f"resources[{index}].")
+        where = f"resources[{index}]."
+        found += _stray(resource, BundleResource, where, retired=_RETIRED_RESOURCE_KEYS)
+        authors = resource.get("authors") if isinstance(resource, dict) else None
+        for position, author in enumerate(authors if isinstance(authors, list) else ()):
+            found += _stray(author, models.Author, f"{where}authors[{position}].")
     return found
 
 
-def _stray(raw: object, model: type[BaseModel], where: str) -> list[str]:
+# Fields an older minor wrote that a reader drops rather than refuses.
+_RETIRED_RESOURCE_KEYS = frozenset({"dedupe"})
+
+
+def _stray(
+    raw: object, model: type[BaseModel], where: str, *, retired: frozenset[str] = frozenset()
+) -> list[str]:
     if not isinstance(raw, dict):
         return []
-    return [f"{where}{key}" for key in raw if key not in model.model_fields]
+    return [f"{where}{key}" for key in raw if key not in model.model_fields and key not in retired]
 
 
 def _byte_filename(resource: BundleResource) -> str:

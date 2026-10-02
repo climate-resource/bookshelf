@@ -240,6 +240,9 @@ _REFUSED_POINTERS = {
     "fullwidth": "https://\uff11\uff12\uff17.0.0.1/data.csv",
     "bad-octal": "https://08.0.0.1/data.csv",
     "percent": "https://%31%32%37.0.0.1/data.csv",
+    "ideographic-dots": "https://127\u30020\u30020\u30021/data.csv",
+    "localhost-ideographic": "https://localhost\u3002/data.csv",
+    "halfwidth-dots": "https://127\uff610\uff610\uff611/data.csv",
 }
 
 
@@ -472,6 +475,30 @@ def test_an_unknown_key_from_a_newer_minor_still_validates(make_bundle: BundleFa
     bundle = make_bundle()
     text = bundle.manifest_path.read_text(encoding="utf-8")
     edited = re.sub(r"schema_version: '?[\d.]+'?", "schema_version: '3.999'\nlater: 1", text)
+    bundle.manifest_path.write_text(edited, encoding="utf-8")
+
+    Bundle.read_validated(bundle.root)
+
+
+def test_an_unknown_author_key_is_refused(make_bundle: BundleFactory) -> None:
+    bundle = make_bundle()
+    text = bundle.manifest_path.read_text(encoding="utf-8")
+    edited = text.replace(
+        "- generated: false\n",
+        "- authors:\n  - name: Ada\n    affilitation: Institute\n  generated: false\n",
+        1,
+    )
+    bundle.manifest_path.write_text(edited, encoding="utf-8")
+
+    with pytest.raises(InvalidBundleError, match=re.escape("resources[0].authors[0].affilitation")):
+        Bundle.read_validated(bundle.root)
+
+
+def test_a_retired_dedupe_from_an_older_minor_still_validates(make_bundle: BundleFactory) -> None:
+    bundle = make_bundle()
+    text = bundle.manifest_path.read_text(encoding="utf-8")
+    edited = text.replace("- generated: false\n", "- dedupe: true\n  generated: false\n", 1)
+    edited = re.sub(r"schema_version: '?[\d.]+'?", "schema_version: '3.9'", edited)
     bundle.manifest_path.write_text(edited, encoding="utf-8")
 
     Bundle.read_validated(bundle.root)
