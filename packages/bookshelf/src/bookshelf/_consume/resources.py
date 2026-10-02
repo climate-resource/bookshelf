@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+import bookshelf._records as records
 from bookshelf._consume.conversions import (
     explorers_for,
     readers_for,
@@ -35,6 +36,7 @@ from bookshelf._consume.reading import (
     check_frame_read,
     check_preview,
     preview_params,
+    resource_info,
     selection_rejections,
     settle_cached,
     settle_preview,
@@ -46,6 +48,7 @@ from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import BookshelfError, SelectionError
 from bookshelf._core.frames import ParquetScan, read_frame, require_payload, to_pandas
 from bookshelf._generated import models
+from bookshelf._records import Facets, ResourceType, SeriesMetadata, Visibility
 from bookshelf.cache import ContentCache, _staged
 
 if TYPE_CHECKING:
@@ -194,17 +197,20 @@ class Resource(_ResourceHandle):
         self._remember(metadata)
         return metadata
 
-    def resource_type(self) -> models.ResourceType:
-        """Return the canonical resource type, from memory or disk before the platform."""
+    def _kind(self) -> models.ResourceType:
         if self._resource_type is None:
             self._recall()
         if self._resource_type is None:
             return self._record().type
         return self._resource_type
 
+    def resource_type(self) -> ResourceType:
+        """Return the canonical resource type, from memory or disk before the platform."""
+        return records.resource_type(self._kind())
+
     def describe(self) -> ResourceInfo:
         """Return what the platform records about the resource, fetching it at most once."""
-        return ResourceInfo.from_record(self._record())
+        return resource_info(self._record())
 
     def content_hash(self) -> str:
         """Return the declared ``sha256:`` digest, from memory or disk before the platform."""
@@ -228,7 +234,7 @@ class Resource(_ResourceHandle):
                 raise
             try:
                 first = self._client.query_resource_data(self.tracking_id, limit=1)
-                sample = shape_frame(self.resource_type(), to_pandas(require_payload(first)))
+                sample = shape_frame(self._kind(), to_pandas(require_payload(first)))
             except BookshelfError:
                 raise exc from None
             raise unknown_filter_column(column, sample) from exc
@@ -246,7 +252,7 @@ class Resource(_ResourceHandle):
         timeseries_only: bool = False,
     ) -> pd.DataFrame:
         selection = Selection.build(filters, year_min=year_min, year_max=year_max, order=order)
-        resource_type = self.resource_type()
+        resource_type = self._kind()
         check_frame_read(resource_type, selection, caller, timeseries_only=timeseries_only)
         if not server_side:
             try:
@@ -377,7 +383,7 @@ class Resource(_ResourceHandle):
         ``drop_constant`` drops the dimensions that hold one value across the returned series.
         """
         selection = Selection.build(filters, year_min=year_min, year_max=year_max, order=order)
-        resource_type = self.resource_type()
+        resource_type = self._kind()
         limit, top_n = check_preview(
             resource_type, selection, limit=limit, top_n=top_n, drop_constant=drop_constant
         )
@@ -440,13 +446,18 @@ class BookEntry(Resource):
         super().__init__(client, cache, entry.tracking_id, resource_type=entry.type)
         self.book_id = UUID(str(book_id))
         """The id of the book this entry belongs to."""
-        self.entry = entry
+        self._entry = entry
         self.name_in_book = entry.name_in_book
         """The name this entry has in its book."""
 
+    @property
+    def visibility(self) -> Visibility:
+        """Who can read this entry within its book."""
+        return records.visibility(self._entry.visibility)
+
     def _summary(self) -> tuple[str, Sections]:
         return _entry_header(self._title, self.name_in_book, self._resource_type), _entry_sections(
-            self.entry, self._resource_type, self.book_id
+            self._entry, self._resource_type, self.book_id
         )
 
     def as_resource(self) -> Resource:
@@ -461,26 +472,26 @@ class BookEntry(Resource):
 
     def facets(
         self, *, max_values: int = _FACET_MAX_VALUES, filters: Filters | None = None
-    ) -> models.FacetsResponse:
+    ) -> Facets:
         """Return the distinct values of each column, within the book."""
         selection = Selection.build(filters, year_min=None, year_max=None)
-        return self._client.get_book_resource_facets(
+        response = self._client.get_book_resource_facets(
             self.book_id,
             self.name_in_book,
             max_values=max_values,
             filters=selection.book_params(),
         )
+        return records.facets(response)
 
-    def series_metadata(
-        self, *, limit: int = 100, offset: int = 0
-    ) -> models.TimeseriesMetadataResponse:
+    def series_metadata(self, *, limit: int = 100, offset: int = 0) -> SeriesMetadata:
         """Return a page of the timeseries' series, one record of dimension values per series."""
-        return self._client.get_book_resource_schema(
+        response = self._client.get_book_resource_schema(
             self.book_id,
             self.name_in_book,
             limit=limit,
             offset=offset,
         )
+        return records.series_metadata(response)
 
 
 class AsyncResource(_ResourceHandle):
@@ -495,17 +506,20 @@ class AsyncResource(_ResourceHandle):
         await asyncio.to_thread(self._remember, metadata)
         return metadata
 
-    async def resource_type(self) -> models.ResourceType:
-        """Return the canonical resource type, from memory or disk before the platform."""
+    async def _kind(self) -> models.ResourceType:
         if self._resource_type is None:
             await asyncio.to_thread(self._recall)
         if self._resource_type is None:
             return (await self._record()).type
         return self._resource_type
 
+    async def resource_type(self) -> ResourceType:
+        """Return the canonical resource type, from memory or disk before the platform."""
+        return records.resource_type(await self._kind())
+
     async def describe(self) -> ResourceInfo:
         """Return what the platform records about the resource, fetching it at most once."""
-        return ResourceInfo.from_record(await self._record())
+        return resource_info(await self._record())
 
     async def content_hash(self) -> str:
         """Return the declared ``sha256:`` digest, from memory or disk before the platform."""
@@ -529,7 +543,7 @@ class AsyncResource(_ResourceHandle):
                 raise
             try:
                 first = await self._client.query_resource_data_async(self.tracking_id, limit=1)
-                sample = shape_frame(await self.resource_type(), to_pandas(require_payload(first)))
+                sample = shape_frame(await self._kind(), to_pandas(require_payload(first)))
             except BookshelfError:
                 raise exc from None
             raise unknown_filter_column(column, sample) from exc
@@ -547,7 +561,7 @@ class AsyncResource(_ResourceHandle):
         timeseries_only: bool = False,
     ) -> pd.DataFrame:
         selection = Selection.build(filters, year_min=year_min, year_max=year_max, order=order)
-        resource_type = await self.resource_type()
+        resource_type = await self._kind()
         check_frame_read(resource_type, selection, caller, timeseries_only=timeseries_only)
         if not server_side:
             try:
@@ -680,7 +694,7 @@ class AsyncResource(_ResourceHandle):
         ``drop_constant`` drops the dimensions that hold one value across the returned series.
         """
         selection = Selection.build(filters, year_min=year_min, year_max=year_max, order=order)
-        resource_type = await self.resource_type()
+        resource_type = await self._kind()
         limit, top_n = check_preview(
             resource_type, selection, limit=limit, top_n=top_n, drop_constant=drop_constant
         )
@@ -749,13 +763,18 @@ class AsyncBookEntry(AsyncResource):
         super().__init__(client, cache, entry.tracking_id, resource_type=entry.type)
         self.book_id = UUID(str(book_id))
         """The id of the book this entry belongs to."""
-        self.entry = entry
+        self._entry = entry
         self.name_in_book = entry.name_in_book
         """The name this entry has in its book."""
 
+    @property
+    def visibility(self) -> Visibility:
+        """Who can read this entry within its book."""
+        return records.visibility(self._entry.visibility)
+
     def _summary(self) -> tuple[str, Sections]:
         return _entry_header(self._title, self.name_in_book, self._resource_type), _entry_sections(
-            self.entry, self._resource_type, self.book_id
+            self._entry, self._resource_type, self.book_id
         )
 
     def as_resource(self) -> AsyncResource:
@@ -770,26 +789,26 @@ class AsyncBookEntry(AsyncResource):
 
     async def facets(
         self, *, max_values: int = _FACET_MAX_VALUES, filters: Filters | None = None
-    ) -> models.FacetsResponse:
+    ) -> Facets:
         """Return the distinct values of each column, within the book."""
         selection = Selection.build(filters, year_min=None, year_max=None)
-        return await self._client.get_book_resource_facets_async(
+        response = await self._client.get_book_resource_facets_async(
             self.book_id,
             self.name_in_book,
             max_values=max_values,
             filters=selection.book_params(),
         )
+        return records.facets(response)
 
-    async def series_metadata(
-        self, *, limit: int = 100, offset: int = 0
-    ) -> models.TimeseriesMetadataResponse:
+    async def series_metadata(self, *, limit: int = 100, offset: int = 0) -> SeriesMetadata:
         """Return a page of the timeseries' series, one record of dimension values per series."""
-        return await self._client.get_book_resource_schema_async(
+        response = await self._client.get_book_resource_schema_async(
             self.book_id,
             self.name_in_book,
             limit=limit,
             offset=offset,
         )
+        return records.series_metadata(response)
 
 
 __all__ = ["AsyncBookEntry", "AsyncResource", "BookEntry", "Resource", "describe_type"]

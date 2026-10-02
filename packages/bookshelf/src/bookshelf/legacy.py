@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 from bookshelf._consume.conversions import scmrun_class
 from bookshelf._core.errors import NotFoundError
-from bookshelf._generated import models
+from bookshelf._records import Visibility
 from bookshelf.cache import ContentCache
 from bookshelf.facade import Book, BookEntry, Bookshelf
 
@@ -151,30 +151,29 @@ class LocalBook:
 
     def __init__(self, book: Book):
         self._book = book
-        self.name = book.metadata.volume_name
-        self.version = book.metadata.version
-        self.edition = book.metadata.edition
+        self.name = book.volume
+        self.version = book.version
+        self.edition = book.edition
 
     def long_version(self) -> str:
         """Return the ``{version}_e{edition:03}`` identifier, for example ``v1.0.1_e002``."""
-        _deprecated("LocalBook.long_version()", "Book.metadata")
+        _deprecated("LocalBook.long_version()", "Book.version and Book.edition")
         return f"{self.version}_e{self.edition:03}"
 
     def metadata(self) -> dict[str, Any]:
         """Return a plain dict in the shape of the old ``datapackage.json`` descriptor."""
         _deprecated("LocalBook.metadata()", "Book.metadata")
-        item = self._book.metadata
         return {
             "name": self.name,
             "version": self.version,
             "edition": self.edition,
-            "private": item.visibility is not models.Visibility.public,
-            "metadata": dict(item.metadata),
+            "private": self._book.visibility != Visibility.PUBLIC,
+            "metadata": self._book.metadata,
             "resources": [self._descriptor(name) for name in self._book.entry_names],
         }
 
     def _descriptor(self, name: str) -> dict[str, Any]:
-        entry = self._book[name].entry
+        entry = self._book[name]._entry
         return {
             "name": name,
             "timeseries_name": name,

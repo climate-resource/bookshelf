@@ -6,6 +6,7 @@ from uuid import UUID
 import pytest
 from pydantic import ValidationError as PydanticValidationError
 
+from bookshelf import ItemError, Problem
 from bookshelf._core import errors, ops
 from bookshelf._core.types import ApiRequest, DataPayload, NotModified
 from bookshelf._generated import models
@@ -459,7 +460,14 @@ def test_problem_json_maps_the_exception_hierarchy(
     with pytest.raises(exception_type) as excinfo:
         ops.parse_register_resources(response)
 
-    assert excinfo.value.problem == models.Problem.model_validate(problem)
+    assert excinfo.value.problem == Problem(
+        type=problem["type"],
+        title="Request failed",
+        status=status,
+        detail=f"failure {status}",
+        instance=None,
+        errors=(),
+    )
     assert excinfo.value.detail == f"failure {status}"
 
 
@@ -493,7 +501,7 @@ def test_batch_item_errors_surface_on_the_exception() -> None:
     with pytest.raises(errors.ConflictError) as excinfo:
         ops.parse_register_resources(response)
     assert excinfo.value.errors == [{"status": 409, "detail": "item 3 clashed"}]
-    assert excinfo.value.item_errors == [models.ItemError(status=409, detail="item 3 clashed")]
+    assert excinfo.value.item_errors == (ItemError(status=409, detail="item 3 clashed"),)
 
 
 def test_unparseable_timestamp_is_reported_by_pydantic_through_a_gateway_error() -> None:

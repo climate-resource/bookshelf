@@ -6,12 +6,14 @@ and hands it here to be checked, selected, shaped and summarised.
 
 from __future__ import annotations
 
-from collections.abc import Collection, Iterator
+from collections.abc import Collection, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID
 
+import bookshelf._records as records
 from bookshelf._consume.conversions import (
     UnsupportedConversionError,
     readers_for,
@@ -23,6 +25,7 @@ from bookshelf._consume.frames import drop_constant_dimensions, is_year_column
 from bookshelf._consume.selection import Selection, positive_int
 from bookshelf._core.errors import RequestValidationError, SelectionError
 from bookshelf._generated import models
+from bookshelf._records import ResourceType, Visibility
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -49,23 +52,33 @@ class ResourceInfo:
     """What the platform records about a resource, and the reads its type answers."""
 
     tracking_id: UUID
-    type: models.ResourceType
-    hash: str
-    visibility: models.Visibility
+    resource_type: ResourceType
+    content_hash: str
+    """The ``sha256:`` digest of the resource's bytes."""
+    visibility: Visibility
     readers: tuple[str, ...]
-    record: models.ResourceRead
-    """The full projection the platform returned."""
+    """The read calls this resource's type answers."""
+    metadata: Mapping[str, Any]
+    """The free-form metadata the resource carries."""
+    discovery: Mapping[str, Any]
+    """The facts the resource states about itself, as JSON-compatible values."""
+    created_at: datetime
+    updated_at: datetime
 
-    @classmethod
-    def from_record(cls, record: models.ResourceRead) -> ResourceInfo:
-        return cls(
-            tracking_id=record.tracking_id,
-            type=record.type,
-            hash=record.hash,
-            visibility=record.visibility,
-            readers=readers_for(record.type),
-            record=record,
-        )
+
+def resource_info(record: models.ResourceRead) -> ResourceInfo:
+    """Describe a resource from the record the platform returned."""
+    return ResourceInfo(
+        tracking_id=record.tracking_id,
+        resource_type=records.resource_type(record.type),
+        content_hash=record.hash,
+        visibility=records.visibility(record.visibility),
+        readers=readers_for(record.type),
+        metadata=dict(record.metadata or {}),
+        discovery=records.json_fields(record.discovery),
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+    )
 
 
 def check_frame_read(
@@ -180,6 +193,7 @@ __all__ = [
     "check_frame_read",
     "check_preview",
     "preview_params",
+    "resource_info",
     "selection_rejections",
     "settle_cached",
     "settle_selected",

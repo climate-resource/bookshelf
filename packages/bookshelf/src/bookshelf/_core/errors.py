@@ -5,14 +5,17 @@ so both client surfaces fail identically.
 """
 
 import json
+from collections.abc import Sequence
 from http import HTTPStatus
 from typing import Any
 
 from pydantic import ValidationError as PydanticValidationError
 
+import bookshelf._records as records
 from bookshelf._core.retry import RATE_LIMITED, parse_retry_after
 from bookshelf._core.types import ApiResponse
 from bookshelf._generated import models
+from bookshelf._records import ItemError, Problem
 
 PROBLEM_MEDIA_TYPE = "application/problem+json"
 
@@ -53,7 +56,7 @@ class APIError(BookshelfError):
     Attributes:
         status_code: HTTP status code returned by the server.
         detail: Human-readable detail string.
-        problem: The parsed RFC 7807 document, when one was returned.
+        problem: The parsed RFC 9457 problem document, when one was returned.
         request_method: HTTP method of the failing request, when known.
         request_url: URL or path of the failing request, when known.
     """
@@ -63,7 +66,7 @@ class APIError(BookshelfError):
         detail: str,
         *,
         status_code: int,
-        problem: models.Problem | None = None,
+        problem: Problem | None = None,
         request_method: str | None = None,
         request_url: str | None = None,
     ) -> None:
@@ -78,24 +81,9 @@ class APIError(BookshelfError):
     @property
     def errors(self) -> list[dict[str, Any]]:
         """Raw error details from the problem document."""
-        if self.problem is None or self.problem.errors is None:
+        if self.problem is None:
             return []
-        return self.problem.errors
-
-    @property
-    def item_errors(self) -> list[models.ItemError]:
-        """Typed per-item failures from a non-atomic batch, per the 409 + ``ItemError`` contract.
-
-        Entries that do not match the ``ItemError`` shape are omitted.
-        The raw documents stay available on :attr:`errors`.
-        """
-        typed: list[models.ItemError] = []
-        for entry in self.errors:
-            try:
-                typed.append(models.ItemError.model_validate(entry))
-            except PydanticValidationError:
-                continue
-        return typed
+        return [dict(entry) for entry in self.problem.errors]
 
 
 class AuthenticationError(APIError):
@@ -121,6 +109,22 @@ class EntryNotFoundError(NotFoundError, _UnquotedKeyError):
 class ConflictError(APIError):
     """Raised on HTTP 409 responses."""
 
+    @property
+    def item_errors(self) -> tuple[ItemError, ...]:
+        """The items a non-atomic batch rejected, when the conflict came from one.
+
+        Entries that are not shaped like an item failure are left out.
+        The raw documents stay available on :attr:`errors`.
+        """
+        typed: list[ItemError] = []
+        for entry in self.errors:
+            try:
+                item = models.ItemError.model_validate(entry)
+            except PydanticValidationError:
+                continue
+            typed.append(ItemError(status=item.status, detail=item.detail))
+        return tuple(typed)
+
 
 class RequestValidationError(APIError):
     """Raised on HTTP 400 / 422 request-validation failures."""
@@ -143,7 +147,7 @@ class RateLimitError(APIError):
         *,
         status_code: int = RATE_LIMITED,
         retry_after: float | None = None,
-        problem: models.Problem | None = None,
+        problem: Problem | None = None,
         request_method: str | None = None,
         request_url: str | None = None,
     ) -> None:
@@ -205,11 +209,11 @@ _ERROR_BY_STATUS: dict[int, type[APIError]] = {
 }
 
 
-def _parse_problem(response: ApiResponse) -> models.Problem | None:
+def _parse_problem(response: ApiResponse) -> Problem | None:
     if response.media_type != PROBLEM_MEDIA_TYPE:
         return None
     try:
-        return models.Problem.model_validate_json(response.content)
+        return records.problem(models.Problem.model_validate_json(response.content))
     except ValueError:
         return None
 
@@ -278,7 +282,7 @@ def _json_detail(body: Any) -> str:
     return json.dumps(body)[:200]
 
 
-def _describe_field_errors(field_errors: list[Any]) -> str:
+def _describe_field_errors(field_errors: Sequence[Any]) -> str:
     described = []
     for error in field_errors:
         if isinstance(error, dict) and "msg" in error:

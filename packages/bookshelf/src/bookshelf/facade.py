@@ -46,6 +46,10 @@ from bookshelf._produce.facade import (
     ProduceSink,
 )
 from bookshelf._produce.facade import people as _people
+from bookshelf._records import BookCorrection, Identity, VolumeSearchResults
+from bookshelf._records import book_correction as _book_correction_record
+from bookshelf._records import identity as _identity
+from bookshelf._records import search_results as _search_results
 from bookshelf.cache import ContentCache
 
 if TYPE_CHECKING:
@@ -146,6 +150,33 @@ def _book_update(
     return models.BookUpdate(**fields)
 
 
+def _book_correction(
+    *,
+    reason: str | None,
+    description: str | None,
+    authors: Sequence[Mapping[str, Any]] | None,
+    discovery: Mapping[str, Any] | None,
+    metadata: Mapping[str, Any] | None,
+) -> models.BookCorrection:
+    """Build a correction carrying only the fields the caller named.
+
+    An unknown discovery field is a ``ValueError`` here, rather than a silent no-op on the platform.
+    """
+    fields = dict(discovery or {})
+    if description is not None:
+        fields["description"] = description
+    if authors is not None:
+        fields["authors"] = _people(authors)
+    request: dict[str, Any] = {}
+    if fields:
+        request["discovery"] = models.BookDiscoveryInput(**fields)
+    if metadata is not None:
+        request["metadata"] = dict(metadata)
+    if reason is not None:
+        request["reason"] = reason
+    return models.BookCorrection(**request)
+
+
 def _canonical_digest(content_hash: str) -> str:
     """Refuse a malformed digest, and lower its hex digits the way the platform stores them."""
     if not isinstance(content_hash, str) or not _DIGEST.fullmatch(content_hash):
@@ -230,7 +261,7 @@ class Bookshelf:
         """Close the sync transport if it was opened."""
         self._client.close()
 
-    def ensure_authenticated(self, *, interactive: bool | None = None) -> models.UserResponse:
+    def ensure_authenticated(self, *, interactive: bool | None = None) -> Identity:
         """Confirm the API accepts this client's credential, logging in first when it can.
 
         A missing or rejected stored login starts a browser login from a local terminal,
@@ -248,7 +279,7 @@ class Bookshelf:
         Raises:
             AuthenticationRequiredError: No accepted credential, and no way to log in here.
         """
-        return ensure_authenticated(self._client, interactive=interactive)
+        return _identity(ensure_authenticated(self._client, interactive=interactive))
 
     def resource(self, tracking_id: str | UUID) -> Resource:
         """Resolve an exact tracking id into a lean Resource."""
@@ -280,14 +311,14 @@ class Bookshelf:
         deprecated: bool | None = None,
         limit: int | None = None,
         offset: int | None = None,
-    ) -> models.VolumeListResponse:
+    ) -> VolumeSearchResults:
         """Find volumes by free text over name, title and summary, plus discovery filters.
 
         Every filter combines with AND, and omitting all of them lists the catalogue.
-        The response carries pagination, so a caller wanting everything reads
+        The results carry pagination, so a caller wanting everything reads
         ``has_more`` and pages with ``offset``.
         """
-        return self._client.list_volumes(
+        response = self._client.list_volumes(
             q=q,
             topic=topic,
             keyword=keyword,
@@ -300,6 +331,7 @@ class Bookshelf:
             limit=limit,
             offset=offset,
         )
+        return _search_results(response)
 
     def volume(self, name: str) -> Volume:
         """Resolve a volume, carrying the versions and editions it has published."""
@@ -448,19 +480,34 @@ class Bookshelf:
         )
 
     def correct_book(
-        self, book_id: str, request: models.BookCorrection
-    ) -> models.BookCorrectionResponse:
+        self,
+        book_id: str | UUID,
+        *,
+        reason: str | None = None,
+        description: str | None = None,
+        authors: Sequence[Mapping[str, Any]] | None = None,
+        discovery: Mapping[str, Any] | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> BookCorrection:
         """Correct a published book's discovery profile or metadata without minting an edition.
 
         Discovery fields are patched, so only those named change.
-        Metadata is replaced whole, and an explicit ``None`` clears it.
-        A correction that changes something is recorded as an event on the book, with its reason.
+        ``description`` and ``authors`` win over the same fields in ``discovery``.
+        Metadata is replaced whole, so pass ``metadata={}`` to clear it.
+        A correction that changes something is recorded as an event on the book, with its ``reason``.
         One that changes nothing records no event, so check ``corrected`` when the audit matters.
         A draft is a ``ConflictError``, so use ``update_draft`` there.
         Content, licence or visibility changes are a ``RequestValidationError``,
         because they need a new edition.
         """
-        return self._client.correct_book(book_id, request)
+        request = _book_correction(
+            reason=reason,
+            description=description,
+            authors=authors,
+            discovery=discovery,
+            metadata=metadata,
+        )
+        return _book_correction_record(self._client.correct_book(str(book_id), request))
 
     def book(
         self, volume: str, version: str, *, edition: int | None = None, refresh: bool = False
@@ -542,13 +589,13 @@ class AsyncBookshelf:
         """Close both transport surfaces if either was opened."""
         await self._client.aclose()
 
-    async def ensure_authenticated(self, *, interactive: bool | None = None) -> models.UserResponse:
+    async def ensure_authenticated(self, *, interactive: bool | None = None) -> Identity:
         """Confirm the API accepts this client's credential, logging in first when it can.
 
         The asynchronous twin of
         [`Bookshelf.ensure_authenticated`][bookshelf.Bookshelf.ensure_authenticated].
         """
-        return await ensure_authenticated_async(self._client, interactive=interactive)
+        return _identity(await ensure_authenticated_async(self._client, interactive=interactive))
 
     async def resource(self, tracking_id: str | UUID) -> AsyncResource:
         """Resolve an exact tracking id into a lean async Resource."""
@@ -576,14 +623,14 @@ class AsyncBookshelf:
         deprecated: bool | None = None,
         limit: int | None = None,
         offset: int | None = None,
-    ) -> models.VolumeListResponse:
+    ) -> VolumeSearchResults:
         """Find volumes by free text over name, title and summary, plus discovery filters.
 
         Every filter combines with AND, and omitting all of them lists the catalogue.
-        The response carries pagination, so a caller wanting everything reads
+        The results carry pagination, so a caller wanting everything reads
         ``has_more`` and pages with ``offset``.
         """
-        return await self._client.list_volumes_async(
+        response = await self._client.list_volumes_async(
             q=q,
             topic=topic,
             keyword=keyword,
@@ -596,6 +643,7 @@ class AsyncBookshelf:
             limit=limit,
             offset=offset,
         )
+        return _search_results(response)
 
     async def volume(self, name: str) -> AsyncVolume:
         """Resolve a volume, carrying the versions and editions it has published."""
@@ -747,19 +795,35 @@ class AsyncBookshelf:
         )
 
     async def correct_book(
-        self, book_id: str, request: models.BookCorrection
-    ) -> models.BookCorrectionResponse:
+        self,
+        book_id: str | UUID,
+        *,
+        reason: str | None = None,
+        description: str | None = None,
+        authors: Sequence[Mapping[str, Any]] | None = None,
+        discovery: Mapping[str, Any] | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> BookCorrection:
         """Correct a published book's discovery profile or metadata without minting an edition.
 
         Discovery fields are patched, so only those named change.
-        Metadata is replaced whole, and an explicit ``None`` clears it.
-        A correction that changes something is recorded as an event on the book, with its reason.
+        ``description`` and ``authors`` win over the same fields in ``discovery``.
+        Metadata is replaced whole, so pass ``metadata={}`` to clear it.
+        A correction that changes something is recorded as an event on the book, with its ``reason``.
         One that changes nothing records no event, so check ``corrected`` when the audit matters.
         A draft is a ``ConflictError``, so use ``update_draft`` there.
         Content, licence or visibility changes are a ``RequestValidationError``,
         because they need a new edition.
         """
-        return await self._client.correct_book_async(book_id, request)
+        request = _book_correction(
+            reason=reason,
+            description=description,
+            authors=authors,
+            discovery=discovery,
+            metadata=metadata,
+        )
+        response = await self._client.correct_book_async(str(book_id), request)
+        return _book_correction_record(response)
 
     async def book(
         self,

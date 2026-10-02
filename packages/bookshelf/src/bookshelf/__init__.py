@@ -28,6 +28,20 @@ from bookshelf._core.frames import DataFrameSupportError
 from bookshelf._core.oauth import OAuthError
 from bookshelf._generated import OPENAPI_VERSION, models
 from bookshelf._produce.helpers import uuid7
+from bookshelf._records import (
+    BookCorrection,
+    Facet,
+    Facets,
+    FacetValue,
+    Identity,
+    ItemError,
+    Problem,
+    ResourceType,
+    SeriesMetadata,
+    Visibility,
+    VolumeSearchResults,
+    VolumeSummary,
+)
 from bookshelf.cache import CacheDirectoryError, ContentCache
 from bookshelf.facade import (
     Activity,
@@ -82,6 +96,18 @@ def __getattr__(name: str) -> object:
 
 
 __all__ = [
+    "VolumeSummary",
+    "VolumeSearchResults",
+    "Visibility",
+    "SeriesMetadata",
+    "ResourceType",
+    "Problem",
+    "ItemError",
+    "Identity",
+    "Facets",
+    "FacetValue",
+    "Facet",
+    "BookCorrection",
     "OPENAPI_VERSION",
     "PRODUCTION_API_URL",
     "STAGING_API_URL",

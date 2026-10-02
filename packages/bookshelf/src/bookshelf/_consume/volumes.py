@@ -2,6 +2,7 @@
 
 from collections.abc import Iterator
 from textwrap import shorten
+from typing import Any
 
 from bookshelf._consume.books import AsyncBook, Book
 from bookshelf._consume.lookup import resolve_book, resolve_book_async
@@ -10,6 +11,7 @@ from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import NotFoundError
 from bookshelf._core.names import book_coordinate, version_key
 from bookshelf._generated import models
+from bookshelf._records import discovery_text, json_fields
 from bookshelf.cache import ContentCache
 
 _PUBLISHED = "published"
@@ -47,8 +49,7 @@ class _VolumeBase(Describable):
         self._client = client
         self._cache = cache
         self._book_ttl = book_ttl
-        self.metadata = detail
-        """The volume's record as the platform lists it."""
+        self._record = detail
         self.name = detail.name
         """The volume's name."""
         # Only versions with a published edition, because the rest resolve to no readable book.
@@ -57,6 +58,31 @@ class _VolumeBase(Describable):
             for info in sorted(detail.versions, key=lambda info: version_key(info.version))
         )
         self._versions = {version: editions for version, editions in published if editions}
+
+    @property
+    def title(self) -> str | None:
+        """The human-readable title, when the volume states one."""
+        return discovery_text(self._record.discovery, "title")
+
+    @property
+    def description(self) -> str | None:
+        """A concise summary of the volume, when it states one."""
+        return discovery_text(self._record.discovery, "description")
+
+    @property
+    def license(self) -> str | None:
+        """The SPDX identifier of the licence the volume is published under."""
+        return discovery_text(self._record.discovery, "license")
+
+    @property
+    def discovery(self) -> dict[str, Any]:
+        """The volume's whole discovery profile, as JSON-compatible values."""
+        return json_fields(self._record.discovery)
+
+    @property
+    def metadata(self) -> dict[str, Any]:
+        """The free-form metadata the volume carries."""
+        return dict(self._record.metadata)
 
     @property
     def versions(self) -> tuple[str, ...]:
@@ -104,21 +130,19 @@ class _VolumeBase(Describable):
         return latest
 
     def _summary(self) -> tuple[str, Sections]:
-        discovery = self.metadata.discovery
-        stats = self.metadata.stats
+        stats = self._record.stats
         latest = self.latest
         volume: dict[str, object] = {
             "latest": book_coordinate(latest, self.editions(latest)[-1])
             if latest is not None
             else "(nothing published)",
-            "latest licence": (
-                discovery.license.root if discovery and discovery.license else "(unstated)"
-            ),
+            "latest licence": self.license or "(unstated)",
             "resources": stats.total_resources,
             "size": human_bytes(stats.total_size_bytes),
         }
-        if discovery is not None and discovery.description:
-            volume["description"] = shorten(discovery.description.root, width=_DESCRIPTION_WIDTH)
+        description = self.description
+        if description:
+            volume["description"] = shorten(description, width=_DESCRIPTION_WIDTH)
         sections: dict[str, Section] = {
             "Volume": volume,
             "Versions": {

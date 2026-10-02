@@ -273,9 +273,7 @@ def test_a_direct_registration_puts_the_fields_on_the_wire(tmp_path: Path) -> No
         license="CC-BY-SA-4.0",
     )
 
-    assert resource.describe().record.discovery is not None
-    assert resource.describe().record.discovery.authors is not None
-    assert resource.describe().record.discovery.authors[0].name == "Upstream Modelling Team"
+    assert resource.describe().discovery["authors"][0]["name"] == "Upstream Modelling Team"
     assert _named(bundle, "raw").license == "CC-BY-SA-4.0"
 
 

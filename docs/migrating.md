@@ -81,8 +81,8 @@ Note the subtle change in capitalisation from `BookShelf` to `Bookshelf`.
 | `shelf.list_versions(name)`          | `bs.volume(name).versions`                               |
 | `shelf.is_available(name, version)`  | `bs.book(...)`, catching `NotFoundError`                 |
 | `shelf.is_cached(...)`               | No check-only call. `as_path()` fills the cache.         |
-| `book.long_version()`                | `f"{book.metadata.version}_e{book.metadata.edition:03}"` |
-| `book.metadata()`                    | `book.metadata`, a Pydantic model                        |
+| `book.long_version()`                | `f"{book.version}_e{book.edition:03}"`                   |
+| `book.metadata()`                    | `book.volume`, `book.version` and `book.metadata`        |
 | `book.metadata()["resources"]`       | `book.entry_names`, a tuple of names without suffixes    |
 | `book.timeseries(name)`              | `book[name].as_scmrun()`                                 |
 | `book.get_long_format_data(name)`    | `book[name].as_long_df()`                                |
@@ -109,7 +109,7 @@ from bookshelf import Bookshelf
 
 with Bookshelf() as bs:
     book = bs.book("rcmip-emissions", "v5.1.0", edition=1)
-    print(book.metadata.version, book.metadata.edition)
+    print(book.version, book.edition)
 
     entry = book["magicc"]
     run = entry.as_scmrun()

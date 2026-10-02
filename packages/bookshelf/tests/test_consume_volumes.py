@@ -161,12 +161,12 @@ def test_asking_for_a_book_without_a_version_resolves_the_latest(volume: Volume)
     """The common case, which otherwise means listing books and sorting them yourself."""
     book = volume.book()
 
-    assert book.metadata.version == "v2.6"
+    assert book.version == "v2.6"
     assert volume._client.asked == [("primap-hist", "v2.6")]  # type: ignore[attr-defined]
 
 
 def test_indexing_a_volume_resolves_that_version(volume: Volume) -> None:
-    assert volume["v2.4"].metadata.version == "v2.4"
+    assert volume["v2.4"].version == "v2.4"
 
 
 def test_a_volume_with_nothing_published_refuses_to_guess_a_latest(cache: ContentCache) -> None:
