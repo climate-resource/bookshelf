@@ -47,8 +47,21 @@ def positive_int(name: str, value: object) -> int:
     return value
 
 
+def _is_missing(value: object) -> bool:
+    """Whether a value is NaN or one of pandas' missing markers, which select as ``None`` does."""
+    if isinstance(value, float):
+        return math.isnan(value)
+    if type(value).__module__.startswith("pandas"):
+        import pandas as pd
+
+        return value is pd.NA or value is pd.NaT
+    return False
+
+
 def _scalar(column: str, value: object) -> FilterValue:
     value = native_scalar(value)
+    if _is_missing(value):
+        return None
     if value is None or isinstance(value, str | bool | int | float):
         return value
     raise TypeError(f"filter {column!r} has a {type(value).__name__} value, not a scalar")
@@ -67,7 +80,10 @@ def _values(column: str, wanted: object) -> tuple[FilterValue, ...]:
     if not values:
         raise ValueError(f"filter {column!r} lists no values, so it would select nothing")
     if len(values) > 1 and (None in values or "" in values):
-        raise ValueError(f"filter {column!r} can match a missing or empty value only on its own")
+        raise ValueError(
+            f"filter {column!r} can match a missing value (None or NaN) or an empty one "
+            "only on its own"
+        )
     return values
 
 

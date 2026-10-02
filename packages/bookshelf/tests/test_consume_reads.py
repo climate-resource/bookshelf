@@ -801,3 +801,87 @@ def test_dictionary_encoded_labels_take_numpy_filters_and_drop_missing_values(
             entry.as_df(filters={"regoin": regions}, server_side=server_side)
         messages.append(str(caught.value))
     assert messages[0] == messages[1]
+
+
+class _ClearedOnce(ContentCache):
+    """A cache another process clears once, just after handing out a verified path."""
+
+    cleared = False
+
+    def _clear_once(self, path: Path) -> Path:
+        if not self.cleared:
+            self.cleared = True
+            self.clear()
+        return path
+
+    def fetch(self, content_hash: str, download: Any) -> Path:
+        return self._clear_once(super().fetch(content_hash, download))
+
+    async def fetch_async(self, content_hash: str, download: Any) -> Path:
+        return self._clear_once(await super().fetch_async(content_hash, download))
+
+
+@pytest.mark.parametrize("read", ["as_df", "fetch"])
+def test_a_cache_cleared_under_a_read_downloads_again(tmp_path: Path, read: str) -> None:
+    transport, seen = _shelf_transport()
+    cache = _ClearedOnce(tmp_path / "cache")
+    bs = Bookshelf(BASE_URL, auth=None, transport=transport, cache=cache)
+    resource = bs.resource(TRACKING_ID)
+
+    result = getattr(resource, read)()
+
+    assert cache.cleared
+    assert [request.url.host for request in seen].count("s3.example") == 2
+    expected = resource.as_df() if read == "as_df" else _parquet(WIDE)
+    assert result.equals(expected) if read == "as_df" else result == expected
+
+
+@pytest.mark.parametrize("read", ["as_df", "fetch"])
+async def test_a_cache_cleared_under_an_async_read_downloads_again(
+    tmp_path: Path, read: str
+) -> None:
+    transport, seen = _shelf_transport()
+    cache = _ClearedOnce(tmp_path / "cache")
+    async with AsyncBookshelf(BASE_URL, auth=None, async_transport=transport, cache=cache) as bs:
+        resource = await bs.resource(TRACKING_ID)
+        result = await getattr(resource, read)()
+        expected = await resource.as_df() if read == "as_df" else _parquet(WIDE)
+
+    assert cache.cleared
+    assert [request.url.host for request in seen].count("s3.example") == 2
+    assert result.equals(expected) if read == "as_df" else result == expected
+
+
+@pytest.mark.parametrize("missing", [float("nan"), np.nan, np.float32("nan"), pd.NA, pd.NaT])
+def test_a_missing_filter_value_selects_like_none(missing: object) -> None:
+    built = Selection.build({"region": missing}, year_min=None, year_max=None)
+
+    assert built == Selection.build({"region": None}, year_min=None, year_max=None)
+    assert built.data_params() == {"region.is": "null"}
+
+
+@pytest.mark.parametrize("server_side", [False, True])
+def test_a_nan_filter_picks_the_missing_rows_on_both_routes(
+    tmp_path: Path, server_side: bool
+) -> None:
+    gappy = WIDE.assign(region=["NZL", None, "AUS"])
+    bs, _ = _shelf(tmp_path, frame=gappy)
+    resource = bs.resource(TRACKING_ID)
+
+    picked = resource.as_df(filters={"region": np.nan}, server_side=server_side)
+
+    assert picked.index.get_level_values("variable").tolist() == ["Emissions|CH4"]
+
+
+@pytest.mark.parametrize("server_side", [False, True])
+def test_a_nan_among_other_filter_values_is_refused_like_none(
+    tmp_path: Path, server_side: bool
+) -> None:
+    """pandas reads the unique labels of a gappy column back with a NaN among them."""
+    bs, seen = _shelf(tmp_path)
+    resource = bs.resource(TRACKING_ID)
+    before = len(seen)
+
+    with pytest.raises(ValueError, match="'region' can match a missing value"):
+        resource.as_df(filters={"region": ["NZL", np.nan]}, server_side=server_side)
+    assert seen[before:] == []
