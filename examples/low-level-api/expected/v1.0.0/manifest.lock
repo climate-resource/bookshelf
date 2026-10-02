@@ -19,6 +19,9 @@ book:
   - name: anomalies
   license: CC-BY-4.0
   metadata: {}
+  processing:
+  - - https://example.invalid/examples@0000000000000000000000000000000000000000
+    - sha256:a40670ce9d3b3f108b8e1a5b722f3fe7d7a5c45291f8bff5b57eb9433d06f352
   published: true
   version: v1.0.0
   visibility: public

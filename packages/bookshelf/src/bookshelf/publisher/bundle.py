@@ -33,6 +33,7 @@ import importlib.metadata
 import ipaddress
 import re
 import socket
+import stat
 import unicodedata
 from collections.abc import Sequence
 from pathlib import Path
@@ -546,6 +547,28 @@ def _host_problem(host: str) -> str | None:
     return None if address.is_global else _PRIVATE
 
 
+def _unknown_keys(raw: dict[str, Any]) -> list[str]:
+    """Name every key in a raw manifest that the models would drop, as a path such as ``resources[0].x``."""
+    found = _stray(raw, BundleManifest, "")
+    for section, model in (("writer", BundleWriter), ("activity", BundleActivity)):
+        found += _stray(raw.get(section), model, f"{section}.")
+    book = raw.get("book")
+    found += _stray(book, BundleBook, "book.")
+    entries = book.get("entries") if isinstance(book, dict) else None
+    for index, entry in enumerate(entries if isinstance(entries, list) else ()):
+        found += _stray(entry, BundleBookEntry, f"book.entries[{index}].")
+    resources = raw.get("resources")
+    for index, resource in enumerate(resources if isinstance(resources, list) else ()):
+        found += _stray(resource, BundleResource, f"resources[{index}].")
+    return found
+
+
+def _stray(raw: object, model: type[BaseModel], where: str) -> list[str]:
+    if not isinstance(raw, dict):
+        return []
+    return [f"{where}{key}" for key in raw if key not in model.model_fields]
+
+
 def _byte_filename(resource: BundleResource) -> str:
     """Return the byte-file name ``resource`` would have, refusing a hash that names none."""
     try:
@@ -623,8 +646,18 @@ class Bundle:
     so a caller never has to rediscover a rule the bundle already knows.
     """
 
-    def __init__(self, root: Path, manifest: BundleManifest | None = None) -> None:
+    def __init__(
+        self,
+        root: Path,
+        manifest: BundleManifest | None = None,
+        *,
+        unknown_keys: Sequence[str] = (),
+        from_disk: bool = False,
+    ) -> None:
         self.root = root
+        # What validate holds a manifest read from disk to, beyond what the models check.
+        self.unknown_keys = tuple(unknown_keys)
+        self.from_disk = from_disk
         # A fresh bundle records the writer versions of the machine writing it.
         # A manifest handed in came from disk, so it keeps whatever header it was written with.
         if manifest is None:
@@ -997,6 +1030,7 @@ class Bundle:
 
         The contract is:
 
+        - a manifest read from disk holds no key its schema lacks, unless a newer minor wrote it
         - the bundle records a book framing
         - that book is marked for publication
         - the book has at least one entry
@@ -1007,13 +1041,13 @@ class Bundle:
         - no resource is placed twice, because the platform refuses a repeated placement
         - every pinned ``tracking_id`` is unique
         - every ``used`` name is recorded earlier in the manifest than what consumes it
-        - the book's ``processing`` matches the activity, and the activity's ``config_hash``
+        - a manifest read from disk states the book's ``processing``, and it matches the activity, and the activity's ``config_hash``
           is the digest of its parameters unless its ``activity_id`` is the one derived from them
         - every public figure records a nonblank ``alt_text``, because the platform refuses one without
         - every resource's catalogue metadata is one the contract accepts,
           so a caption or alt text over its limit is refused before any upload
         - every pointer names a target the platform accepts, and has no bytes in the bundle
-        - every managed resource's bytes are present inside the bundle,
+        - every managed resource records a ``size``, and its bytes are a regular file inside the bundle,
           are as long as the recorded ``size``, and still hash to the recorded hash,
           which a non-canonical hash cannot satisfy because it names no byte file
         - every recorded ``svg_hash`` sits on a ``figure`` and names companion bytes that still hash to it
@@ -1023,6 +1057,7 @@ class Bundle:
         instead of publishing content that no reviewer saw.
         Raises :class:`InvalidBundleError` naming the first invariant that fails.
         """
+        self._check_known_keys()
         framing = self.require_framing()
         if not framing.published:
             raise InvalidBundleError("bundle does not record a publish operation")
@@ -1104,6 +1139,10 @@ class Bundle:
         """Refuse an activity envelope, or a processing record, edited after recording."""
         activity = self.manifest.activity
         expected = [] if activity is None else [(activity.code_ref, activity.config_hash)]
+        if framing.processing is None and self.from_disk:
+            raise InvalidBundleError(
+                "book records no processing, which every written bundle states"
+            )
         if framing.processing is not None and list(framing.processing) != expected:
             raise InvalidBundleError(
                 f"book processing {[list(pair) for pair in framing.processing]} "
@@ -1146,8 +1185,9 @@ class Bundle:
 
     def _check_managed(self, resource: BundleResource) -> None:
         """Refuse managed bytes that are missing, outside the bundle, or not what the manifest says."""
-        filename = _byte_filename(resource)
-        path = self._contained(filename)
+        if resource.size is None:
+            raise InvalidBundleError(f"resource {resource.name!r} records no size")
+        path = self._regular(_byte_filename(resource), resource)
         try:
             size = path.stat().st_size
             actual = sha256_path(path)
@@ -1159,9 +1199,32 @@ class Bundle:
             raise InvalidBundleError(
                 f"resource {resource.name!r} has hash {resource.hash}, got {actual}"
             )
-        if resource.size is not None and resource.size != size:
+        if resource.size != size:
             raise InvalidBundleError(
                 f"resource {resource.name!r} records size {resource.size}, but its bytes are {size}"
+            )
+
+    def _regular(self, filename: str, resource: BundleResource) -> Path:
+        """Return the contained path of ``filename``, refusing one that reading would block on."""
+        path = self._contained(filename)
+        if path.exists() and not stat.S_ISREG(path.stat().st_mode):
+            raise InvalidBundleError(
+                f"resource {resource.name!r} bytes at {RESOURCES_DIRNAME}/{filename} are not a regular file"
+            )
+        return path
+
+    def _check_known_keys(self) -> None:
+        """Refuse a key this schema does not model, unless a newer minor wrote it."""
+        if not self.unknown_keys:
+            return
+        try:
+            newer = _version_key(self.manifest.schema_version) > _version_key(BUNDLE_SCHEMA_VERSION)
+        except ValueError:
+            newer = False
+        if not newer:
+            raise InvalidBundleError(
+                f"{MANIFEST_NAME} records {self.unknown_keys[0]}, "
+                f"which schema {self.manifest.schema_version} does not have"
             )
 
     def _check_svg(self, resource: BundleResource) -> None:
@@ -1173,7 +1236,7 @@ class Bundle:
                 f"resource {resource.name!r} is a {resource.type} and records an svg companion, "
                 "which only a figure may carry"
             )
-        path = self._contained(companion_filename(resource.svg_hash))
+        path = self._regular(companion_filename(resource.svg_hash), resource)
         try:
             actual = sha256_path(path)
         except OSError as exc:
@@ -1249,8 +1312,16 @@ class Bundle:
         """
         if _version_key(self.manifest.schema_version) < _version_key(BUNDLE_SCHEMA_VERSION):
             self.manifest.schema_version = BUNDLE_SCHEMA_VERSION
+        manifest = self.manifest
+        book, activity = manifest.book, manifest.activity
+        if book is not None and book.processing is None:
+            # Stated on disk only, so a later activity still decides it for the next write.
+            stamped = [] if activity is None else [(activity.code_ref, activity.config_hash)]
+            manifest = manifest.model_copy(
+                update={"book": book.model_copy(update={"processing": stamped})}
+            )
         self.root.mkdir(parents=True, exist_ok=True)
-        self.manifest_path.write_bytes(_dump_sorted_yaml(self.manifest))
+        self.manifest_path.write_bytes(_dump_sorted_yaml(manifest))
 
     @classmethod
     def read(cls, root: Path) -> Bundle:
@@ -1265,8 +1336,11 @@ class Bundle:
         The read is structural.
         A bundle recorded as a draft loads here and replays as a draft.
         """
+        path = root / MANIFEST_NAME
+        if path.exists() and not stat.S_ISREG(path.stat().st_mode):
+            raise InvalidBundleError(f"{MANIFEST_NAME} is not a regular file")
         try:
-            raw = yaml.safe_load((root / MANIFEST_NAME).read_bytes())
+            raw = yaml.safe_load(path.read_bytes())
         except yaml.YAMLError as exc:
             raise InvalidBundleError(f"{MANIFEST_NAME} is not valid YAML: {exc}") from exc
         if raw is None:
@@ -1280,7 +1354,7 @@ class Bundle:
             raise InvalidBundleError(
                 f"{MANIFEST_NAME} does not match the bundle schema: {_describe(exc)}"
             ) from exc
-        return cls(root=root, manifest=manifest)
+        return cls(root=root, manifest=manifest, unknown_keys=_unknown_keys(raw), from_disk=True)
 
     @classmethod
     def read_validated(cls, root: Path) -> Bundle:

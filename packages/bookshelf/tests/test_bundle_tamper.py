@@ -1,5 +1,7 @@
 """Tests that ``Bundle.validate`` refuses a manifest edited by hand after it was recorded."""
 
+import os
+import re
 import tracemalloc
 import uuid
 from pathlib import Path
@@ -27,7 +29,7 @@ CODE_REF = "https://github.com/example/lab.git@" + "a" * 40
 
 def _book(**fields: str) -> BundleBook:
     framing = {"volume": "example", "version": "v1.0.0", "license": "MIT", **fields}
-    return BundleBook(**framing)
+    return BundleBook(**framing, processing=[])
 
 
 def _with_activity(bundle: Bundle, *, activity_id: uuid.UUID | None = None) -> BundleActivity:
@@ -395,3 +397,81 @@ def test_a_malformed_pointer_url_is_an_invalid_bundle(tmp_path: Path, uri: str) 
 
     with pytest.raises(InvalidBundleError, match="pointer 'ptr'"):
         bundle.validate()
+
+
+def test_a_fifo_in_place_of_resource_bytes_is_refused(make_bundle: BundleFactory) -> None:
+    bundle = make_bundle()
+    resource = bundle.manifest.resources[0]
+    path = bundle.resources_dir / resource_filename(resource.hash, resource.type)
+    path.unlink()
+    os.mkfifo(path)
+
+    with pytest.raises(InvalidBundleError, match="not a regular file"):
+        bundle.validate()
+
+
+def test_a_fifo_in_place_of_the_manifest_is_refused(make_bundle: BundleFactory) -> None:
+    bundle = make_bundle()
+    bundle.manifest_path.unlink()
+    os.mkfifo(bundle.manifest_path)
+
+    with pytest.raises(InvalidBundleError, match="not a regular file"):
+        Bundle.read(bundle.root)
+
+
+@pytest.mark.parametrize("edit", ["  size: null\n", ""], ids=["null", "missing"])
+def test_a_managed_resource_without_a_size_is_refused(
+    make_bundle: BundleFactory, edit: str
+) -> None:
+    bundle = make_bundle()
+    text = bundle.manifest_path.read_text(encoding="utf-8")
+    edited = re.sub(r"  size: \d+\n", edit, text)
+    assert edited != text
+    bundle.manifest_path.write_text(edited, encoding="utf-8")
+
+    with pytest.raises(InvalidBundleError, match="records no size"):
+        Bundle.read_validated(bundle.root)
+
+
+@pytest.mark.parametrize("edit", ["  processing: null\n", ""], ids=["null", "missing"])
+def test_a_book_without_processing_is_refused(make_bundle: BundleFactory, edit: str) -> None:
+    bundle = make_bundle()
+    text = bundle.manifest_path.read_text(encoding="utf-8")
+    edited = text.replace("  processing: []\n", edit)
+    assert edited != text
+    bundle.manifest_path.write_text(edited, encoding="utf-8")
+
+    with pytest.raises(InvalidBundleError, match="records no processing"):
+        Bundle.read_validated(bundle.root)
+
+
+@pytest.mark.parametrize(
+    ("anchor", "added", "where"),
+    [
+        ("schema_version:", "visiblity: public\n", "visiblity"),
+        ("  volume: example\n", "  visiblity: public\n", "book.visiblity"),
+        ("  - name: entry-0\n", "    visiblity: public\n", "book.entries[0].visiblity"),
+        ("- generated: false\n", "  visiblity: public\n", "resources[0].visiblity"),
+    ],
+    ids=["top", "book", "entry", "resource"],
+)
+def test_an_unknown_manifest_key_is_refused(
+    make_bundle: BundleFactory, anchor: str, added: str, where: str
+) -> None:
+    bundle = make_bundle()
+    text = bundle.manifest_path.read_text(encoding="utf-8")
+    assert anchor in text
+    edited = text.replace(anchor, added + anchor if anchor.endswith(":") else anchor + added, 1)
+    bundle.manifest_path.write_text(edited, encoding="utf-8")
+
+    with pytest.raises(InvalidBundleError, match=re.escape(where)):
+        Bundle.read_validated(bundle.root)
+
+
+def test_an_unknown_key_from_a_newer_minor_still_validates(make_bundle: BundleFactory) -> None:
+    bundle = make_bundle()
+    text = bundle.manifest_path.read_text(encoding="utf-8")
+    edited = re.sub(r"schema_version: '?[\d.]+'?", "schema_version: '3.999'\nlater: 1", text)
+    bundle.manifest_path.write_text(edited, encoding="utf-8")
+
+    Bundle.read_validated(bundle.root)
