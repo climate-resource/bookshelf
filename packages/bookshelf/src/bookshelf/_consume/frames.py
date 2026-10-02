@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Collection
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from bookshelf._core.frames import require_package
 
 if TYPE_CHECKING:
+    import numpy as np
     import pandas as pd
     import polars as pl
     import pyarrow as pa
@@ -69,16 +70,38 @@ def _dimension_index(
     codes = []
     for column in dimensions:
         values = frame[column].array
-        if column not in coded or not isinstance(values, pd.Categorical):
-            values = pd.Categorical(frame[column])
-        elif len(categories := values.remove_unused_categories().categories):
-            values = values.set_categories(categories.sort_values())
+        if column in coded and isinstance(values, pd.Categorical):
+            level, level_codes = _used_sorted(values)
         else:
-            # An all-missing dictionary loses the text type the dense column would keep.
-            values = values.set_categories(pd.Index([], dtype=pd.Index([""]).dtype))
-        levels.append(values.categories)
-        codes.append(values.codes)
+            values = pd.Categorical(frame[column])
+            level, level_codes = values.categories, values.codes
+        levels.append(level)
+        codes.append(level_codes)
     return pd.MultiIndex(levels=levels, codes=codes, names=dimensions, verify_integrity=False)
+
+
+def _used_sorted(values: pd.Categorical) -> tuple[pd.Index[Any], np.ndarray[Any, Any]]:
+    """Keep the categories a dictionary uses, sorted, and recode to them in one pass.
+
+    ``remove_unused_categories`` sorts every code to find the used ones, which pandas 3 notices.
+    """
+    import numpy as np
+    import pandas as pd
+
+    categories = values.categories
+    old_codes = values.codes
+    # The extra slot takes the -1 of a missing value.
+    used = np.zeros(len(categories) + 1, dtype=bool)
+    used[old_codes] = True
+    positions = np.flatnonzero(used[:-1])
+    if not len(positions):
+        # An all-missing dictionary loses the text type the dense column would keep.
+        return pd.Index([], dtype=pd.Index([""]).dtype), old_codes
+    kept = categories.take(positions)
+    order = kept.argsort()
+    recode = np.full(len(categories) + 1, -1, dtype=old_codes.dtype)
+    recode[positions[order]] = np.arange(len(order), dtype=old_codes.dtype)
+    return kept.take(order), recode[old_codes]
 
 
 def int_year_columns(wide: pd.DataFrame) -> pd.DataFrame:
@@ -113,19 +136,32 @@ def long_timeseries(frame: pd.DataFrame, *, dropna: bool = False) -> pd.DataFram
 
 
 def _dense_long(wide: pd.DataFrame, dimensions: list[str]) -> pd.DataFrame:
-    """Melt only the cells holding a value, in the order melt would leave them."""
+    """Melt only the cells holding a value, in the order melt would leave them.
+
+    Years with the same gaps share one pick of the labels,
+    and arrow backed labels are then shared rather than copied, as melt shares them.
+    """
     import numpy as np
     import pandas as pd
 
     values = wide.to_numpy().T
     present = pd.notna(values)
-    year_at, row_at = np.nonzero(present)
-    long: pd.DataFrame
+    held = present.sum(axis=1)
+    long = pd.DataFrame(index=pd.RangeIndex(int(held.sum())))
     if dimensions:
-        long = wide.index.take(row_at).to_frame(index=False)
-    else:
-        long = pd.DataFrame(index=pd.RangeIndex(len(row_at)))
-    long["year"] = np.array([int(column) for column in wide.columns], dtype=np.int64)[year_at]
+        labels = wide.index.to_frame(index=False)
+        keys = [mask.tobytes() for mask in present]
+        # None marks a year holding every row, whose labels need no pick.
+        masks = {key: None if mask.all() else mask for key, mask in zip(keys, present, strict=True)}
+        for name in dimensions if keys else ():
+            column = labels[name]
+            picked = {key: column if mask is None else column[mask] for key, mask in masks.items()}
+            # Column by column, as concatenating frames scans every object label on pandas 2.
+            long[name] = pd.concat([picked[key] for key in keys], ignore_index=True)
+        if not keys:
+            long = labels.iloc[:0]
+    years = np.array([int(column) for column in wide.columns], dtype=np.int64)
+    long["year"] = np.repeat(years, held)
     long["value"] = values[present]
     return long
 
@@ -168,11 +204,12 @@ def polars_converter() -> Callable[[pd.DataFrame], pl.DataFrame]:
 
 
 def arrow_converter() -> Callable[[pd.DataFrame], pa.Table]:
-    """Return a converter to a PyArrow table that keeps the index columns."""
+    """Return a converter to a PyArrow table that keeps the named index columns."""
     import pyarrow as pa
 
     def convert(frame: pd.DataFrame) -> pa.Table:
-        return pa.Table.from_pandas(frame, preserve_index=True)
+        named = any(name is not None for name in frame.index.names)
+        return pa.Table.from_pandas(frame, preserve_index=named)
 
     return convert
 
