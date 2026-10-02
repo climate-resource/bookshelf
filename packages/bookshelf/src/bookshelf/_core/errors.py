@@ -158,8 +158,10 @@ class RateLimitError(APIError):
 
 
 class GatewayError(APIError):
-    """A non-JSON 4xx, from a proxy or CDN in front of the API or from object storage.
+    """A response the API would not send, from a proxy, CDN or web app in front of it.
 
+    That is a non-JSON 4xx, or a success whose body is not the JSON the operation returns,
+    such as the web app's HTML page answering a base URL with the wrong path.
     The API itself never answered, so the status says nothing about whether the data exists.
     """
 
@@ -224,15 +226,43 @@ def _json_body(response: ApiResponse) -> Any:
         return _NOT_JSON
 
 
-def _non_json_detail(response: ApiResponse) -> str:
-    """Describe a body that is not JSON by its status and type, since it is usually a proxy page."""
+def describe_body(status_code: int, media_type: str, *, empty: bool) -> str:
+    """Describe a body by its status and type, without quoting it, since it is usually a proxy page."""
     try:
-        status = f"HTTP {response.status_code} {HTTPStatus(response.status_code).phrase}"
+        status = f"HTTP {status_code} {HTTPStatus(status_code).phrase}"
     except ValueError:
-        status = f"HTTP {response.status_code}"
-    if not response.content:
-        return f"{status} with an empty body"
-    return f"{status} with a {response.media_type or 'untyped'} body"
+        status = f"HTTP {status_code}"
+    kind = media_type or "untyped"
+    if empty:
+        kind = f"empty {media_type}" if media_type else "empty"
+    article = "an" if kind[0] in "aeiou" else "a"
+    return f"{status} with {article} {kind} body"
+
+
+def _non_json_detail(response: ApiResponse) -> str:
+    return describe_body(response.status_code, response.media_type, empty=not response.content)
+
+
+def unexpected_body_error(response: ApiResponse, cause: Exception) -> GatewayError:
+    """Report a success whose body is not what the operation returns, naming where it came from."""
+    described = _non_json_detail(response)
+    if _json_body(response) is _NOT_JSON:
+        detail = (
+            f"{described}, not the JSON the Bookshelf API returns. "
+            "Check the API URL names the deployment root"
+        )
+    else:
+        detail = f"{described} that is not shaped like this operation's response"
+        if isinstance(cause, PydanticValidationError):
+            first = cause.errors()[0]
+            location = ".".join(str(part) for part in first["loc"])
+            detail = f"{detail} ({location}: {first['msg']})" if location else detail
+    return GatewayError(
+        detail,
+        status_code=response.status_code,
+        request_method=response.method,
+        request_url=response.url,
+    )
 
 
 def _json_detail(body: Any) -> str:
@@ -257,6 +287,13 @@ def _describe_field_errors(field_errors: list[Any]) -> str:
         else:
             described.append(json.dumps(error))
     return ", ".join(described)
+
+
+def _rate_limited_detail(detail: str | None, retry_after: float | None) -> str:
+    message = "rate limited (HTTP 429 Too Many Requests)"
+    if retry_after is not None:
+        message = f"{message}, the server asked for a {retry_after:g}s wait"
+    return f"{message}: {detail}" if detail else message
 
 
 def error_from_response(
@@ -286,9 +323,10 @@ def error_from_response(
         detail = _non_json_detail(response)
     request_url = response.url or request_url
     if status_code == RATE_LIMITED:
+        retry_after = parse_retry_after(response.headers.get("retry-after"))
         return RateLimitError(
-            detail,
-            retry_after=parse_retry_after(response.headers.get("retry-after")),
+            _rate_limited_detail(detail if problem is not None or is_json else None, retry_after),
+            retry_after=retry_after,
             problem=problem,
             request_method=request_method,
             request_url=request_url,

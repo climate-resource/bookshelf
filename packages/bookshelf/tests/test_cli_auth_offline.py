@@ -1,5 +1,6 @@
 """Offline CLI authentication tests that do not require the private backend."""
 
+import base64
 import json
 import re
 from datetime import UTC, datetime
@@ -358,7 +359,43 @@ def test_whoami_names_the_env_token_when_the_server_rejects_it(
     assert result.exit_code == 3
     assert "$BOOKSHELF_TOKEN" in result.stderr
     assert "auth login" not in result.stderr
-    assert "malformed" in result.stderr
+    assert "is malformed" in result.stderr
+    assert "revoked" not in result.stderr
+
+
+def _jwt(exp: float) -> str:
+    claims = base64.urlsafe_b64encode(json.dumps({"exp": exp}).encode()).rstrip(b"=").decode()
+    return f"h.{claims}.s"
+
+
+@pytest.mark.parametrize(
+    ("token", "reason", "absent"),
+    [
+        (_jwt(0), "expired at 1970-01-01T00:00:00Z", "malformed"),
+        (_jwt(4102444800), "revoked, or issued for another deployment", "malformed"),
+        ("bsat_unknown", "revoked, or issued for another deployment", "malformed"),
+    ],
+)
+def test_whoami_says_why_the_server_rejected_a_token(
+    monkeypatch: pytest.MonkeyPatch, token: str, reason: str, absent: str
+) -> None:
+    monkeypatch.setenv("BOOKSHELF_TOKEN", token)
+    monkeypatch.setattr(
+        "bookshelf._cli.auth.BookshelfClient",
+        lambda url, auth: BookshelfClient(
+            url,
+            auth=auth,
+            transport=httpx.MockTransport(
+                lambda _request: httpx.Response(401, json={"detail": "bad token"})
+            ),
+        ),
+    )
+
+    result = runner.invoke(app, ["auth", "whoami"])
+
+    assert result.exit_code == 3
+    assert reason in result.stderr
+    assert absent not in result.stderr
 
 
 def test_list_marks_a_credential_that_can_no_longer_be_renewed() -> None:
@@ -392,7 +429,14 @@ def test_list_marks_a_credential_that_can_no_longer_be_renewed() -> None:
     result = runner.invoke(app, ["auth", "list", "--json"])
 
     assert result.exit_code == 0, result.output
-    expired = {
-        json.loads(line)["id"]: json.loads(line)["expired"] for line in result.stdout.splitlines()
+    rows = {json.loads(line)["id"]: json.loads(line) for line in result.stdout.splitlines()}
+    assert {name: row["expired"] for name, row in rows.items()} == {
+        "a@example.com": True,
+        "b@example.com": True,
+        "agent:c": True,
     }
-    assert expired == {"a@example.com": True, "b@example.com": False, "agent:c": False}
+    assert {name: row["needs_login"] for name, row in rows.items()} == {
+        "a@example.com": True,
+        "b@example.com": False,
+        "agent:c": False,
+    }

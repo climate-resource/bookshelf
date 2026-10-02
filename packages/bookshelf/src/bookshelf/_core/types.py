@@ -60,12 +60,14 @@ class ApiResponse:
     """The transport-independent result of executing an :class:`ApiRequest`.
 
     ``url`` is the URL that answered, without its query string, so an error can name it safely.
+    ``method`` is the method of the request it answers.
     """
 
     status_code: int
     headers: dict[str, str]
     content: bytes
     url: str | None = None
+    method: str | None = None
 
     @property
     def media_type(self) -> str:

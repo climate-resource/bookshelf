@@ -417,8 +417,35 @@ def test_static_token_hands_over_its_token_without_an_exchange() -> None:
 def test_error_detail_reads_the_usual_keys_and_truncates() -> None:
     assert error_detail(httpx.Response(400, json={"error_description": "spent"})) == "spent"
     assert error_detail(httpx.Response(400, json={"message": "spent"})) == "spent"
-    assert error_detail(httpx.Response(400, text="not json")) == "not json"
+    assert error_detail(httpx.Response(400, text="not json")) == (
+        "HTTP 400 Bad Request with a text/plain body"
+    )
     assert error_detail(httpx.Response(400, json=["a" * 500])) == json.dumps(["a" * 500])[:200]
+
+
+def test_error_detail_never_quotes_an_html_page() -> None:
+    page = httpx.Response(
+        502, text="<!doctype html><html>gateway</html>", headers={"content-type": "text/html"}
+    )
+    assert error_detail(page) == "HTTP 502 Bad Gateway with a text/html body"
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        httpx.Response(200, text="<html>spa</html>", headers={"content-type": "text/html"}),
+        httpx.Response(200, json=["not", "a", "token"]),
+    ],
+)
+def test_a_token_response_that_is_not_a_token_document_is_an_authentication_error(
+    response: httpx.Response,
+) -> None:
+    with (
+        httpx.Client(transport=httpx.MockTransport(lambda _request: response)) as client,
+        pytest.raises(AuthenticationError, match="Token refresh failed: HTTP 200") as excinfo,
+    ):
+        ClientCredentials("cid", "secret", token_url=TOKEN_URL).access_token(client.send)
+    assert "<" not in str(excinfo.value)
 
 
 def fallback(inner: httpx.Auth) -> AnonymousFallback:

@@ -5,6 +5,7 @@ Bookshelf's own authorization server issues ``bsat_`` tokens for agents,
 and ``--agent`` selects which.
 """
 
+import os
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -31,7 +32,7 @@ from bookshelf._cli._runtime import (
     requested_api_url,
 )
 from bookshelf._core import credentials, errors, oauth, session
-from bookshelf._core.auth import JWT_BEARER_GRANT, TokenProvider
+from bookshelf._core.auth import JWT_BEARER_GRANT, TokenProvider, decode_jwt_expiry
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.credentials import CredentialKind, StoredCredentials, default_store
 from bookshelf._core.resolution import (
@@ -385,7 +386,7 @@ def _fill_online(report: dict[str, Any], base: str, credential: ResolvedCredenti
             else ""
         )
         raise CliError(
-            f"the server rejected {described.label} as malformed, revoked or expired. "
+            f"the server rejected {described.label}: {_rejection_reason(credential)}. "
             f"{described.remedy}{inspect}",
             exit_code=EXIT_AUTH_REQUIRED,
         ) from exc
@@ -406,6 +407,18 @@ def _fill_online(report: dict[str, Any], base: str, credential: ResolvedCredenti
         if not claimed:
             report["reaches"] = "public"
     report["expires_at"] = iso(described.expires_at)
+
+
+def _rejection_reason(credential: ResolvedCredential) -> str:
+    """Say why a credential was likely refused, from what can be read off it locally."""
+    expires_at = credential.describe().expires_at
+    if expires_at is not None and expires_at <= datetime.now(UTC):
+        return f"it expired at {iso(expires_at)}"
+    token = os.environ.get("BOOKSHELF_TOKEN", "")
+    from_env = credential.source is CredentialSource.ENV_TOKEN
+    if from_env and not token.startswith("bsat_") and decode_jwt_expiry(token) is None:
+        return "it is malformed, as it is neither a bsat_ agent token nor a JWT"
+    return "it is revoked, or issued for another deployment"
 
 
 @auth_app.command("logout")
@@ -472,7 +485,8 @@ def auth_list(
                     "id": record.subject,
                     "api_url": record.api_url,
                     "active": active.get(record.api_url) == record.kind,
-                    "expired": _spent(record, now),
+                    "expired": record.expires_at is not None and record.expires_at <= now,
+                    "needs_login": _spent(record, now),
                     "claimed": record.claimed,
                     "expires_at": iso(record.expires_at),
                     "assertion_expires_at": iso(record.assertion_expires_at),

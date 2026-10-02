@@ -8,6 +8,7 @@ The callers are scripts and agents, so:
 """
 
 import json
+import warnings
 from collections.abc import Generator, Iterable, Mapping
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -59,7 +60,7 @@ def set_api_url(value: str | None) -> None:
 def base_url() -> str:
     """Resolve the deployment to act against, honouring the top-level ``--api-url``."""
     try:
-        return resolve_base_url(_api_url)
+        return resolve_base_url(_api_url, source="--api-url")
     except errors.ConfigurationError as exc:
         # Some commands resolve the URL before entering command_errors.
         note(f"Error: {exc}")
@@ -255,11 +256,20 @@ def _remedy_for(exit_code: int) -> str | None:
     return None
 
 
+def _note_warning(message: Warning | str, *_args: object, **_kwargs: object) -> None:
+    note(f"Warning: {message}")
+
+
 @contextmanager
 def command_errors() -> Generator[None]:
-    """Map SDK errors and :class:`CliError` onto the exit-code table."""
+    """Map SDK errors and :class:`CliError` onto the exit-code table.
+
+    A warning raised inside reaches stderr as one diagnostic line, without Python's source context.
+    """
     try:
-        yield
+        with warnings.catch_warnings():
+            warnings.showwarning = _note_warning
+            yield
     except CliError as exc:
         note(f"Error: {exc}")
         raise typer.Exit(code=exc.exit_code) from exc

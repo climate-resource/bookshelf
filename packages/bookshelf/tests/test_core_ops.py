@@ -496,10 +496,11 @@ def test_batch_item_errors_surface_on_the_exception() -> None:
     assert excinfo.value.item_errors == [models.ItemError(status=409, detail="item 3 clashed")]
 
 
-def test_unparseable_timestamp_reaches_pydantic_as_a_validation_error() -> None:
+def test_unparseable_timestamp_is_reported_by_pydantic_through_a_gateway_error() -> None:
     """A non ISO-8601 timestamp must not escape as a bare ValueError from the parse layer."""
     payload = dict(payloads.BOOK_RESPONSE, created_at="not-a-timestamp")
     response = payloads.json_response(200, payload)
-    with pytest.raises(PydanticValidationError) as excinfo:
+    with pytest.raises(errors.GatewayError) as excinfo:
         ops.parse_get_book(response)
+    assert isinstance(excinfo.value.__cause__, PydanticValidationError)
     assert "created_at" in str(excinfo.value)
