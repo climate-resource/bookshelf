@@ -222,7 +222,8 @@ def _render_executed_notebook(ipynb_path: Path, html_path: Path) -> None:
     except ImportError as exc:
         raise RuntimeError(
             "Notebook HTML rendering requires nbformat and nbconvert. "
-            "Install the publish extra with 'pip install bookshelf[publish]'."
+            "Install the publish extra with 'pip install bookshelf[publish]'. "
+            f"The import failed with: {exc}"
         ) from exc
 
     with ipynb_path.open("r", encoding="utf-8") as fh:
