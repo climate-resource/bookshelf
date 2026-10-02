@@ -3,15 +3,17 @@
 import asyncio
 import hashlib
 import multiprocessing
+import os
 import shutil
 import threading
 import time
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
 
-from bookshelf import BookshelfError, HashMismatchError
+from bookshelf import BookshelfError, CacheDirectoryError, HashMismatchError
 from bookshelf.cache import ContentCache
 
 CONTENT = b"year,value\n2020,1.0\n"
@@ -133,3 +135,50 @@ def test_a_cache_path_that_is_a_file_raises_a_bookshelf_error(
 
     with pytest.raises(BookshelfError, match="cache directory"):
         ContentCache(tmp_path / relative)
+
+
+@pytest.fixture
+def read_only(tmp_path: Path) -> Iterator[Path]:
+    if os.geteuid() == 0:
+        pytest.skip("root writes through a read-only mode")
+    base = tmp_path / "cache"
+    base.mkdir()
+    base.chmod(0o555)
+    yield base
+    base.chmod(0o755)
+
+
+def test_a_read_only_cache_raises_a_cache_directory_error(read_only: Path) -> None:
+    cache = ContentCache(read_only)
+
+    with pytest.raises(CacheDirectoryError, match=f"cache directory {read_only}"):
+        cache.fetch(CONTENT_HASH, lambda path: path.write_bytes(CONTENT))
+
+
+async def test_a_read_only_cache_raises_a_cache_directory_error_async(read_only: Path) -> None:
+    cache = ContentCache(read_only)
+
+    async def download(path: Path) -> None:
+        path.write_bytes(CONTENT)
+
+    with pytest.raises(CacheDirectoryError, match="cache directory"):
+        await cache.fetch_async(CONTENT_HASH, download)
+
+
+def test_a_cache_made_read_only_after_use_raises_a_cache_directory_error(tmp_path: Path) -> None:
+    if os.geteuid() == 0:
+        pytest.skip("root writes through a read-only mode")
+    base = tmp_path / "cache"
+    cache = ContentCache(base)
+    cache.fetch(CONTENT_HASH, lambda path: path.write_bytes(CONTENT))
+    other = b"other"
+    other_hash = f"sha256:{hashlib.sha256(other).hexdigest()}"
+    for directory in (base, base / ".locks"):
+        directory.chmod(0o555)
+    try:
+        with pytest.raises(CacheDirectoryError, match="cache directory"):
+            cache.fetch(other_hash, lambda path: path.write_bytes(other))
+        assert cache.fetch(CONTENT_HASH, lambda path: path.write_bytes(CONTENT)).is_file()
+    finally:
+        for directory in (base, base / ".locks"):
+            directory.chmod(0o755)
