@@ -19,8 +19,8 @@ _SKIPPED_OPTIONS = {"--install-completion", "--show-completion", "--help"}
 
 
 def _escaped(text: str) -> str:
-    """Keep a placeholder such as ``<hex>`` in help text from reading as an HTML tag."""
-    return text.replace("<", "&lt;")
+    """Keep ``<hex>`` from reading as an HTML tag, and ``[/entry]`` as a cross-reference."""
+    return text.replace("<", "&lt;").replace("[", "\\[")
 
 
 def _section(command: Any, ctx: typer.Context, path: str) -> list[str]:  # noqa: ANN401

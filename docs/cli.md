@@ -117,8 +117,8 @@ Options:
 - `--coverage-year <int>`: Year the volume's data must cover.
 - `--type <timeseries|geospatial|tabular|document|binary|figure>`: Resource type the volume contains.
 - `--deprecated / --no-deprecated`: Restrict to deprecated or to active volumes. Omitted means both.
-- `--limit <int range>`: Maximum results.  [default: 20; 1&lt;=x&lt;=1000]
-- `--offset <int range>`: Results to skip.  [default: 0; x>=0]
+- `--limit <int range>`: Maximum results.  \[default: 20; 1&lt;=x&lt;=1000]
+- `--offset <int range>`: Results to skip.  \[default: 0; x>=0]
 - `--facets`: List every valid filter value instead of searching. Takes no query or filters.
 - `--json`: One JSON object per result, then one 'page' object with the totals and next offset.
 
@@ -132,7 +132,7 @@ $ bookshelf show [OPTIONS] {ADDRESS}
 
 Arguments:
 
-- `ADDRESS`: volume[@version[_eNNN]][/entry], or the bookshelf:// reference naming the same thing.  [required]
+- `ADDRESS`: volume\[@version\[_eNNN]]\[/entry], or the bookshelf:// reference naming the same thing.  \[required]
 
 Options:
 
@@ -152,8 +152,8 @@ Arguments:
 
 Options:
 
-- `--recipe <path>`: Sectioned Bookshelf recipe.  [default: bookshelf.yaml]
-- `--bundle <path>`: Bundle directory to write.  [default: bundle]
+- `--recipe <path>`: Sectioned Bookshelf recipe.  \[default: bookshelf.yaml]
+- `--bundle <path>`: Bundle directory to write.  \[default: bundle]
 - `--book VERSION`: Required. Version to build, naming a book under 'books:' in the recipe.
 - `-p, --parameter KEY=VALUE`: Value for a top-level assignment in the build file, read as YAML. Repeatable.
 - `--force`: Replace an existing bundle directory.
@@ -169,7 +169,7 @@ $ bookshelf validate [OPTIONS] [bundle]
 
 Arguments:
 
-- `bundle`: Bundle directory to validate.  [default: bundle]
+- `bundle`: Bundle directory to validate.  \[default: bundle]
 
 Options:
 
@@ -185,7 +185,7 @@ $ bookshelf publish [OPTIONS] [bundle]
 
 Arguments:
 
-- `bundle`: Bundle directory to replay.  [default: bundle]
+- `bundle`: Bundle directory to replay.  \[default: bundle]
 
 Options:
 
@@ -205,7 +205,7 @@ $ bookshelf discard [OPTIONS] {address}
 
 Arguments:
 
-- `address`: Draft edition to discard, as volume@version_eNNN.  [required]
+- `address`: Draft edition to discard, as volume@version_eNNN.  \[required]
 
 Options:
 
@@ -224,11 +224,11 @@ $ bookshelf upload [OPTIONS] {file}
 
 Arguments:
 
-- `file`: File to upload.  [required]
+- `file`: File to upload.  \[required]
 
 Options:
 
-- `--type <timeseries|geospatial|tabular|document|binary|figure>`: Resource type the file registers under. Never inferred from the name.  [required]
+- `--type <timeseries|geospatial|tabular|document|binary|figure>`: Resource type the file registers under. Never inferred from the name.  \[required]
 - `--name <str>`: Resource name. Defaults to the file name, flattened.
 - `--description <str>`: What the file is.
 - `--tag <str>`: Catalogue tag. Repeatable.
@@ -319,7 +319,7 @@ $ bookshelf auth switch [OPTIONS] {identity}
 
 Arguments:
 
-- `identity`: The identity to make active, as shown by 'auth list'.  [required]
+- `identity`: The identity to make active, as shown by 'auth list'.  \[required]
 
 Options:
 
@@ -355,7 +355,7 @@ $ bookshelf cache prune [OPTIONS]
 
 Options:
 
-- `--max-bytes <int range>`: Cap to prune the cache down to.  [default: 5368709120; x>=0]
+- `--max-bytes <int range>`: Cap to prune the cache down to.  \[default: 5368709120; x>=0]
 - `--json`: Emit the result as JSON.
 
 ### `bookshelf cache clear`
@@ -404,11 +404,11 @@ $ bookshelf volume create [OPTIONS] {name}
 
 Arguments:
 
-- `name`: Volume name, in alphanumerics, hyphens and underscores.  [required]
+- `name`: Volume name, in alphanumerics, hyphens and underscores.  \[required]
 
 Options:
 
-- `--licence, --license <str>`: SPDX licence identifier.  [required]
+- `--licence, --license <str>`: SPDX licence identifier.  \[required]
 - `--description <str>`: Long-form description.
 - `--author <str>`: Name of somebody who made the data. Repeatable.
 - `--maintainer <str>`: Name of somebody who maintains the feedstock. Repeatable.
@@ -425,7 +425,7 @@ $ bookshelf volume update [OPTIONS] {name}
 
 Arguments:
 
-- `name`: Volume to update.  [required]
+- `name`: Volume to update.  \[required]
 
 Options:
 
@@ -445,7 +445,7 @@ $ bookshelf volume delete [OPTIONS] {name}
 
 Arguments:
 
-- `name`: Volume to delete, with every book in it.  [required]
+- `name`: Volume to delete, with every book in it.  \[required]
 
 Options:
 
