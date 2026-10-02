@@ -14,7 +14,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-09-24T08:12:51.875009001Z"
+exclude-newer = "2026-09-25T22:52:33.651470664Z"
 exclude-newer-span = "P7D"
 
 [manifest]
@@ -161,7 +161,7 @@ wheels = [
 
 [[package]]
 name = "bookshelf"
-version = "1.0.0b20"
+version = "1.0.0rc1"
 source = { editable = "packages/bookshelf" }
 dependencies = [
     { name = "filelock" },
@@ -247,7 +247,7 @@ test = [
 
 [[package]]
 name = "bookshelf-root"
-version = "1.0.0b20"
+version = "1.0.0rc1"
 source = { virtual = "." }
 dependencies = [
     { name = "bookshelf", extra = ["scmrun"] },
