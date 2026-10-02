@@ -98,6 +98,11 @@ underlines = ["", "", ""]
 issue_format = "[#{issue}](https://github.com/climate-resource/bookshelf/pull/{issue})"
 
   [[tool.towncrier.type]]
+  directory = "upgrading"
+  name = "Upgrading"
+  showcontent = true
+
+  [[tool.towncrier.type]]
   directory = "breaking"
   name = "Breaking Changes"
   showcontent = true
