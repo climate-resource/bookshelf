@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from filelock import FileLock
 
-from bookshelf import BookshelfError
+from bookshelf import AuthConfigurationError, BookshelfError
 from bookshelf._core import credentials
 from bookshelf._core.credentials import (
     CredentialKind,
@@ -307,16 +307,66 @@ def test_a_rotation_reports_that_it_replaced_the_record(store: CredentialStore) 
     assert store.rotate(record, record.with_token("tok-2", expires_at=None, refresh_token="rt-2"))
 
 
-def test_a_login_sets_an_unreadable_file_aside_rather_than_overwriting_it(path: Path) -> None:
-    newer = json.dumps({"version": credentials.STORE_VERSION + 1, "records": {"k": {}}})
-    path.write_text(newer)
+@pytest.mark.parametrize("content", ["{not json", json.dumps({"version": 1, "records": {}})])
+def test_a_login_sets_an_unreadable_file_aside_rather_than_overwriting_it(
+    path: Path, content: str
+) -> None:
+    path.write_text(content)
 
     login(FileCredentialStore(path), "tok")
 
-    assert path.with_name("credentials.json.unreadable").read_text() == newer
+    assert path.with_name("credentials.json.unreadable").read_text() == content
     loaded = FileCredentialStore(path).load()
     assert loaded is not None
     assert loaded.access_token == "tok"
+
+
+def _newer_store(path: Path) -> str:
+    newer = json.dumps(
+        {
+            "version": credentials.STORE_VERSION + 1,
+            "records": {
+                f"{API}|user": {"access_token": "theirs", "api_url": API, "kind": "user"},
+            },
+            "active": {API: "user"},
+            "default_api_url": API,
+            "added_later": {"anything": True},
+        }
+    )
+    path.write_text(newer)
+    return newer
+
+
+def test_a_newer_store_survives_a_login_from_this_version(path: Path) -> None:
+    newer = _newer_store(path)
+
+    with pytest.raises(AuthConfigurationError, match="newer bookshelf"):
+        login(FileCredentialStore(path), "mine")
+
+    assert path.read_text() == newer
+    assert not path.with_name("credentials.json.unreadable").exists()
+
+
+def test_a_newer_store_is_read_for_the_keys_this_version_knows(path: Path) -> None:
+    _newer_store(path)
+
+    loaded = FileCredentialStore(path).load(API)
+
+    assert loaded is not None
+    assert loaded.access_token == "theirs"
+
+
+def test_a_rotation_into_a_newer_store_warns_and_leaves_it_alone(path: Path) -> None:
+    newer = _newer_store(path)
+    store = FileCredentialStore(path)
+    record = store.load(API)
+    assert record is not None
+
+    with pytest.warns(UserWarning, match="not saved"):
+        replaced = store.rotate(record, record.with_token("fresh", expires_at=None))
+
+    assert replaced is False
+    assert path.read_text() == newer
 
 
 def test_a_held_lock_times_out_instead_of_hanging(
