@@ -32,6 +32,9 @@ from __future__ import annotations
 import importlib.metadata
 import ipaddress
 import re
+import socket
+import stat
+import unicodedata
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -87,6 +90,10 @@ ResourceName = Annotated[str, StringConstraints(pattern=RESOURCE_NAME_PATTERN.pa
 
 
 _REBUILD = "Run 'bookshelf record' to rebuild the bundle."
+
+
+class RecordingError(BookshelfError, ValueError):
+    """A build asked the recorder for something a bundle cannot hold."""
 
 
 class InvalidBundleError(BookshelfError, ValueError):
@@ -487,7 +494,7 @@ _POINTER_URI = re.compile(
 )
 
 
-def _external_uri_problem(uri: str) -> str | None:
+def external_uri_problem(uri: str) -> str | None:
     """Return why the platform would refuse ``uri`` as a pointer target, or ``None``."""
     if any(ord(char) < 0x20 for char in uri):
         return "contains control characters"
@@ -508,11 +515,73 @@ def _external_uri_problem(uri: str) -> str | None:
         return None
     if not host:
         return "names no host"
+    return _host_problem(host)
+
+
+# A host whose last label is a number is an IPv4 address in one of the loose forms resolvers accept.
+_NUMERIC_LABEL = re.compile(r"(?:0x[0-9a-f]*|[0-9]+)")
+_PRIVATE = "points at a private or reserved address"
+
+
+def _host_problem(host: str) -> str | None:
+    """Return why ``host`` is not a public host, judged offline, or ``None``.
+
+    A DNS name that resolves to a private address is not caught, because that needs a lookup.
+    """
+    host = unicodedata.normalize("NFKC", host).replace("\u3002", ".").lower().rstrip(".")
+    if not host or "%" in host:
+        return "names no valid host"
+    if host == "localhost" or host.endswith(".localhost"):
+        return _PRIVATE
     try:
-        address = ipaddress.ip_address(host)
+        address: ipaddress.IPv4Address | ipaddress.IPv6Address = ipaddress.ip_address(host)
     except ValueError:
-        return None
-    return None if address.is_global else "points at a private or reserved address"
+        if not _NUMERIC_LABEL.fullmatch(host.rsplit(".", 1)[-1]):
+            return None
+        try:
+            address = ipaddress.IPv4Address(socket.inet_aton(host))
+        except OSError:
+            return "names no valid host"
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:
+        address = address.ipv4_mapped
+    return None if address.is_global else _PRIVATE
+
+
+def _unknown_keys(raw: dict[str, Any]) -> list[str]:
+    """Name every key in a raw manifest that the models would drop, as a path such as ``resources[0].x``."""
+    found = _stray(raw, BundleManifest, "")
+    for section, model in (("writer", BundleWriter), ("activity", BundleActivity)):
+        found += _stray(raw.get(section), model, f"{section}.")
+    book = raw.get("book")
+    found += _stray(book, BundleBook, "book.")
+    entries = book.get("entries") if isinstance(book, dict) else None
+    for index, entry in enumerate(entries if isinstance(entries, list) else ()):
+        found += _stray(entry, BundleBookEntry, f"book.entries[{index}].")
+    try:
+        older = _version_key(str(raw.get("schema_version", BUNDLE_SCHEMA_VERSION))) < (3, 10)
+    except ValueError:
+        older = False
+    retired = _RETIRED_RESOURCE_KEYS if older else frozenset()
+    resources = raw.get("resources")
+    for index, resource in enumerate(resources if isinstance(resources, list) else ()):
+        where = f"resources[{index}]."
+        found += _stray(resource, BundleResource, where, retired=retired)
+        authors = resource.get("authors") if isinstance(resource, dict) else None
+        for position, author in enumerate(authors if isinstance(authors, list) else ()):
+            found += _stray(author, models.Author, f"{where}authors[{position}].")
+    return found
+
+
+# Fields a minor older than 3.10 wrote, which a reader drops rather than refuses.
+_RETIRED_RESOURCE_KEYS = frozenset({"dedupe"})
+
+
+def _stray(
+    raw: object, model: type[BaseModel], where: str, *, retired: frozenset[str] = frozenset()
+) -> list[str]:
+    if not isinstance(raw, dict):
+        return []
+    return [f"{where}{key}" for key in raw if key not in model.model_fields and key not in retired]
 
 
 def _byte_filename(resource: BundleResource) -> str:
@@ -592,8 +661,18 @@ class Bundle:
     so a caller never has to rediscover a rule the bundle already knows.
     """
 
-    def __init__(self, root: Path, manifest: BundleManifest | None = None) -> None:
+    def __init__(
+        self,
+        root: Path,
+        manifest: BundleManifest | None = None,
+        *,
+        unknown_keys: Sequence[str] = (),
+        from_disk: bool = False,
+    ) -> None:
         self.root = root
+        # What validate holds a manifest read from disk to, beyond what the models check.
+        self.unknown_keys = tuple(unknown_keys)
+        self.from_disk = from_disk
         # A fresh bundle records the writer versions of the machine writing it.
         # A manifest handed in came from disk, so it keeps whatever header it was written with.
         if manifest is None:
@@ -621,7 +700,7 @@ class Bundle:
         """
         if self.manifest.activity is not None:
             if self.manifest.activity != activity:
-                raise ValueError("bundle already has a different activity recorded")
+                raise RecordingError("bundle already has a different activity recorded")
             return
         self.manifest.activity = activity
 
@@ -637,7 +716,7 @@ class Bundle:
         Both mutate the framing recorded here.
         """
         if self.manifest.book is not None:
-            raise ValueError("bundle already has a book recorded")
+            raise RecordingError("bundle already has a book recorded")
         self.manifest.book = book
 
     def add_used(self, resource_name: str, input_name: str) -> None:
@@ -647,15 +726,15 @@ class Bundle:
         """
         position = {resource.name: index for index, resource in enumerate(self.manifest.resources)}
         if resource_name not in position:
-            raise ValueError(f"resource {resource_name!r} is not recorded in this bundle")
+            raise RecordingError(f"resource {resource_name!r} is not recorded in this bundle")
         if position.get(input_name, len(position)) >= position[resource_name]:
-            raise ValueError(
+            raise RecordingError(
                 f"resource {resource_name!r} cannot consume {input_name!r}, "
                 "which this bundle does not record before it."
             )
         consumer = self.manifest.resources[position[resource_name]]
         if consumer.role == "plan":
-            raise ValueError(
+            raise RecordingError(
                 f"plan {resource_name!r} uses nothing, so it cannot consume {input_name!r}"
             )
         used = consumer.used
@@ -687,10 +766,10 @@ class Bundle:
         and so does an entry appended before the book is drafted.
         """
         if self.manifest.book is None:
-            raise ValueError("cannot attach a book entry before the book is drafted")
+            raise RecordingError("cannot attach a book entry before the book is drafted")
         entries = self.manifest.book.entries
         if any(entry.name == name for entry in entries):
-            raise ValueError(f"book entry name {name!r} already used in this book")
+            raise RecordingError(f"book entry name {name!r} already used in this book")
         entry = BundleBookEntry(
             name=name,
             data_dictionary=(
@@ -703,17 +782,17 @@ class Bundle:
         )
         recorded = any(resource.name == name for resource in self.manifest.resources)
         if not entry.is_placement and not recorded:
-            raise ValueError(
+            raise RecordingError(
                 f"book entry {name!r} names a resource that is not recorded in this bundle"
             )
         if entry.is_placement and recorded:
-            raise ValueError(
+            raise RecordingError(
                 f"cannot place {tracking_id} as {name!r}, "
                 "because this bundle records a resource of that name. "
                 "Place it under a name the bundle does not record."
             )
         if entry.is_placement and any(other.tracking_id == tracking_id for other in entries):
-            raise ValueError(f"resource {tracking_id} is already placed in this book")
+            raise RecordingError(f"resource {tracking_id} is already placed in this book")
         self.manifest.book.entries.append(entry)
         return entry
 
@@ -724,7 +803,7 @@ class Bundle:
         Raises :class:`ValueError` if no book has been drafted yet.
         """
         if self.manifest.book is None:
-            raise ValueError("cannot publish before the book is drafted")
+            raise RecordingError("cannot publish before the book is drafted")
         self.manifest.book.published = True
 
     def add_resource(
@@ -775,7 +854,7 @@ class Bundle:
         """
         expected = sha256_hex(data)
         if hash_ != expected:
-            raise ValueError(f"hash {hash_!r} does not match bytes (expected {expected!r})")
+            raise RecordingError(f"hash {hash_!r} does not match bytes (expected {expected!r})")
         self.resources_dir.mkdir(parents=True, exist_ok=True)
         byte_path = self.resources_dir / resource_filename(hash_, type_)
         byte_path.write_bytes(data)
@@ -828,6 +907,12 @@ class Bundle:
         Returns the appended :class:`BundleResource`.
         """
         _sha256_hex(hash_)  # validate canonical shape. Pointers carry no byte file
+        problem = external_uri_problem(external_uri)
+        if problem is not None:
+            raise RecordingError(
+                f"pointer {name!r} target {external_uri!r} {problem}, so the platform would refuse it. "
+                "Point at a public https URL instead"
+            )
         return self._append(
             hash_=hash_,
             type_=type_,
@@ -871,20 +956,20 @@ class Bundle:
         so a bundle that could not be replayed is refused as it is recorded.
         """
         if role == "plan" and (generated or used or used_digests):
-            raise ValueError(f"plan {name!r} is not generated by the activity and uses nothing")
+            raise RecordingError(f"plan {name!r} is not generated by the activity and uses nothing")
         recorded = {resource.name for resource in self.manifest.resources}
         if name in recorded:
-            raise ValueError(f"resource name {name!r} is already recorded in this bundle")
+            raise RecordingError(f"resource name {name!r} is already recorded in this bundle")
         if tracking_id is not None and any(
             resource.tracking_id == tracking_id for resource in self.manifest.resources
         ):
-            raise ValueError(f"tracking id {tracking_id} is already recorded in this bundle")
+            raise RecordingError(f"tracking id {tracking_id} is already recorded in this bundle")
         placed = self.manifest.book.entries if self.manifest.book is not None else ()
         if any(entry.is_placement and entry.name == name for entry in placed):
-            raise ValueError(f"resource name {name!r} is already a placed entry of this book")
+            raise RecordingError(f"resource name {name!r} is already a placed entry of this book")
         for reference in used or ():
             if reference not in recorded:
-                raise ValueError(
+                raise RecordingError(
                     f"resource {name!r} consumes {reference!r}, "
                     "which this bundle does not record before it. "
                     "Inputs must be registered before whatever consumes them."
@@ -960,6 +1045,7 @@ class Bundle:
 
         The contract is:
 
+        - a manifest read from disk holds no key its schema lacks, unless a newer minor wrote it
         - the bundle records a book framing
         - that book is marked for publication
         - the book has at least one entry
@@ -970,13 +1056,13 @@ class Bundle:
         - no resource is placed twice, because the platform refuses a repeated placement
         - every pinned ``tracking_id`` is unique
         - every ``used`` name is recorded earlier in the manifest than what consumes it
-        - the book's ``processing`` matches the activity, and the activity's ``config_hash``
+        - a manifest read from disk states the book's ``processing``, and it matches the activity, and the activity's ``config_hash``
           is the digest of its parameters unless its ``activity_id`` is the one derived from them
         - every public figure records a nonblank ``alt_text``, because the platform refuses one without
         - every resource's catalogue metadata is one the contract accepts,
           so a caption or alt text over its limit is refused before any upload
         - every pointer names a target the platform accepts, and has no bytes in the bundle
-        - every managed resource's bytes are present inside the bundle,
+        - every managed resource records a ``size``, and its bytes are a regular file inside the bundle,
           are as long as the recorded ``size``, and still hash to the recorded hash,
           which a non-canonical hash cannot satisfy because it names no byte file
         - every recorded ``svg_hash`` sits on a ``figure`` and names companion bytes that still hash to it
@@ -986,6 +1072,7 @@ class Bundle:
         instead of publishing content that no reviewer saw.
         Raises :class:`InvalidBundleError` naming the first invariant that fails.
         """
+        self._check_known_keys()
         framing = self.require_framing()
         if not framing.published:
             raise InvalidBundleError("bundle does not record a publish operation")
@@ -1067,6 +1154,10 @@ class Bundle:
         """Refuse an activity envelope, or a processing record, edited after recording."""
         activity = self.manifest.activity
         expected = [] if activity is None else [(activity.code_ref, activity.config_hash)]
+        if framing.processing is None and self.from_disk:
+            raise InvalidBundleError(
+                "book records no processing, which every written bundle states"
+            )
         if framing.processing is not None and list(framing.processing) != expected:
             raise InvalidBundleError(
                 f"book processing {[list(pair) for pair in framing.processing]} "
@@ -1093,7 +1184,7 @@ class Bundle:
 
     def _check_pointer(self, resource: BundleResource, managed_hashes: set[str]) -> None:
         """Refuse a pointer the platform would refuse, or one that was a managed resource."""
-        problem = _external_uri_problem(resource.external_uri or "")
+        problem = external_uri_problem(resource.external_uri or "")
         if problem is not None:
             raise InvalidBundleError(
                 f"pointer {resource.name!r} target {resource.external_uri!r} {problem}"
@@ -1109,8 +1200,9 @@ class Bundle:
 
     def _check_managed(self, resource: BundleResource) -> None:
         """Refuse managed bytes that are missing, outside the bundle, or not what the manifest says."""
-        filename = _byte_filename(resource)
-        path = self._contained(filename)
+        if resource.size is None:
+            raise InvalidBundleError(f"resource {resource.name!r} records no size")
+        path = self._regular(_byte_filename(resource), resource)
         try:
             size = path.stat().st_size
             actual = sha256_path(path)
@@ -1122,9 +1214,32 @@ class Bundle:
             raise InvalidBundleError(
                 f"resource {resource.name!r} has hash {resource.hash}, got {actual}"
             )
-        if resource.size is not None and resource.size != size:
+        if resource.size != size:
             raise InvalidBundleError(
                 f"resource {resource.name!r} records size {resource.size}, but its bytes are {size}"
+            )
+
+    def _regular(self, filename: str, resource: BundleResource) -> Path:
+        """Return the contained path of ``filename``, refusing one that reading would block on."""
+        path = self._contained(filename)
+        if path.exists() and not stat.S_ISREG(path.stat().st_mode):
+            raise InvalidBundleError(
+                f"resource {resource.name!r} bytes at {RESOURCES_DIRNAME}/{filename} are not a regular file"
+            )
+        return path
+
+    def _check_known_keys(self) -> None:
+        """Refuse a key this schema does not model, unless a newer minor wrote it."""
+        if not self.unknown_keys:
+            return
+        try:
+            newer = _version_key(self.manifest.schema_version) > _version_key(BUNDLE_SCHEMA_VERSION)
+        except ValueError:
+            newer = False
+        if not newer:
+            raise InvalidBundleError(
+                f"{MANIFEST_NAME} records {self.unknown_keys[0]}, "
+                f"which schema {self.manifest.schema_version} does not have"
             )
 
     def _check_svg(self, resource: BundleResource) -> None:
@@ -1136,7 +1251,7 @@ class Bundle:
                 f"resource {resource.name!r} is a {resource.type} and records an svg companion, "
                 "which only a figure may carry"
             )
-        path = self._contained(companion_filename(resource.svg_hash))
+        path = self._regular(companion_filename(resource.svg_hash), resource)
         try:
             actual = sha256_path(path)
         except OSError as exc:
@@ -1212,8 +1327,16 @@ class Bundle:
         """
         if _version_key(self.manifest.schema_version) < _version_key(BUNDLE_SCHEMA_VERSION):
             self.manifest.schema_version = BUNDLE_SCHEMA_VERSION
+        manifest = self.manifest
+        book, activity = manifest.book, manifest.activity
+        if book is not None and book.processing is None:
+            # Stated on disk only, so a later activity still decides it for the next write.
+            stamped = [] if activity is None else [(activity.code_ref, activity.config_hash)]
+            manifest = manifest.model_copy(
+                update={"book": book.model_copy(update={"processing": stamped})}
+            )
         self.root.mkdir(parents=True, exist_ok=True)
-        self.manifest_path.write_bytes(_dump_sorted_yaml(self.manifest))
+        self.manifest_path.write_bytes(_dump_sorted_yaml(manifest))
 
     @classmethod
     def read(cls, root: Path) -> Bundle:
@@ -1228,8 +1351,11 @@ class Bundle:
         The read is structural.
         A bundle recorded as a draft loads here and replays as a draft.
         """
+        path = root / MANIFEST_NAME
+        if path.exists() and not stat.S_ISREG(path.stat().st_mode):
+            raise InvalidBundleError(f"{MANIFEST_NAME} is not a regular file")
         try:
-            raw = yaml.safe_load((root / MANIFEST_NAME).read_bytes())
+            raw = yaml.safe_load(path.read_bytes())
         except yaml.YAMLError as exc:
             raise InvalidBundleError(f"{MANIFEST_NAME} is not valid YAML: {exc}") from exc
         if raw is None:
@@ -1243,7 +1369,7 @@ class Bundle:
             raise InvalidBundleError(
                 f"{MANIFEST_NAME} does not match the bundle schema: {_describe(exc)}"
             ) from exc
-        return cls(root=root, manifest=manifest)
+        return cls(root=root, manifest=manifest, unknown_keys=_unknown_keys(raw), from_disk=True)
 
     @classmethod
     def read_validated(cls, root: Path) -> Bundle:
@@ -1269,7 +1395,9 @@ __all__ = [
     "BundleResource",
     "BundleWriter",
     "InvalidBundleError",
+    "RecordingError",
     "companion_filename",
+    "external_uri_problem",
     "resource_filename",
     "stated",
     "synthesise_pointer_hash",

@@ -762,3 +762,23 @@ def test_publish_uses_the_network_exit_code_when_the_api_is_unreachable(
     result = runner.invoke(app, ["publish", str(bundle.root)])
 
     assert result.exit_code == EXIT_NETWORK
+
+
+def test_record_reports_a_duplicate_resource_name_without_a_traceback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "bookshelf.publisher.recording.derive_code_ref", lambda: "https://example.invalid/test@0"
+    )
+    args = _record_args(tmp_path, "--bundle", str(tmp_path / "bundle"))
+    (tmp_path / "build.py").write_text(
+        "import bookshelf\n\nbs, book = bookshelf.setup()\n"
+        'book.write("data", b"one", type="document")\n'
+        'book.write("data", b"two", type="document")\n'
+    )
+
+    result = runner.invoke(app, args)
+
+    assert result.exit_code != EXIT_OK
+    assert "'data' is already recorded" in _plain(result.stderr)
+    assert "Traceback" not in result.output

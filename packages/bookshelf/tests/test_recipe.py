@@ -1354,3 +1354,15 @@ def test_the_book_is_ignored_once_a_tier_is_declared_directly() -> None:
     resolved = resolve_book_visibility(models.Visibility.hidden, resolved=_resolved("public"))
 
     assert resolved is models.Visibility.hidden
+
+
+@pytest.mark.parametrize(
+    "uri", ["http://example.com/raw.csv", "https://127.1/raw.csv", "file:///etc/passwd"], ids=str
+)
+def test_a_uri_the_platform_would_refuse_as_a_pointer_is_rejected(tmp_path: Path, uri: str) -> None:
+    path = _one_book(
+        tmp_path, f"resources:\n  raw:\n    type: tabular\n    uri: {uri}\n    sha256: {'a' * 64}"
+    )
+
+    with pytest.raises(BookshelfError, match="platform would refuse"):
+        load_record_recipe(path)
