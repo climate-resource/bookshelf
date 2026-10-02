@@ -2,13 +2,13 @@
 
 A machine-first CLI over the Bookshelf API.
 Payload goes to stdout and diagnostics to stderr in every command,
-and the exit code carries the meaning (see :mod:`bookshelf._cli._runtime`).
+and the exit code carries the meaning (see :data:`bookshelf._cli._runtime.EXIT_CODES`).
 """
 
 import typer
 
 from bookshelf import __version__
-from bookshelf._cli._runtime import command_group, emit, set_api_url
+from bookshelf._cli._runtime import command_group, emit, exit_code_epilog, set_api_url
 from bookshelf._cli.auth import auth_app
 from bookshelf._cli.cache import cache_app
 from bookshelf._cli.discovery import search, show
@@ -17,7 +17,7 @@ from bookshelf._cli.producer import discard, publish, record, validate
 from bookshelf._cli.uploads import upload
 from bookshelf._cli.volume import volume_app
 
-app = command_group("Bookshelf data platform CLI.")
+app = command_group("Bookshelf data platform CLI.", epilog=exit_code_epilog())
 
 
 def _print_version(value: bool) -> None:
@@ -45,7 +45,7 @@ def main_options(
 
 app.add_typer(auth_app, name="auth")
 app.add_typer(cache_app, name="cache")
-app.add_typer(preview_app, name="preview")
+app.add_typer(preview_app, name="preview", hidden=True)
 app.add_typer(volume_app, name="volume")
 app.command("search")(search)
 app.command("show")(show)

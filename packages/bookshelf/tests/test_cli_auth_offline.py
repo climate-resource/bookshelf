@@ -440,3 +440,78 @@ def test_list_marks_a_credential_that_can_no_longer_be_renewed() -> None:
         "b@example.com": False,
         "agent:c": False,
     }
+
+
+def _store_reader() -> None:
+    credentials.default_store().save_login(
+        credentials.StoredCredentials(
+            access_token="stored-token", api_url=API_URL, subject="reader@example.com"
+        )
+    )
+
+
+def test_token_json_carries_the_token_and_deployment() -> None:
+    _store_reader()
+
+    result = runner.invoke(app, ["auth", "token", "--json"])
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout) == {"access_token": "stored-token", "api_url": API_URL}
+
+
+def test_logout_json_lists_what_was_cleared() -> None:
+    _store_reader()
+
+    result = runner.invoke(app, ["auth", "logout", "--json"])
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout) == {
+        "cleared": [API_URL],
+        "revoked": [],
+        "revocation_failed": [],
+    }
+
+
+def test_logout_json_without_credentials_clears_nothing() -> None:
+    result = runner.invoke(app, ["auth", "logout", "--json"])
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)["cleared"] == []
+
+
+def test_switch_json_names_the_active_identity() -> None:
+    _store_reader()
+
+    result = runner.invoke(app, ["auth", "switch", "reader@example.com", "--json"])
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout) == {
+        "kind": "user",
+        "id": "reader@example.com",
+        "api_url": API_URL,
+    }
+
+
+def test_logout_leaves_a_newer_store_alone() -> None:
+    path = credentials.credentials_path()
+    newer = json.dumps(
+        {
+            "version": credentials.STORE_VERSION + 1,
+            "records": {
+                f"{API_URL}|agent": {
+                    "access_token": "bsat_theirs",
+                    "api_url": API_URL,
+                    "kind": "agent",
+                }
+            },
+            "active": {API_URL: "agent"},
+        }
+    )
+    path.write_text(newer)
+
+    result = runner.invoke(app, ["auth", "logout"])
+
+    assert result.exit_code == 2
+    assert "newer bookshelf" in " ".join(result.stderr.split())
+    assert "Revoked" not in result.stderr
+    assert path.read_text() == newer

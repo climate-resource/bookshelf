@@ -100,7 +100,7 @@ def test_upload_json_carries_the_uri_and_the_identity(
     assert result.exit_code == EXIT_OK, result.output
     assert json.loads(result.stdout) == {
         "uri": f"bookshelf://sha256/{digest}",
-        "hash": f"sha256:{digest}",
+        "content_hash": f"sha256:{digest}",
         "tracking_id": TRACKING_ID,
         "outcome": "created",
         "name": "compass",

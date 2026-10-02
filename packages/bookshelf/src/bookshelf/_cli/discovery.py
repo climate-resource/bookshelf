@@ -11,6 +11,7 @@ from bookshelf._cli._runtime import (
     CliError,
     base_url,
     command_errors,
+    emit_json,
     emit_payload,
     emit_payloads,
     iso,
@@ -50,7 +51,11 @@ def search(
         "--facets",
         help="List every valid filter value instead of searching. Takes no query or filters.",
     ),
-    json_output: bool = typer.Option(False, "--json", help="One JSON object per result."),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="One JSON object per result, then one 'page' object with the totals and next offset.",
+    ),
 ) -> None:
     """Search volumes with free text and filters, which combine with AND."""
     with command_errors():
@@ -81,8 +86,20 @@ def search(
                 offset=offset,
             )
         emit_payloads((_volume_row(item) for item in volumes.items), json_output=json_output)
+        shown = offset + len(volumes.items)
+        if json_output:
+            emit_json(
+                {
+                    "page": {
+                        "offset": offset,
+                        "limit": limit,
+                        "returned": len(volumes.items),
+                        "total": volumes.total,
+                        "next_offset": shown if volumes.has_more else None,
+                    }
+                }
+            )
         if volumes.has_more:
-            shown = offset + len(volumes.items)
             note(
                 f"Showing {offset + 1}-{shown} of {volumes.total}. "
                 f"Pass --offset {shown} for the next page."
@@ -122,7 +139,10 @@ def _emit_facets(catalogue: models.VolumeFacets, json_output: bool) -> None:
 
 
 def show(
-    address: str = typer.Argument(metavar="ADDRESS", help="volume[@version[_eNNN]][/file]"),
+    address: str = typer.Argument(
+        metavar="ADDRESS",
+        help="volume[@version[_eNNN]][/entry], or the bookshelf:// reference naming the same thing.",
+    ),
     json_output: bool = typer.Option(False, "--json", help="Emit the description as JSON."),
 ) -> None:
     """Resolve one address and describe what is there, at whatever depth it is given."""
@@ -211,12 +231,12 @@ def _show_book(detail: models.BookResponse, label: str, json_output: bool) -> No
             "release_url": (
                 discovery.release_url.root if discovery and discovery.release_url else None
             ),
-            "resources": [
+            "entries": [
                 {
                     "name": resource.name,
                     "type": resource.type,
                     "format": resource.format,
-                    "bytes": resource.size_bytes,
+                    "size_bytes": resource.size_bytes,
                     "content_hash": resource.hash,
                 }
                 for resource in resources
@@ -233,7 +253,8 @@ def _show_entry(detail: models.BookResponse, label: str, entry: str, json_output
     )
     if match is None:
         raise CliError(
-            f"{label} has no file named {entry!r}. Run 'bookshelf show {label}' to list its files.",
+            f"{label} has no entry named {entry!r}. "
+            f"Run 'bookshelf show {label}' to list its entries.",
             exit_code=EXIT_NOT_FOUND,
         )
     emit_payload(
@@ -242,9 +263,10 @@ def _show_entry(detail: models.BookResponse, label: str, entry: str, json_output
             "name": match.name,
             "type": match.type,
             "format": match.format,
-            "bytes": match.size_bytes,
+            "size_bytes": match.size_bytes,
             "content_hash": match.hash,
             "book": label,
+            "address": f"{label}/{match.name}",
         },
         json_output=json_output,
     )

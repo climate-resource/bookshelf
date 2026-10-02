@@ -280,7 +280,11 @@ def _identity_for_token(base: str, access_token: str) -> models.UserResponse:
 
 
 @auth_app.command("token")
-def auth_token() -> None:
+def auth_token(
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit the token and its deployment as JSON."
+    ),
+) -> None:
     """Print the current access token to stdout and nothing else."""
     base = base_url()
     with command_errors():
@@ -292,7 +296,11 @@ def auth_token() -> None:
                 raise CliError(
                     f"no stored credential for {base}. {remedy}", exit_code=EXIT_AUTH_REQUIRED
                 )
-            emit(_current_token(provider, remedy=remedy))
+            token = _current_token(provider, remedy=remedy)
+            if json_output:
+                emit_json({"access_token": token, "api_url": base})
+            else:
+                emit(token)
         except errors.AuthConfigurationError as exc:
             # A stored login that cannot be refreshed is spent as far as this command goes,
             # so it exits as a credential problem rather than a usage one.
@@ -429,6 +437,7 @@ def auth_logout(
     no_revoke: bool = typer.Option(
         False, "--no-revoke", help="Skip server-side revocation and only clear local state."
     ),
+    json_output: bool = typer.Option(False, "--json", help="Emit the outcome as JSON."),
 ) -> None:
     """Revoke and clear stored credentials. Local state is cleared even when revocation fails."""
     with command_errors():
@@ -438,8 +447,13 @@ def auth_logout(
         cleared = {record.api_url for record in records}
         if not cleared:
             note("Not logged in." if base is None else f"Not logged in to {base}.")
+            if json_output:
+                emit_json({"cleared": [], "revoked": [], "revocation_failed": []})
             return
 
+        # Cleared first, so a store this version cannot write is refused before anything is revoked.
+        store.clear(base)
+        revoked: list[str] = []
         failed: list[str] = []
         for record in records:
             if record.kind is not CredentialKind.AGENT or no_revoke:
@@ -450,12 +464,20 @@ def auth_logout(
                         models.BodyAgentTokenRevoke(token=record.access_token)
                     )
                 note(f"Revoked agent token for {record.subject or record.api_url}")
+                revoked.append(record.api_url)
             except errors.BookshelfError:
                 failed.append(record.api_url)
 
-        store.clear(base)
         for deployment in sorted(cleared):
             note(f"Cleared credentials for {deployment}")
+        if json_output:
+            emit_json(
+                {
+                    "cleared": sorted(cleared),
+                    "revoked": sorted(set(revoked)),
+                    "revocation_failed": sorted(set(failed)),
+                }
+            )
 
         if failed:
             raise CliError(
@@ -511,6 +533,7 @@ def _spent(record: StoredCredentials, now: datetime) -> bool:
 @auth_app.command("switch")
 def auth_switch(
     identity: str = typer.Argument(help="The identity to make active, as shown by 'auth list'."),
+    json_output: bool = typer.Option(False, "--json", help="Emit the identity as JSON."),
 ) -> None:
     """Make a stored identity active without re-authenticating."""
     with command_errors():
@@ -533,6 +556,8 @@ def auth_switch(
         record = records[0]
         store.set_active(record.api_url, record.kind)
         note(f"Switched to {identity} ({record.api_url})")
+        if json_output:
+            emit_json({"kind": str(record.kind), "id": identity, "api_url": record.api_url})
 
 
 __all__ = ["auth_app"]
