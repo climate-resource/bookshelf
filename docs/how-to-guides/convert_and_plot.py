@@ -131,5 +131,5 @@ path.stat().st_size
 #
 # ```bash
 # bookshelf cache path
-# bookshelf cache clear
+# bookshelf cache clear --yes
 # ```

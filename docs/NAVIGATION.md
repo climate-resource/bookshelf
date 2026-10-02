@@ -7,6 +7,8 @@ See https://oprypin.github.io/mkdocs-literate-nav/
 * [Getting Started](getting_started.md)
 * [Authentication](authentication.md)
 * [Configuration](configuration.md)
+* [Command line](cli.md)
+* [Addressing](addressing.md)
 * [Migrating from 0.4](migrating.md)
 * [How-to guides](how-to-guides/index.md)
     * [Finding volumes and books](how-to-guides/find_volumes_and_books.py)
