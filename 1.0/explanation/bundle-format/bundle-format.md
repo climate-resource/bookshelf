@@ -269,7 +269,7 @@ This field is specific to the Bookshelf and is optional.
 | `metadata`         | optional | `{}`     | free-form metadata                                                                |
 | `entries`          | optional | `[]`     | the book's membership                                                             |
 | `published`        | optional | `false`  | whether the book should be published, or left a draft                             |
-| `processing`       | optional | absent   | the `[code_ref, config_hash]` pairs of the runs that generated the book's members |
+| `processing`       | required |          | the `[code_ref, config_hash]` pairs of the runs that generated the book's members |
 | `volume_discovery` | optional | absent   | the volume facts the recipe states, applied to the volume on replay               |
 
 `discovery` and `authors` hold values the recipe has already resolved,
@@ -376,6 +376,8 @@ These are the rules an implementation checks to decide that a bundle is a **repl
 A replayable book contains all the required information to later be streamed to the Bookshelf API.
 
 1. The manifest records a `book`.
+   A manifest at this major or an older minor has no key the schema does not define,
+   so a misspelt field such as `visiblity` fails rather than falling back to its default.
 2. That book has `published: true`.
 3. That book has at least one entry.
 4. The book's `volume` is 1 to 100 ASCII letters, digits, `_` or `-`, and is not `latest`.
@@ -385,7 +387,7 @@ A replayable book contains all the required information to later be streamed to 
 6. Every entry's `name` matches a resource recorded in the same manifest,
    except a placement, whose `name` must match none.
    No two placements share a `tracking_id`.
-7. The book's `processing`, when stated, matches the activity,
+7. The book states `processing`, and it matches the activity,
    and the activity's `config_hash` is the digest of its `parameters` unless its `activity_id` is derived.
 8. Every resource with `type: figure` and `visibility: public` records a nonblank `alt_text`.
    The platform refuses a public figure without one,
@@ -393,9 +395,12 @@ A replayable book contains all the required information to later be streamed to 
 9. Every resource's catalogue fields are ones the contract accepts.
    A `caption` over 500 characters or an `alt_text` over 1000 fails here, for the same reason.
 10. Every resource with `kind: pointer` names an `https` URL with a public host,
+    reading a numeric host in any form a resolver accepts (such as `127.1` or `0x7f000001`)
+    and `localhost` as the address they reach,
     or a `<scheme>://<form>/<name>[@<pin>]` address in a scheme the platform cannot open.
     It has no byte file under `resources/`, unless a managed resource shares its hash.
-11. Every resource with `kind: managed` has a byte file that resolves inside the bundle,
+11. Every resource with `kind: managed` records a `size`,
+    and has a regular byte file that resolves inside the bundle,
     those bytes hash to the recorded `hash`, and their length is the recorded `size`.
     A resource whose `hash` is not canonical fails here, because it names no byte file.
 12. Every resource recording an `svg_hash` has `type: figure`,
