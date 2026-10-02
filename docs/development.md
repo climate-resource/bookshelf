@@ -46,8 +46,13 @@ A pyarrow upgrade changes the parquet bytes and so changes the recorded hashes.
 It shows up in the golden as a changed `writer.pyarrow` next to those hashes,
 so the cause is visible in the diff.
 
-Generated models and the generated client come from the vendored OpenAPI contract.
-Do not edit them by hand.
+## Generated model core
+
+Generated models and the generated client come from the vendored OpenAPI contract
+at `packages/bookshelf/openapi.json`.
+Refresh that snapshot explicitly when the platform contract changes,
+then regenerate and review the model diff in the same change.
+Do not edit the generated files by hand.
 Regenerate and review them with:
 
 ```bash
@@ -58,3 +63,20 @@ uv run --project packages/bookshelf --locked \
 ```
 
 CI runs both and fails when either leaves a diff.
+
+The model driver validates a complete temporary tree before promotion.
+It keeps the last-known-good tree as a same-filesystem backup and recovers a sole valid backup on startup.
+Ambiguous, invalid or multiple-backup states stop without deleting evidence.
+
+## Building the distribution
+
+Build the sdist and wheel, then install the wheel into a scratch environment:
+
+```bash
+uv build --package bookshelf --out-dir /tmp/bookshelf-dist
+uv pip install /tmp/bookshelf-dist/bookshelf-*.whl
+```
+
+The sdist carries the source and the licence, not the tests.
+The public test suite uses local transports and fixtures.
+Backend contract tests live with the platform.
