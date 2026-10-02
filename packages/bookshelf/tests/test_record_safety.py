@@ -395,3 +395,17 @@ class TestParameters:
         _feedstock(tmp_path, "X: int = 1\nassert X == 2\n" + _WRITES_ONE)
 
         _record(tmp_path, tmp_path / "bundle", parameters={"X": 2})
+
+    @pytest.mark.usefixtures("pinned_code_ref")
+    @pytest.mark.parametrize("key", ["M", "K"])
+    def test_a_chained_assignment_is_refused_before_the_build_runs(
+        self, tmp_path: Path, key: str
+    ) -> None:
+        _feedstock(tmp_path, "M = K = 2\n" + _WRITES_ONE + "open('ran', 'w').close()\n")
+
+        with pytest.raises(
+            RecordRefusedError, match=f"'{key}' is assigned in a chained assignment"
+        ):
+            _record(tmp_path, tmp_path / "bundle", parameters={key: 3})
+
+        assert not (tmp_path / "ran").exists()

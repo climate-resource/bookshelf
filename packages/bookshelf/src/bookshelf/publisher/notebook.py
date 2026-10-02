@@ -139,18 +139,34 @@ def _execute_python_cell(
 def assigned_names(build_path: Path) -> frozenset[str] | None:
     """Return the top-level names a build file assigns, which are the ones a parameter can supersede.
 
+    A name bound by a chained assignment is left out, because dropping that statement drops its other names.
     ``None`` for a file that does not parse, because executing it reports the syntax error better.
     """
+    found = _top_level_assignments(build_path)
+    return None if found is None else found[0] - found[1]
+
+
+def chained_names(build_path: Path) -> frozenset[str]:
+    """Return the top-level names a build file binds in a chained assignment such as ``A = B = 1``."""
+    found = _top_level_assignments(build_path)
+    return frozenset() if found is None else found[1]
+
+
+def _top_level_assignments(build_path: Path) -> tuple[frozenset[str], frozenset[str]] | None:
     source = build_path.read_text(encoding="utf-8")
     names: set[str] = set()
+    chained: set[str] = set()
     for cell in _source_cells(source):
         try:
             module = ast.parse(cell)
         except SyntaxError:
             return None
         for statement in module.body:
-            names.update(_assigned_names(statement))
-    return frozenset(names)
+            bound = _assigned_names(statement)
+            names.update(bound)
+            if isinstance(statement, ast.Assign) and len(statement.targets) > 1:
+                chained.update(bound)
+    return frozenset(names), frozenset(chained)
 
 
 def _assigned_names(statement: ast.stmt) -> set[str]:
@@ -219,5 +235,6 @@ def _render_executed_notebook(ipynb_path: Path, html_path: Path) -> None:
 __all__ = [
     "ExecutedNotebook",
     "assigned_names",
+    "chained_names",
     "execute_python_build",
 ]

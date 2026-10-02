@@ -26,7 +26,12 @@ from bookshelf._produce.facade import nests_discovery
 from bookshelf._produce.provenance import derive_code_ref
 from bookshelf.facade import Bookshelf
 from bookshelf.publisher.bundle import MANIFEST_NAME, RESOURCES_DIRNAME, Bundle
-from bookshelf.publisher.notebook import ExecutedNotebook, assigned_names, execute_python_build
+from bookshelf.publisher.notebook import (
+    ExecutedNotebook,
+    assigned_names,
+    chained_names,
+    execute_python_build,
+)
 from bookshelf.publisher.recipe import (
     DiscoveryFields,
     RecordRecipe,
@@ -392,9 +397,16 @@ def _check_parameters(parameters: Mapping[str, Any], *, build: Path | None = Non
                 f"as JSON ({exc}). Quote a date or any other value as a string"
             ) from exc
     assigned = None if build is None else assigned_names(build)
-    if assigned is None:
+    if build is None or assigned is None:
         return
     unknown = [key for key in parameters if key not in assigned]
+    chained = [key for key in unknown if key in chained_names(build)]
+    if chained:
+        raise RecordRefusedError(
+            f"parameter {chained[0]!r} is assigned in a chained assignment in {build}, "
+            "and replacing that statement would drop its other names. "
+            f"Give {chained[0]!r} an assignment of its own"
+        )
     if unknown:
         listed = ", ".join(repr(name) for name in sorted(assigned)) or "nothing"
         raise RecordRefusedError(
