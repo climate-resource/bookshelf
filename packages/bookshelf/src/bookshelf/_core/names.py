@@ -52,6 +52,7 @@ _MAX_VERSION_LENGTH = 50
 # Stricter than the platform, which bounds only the length,
 # because a version also travels in URL paths and in ``volume@version_eNNN`` addresses.
 _BOOK_VERSION_PATTERN = re.compile(rf"^[A-Za-z0-9][A-Za-z0-9._+-]{{0,{_MAX_VERSION_LENGTH - 1}}}$")
+_EDITION_SUFFIX = re.compile(r"_e[0-9]+$")
 
 
 def validate_volume_name(value: str) -> str:
@@ -72,6 +73,12 @@ def validate_book_version(value: str) -> str:
         raise ValueError(
             f"version {value!r} must start with a letter or digit and use only "
             f"ASCII letters, digits, '.', '_', '+' or '-', at most {_MAX_VERSION_LENGTH} characters"
+        )
+    if suffix := _EDITION_SUFFIX.search(value):
+        renamed = f"{value[: suffix.start()]}-{suffix.group()[1:]}"
+        raise ValueError(
+            f"version {value!r} ends in '_e' and digits, which is reserved for the edition "
+            f"an address appends, as in 'volume@1.0_e002'. Spell it another way, such as {renamed!r}"
         )
     return value
 

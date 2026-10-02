@@ -15,7 +15,7 @@ from bookshelf._cli import discovery
 from bookshelf._cli._address import parse_address
 from bookshelf._consume.lookup import book_order as sdk_order
 from bookshelf._core.client import BookshelfClient
-from bookshelf._core.names import version_key
+from bookshelf._core.names import validate_book_version, version_key
 from bookshelf._generated import models
 from tests import _core_payloads as payloads
 
@@ -113,3 +113,14 @@ def test_the_cli_resolves_the_latest_book_by_this_ordering() -> None:
     chosen = discovery._resolve_book(client, parse_address("primap-hist"))
 
     assert (chosen.version, chosen.edition) == ("v10.0", 1)
+
+
+@pytest.mark.parametrize("version", ["v1.0_e001", "2024_e1", "1_e0002"])
+def test_a_version_cannot_end_in_an_edition_suffix(version: str) -> None:
+    with pytest.raises(ValueError, match="reserved for the edition"):
+        validate_book_version(version)
+
+
+@pytest.mark.parametrize("version", ["v1.0-e001", "v1.0_e", "v1.0_E001", "1.0_edition2", "e001"])
+def test_a_version_may_resemble_an_edition_suffix(version: str) -> None:
+    assert validate_book_version(version) == version
