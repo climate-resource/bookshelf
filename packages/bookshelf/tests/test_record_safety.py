@@ -147,6 +147,78 @@ class TestTheBundleTarget:
 
         assert Bundle.read(tmp_path / "bundle").manifest.book is not None
 
+    def test_the_feedstock_is_found_through_a_differently_cased_path(self, tmp_path: Path) -> None:
+        root = tmp_path / "force3"
+        _feedstock(root)
+        (root / MANIFEST_NAME).write_text("schema_version: '3.10'\n", encoding="utf-8")
+        cased = tmp_path / "FORCE3"
+        if not cased.exists():
+            pytest.skip("the filesystem is case sensitive")
+
+        with pytest.raises(RecordRefusedError, match="holds the recipe"):
+            _record(root, cased)
+
+        assert (root / "build.py").is_file()
+
+    @pytest.mark.parametrize(
+        "manifest",
+        ["garbage\n", "schema_version: '3.10'\nunknown: 1\n- x\n", ""],
+        ids=["scalar", "invalid-yaml", "empty"],
+    )
+    def test_a_manifest_that_is_not_a_bundle_manifest_is_left_alone(
+        self, tmp_path: Path, manifest: str
+    ) -> None:
+        _feedstock(tmp_path)
+        builds = tmp_path / "builds"
+        builds.mkdir()
+        (builds / MANIFEST_NAME).write_text(manifest, encoding="utf-8")
+
+        with pytest.raises(RecordRefusedError, match="not a bundle"):
+            _record(tmp_path, builds)
+
+        assert (builds / MANIFEST_NAME).read_text(encoding="utf-8") == manifest
+
+    def test_a_bundle_manifest_beside_other_files_is_left_alone(self, tmp_path: Path) -> None:
+        _feedstock(tmp_path)
+        _record(tmp_path, tmp_path / "bundle")
+        (tmp_path / "bundle" / "notes.md").write_text("keep", encoding="utf-8")
+
+        with pytest.raises(RecordRefusedError, match=r"notes\.md"):
+            _record(tmp_path, tmp_path / "bundle")
+
+        assert (tmp_path / "bundle" / "notes.md").read_text(encoding="utf-8") == "keep"
+
+    def test_a_stray_file_under_resources_is_left_alone(self, tmp_path: Path) -> None:
+        _feedstock(tmp_path)
+        _record(tmp_path, tmp_path / "bundle")
+        (tmp_path / "bundle" / "resources" / "keep.txt").write_text("keep", encoding="utf-8")
+
+        with pytest.raises(RecordRefusedError, match=r"keep\.txt"):
+            _record(tmp_path, tmp_path / "bundle")
+
+    def test_a_symlinked_bundle_is_refused_and_its_target_kept(self, tmp_path: Path) -> None:
+        root = tmp_path / "feedstock"
+        _feedstock(root)
+        outside = tmp_path / "outside"
+        _record(root, outside)
+        (root / "bundle").symlink_to(outside, target_is_directory=True)
+        before = sorted(path.name for path in outside.iterdir())
+
+        with pytest.raises(RecordRefusedError, match="symbolic link"):
+            _record(root, root / "bundle")
+
+        assert sorted(path.name for path in outside.iterdir()) == before
+        assert (root / "bundle").is_symlink()
+
+    def test_what_the_build_writes_into_the_target_is_kept(self, tmp_path: Path) -> None:
+        build = "import os\n\nos.makedirs('bundle')\nopen('bundle/out.csv', 'w').close()\n"
+        _feedstock(tmp_path, build + _WRITES_ONE)
+
+        with pytest.raises(RecordRefusedError, match="not a bundle"):
+            _record(tmp_path, tmp_path / "bundle")
+
+        assert (tmp_path / "bundle" / "out.csv").is_file()
+
     def test_an_empty_directory_is_replaced(self, tmp_path: Path) -> None:
         _feedstock(tmp_path)
         (tmp_path / "bundle").mkdir()

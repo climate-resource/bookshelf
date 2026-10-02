@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import keyword
+import os
+import re
 import shutil
 import tempfile
 from collections.abc import Iterator, Mapping, Sequence
@@ -23,7 +25,7 @@ from bookshelf._produce.books import DraftBook
 from bookshelf._produce.facade import nests_discovery
 from bookshelf._produce.provenance import derive_code_ref
 from bookshelf.facade import Bookshelf
-from bookshelf.publisher.bundle import MANIFEST_NAME, Bundle
+from bookshelf.publisher.bundle import MANIFEST_NAME, RESOURCES_DIRNAME, Bundle
 from bookshelf.publisher.notebook import ExecutedNotebook, assigned_names, execute_python_build
 from bookshelf.publisher.recipe import (
     DiscoveryFields,
@@ -225,15 +227,13 @@ def run_record(
         raise BookshelfError(f"build file not found: {build}")
     _check_parameters(parameters or {}, build=build)
 
+    protected = {
+        "the recipe": recipe_path.resolve(),
+        "the build file": build,
+        "the working directory": workdir.resolve(),
+    }
+    _check_replaceable(bundle_path, protected=protected)
     target = bundle_path.resolve()
-    _check_replaceable(
-        target,
-        protected={
-            "the recipe": recipe_path,
-            "the build file": build,
-            "the working directory": workdir,
-        },
-    )
     # Read before the staging directory lands in the clone, and before the build can move the cwd.
     code_ref = _code_ref(workdir)
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -268,6 +268,8 @@ def run_record(
                 context.bookshelf.close()
         _record_processing(bundle)
         bundle.write()
+        # The build ran arbitrary code, so the target may no longer be what was checked.
+        _check_replaceable(target, protected=protected)
         _replace_bundle(Path(staging_dir), target)
     return {
         "bundle_path": str(target),
@@ -291,6 +293,12 @@ def _code_ref(workdir: Path) -> str | None:
 
 def _check_replaceable(target: Path, *, protected: Mapping[str, Path]) -> None:
     """Refuse a bundle target that replacing would destroy something other than a bundle."""
+    if target.is_symlink():
+        raise RecordRefusedError(
+            f"{target} is a symbolic link, so replacing it would replace what it points at. "
+            "Pass --bundle naming a real directory or a path that does not exist yet"
+        )
+    target = target.resolve()
     if not target.exists():
         return
     if not target.is_dir():
@@ -299,17 +307,63 @@ def _check_replaceable(target: Path, *, protected: Mapping[str, Path]) -> None:
             "Pass --bundle naming a bundle directory or a path that does not exist yet"
         )
     for what, path in protected.items():
-        if path.resolve().is_relative_to(target):
+        if _within(path, target):
             raise RecordRefusedError(
                 f"{target} holds {what}, so replacing it would delete the feedstock. "
                 "Pass --bundle naming a directory of its own, such as 'bundle'"
             )
-    if any(target.iterdir()) and not (target / MANIFEST_NAME).is_file():
+    if not any(target.iterdir()):
+        return
+    problem = _bundle_content_problem(target)
+    if problem is not None:
         raise RecordRefusedError(
-            f"{target} is not a bundle, because it holds no {MANIFEST_NAME}, "
-            "so record will not replace it. "
+            f"{target} is not a bundle, because {problem}, so record will not replace it. "
             "Pass --bundle naming a different directory, or remove this one yourself"
         )
+
+
+def _within(path: Path, directory: Path) -> bool:
+    """Whether ``path`` is ``directory`` or lies under it, compared by file identity.
+
+    A resolved string is not enough, because a case-insensitive filesystem names one directory many ways.
+    """
+    for candidate in (path.resolve(), *path.resolve().parents):
+        try:
+            if os.path.samefile(candidate, directory):
+                return True
+        except OSError:
+            continue
+    return False
+
+
+# A bundle holds only what Bundle.write puts there, and Finder may add its own index file.
+_BUNDLE_TOP_LEVEL = frozenset({MANIFEST_NAME, RESOURCES_DIRNAME, ".DS_Store"})
+_BYTE_FILE = re.compile(r"[0-9a-f]{64}\.[a-z]+|\.DS_Store")
+
+
+def _bundle_content_problem(root: Path) -> str | None:
+    """Return why ``root`` is not a bundle record wrote, or ``None`` when it is one."""
+    manifest = root / MANIFEST_NAME
+    if manifest.is_symlink() or not manifest.is_file():
+        return f"it holds no {MANIFEST_NAME}"
+    try:
+        raw = yaml.safe_load(manifest.read_bytes())
+        if not isinstance(raw, dict) or "schema_version" not in raw:
+            return f"its {MANIFEST_NAME} states no schema_version"
+        Bundle.read(root)
+    except (OSError, ValueError, yaml.YAMLError):
+        return f"its {MANIFEST_NAME} is not a bundle manifest"
+    for child in sorted(root.iterdir()):
+        if child.name not in _BUNDLE_TOP_LEVEL:
+            return f"it also holds {child.name}"
+    resources = root / RESOURCES_DIRNAME
+    if resources.is_symlink() or (resources.exists() and not resources.is_dir()):
+        return f"its {RESOURCES_DIRNAME} is not a directory"
+    if resources.is_dir():
+        for child in sorted(resources.iterdir()):
+            if child.is_symlink() or not child.is_file() or not _BYTE_FILE.fullmatch(child.name):
+                return f"it also holds {RESOURCES_DIRNAME}/{child.name}"
+    return None
 
 
 def _check_parameters(parameters: Mapping[str, Any], *, build: Path | None = None) -> None:
