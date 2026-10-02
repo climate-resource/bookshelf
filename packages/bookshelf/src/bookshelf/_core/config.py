@@ -36,13 +36,14 @@ UNSET = _Unset.UNSET
 AuthInput = httpx.Auth | str | None | _Unset
 
 
-def resolve_base_url(base_url: str | None) -> str:
+def resolve_base_url(base_url: str | None, *, source: str = "base_url") -> str:
     """Resolve the API base URL.
 
     The argument wins, then ``$BOOKSHELF_URL`` (canonical),
     then ``$BOOKSHELF_API_URL`` (accepted alias), then ``DEFAULT_API_URL``.
     The result never carries a trailing slash.
-    A value that is not an http or https URL with a host raises :class:`ConfigurationError`.
+    A value that is not a plain http or https URL with a host raises :class:`ConfigurationError`,
+    naming ``source`` when the argument supplied it, and the variable otherwise.
     ``$BOOKSHELF_REMOTE`` named the 0.4 S3 bucket and has no effect here, so setting it warns.
     """
     if os.environ.get("BOOKSHELF_REMOTE"):
@@ -51,23 +52,52 @@ def resolve_base_url(base_url: str | None) -> str:
             "set BOOKSHELF_URL to choose a deployment",
             stacklevel=2,
         )
-    resolved = (
-        base_url
-        or os.environ.get("BOOKSHELF_URL")
-        or os.environ.get("BOOKSHELF_API_URL")
-        or DEFAULT_API_URL
-    ).rstrip("/")
-    try:
-        parsed = urlparse(resolved)
-        usable = parsed.scheme in ("http", "https") and bool(parsed.hostname)
-    except ValueError:
-        usable = False
-    if not usable:
-        raise ConfigurationError(
-            f"invalid Bookshelf API URL {resolved!r}: "
-            "BOOKSHELF_URL (or base_url) needs an http:// or https:// URL with a host"
-        )
+    candidates = (
+        (base_url, source),
+        (os.environ.get("BOOKSHELF_URL"), "$BOOKSHELF_URL"),
+        (os.environ.get("BOOKSHELF_API_URL"), "$BOOKSHELF_API_URL"),
+        (DEFAULT_API_URL, "the default"),
+    )
+    raw, origin = next((value, name) for value, name in candidates if value)
+    resolved = raw.rstrip("/")
+    problem = _base_url_problem(resolved)
+    if problem is not None:
+        raise ConfigurationError(f"{origin} {_redacted(resolved)!r} is not usable: {problem}")
     return resolved
+
+
+def _base_url_problem(url: str) -> str | None:
+    """Say what stops ``url`` serving as the API root, or ``None`` when it can."""
+    try:
+        parsed = urlparse(url)
+        host = parsed.hostname
+    except ValueError:
+        host = None
+    if not host or parsed.scheme not in ("http", "https"):
+        return "it needs an http:// or https:// URL with a host"
+    if parsed.username is not None or parsed.password is not None:
+        return "credentials in the URL are never sent, so drop the user@ part"
+    if "?" in url:
+        return "request paths are appended to it, so it cannot carry a ?query"
+    if "#" in url:
+        return "request paths are appended to it, so it cannot carry a #fragment"
+    if parsed.path.rstrip("/").endswith("/v1"):
+        return (
+            f"give the deployment root without the trailing /v1, as in {url.removesuffix('/v1')!r}"
+        )
+    return None
+
+
+def _redacted(url: str) -> str:
+    """Hide a password, so a refused URL can be quoted back safely."""
+    try:
+        parsed = urlparse(url)
+        password = parsed.password
+    except ValueError:
+        return url
+    if password is None:
+        return url
+    return url.replace(f":{password}@", ":***@", 1)
 
 
 def resolve_auth(auth: httpx.Auth | str | None) -> httpx.Auth | None:

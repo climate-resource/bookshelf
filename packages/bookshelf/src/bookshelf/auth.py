@@ -27,7 +27,7 @@ def default_auth(api_url: str | None = None, *, strict: bool = False) -> httpx.A
     unless ``strict`` asks for the :class:`~bookshelf.AuthenticationError` instead.
     ``api_url`` picks which Bookshelf deployment's stored login to use.
     """
-    return resolve_credential(resolve_base_url(api_url)).auth(strict=strict)
+    return resolve_credential(resolve_base_url(api_url, source="api_url")).auth(strict=strict)
 
 
 def access_token(api_url: str | None = None, *, timeout: float = 30.0) -> str | None:
@@ -38,7 +38,7 @@ def access_token(api_url: str | None = None, *, timeout: float = 30.0) -> str | 
     Raises :class:`~bookshelf.AuthenticationError` when the credential cannot be refreshed.
     A token rotated by the refresh is written back to the credential store.
     """
-    provider = resolve_credential(resolve_base_url(api_url)).token_provider()
+    provider = resolve_credential(resolve_base_url(api_url, source="api_url")).token_provider()
     if provider is None:
         return None
     with httpx.Client(timeout=timeout) as client:

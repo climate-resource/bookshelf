@@ -40,7 +40,7 @@ from bookshelf._core.actions_oidc import (
     build_token_request,
     token_from_response,
 )
-from bookshelf._core.errors import AuthenticationError
+from bookshelf._core.errors import AuthenticationError, describe_body
 
 # Refresh proactively when the access token expires within this window (seconds).
 REFRESH_LEEWAY = 300.0
@@ -145,7 +145,14 @@ class _RefreshingAuth(TokenProvider):
                 request_method="POST",
                 request_url=str(response.request.url),
             )
-        payload = json.loads(response.content)
+        payload = _json_object(response)
+        if payload is None:
+            raise AuthenticationError(
+                f"Token refresh failed: {_described(response)}",
+                status_code=response.status_code,
+                request_method="POST",
+                request_url=str(response.request.url),
+            )
         access_token = payload.get("access_token")
         if not isinstance(access_token, str) or not access_token:
             raise AuthenticationError(
@@ -474,12 +481,25 @@ class AnonymousFallback(httpx.Auth):
         yield request
 
 
-def error_detail(response: httpx.Response) -> str:
-    """Extract a human-readable detail from a failed token response."""
+def _described(response: httpx.Response) -> str:
+    media_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
+    return describe_body(response.status_code, media_type, empty=not response.content)
+
+
+def _json_object(response: httpx.Response) -> dict[str, object] | None:
     try:
         body = json.loads(response.content)
     except ValueError:
-        return response.text[:200] or f"HTTP {response.status_code}"
+        return None
+    return body if isinstance(body, dict) else None
+
+
+def error_detail(response: httpx.Response) -> str:
+    """Extract a human-readable detail from a failed token response, never quoting a non-JSON body."""
+    try:
+        body = json.loads(response.content)
+    except ValueError:
+        return _described(response)
     if isinstance(body, dict):
         for key in ("error_description", "message", "detail", "error"):
             value = body.get(key)

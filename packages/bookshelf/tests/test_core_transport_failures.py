@@ -318,5 +318,166 @@ def test_a_streamed_download_failure_names_the_url(tmp_path: Any) -> None:
 
 @pytest.mark.parametrize("url", ["not-a-url", "ftp://x", "https://", "http://[::1"])
 def test_a_malformed_base_url_is_a_configuration_error(url: str) -> None:
-    with pytest.raises(ConfigurationError, match="BOOKSHELF_URL"):
+    with pytest.raises(ConfigurationError, match="base_url"):
+        BookshelfClient(url, auth=None)
+
+
+@pytest.mark.parametrize(
+    ("body", "content_type"),
+    [
+        ("<!doctype html><html>spa</html>", "text/html"),
+        ("", "application/json"),
+        ("[]", "application/json"),
+        ('{"unexpected": true}', "application/json"),
+    ],
+)
+@pytest.mark.parametrize("call", ["get_volume", "list_books", "get_current_user"])
+def test_a_success_status_without_the_expected_json_is_a_gateway_error(
+    sleeps: list[float], body: str, content_type: str, call: str
+) -> None:
+    """An SPA fallback or a misrouted proxy answers 200 with something that is not the API."""
+    calls, handler = counting(
+        lambda _request, _n: httpx.Response(
+            200, content=body.encode(), headers={"content-type": content_type}
+        )
+    )
+
+    with make_client(handler) as client, pytest.raises(GatewayError) as excinfo:
+        if call == "get_volume":
+            client.get_volume("example")
+        else:
+            getattr(client, call)()
+
+    message = str(excinfo.value)
+    assert excinfo.value.status_code == 200
+    assert "200" in message
+    assert content_type in message
+    assert BASE_URL in message
+    assert "<" not in message
+
+
+async def test_an_async_success_without_the_expected_json_is_a_gateway_error(
+    sleeps: list[float],
+) -> None:
+    calls, handler = counting(
+        lambda _request, _n: httpx.Response(
+            200, text="<html>spa</html>", headers={"content-type": "text/html"}
+        )
+    )
+
+    async with make_client(handler) as client:
+        with pytest.raises(GatewayError):
+            await client.get_volume_async("example")
+
+
+def test_a_metadata_read_timeout_is_not_replayed(sleeps: list[float]) -> None:
+    """The attempt already waited the whole read timeout, so a replay only multiplies the wait."""
+
+    def respond(request: httpx.Request, _n: int) -> httpx.Response:
+        raise httpx.ReadTimeout("The read operation timed out", request=request)
+
+    calls, handler = counting(respond)
+
+    with make_client(handler) as client, pytest.raises(TransportError) as excinfo:
+        client.list_books()
+
+    assert calls["count"] == 1
+    assert sleeps == []
+    assert "30s" in str(excinfo.value)
+
+
+def test_a_dropped_connection_on_a_metadata_read_is_still_replayed(sleeps: list[float]) -> None:
+    def respond(request: httpx.Request, n: int) -> httpx.Response:
+        if n == 1:
+            raise httpx.ReadError("connection reset", request=request)
+        return httpx.Response(200, json=payloads.BOOK_LIST)
+
+    calls, handler = counting(respond)
+
+    with make_client(handler) as client:
+        client.list_books()
+
+    assert calls["count"] == 2
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        lambda: html(429, {"retry-after": "3600"}),
+        lambda: httpx.Response(429, json={"detail": "slow down"}, headers={"retry-after": "3600"}),
+    ],
+)
+def test_a_rate_limit_message_says_so(sleeps: list[float], response: Any) -> None:
+    calls, handler = counting(lambda _request, _n: response())
+
+    with make_client(handler) as client, pytest.raises(RateLimitError) as excinfo:
+        client.list_books()
+
+    detail = excinfo.value.detail
+    assert "rate limited" in detail
+    assert "429" in detail
+    assert "3600" in detail
+
+
+def test_a_rate_limited_download_waits_out_retry_after(sleeps: list[float], tmp_path: Any) -> None:
+    calls, handler = counting(
+        lambda _request, n: (
+            html(429, {"retry-after": "2"}) if n == 1 else httpx.Response(200, content=b"bytes")
+        )
+    )
+    destination = tmp_path / "out"
+
+    with make_client(handler) as client:
+        client.stream_url_to_path("https://cdn.test/object?sig=secret", destination)
+
+    assert calls["count"] == 2
+    assert 2.0 <= sleeps[0] <= 2.0 + RetryPolicy().backoff_base
+    assert destination.read_bytes() == b"bytes"
+
+
+async def test_an_async_rate_limited_download_waits_out_retry_after(
+    sleeps: list[float], tmp_path: Any
+) -> None:
+    calls, handler = counting(
+        lambda _request, n: (
+            html(429, {"retry-after": "1"}) if n == 1 else httpx.Response(200, content=b"bytes")
+        )
+    )
+    destination = tmp_path / "out"
+
+    async with make_client(handler) as client:
+        await client.stream_url_to_path_async("https://cdn.test/object", destination)
+
+    assert calls["count"] == 2
+    assert destination.read_bytes() == b"bytes"
+
+
+def test_an_exhausted_download_rate_limit_raises(sleeps: list[float], tmp_path: Any) -> None:
+    calls, handler = counting(lambda _request, _n: html(429, {"retry-after": "1"}))
+
+    with make_client(handler) as client, pytest.raises(RateLimitError):
+        client.stream_url_to_path("https://cdn.test/object", tmp_path / "out")
+
+    assert calls["count"] == ATTEMPTS
+    assert not (tmp_path / "out").exists()
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://api.test?x=1",
+        "https://api.test/?x=1",
+        "https://api.test#frag",
+        "https://user:pw@api.test",
+        "https://user@api.test",
+    ],
+)
+def test_a_base_url_with_a_query_fragment_or_userinfo_is_refused(url: str) -> None:
+    with pytest.raises(ConfigurationError, match="base_url"):
+        BookshelfClient(url, auth=None)
+
+
+@pytest.mark.parametrize("url", ["https://api.test/v1", "https://api.test/v1/"])
+def test_a_base_url_ending_in_the_api_version_is_refused_with_a_hint(url: str) -> None:
+    with pytest.raises(ConfigurationError, match="without the trailing /v1"):
         BookshelfClient(url, auth=None)

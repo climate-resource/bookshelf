@@ -9,9 +9,10 @@ The contract oracle walks it against the vendored OpenAPI spec.
 """
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from functools import wraps
 from typing import Any
 from urllib.parse import quote
 from uuid import UUID
@@ -577,6 +578,21 @@ def _check(op: OpSpec, response: ApiResponse) -> ApiResponse:
     )
 
 
+def _decodes[T](parse: Callable[[ApiResponse], T]) -> Callable[[ApiResponse], T]:
+    """Turn a success body that will not decode into the operation's response into a typed error."""
+
+    @wraps(parse)
+    def decoded(response: ApiResponse) -> T:
+        try:
+            return parse(response)
+        except errors.BookshelfError:
+            raise
+        except (ValueError, TypeError, AttributeError, KeyError) as exc:
+            raise errors.unexpected_body_error(response, exc) from exc
+
+    return decoded
+
+
 def _restore_utc_fields(payload: dict[str, Any], fields: Sequence[str]) -> None:
     """Restore the UTC wire invariant for naive ASGI harness timestamps."""
     for field in fields:
@@ -600,6 +616,7 @@ def build_register_resources(request: models.RegisterResourcesRequest) -> ApiReq
     )
 
 
+@_decodes
 def parse_register_resources(response: ApiResponse) -> models.RegisterResourcesResponse:
     _check(REGISTER_RESOURCES, response)
     return models.RegisterResourcesResponse.model_validate_json(response.content)
@@ -613,6 +630,7 @@ def build_initiate_ingest_upload(request: models.IngestUploadInitiateRequest) ->
     )
 
 
+@_decodes
 def parse_initiate_ingest_upload(
     response: ApiResponse,
 ) -> models.UploadInitiateResponse | models.UploadAlreadyExistsResponse:
@@ -732,6 +750,7 @@ def build_get_book_resource_timeseries(
     )
 
 
+@_decodes
 def parse_get_book_resource_timeseries(response: ApiResponse) -> models.TimeseriesResponse:
     _check(GET_BOOK_RESOURCE_TIMESERIES, response)
     return models.TimeseriesResponse.model_validate_json(response.content)
@@ -757,6 +776,7 @@ def build_get_book_resource_facets(
     )
 
 
+@_decodes
 def parse_get_book_resource_facets(response: ApiResponse) -> models.FacetsResponse:
     _check(GET_BOOK_RESOURCE_FACETS, response)
     return models.FacetsResponse.model_validate_json(response.content)
@@ -780,6 +800,7 @@ def build_get_book_resource_preview(
     )
 
 
+@_decodes
 def parse_get_book_resource_preview(response: ApiResponse) -> models.PreviewResponse:
     _check(GET_BOOK_RESOURCE_PREVIEW, response)
     return models.PreviewResponse.model_validate_json(response.content)
@@ -803,6 +824,7 @@ def build_get_book_resource_schema(
     )
 
 
+@_decodes
 def parse_get_book_resource_schema(response: ApiResponse) -> models.TimeseriesMetadataResponse:
     _check(GET_BOOK_RESOURCE_SCHEMA, response)
     return models.TimeseriesMetadataResponse.model_validate_json(response.content)
@@ -824,6 +846,7 @@ def build_draft_book(request: models.BookDraftRequest) -> ApiRequest:
     return ApiRequest(method="POST", path=DRAFT_BOOK.path_template, json_body=_json_body(request))
 
 
+@_decodes
 def parse_draft_book(response: ApiResponse) -> models.BookDetail:
     _check(DRAFT_BOOK, response)
     payload = json.loads(response.content)
@@ -839,6 +862,7 @@ def build_attach_entry(book_id: str, request: models.BookEntryAttach) -> ApiRequ
     )
 
 
+@_decodes
 def parse_attach_entry(response: ApiResponse) -> models.BookEntryAttachResponse:
     _check(ATTACH_ENTRY, response)
     return models.BookEntryAttachResponse.model_validate_json(response.content)
@@ -850,6 +874,7 @@ def build_publish_book(book_id: str) -> ApiRequest:
     )
 
 
+@_decodes
 def parse_publish_book(response: ApiResponse) -> models.BookDetail:
     _check(PUBLISH_BOOK, response)
     payload = json.loads(response.content)
@@ -863,6 +888,7 @@ def build_replay_bundle(request: models.BundleReplayRequest) -> ApiRequest:
     )
 
 
+@_decodes
 def parse_replay_bundle(response: ApiResponse) -> models.BundleReplayResponse:
     _check(REPLAY_BUNDLE, response)
     payload = json.loads(response.content)
@@ -899,6 +925,7 @@ def build_list_books(
     )
 
 
+@_decodes
 def parse_list_books(response: ApiResponse) -> models.BookListResponse:
     _check(LIST_BOOKS, response)
     payload = json.loads(response.content)
@@ -911,6 +938,7 @@ def build_get_book(book_id: str) -> ApiRequest:
     return ApiRequest(method="GET", path=GET_BOOK.path_template.format(book_id=_segment(book_id)))
 
 
+@_decodes
 def parse_get_book(response: ApiResponse) -> models.BookResponse:
     _check(GET_BOOK, response)
     payload = json.loads(response.content)
@@ -926,6 +954,7 @@ def build_correct_book(book_id: str, request: models.BookCorrection) -> ApiReque
     )
 
 
+@_decodes
 def parse_correct_book(response: ApiResponse) -> models.BookCorrectionResponse:
     _check(CORRECT_BOOK, response)
     payload = json.loads(response.content)
@@ -941,6 +970,7 @@ def build_update_book(book_id: str, request: models.BookUpdate) -> ApiRequest:
     )
 
 
+@_decodes
 def parse_update_book(response: ApiResponse) -> models.BookResponse:
     _check(UPDATE_BOOK, response)
     payload = json.loads(response.content)
@@ -973,6 +1003,7 @@ def build_list_book_entries(
     )
 
 
+@_decodes
 def parse_list_book_entries(response: ApiResponse) -> models.BookEntriesResponse:
     _check(LIST_BOOK_ENTRIES, response)
     return models.BookEntriesResponse.model_validate_json(response.content)
@@ -1011,6 +1042,7 @@ def build_list_resources(
     )
 
 
+@_decodes
 def parse_list_resources(response: ApiResponse) -> models.ResourceListResponse:
     _check(LIST_RESOURCES, response)
     payload = json.loads(response.content)
@@ -1027,6 +1059,7 @@ def build_get_resource(tracking_id: str | UUID, *, as_of: str | None = None) -> 
     )
 
 
+@_decodes
 def parse_get_resource(response: ApiResponse) -> models.ResourceRead:
     _check(GET_RESOURCE, response)
     payload = json.loads(response.content)
@@ -1044,6 +1077,7 @@ def build_get_resource_download(
     )
 
 
+@_decodes
 def parse_get_resource_download(response: ApiResponse) -> models.DownloadResponse:
     _check(GET_RESOURCE_DOWNLOAD, response)
     return models.DownloadResponse.model_validate_json(response.content)
@@ -1059,6 +1093,7 @@ def build_invalidate_resource(
     )
 
 
+@_decodes
 def parse_invalidate_resource(response: ApiResponse) -> models.InvalidateResponse:
     _check(INVALIDATE_RESOURCE, response)
     return models.InvalidateResponse.model_validate_json(response.content)
@@ -1079,6 +1114,7 @@ def build_list_resource_events(
     )
 
 
+@_decodes
 def parse_list_resource_events(response: ApiResponse) -> models.RegistrationEventsResponse:
     _check(LIST_RESOURCE_EVENTS, response)
     return models.RegistrationEventsResponse.model_validate_json(response.content)
@@ -1117,6 +1153,7 @@ def build_list_volumes(
     )
 
 
+@_decodes
 def parse_list_volumes(response: ApiResponse) -> models.VolumeListResponse:
     _check(LIST_VOLUMES, response)
     payload = json.loads(response.content)
@@ -1132,6 +1169,7 @@ def build_get_volume(volume_name: str) -> ApiRequest:
     )
 
 
+@_decodes
 def parse_get_volume(response: ApiResponse) -> models.VolumeDetailResponse:
     _check(GET_VOLUME, response)
     payload = json.loads(response.content)
@@ -1150,6 +1188,7 @@ def build_create_volume(request: models.VolumeCreate) -> ApiRequest:
     )
 
 
+@_decodes
 def parse_create_volume(response: ApiResponse) -> models.VolumeResponse:
     _check(CREATE_VOLUME, response)
     payload = json.loads(response.content)
@@ -1165,6 +1204,7 @@ def build_update_volume(volume_name: str, request: models.VolumeUpdate) -> ApiRe
     )
 
 
+@_decodes
 def parse_update_volume(response: ApiResponse) -> models.VolumeResponse:
     _check(UPDATE_VOLUME, response)
     payload = json.loads(response.content)
@@ -1187,6 +1227,7 @@ def build_get_catalogue_facets() -> ApiRequest:
     return ApiRequest(method="GET", path=GET_CATALOGUE_FACETS.path_template)
 
 
+@_decodes
 def parse_get_catalogue_facets(response: ApiResponse) -> models.VolumeFacets:
     _check(GET_CATALOGUE_FACETS, response)
     return models.VolumeFacets.model_validate_json(response.content)
@@ -1196,6 +1237,7 @@ def build_get_current_user() -> ApiRequest:
     return ApiRequest(method="GET", path=GET_CURRENT_USER.path_template)
 
 
+@_decodes
 def parse_get_current_user(response: ApiResponse) -> models.UserResponse:
     _check(GET_CURRENT_USER, response)
     return models.UserResponse.model_validate_json(response.content)
@@ -1209,6 +1251,7 @@ def build_register_agent_identity(request: models.AgentIdentityRequest) -> ApiRe
     )
 
 
+@_decodes
 def parse_register_agent_identity(
     response: ApiResponse,
 ) -> models.AnonymousRegistrationResponse | models.ServiceAuthRegistrationResponse:
@@ -1255,6 +1298,7 @@ def build_agent_token_exchange(request: models.BodyAgentTokenExchange) -> ApiReq
     )
 
 
+@_decodes
 def parse_agent_token_exchange(response: ApiResponse) -> models.TokenResponse:
     """Parse a token grant, raising the typed OAuth error on protocol rejections.
 
@@ -1302,6 +1346,7 @@ def build_create_preview(
     )
 
 
+@_decodes
 def parse_create_preview(response: ApiResponse) -> models.PreviewDetail:
     return _preview_detail(CREATE_PREVIEW, response)
 
@@ -1316,6 +1361,7 @@ def build_initiate_preview_upload(
     )
 
 
+@_decodes
 def parse_initiate_preview_upload(
     response: ApiResponse,
 ) -> models.UploadInitiateResponse | models.UploadAlreadyExistsResponse:
@@ -1352,6 +1398,7 @@ def build_attach_preview_book(
     )
 
 
+@_decodes
 def parse_attach_preview_book(response: ApiResponse) -> models.PreviewDetail:
     return _preview_detail(ATTACH_PREVIEW_BOOK, response)
 
@@ -1362,6 +1409,7 @@ def build_seal_preview(preview_id: UUID) -> ApiRequest:
     )
 
 
+@_decodes
 def parse_seal_preview(response: ApiResponse) -> models.PreviewDetail:
     return _preview_detail(SEAL_PREVIEW, response)
 
@@ -1374,5 +1422,6 @@ def build_fail_preview(preview_id: UUID, request: models.PreviewFailRequest) -> 
     )
 
 
+@_decodes
 def parse_fail_preview(response: ApiResponse) -> models.PreviewDetail:
     return _preview_detail(FAIL_PREVIEW, response)

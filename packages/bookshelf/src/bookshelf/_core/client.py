@@ -19,7 +19,7 @@ import httpx
 
 from bookshelf._core import ops
 from bookshelf._core.config import UNSET, AuthInput, resolve_auth, resolve_base_url
-from bookshelf._core.errors import TransportError
+from bookshelf._core.errors import TransportError, error_from_response
 from bookshelf._core.resolution import ResolvedCredential, resolve_credential
 from bookshelf._core.retry import RetryPolicy, parse_retry_after
 from bookshelf._core.types import (
@@ -44,6 +44,9 @@ def _public_url(url: httpx.URL) -> str:
 
 def _transport_error(request: httpx.Request, exc: httpx.TransportError) -> TransportError:
     reason = str(exc) or type(exc).__name__
+    read_timeout = request.extensions.get("timeout", {}).get("read")
+    if isinstance(exc, httpx.ReadTimeout) and read_timeout is not None:
+        reason = f"no response within {read_timeout:g}s"
     return TransportError(f"{request.method} {_public_url(request.url)} failed: {reason}")
 
 
@@ -201,6 +204,7 @@ class BookshelfClient:
             headers=dict(response.headers),
             content=response.content,
             url=_public_url(response.url),
+            method=response.request.method,
         )
 
     def _response_retry_delay(
@@ -217,8 +221,8 @@ class BookshelfClient:
     def _transport_retry_delay(
         self, req: ApiRequest, attempt: int, exc: httpx.TransportError
     ) -> float | None:
-        if isinstance(exc, httpx.ConnectTimeout):
-            # The attempt already waited out the connect timeout, so a replay only doubles the wait.
+        if isinstance(exc, httpx.ConnectTimeout | httpx.ReadTimeout):
+            # The attempt already waited out the whole timeout, so a replay only multiplies the wait.
             return None
         # A refused connection proves no bytes reached the server, unlike a read or write timeout.
         return self._retry.retry_after_transport_error(
@@ -272,35 +276,55 @@ class BookshelfClient:
 
     def stream_url_to_path(self, url: str, destination: Path) -> None:
         """Stream an API issued content URL to a local path without API credentials."""
-        request = self._sync_client.build_request("GET", url)
+        req = ops.build_get_url(url)
+        request = self._sync_client.build_request(req.method, url)
+        attempt = 0
         try:
-            response = self._sync_client.send(request, auth=None, stream=True)
-            try:
-                if not response.is_success:
+            while True:
+                attempt += 1
+                response = self._sync_client.send(request, auth=None, stream=True)
+                try:
+                    if response.is_success:
+                        with destination.open("wb") as stream:
+                            for chunk in response.iter_bytes():
+                                stream.write(chunk)
+                        return
                     response.read()
-                    ops.parse_get_url(self._api_response(response))
-                with destination.open("wb") as stream:
-                    for chunk in response.iter_bytes():
-                        stream.write(chunk)
-            finally:
-                response.close()
+                    delay = self._response_retry_delay(req, attempt, response)
+                    if delay is None:
+                        raise error_from_response(
+                            self._api_response(response), declared=False, request_method="GET"
+                        )
+                finally:
+                    response.close()
+                time.sleep(delay)
         except httpx.TransportError as exc:
             raise _transport_error(request, exc) from exc
 
     async def stream_url_to_path_async(self, url: str, destination: Path) -> None:
         """Stream an API issued content URL to a local path without API credentials."""
-        request = self._async_client.build_request("GET", url)
+        req = ops.build_get_url(url)
+        request = self._async_client.build_request(req.method, url)
+        attempt = 0
         try:
-            response = await self._async_client.send(request, auth=None, stream=True)
-            try:
-                if not response.is_success:
+            while True:
+                attempt += 1
+                response = await self._async_client.send(request, auth=None, stream=True)
+                try:
+                    if response.is_success:
+                        with destination.open("wb") as stream:
+                            async for chunk in response.aiter_bytes():
+                                stream.write(chunk)
+                        return
                     await response.aread()
-                    ops.parse_get_url(self._api_response(response))
-                with destination.open("wb") as stream:
-                    async for chunk in response.aiter_bytes():
-                        stream.write(chunk)
-            finally:
-                await response.aclose()
+                    delay = self._response_retry_delay(req, attempt, response)
+                    if delay is None:
+                        raise error_from_response(
+                            self._api_response(response), declared=False, request_method="GET"
+                        )
+                finally:
+                    await response.aclose()
+                await asyncio.sleep(delay)
         except httpx.TransportError as exc:
             raise _transport_error(request, exc) from exc
 

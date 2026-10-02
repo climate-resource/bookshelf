@@ -7,6 +7,7 @@ import pytest
 from bookshelf._core import config, credentials
 from bookshelf._core.auth import ClientCredentials, StaticToken
 from bookshelf._core.client import BookshelfClient
+from bookshelf._core.errors import ConfigurationError
 from bookshelf._core.resolution import CredentialSource
 
 
@@ -60,3 +61,18 @@ def test_client_constructor_coerces_and_resolves(monkeypatch: pytest.MonkeyPatch
     assert client.auth is None
     assert client.credential is not None
     assert client.credential.source is CredentialSource.NONE
+
+
+@pytest.mark.parametrize("variable", ["BOOKSHELF_URL", "BOOKSHELF_API_URL"])
+def test_a_bad_url_names_the_variable_that_supplied_it(
+    monkeypatch: pytest.MonkeyPatch, variable: str
+) -> None:
+    monkeypatch.setenv(variable, "https://api.test?x=1")
+
+    with pytest.raises(ConfigurationError, match=f"^\\${variable} "):
+        config.resolve_base_url(None)
+
+
+def test_a_bad_url_names_the_option_the_caller_passed() -> None:
+    with pytest.raises(ConfigurationError, match="^--api-url "):
+        config.resolve_base_url("https://api.test#frag", source="--api-url")

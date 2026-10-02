@@ -141,6 +141,8 @@ One machine can hold several identities, and one is active per deployment.
 
 - `bookshelf auth list` shows every stored identity, marking the active one per deployment.
   `--json` emits one object per identity.
+  `expired` says the access token has expired,
+  and `needs_login` says nothing stored can renew it, so only a fresh login brings it back.
 - `bookshelf auth switch <identity>` makes a different stored identity active
   without authenticating again.
   Take the name from `auth list`.
