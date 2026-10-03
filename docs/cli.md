@@ -42,18 +42,18 @@ so they drop straight into shell interpolation.
 
 ## Exit codes
 
-| Code | Meaning |
-| ---- | ------- |
-| 0 | success |
-| 1 | any other failure, including a bug worth reporting |
-| 2 | usage: bad arguments, a malformed address, or unusable local setup |
-| 3 | no accepted credential: log in, or refresh the one in play |
-| 4 | the credential lacks a permission |
-| 5 | the volume, book, entry or resource does not exist |
-| 6 | network, gateway or server failure, worth retrying |
-| 7 | the bundle is malformed or refused |
-| 8 | the request conflicts with what the platform holds |
-| 9 | the server answered outside the API contract: upgrade bookshelf |
+| Code | Meaning | Typical errors |
+| ---- | ------- | -------------- |
+| 0 | success | |
+| 1 | any other failure, including a bug worth reporting | `BookshelfError` with no more specific code |
+| 2 | usage: bad arguments, a malformed address, or unusable local setup | `ConfigurationError`, `AuthConfigurationError`, `RequestValidationError`, `SelectionError` |
+| 3 | no accepted credential: log in, or refresh the one in play | `AuthenticationError`, `AuthenticationRequiredError` |
+| 4 | the credential lacks a permission | `ForbiddenError` |
+| 5 | the volume, book, entry or resource does not exist | `NotFoundError` and its subclasses |
+| 6 | network, gateway or server failure, worth retrying | `TransportError`, `ServerError`, `RateLimitError`, `GatewayError` |
+| 7 | the bundle is malformed or refused | `InvalidBundleError` |
+| 8 | the request conflicts with what the platform holds | `ConflictError` |
+| 9 | the server answered outside the API contract: upgrade bookshelf | `UnexpectedResponseError` |
 
 Some cases worth knowing:
 
