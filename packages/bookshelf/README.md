@@ -8,7 +8,9 @@ It also includes the `bookshelf` command line interface for authentication,
 discovery,
 and local cache management.
 
-This migration replaces the legacy Bookshelf consumer library.
+- [Documentation](https://climate-resource.github.io/bookshelf/latest/)
+- [Migrating from 0.4](https://climate-resource.github.io/bookshelf/latest/migrating/)
+- [Changelog](https://climate-resource.github.io/bookshelf/latest/changelog/)
 
 ## Installation
 
@@ -26,20 +28,6 @@ Install optional integrations as needed:
 
 ```bash
 uv add "bookshelf[scmrun,publish]"
-```
-
-For local development,
-install the workspace package and all extras with the lock file enforced:
-
-```bash
-uv sync --locked --package bookshelf --all-extras
-```
-
-A local wheel can also be built and installed directly:
-
-```bash
-uv build --project packages/bookshelf --out-dir /tmp/bookshelf-sdk-dist
-uv pip install /tmp/bookshelf-sdk-dist/bookshelf-*.whl
 ```
 
 ## Consuming published data
@@ -224,42 +212,10 @@ and `Bookshelf.resource_by_hash` resolves the digest back into the resource.
 
 The command leaves the file hidden, so it is readable by the uploading organisation alone.
 
-## Generated model core
+## Credentials
 
-The committed files under `src/bookshelf/_generated/` are generated from the vendored `openapi.json`.
-Do not edit them by hand.
-The root package and private package expose the same model module and contract provenance stamp:
-
-```python
-from bookshelf import OPENAPI_VERSION, models
-from bookshelf._generated import models as private_models
-
-assert models is private_models
-```
-
-`OPENAPI_VERSION` is copied from the vendored contract's `info.version`.
-It is not the distribution version and does not assert an ordered minimum server version.
-
-The API contract is vendored at `packages/bookshelf/openapi.json`.
-Refresh that snapshot explicitly when the platform contract changes,
-then regenerate and review the model diff in the same change.
-
-The exact generation command is caller-independent and locked:
-
-```bash
-uv run --project packages/bookshelf --locked --group codegen \
-  python packages/bookshelf/scripts/generate_models.py
-```
-
-The driver validates a complete temporary tree before promotion.
-It retains the last-known-good tree through a same-filesystem backup and recovers a sole valid backup on startup.
-Ambiguous, invalid, or multiple-backup states stop without deleting evidence.
-
-## Credential providers (unified client)
-
-The unified client (`bookshelf._core.client.BookshelfClient`) authenticates through
-credential providers, each an `httpx.Auth` whose flow is sans-io,
-so one provider object serves both the sync and async surfaces:
+`Bookshelf` and `AsyncBookshelf` authenticate through the credential providers in `bookshelf.auth`.
+Each is an `httpx.Auth`, so one provider object serves both the sync and async surfaces:
 
 - `StaticToken`: a fixed bearer token, no refresh.
 - `RefreshTokenExchange`: a WorkOS user access/refresh pair from `bookshelf auth login`.
@@ -296,7 +252,7 @@ then the production URL.
 ### Client lifecycle in an embedded service
 
 The client is long-lived by design: token state lives in the provider
-and each surface pools connections.
+and each client pools connections.
 Construct one client at startup, inject it as a dependency, and close it at shutdown.
 In FastAPI that is a lifespan:
 
@@ -305,37 +261,28 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 
-from bookshelf._core.auth import ClientCredentials
-from bookshelf._core.client import BookshelfClient
+from bookshelf import AsyncBookshelf
+from bookshelf.auth import ClientCredentials
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.bookshelf = BookshelfClient(
+    async with AsyncBookshelf(
         auth=ClientCredentials(client_id, client_secret, token_url=token_url),
-    )
-    yield
-    await app.state.bookshelf.aclose()
+    ) as bs:
+        app.state.bookshelf = bs
+        yield
 
 app = FastAPI(lifespan=lifespan)
 
 @app.get("/co2")
 async def co2(request: Request):
-    client: BookshelfClient = request.app.state.bookshelf
-    return await client.query_resource_data_async(tracking_id)
+    bs: AsyncBookshelf = request.app.state.bookshelf
+    book = await bs.book("rcmip-emissions", "v5.1.0", edition=2)
+    frame = await book["magicc"].as_long_df(filters={"variable": "Emissions|CO2"})
+    return frame.to_dict(orient="records")
 ```
 
-Do **not** open a client per request (`async with BookshelfClient(...)` inside a handler):
+Do **not** open a client per request (`async with AsyncBookshelf(...)` inside a handler):
 that churns the connection pool and discards the cached token on every call.
 Context managers are optional.
 Notebooks can construct a client plainly and never close it.
-
-## Testing
-
-```bash
-cd packages/bookshelf
-uv run --locked --all-extras pytest
-```
-
-The public test suite uses local transports and fixtures.
-Backend contract tests live with the private platform,
-where the unpublished backend package is available.

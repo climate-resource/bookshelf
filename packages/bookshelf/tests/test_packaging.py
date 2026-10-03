@@ -3,6 +3,7 @@
 import os
 import subprocess
 import sys
+import tarfile
 import tomllib
 from email.parser import Parser
 from pathlib import Path
@@ -25,18 +26,28 @@ def test_py_typed_marker_present() -> None:
 
 
 @pytest.fixture(scope="session")
-def wheel(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Build the local wheel once for metadata and content inspection."""
-    output = tmp_path_factory.mktemp("sdk-wheel")
+def dist(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Build the local sdist and wheel once for metadata and content inspection."""
+    output = tmp_path_factory.mktemp("sdk-dist")
     subprocess.run(
         ["uv", "build", "--project", str(SDK_ROOT), "--out-dir", str(output)],
         check=True,
         capture_output=True,
         text=True,
     )
-    wheels = list(output.glob(f"bookshelf-{SDK_VERSION}-*.whl"))
+    return output
+
+
+@pytest.fixture(scope="session")
+def wheel(dist: Path) -> Path:
+    wheels = list(dist.glob(f"bookshelf-{SDK_VERSION}-*.whl"))
     assert len(wheels) == 1
     return wheels[0]
+
+
+@pytest.fixture(scope="session")
+def sdist(dist: Path) -> Path:
+    return dist / f"bookshelf-{SDK_VERSION}.tar.gz"
 
 
 def test_wheel_metadata_uses_public_distribution_identity(wheel: Path) -> None:
@@ -55,8 +66,10 @@ def test_wheel_metadata_uses_public_distribution_identity(wheel: Path) -> None:
         requirement.startswith("pyyaml>=6.0") for requirement in metadata.get_all("Requires-Dist")
     )
     assert any(
-        requirement.startswith("typer>=0.12") for requirement in metadata.get_all("Requires-Dist")
+        requirement.startswith("typer>=0.26") for requirement in metadata.get_all("Requires-Dist")
     )
+    assert metadata["License-Expression"] == "MIT"
+    assert any(name.endswith(".dist-info/licenses/LICENSE") for name in names)
     # The distribution keeps the ``bookshelf`` console script for the CLI.
     assert "bookshelf = bookshelf._cli:main" in entry_points
 
@@ -75,6 +88,14 @@ def test_wheel_declares_one_package_with_the_generated_core(wheel: Path) -> None
     }
     assert required <= names
     assert not any(name.startswith("bookshelf_client/") for name in names)
+
+
+def test_sdist_ships_the_licence_but_not_the_tests(sdist: Path) -> None:
+    with tarfile.open(sdist) as archive:
+        names = {name.split("/", 1)[1] for name in archive.getnames() if "/" in name}
+
+    assert {"LICENSE", "src/bookshelf/py.typed", "src/bookshelf/__init__.py"} <= names
+    assert not any(name.startswith(("tests/", "scripts/")) for name in names)
 
 
 def test_importing_the_sdk_does_not_require_the_git_binary() -> None:

@@ -7,7 +7,7 @@ managed resource publishing, record and replay workflows, and command line authe
 [![PyPI](https://img.shields.io/pypi/v/bookshelf.svg)](https://pypi.org/project/bookshelf/)
 [![Python](https://img.shields.io/pypi/pyversions/bookshelf.svg)](https://pypi.org/project/bookshelf/)
 [![CI](https://github.com/climate-resource/bookshelf/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/climate-resource/bookshelf/actions/workflows/ci.yaml)
-[![Licence](https://img.shields.io/pypi/l/bookshelf?label=licence)](https://github.com/climate-resource/bookshelf/blob/main/LICENCE)
+[![Licence](https://img.shields.io/pypi/l/bookshelf?label=licence)](https://github.com/climate-resource/bookshelf/blob/main/LICENSE)
 
 ## Installation
 
@@ -38,7 +38,8 @@ with Bookshelf() as bs:
 ```
 
 See the [package README](packages/bookshelf/README.md) for consuming,
-publishing, authentication, and code generation.
+publishing and authentication,
+and the [documentation](https://climate-resource.github.io/bookshelf/latest/) for the rest.
 
 ## Minting tracking ids
 

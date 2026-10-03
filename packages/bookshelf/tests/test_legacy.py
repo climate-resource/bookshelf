@@ -1,8 +1,10 @@
 """Offline tests for the 0.4 compatibility shim in ``bookshelf.legacy``."""
 
 import hashlib
+import importlib
 import io
 import re
+import sys
 import warnings
 from pathlib import Path
 from typing import Any
@@ -326,3 +328,15 @@ def test_a_legacy_remote_variable_warns_rather_than_vanishing(
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         assert config.resolve_base_url(BASE_URL) == BASE_URL
+
+
+@pytest.mark.parametrize(
+    "module", ["shelf", "book", "errors", "utils", "schema", "constants", "dataset_structure"]
+)
+def test_a_removed_0_4_submodule_points_at_the_migration_guide(module: str) -> None:
+    sys.modules.pop(f"bookshelf.{module}", None)
+    with pytest.raises(ImportError, match=r"migrating/") as caught:
+        importlib.import_module(f"bookshelf.{module}")
+
+    assert not isinstance(caught.value, ModuleNotFoundError)
+    assert f"bookshelf.{module} was removed" in str(caught.value)
