@@ -1,0 +1,884 @@
+{
+  "bookshelf": {
+    "APIError": {
+      "bases": [
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "ActionsTokenError": {
+      "bases": [
+        "AuthConfigurationError",
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "AsyncBook": {
+      "kind": "class",
+      "members": {
+        "__getitem__": "(self, name_in_book: str) -> AsyncBookEntry",
+        "__iter__": "(self) -> Iterator[str]",
+        "edition": "property -> int",
+        "entry_names": "property -> tuple[str, ...]",
+        "metadata": "property -> dict[str, Any]",
+        "published_at": "property -> datetime | None",
+        "status": "property -> str",
+        "version": "property -> str",
+        "visibility": "property -> Visibility",
+        "volume": "property -> str"
+      }
+    },
+    "AsyncBookEntry": {
+      "kind": "class",
+      "members": {
+        "as_arrow": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None) -> Table",
+        "as_df": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None, int_years: bool = False) -> DataFrame",
+        "as_long_df": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, legacy_columns: bool = False, dropna: bool = False) -> DataFrame",
+        "as_path": "async (self) -> Path",
+        "as_polars": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None) -> DataFrame",
+        "as_resource": "(self) -> AsyncResource",
+        "as_scmrun": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False) -> ScmRun",
+        "content_hash": "async (self) -> str",
+        "describe": "async (self) -> ResourceInfo",
+        "download": "async (self, destination: str | Path) -> Path",
+        "facets": "async (self, *, max_values: int = 500, filters: Filters | None = None) -> Facets",
+        "fetch": "async (self) -> bytes",
+        "preview": "async (self, *, limit: int = 100, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, order: Order | None = None, top_n: int | None = None, drop_constant: bool = False) -> DataPreview",
+        "resource_type": "async (self) -> ResourceType",
+        "series_metadata": "async (self, *, limit: int = 100, offset: int = 0) -> SeriesMetadata",
+        "visibility": "property -> Visibility"
+      }
+    },
+    "AsyncBookshelf": {
+      "kind": "class",
+      "members": {
+        "__aenter__": "async (self) -> Self",
+        "__aexit__": "async (self, *exc_info: object) -> None",
+        "__init__": "(self, base_url: str | None = None, *, auth: AuthInput = <from environment>, timeout: float = 30.0, book_ttl: float | None = None, cache: ContentCache | None = None, async_transport: AsyncBaseTransport | None = None) -> None",
+        "aclose": "async (self) -> None",
+        "book": "async (self, volume: str, version: str, *, edition: int | None = None, refresh: bool = False) -> AsyncBook",
+        "correct_book": "async (self, book_id: str | UUID, *, reason: str | None = None, description: str | None = None, authors: Sequence[Mapping[str, Any]] | None = None, discovery: Mapping[str, Any] | None = None, metadata: Mapping[str, Any] | None = None) -> BookCorrection",
+        "ensure_authenticated": "async (self, *, interactive: bool | None = None) -> Identity",
+        "resource": "async (self, tracking_id: str | UUID) -> AsyncResource",
+        "resource_by_hash": "async (self, content_hash: str) -> AsyncResource",
+        "search_volumes": "async (self, q: str | None = None, *, topic: Sequence[str] | None = None, keyword: Sequence[str] | None = None, region: Sequence[str] | None = None, publisher: str | None = None, license: str | None = None, coverage_year: int | None = None, resource_type: str | None = None, deprecated: bool | None = None, limit: int | None = None, offset: int | None = None) -> VolumeSearchResults",
+        "volume": "async (self, name: str) -> AsyncVolume"
+      }
+    },
+    "AsyncResource": {
+      "kind": "class",
+      "members": {
+        "as_arrow": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None) -> Table",
+        "as_df": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None, int_years: bool = False) -> DataFrame",
+        "as_long_df": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, legacy_columns: bool = False, dropna: bool = False) -> DataFrame",
+        "as_path": "async (self) -> Path",
+        "as_polars": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None) -> DataFrame",
+        "as_scmrun": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False) -> ScmRun",
+        "content_hash": "async (self) -> str",
+        "describe": "async (self) -> ResourceInfo",
+        "download": "async (self, destination: str | Path) -> Path",
+        "fetch": "async (self) -> bytes",
+        "preview": "async (self, *, limit: int = 100, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, order: Order | None = None, top_n: int | None = None, drop_constant: bool = False) -> DataPreview",
+        "resource_type": "async (self) -> ResourceType"
+      }
+    },
+    "AsyncVolume": {
+      "kind": "class",
+      "members": {
+        "__contains__": "(self, version: str) -> bool",
+        "__iter__": "(self) -> Iterator[str]",
+        "__len__": "(self) -> int",
+        "book": "async (self, version: str | None = None, *, edition: int | None = None, refresh: bool = False) -> AsyncBook",
+        "description": "property -> str | None",
+        "discovery": "property -> dict[str, Any]",
+        "editions": "(self, version: str) -> tuple[int, ...]",
+        "latest": "property -> str | None",
+        "license": "property -> str | None",
+        "metadata": "property -> dict[str, Any]",
+        "title": "property -> str | None",
+        "versions": "property -> tuple[str, ...]"
+      }
+    },
+    "AuthConfigurationError": {
+      "bases": [
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "AuthenticationError": {
+      "bases": [
+        "APIError",
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "AuthenticationRequiredError": {
+      "bases": [
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "Book": {
+      "kind": "class",
+      "members": {
+        "__getitem__": "(self, name_in_book: str) -> BookEntry",
+        "__iter__": "(self) -> Iterator[str]",
+        "edition": "property -> int",
+        "entry_names": "property -> tuple[str, ...]",
+        "metadata": "property -> dict[str, Any]",
+        "published_at": "property -> datetime | None",
+        "status": "property -> str",
+        "version": "property -> str",
+        "visibility": "property -> Visibility",
+        "volume": "property -> str"
+      }
+    },
+    "BookCorrection": {
+      "fields": {
+        "book_id": "UUID",
+        "corrected": "tuple[str, ...]",
+        "corrected_at": "datetime",
+        "discovery": "Mapping[str, Any]",
+        "metadata": "Mapping[str, Any]"
+      },
+      "kind": "class",
+      "members": {
+        "book_id": "attribute member_descriptor",
+        "corrected": "attribute member_descriptor",
+        "corrected_at": "attribute member_descriptor",
+        "discovery": "attribute member_descriptor",
+        "metadata": "attribute member_descriptor"
+      }
+    },
+    "BookEntry": {
+      "kind": "class",
+      "members": {
+        "as_arrow": "(self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None) -> Table",
+        "as_df": "(self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None, int_years: bool = False) -> DataFrame",
+        "as_long_df": "(self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, legacy_columns: bool = False, dropna: bool = False) -> DataFrame",
+        "as_path": "(self) -> Path",
+        "as_polars": "(self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None) -> DataFrame",
+        "as_resource": "(self) -> Resource",
+        "as_scmrun": "(self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False) -> ScmRun",
+        "content_hash": "(self) -> str",
+        "describe": "(self) -> ResourceInfo",
+        "download": "(self, destination: str | Path) -> Path",
+        "facets": "(self, *, max_values: int = 500, filters: Filters | None = None) -> Facets",
+        "fetch": "(self) -> bytes",
+        "preview": "(self, *, limit: int = 100, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, order: Order | None = None, top_n: int | None = None, drop_constant: bool = False) -> DataPreview",
+        "resource_type": "(self) -> ResourceType",
+        "series_metadata": "(self, *, limit: int = 100, offset: int = 0) -> SeriesMetadata",
+        "visibility": "property -> Visibility"
+      }
+    },
+    "Bookshelf": {
+      "kind": "class",
+      "members": {
+        "__enter__": "(self) -> Self",
+        "__exit__": "(self, *exc_info: object) -> None",
+        "__init__": "(self, base_url: str | None = None, *, auth: AuthInput = <from environment>, timeout: float = 30.0, book_ttl: float | None = None, cache: ContentCache | None = None, transport: BaseTransport | None = None) -> None",
+        "book": "(self, volume: str, version: str, *, edition: int | None = None, refresh: bool = False) -> Book",
+        "close": "(self) -> None",
+        "correct_book": "(self, book_id: str | UUID, *, reason: str | None = None, description: str | None = None, authors: Sequence[Mapping[str, Any]] | None = None, discovery: Mapping[str, Any] | None = None, metadata: Mapping[str, Any] | None = None) -> BookCorrection",
+        "ensure_authenticated": "(self, *, interactive: bool | None = None) -> Identity",
+        "resource": "(self, tracking_id: str | UUID) -> Resource",
+        "resource_by_hash": "(self, content_hash: str) -> Resource",
+        "search_volumes": "(self, q: str | None = None, *, topic: Sequence[str] | None = None, keyword: Sequence[str] | None = None, region: Sequence[str] | None = None, publisher: str | None = None, license: str | None = None, coverage_year: int | None = None, resource_type: str | None = None, deprecated: bool | None = None, limit: int | None = None, offset: int | None = None) -> VolumeSearchResults",
+        "volume": "(self, name: str) -> Volume"
+      }
+    },
+    "BookshelfError": {
+      "bases": [
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "CacheDirectoryError": {
+      "bases": [
+        "BookshelfError",
+        "OSError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "CacheSummary": {
+      "fields": {
+        "entries": "int",
+        "max_bytes": "int",
+        "newest_mtime": "float | None",
+        "oldest_mtime": "float | None",
+        "path": "Path",
+        "total_bytes": "int"
+      },
+      "kind": "class",
+      "members": {
+        "entries": "attribute member_descriptor",
+        "max_bytes": "attribute member_descriptor",
+        "newest_mtime": "attribute member_descriptor",
+        "oldest_mtime": "attribute member_descriptor",
+        "path": "attribute member_descriptor",
+        "total_bytes": "attribute member_descriptor"
+      }
+    },
+    "ConfigurationError": {
+      "bases": [
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "ConflictError": {
+      "bases": [
+        "APIError",
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "ContentCache": {
+      "kind": "class",
+      "members": {
+        "__init__": "(self, base_dir: Path | None = None, *, max_bytes: int = 5368709120) -> None",
+        "clear": "(self) -> int",
+        "evict_lru": "(self, max_bytes: int | None = None) -> int",
+        "get": "(self, content_hash: str) -> Path | None",
+        "summary": "(self) -> CacheSummary"
+      }
+    },
+    "ContractError": {
+      "bases": [
+        "APIError",
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "DataFrameSupportError": {
+      "bases": [
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "DataPreview": {
+      "fields": {
+        "completeness": "Completeness",
+        "data": "DataFrame"
+      },
+      "kind": "class",
+      "members": {
+        "completeness": "attribute member_descriptor",
+        "data": "attribute member_descriptor"
+      }
+    },
+    "EntryNotFoundError": {
+      "bases": [
+        "NotFoundError",
+        "APIError",
+        "BookshelfError",
+        "_UnquotedKeyError",
+        "KeyError",
+        "LookupError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "Facet": {
+      "fields": {
+        "column": "str",
+        "total_unique": "int",
+        "truncated": "bool",
+        "values": "tuple[FacetValue, ...]"
+      },
+      "kind": "class",
+      "members": {
+        "column": "attribute member_descriptor",
+        "total_unique": "attribute member_descriptor",
+        "truncated": "attribute member_descriptor",
+        "values": "attribute member_descriptor"
+      }
+    },
+    "FacetValue": {
+      "fields": {
+        "count": "int",
+        "value": "Any"
+      },
+      "kind": "class",
+      "members": {
+        "count": "attribute member_descriptor",
+        "value": "attribute member_descriptor"
+      }
+    },
+    "Facets": {
+      "fields": {
+        "categorical_columns": "tuple[str, ...]",
+        "facets": "tuple[Facet, ...]",
+        "numeric_columns": "tuple[str, ...]",
+        "total_rows": "int"
+      },
+      "kind": "class",
+      "members": {
+        "__getitem__": "(self, column: str) -> Facet",
+        "categorical_columns": "attribute member_descriptor",
+        "facets": "attribute member_descriptor",
+        "numeric_columns": "attribute member_descriptor",
+        "total_rows": "attribute member_descriptor"
+      }
+    },
+    "ForbiddenError": {
+      "bases": [
+        "APIError",
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "GatewayError": {
+      "bases": [
+        "APIError",
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "HashMismatchError": {
+      "bases": [
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "Identity": {
+      "fields": {
+        "email": "str",
+        "first_name": "str | None",
+        "id": "str",
+        "last_name": "str | None",
+        "organization_id": "str | None",
+        "permissions": "tuple[str, ...]",
+        "role": "str | None"
+      },
+      "kind": "class",
+      "members": {
+        "email": "attribute member_descriptor",
+        "first_name": "attribute member_descriptor",
+        "id": "attribute member_descriptor",
+        "last_name": "attribute member_descriptor",
+        "organization_id": "attribute member_descriptor",
+        "permissions": "attribute member_descriptor",
+        "role": "attribute member_descriptor"
+      }
+    },
+    "InvalidBundleError": {
+      "bases": [
+        "BookshelfError",
+        "ValueError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "InvalidRecipeError": {
+      "bases": [
+        "BookshelfError",
+        "ValueError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "InvalidReferenceError": {
+      "bases": [
+        "BookshelfError",
+        "ValueError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "ItemError": {
+      "fields": {
+        "detail": "str",
+        "status": "int"
+      },
+      "kind": "class",
+      "members": {
+        "detail": "attribute member_descriptor",
+        "status": "attribute member_descriptor"
+      }
+    },
+    "NotFoundError": {
+      "bases": [
+        "APIError",
+        "BookshelfError",
+        "LookupError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "OAuthError": {
+      "bases": [
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "OAuthProtocolError": {
+      "bases": [
+        "APIError",
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "OPENAPI_VERSION": {
+      "kind": "value",
+      "type": "str"
+    },
+    "PRODUCTION_API_URL": {
+      "kind": "value",
+      "type": "str"
+    },
+    "Problem": {
+      "fields": {
+        "detail": "str",
+        "errors": "tuple[Mapping[str, Any], ...]",
+        "instance": "str | None",
+        "status": "int",
+        "title": "str",
+        "type": "str"
+      },
+      "kind": "class",
+      "members": {
+        "detail": "attribute member_descriptor",
+        "errors": "attribute member_descriptor",
+        "instance": "attribute member_descriptor",
+        "status": "attribute member_descriptor",
+        "title": "attribute member_descriptor",
+        "type": "attribute member_descriptor"
+      }
+    },
+    "RateLimitError": {
+      "bases": [
+        "APIError",
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "RecordRefusedError": {
+      "bases": [
+        "BookshelfError",
+        "ValueError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "RecordingError": {
+      "bases": [
+        "BookshelfError",
+        "ValueError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "RequestValidationError": {
+      "bases": [
+        "APIError",
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "Resource": {
+      "kind": "class",
+      "members": {
+        "as_arrow": "(self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None) -> Table",
+        "as_df": "(self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None, int_years: bool = False) -> DataFrame",
+        "as_long_df": "(self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, legacy_columns: bool = False, dropna: bool = False) -> DataFrame",
+        "as_path": "(self) -> Path",
+        "as_polars": "(self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None) -> DataFrame",
+        "as_scmrun": "(self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False) -> ScmRun",
+        "content_hash": "(self) -> str",
+        "describe": "(self) -> ResourceInfo",
+        "download": "(self, destination: str | Path) -> Path",
+        "fetch": "(self) -> bytes",
+        "preview": "(self, *, limit: int = 100, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, order: Order | None = None, top_n: int | None = None, drop_constant: bool = False) -> DataPreview",
+        "resource_type": "(self) -> ResourceType"
+      }
+    },
+    "ResourceInfo": {
+      "fields": {
+        "content_hash": "str",
+        "created_at": "datetime",
+        "discovery": "Mapping[str, Any]",
+        "metadata": "Mapping[str, Any]",
+        "readers": "tuple[str, ...]",
+        "resource_type": "ResourceType",
+        "tracking_id": "UUID",
+        "updated_at": "datetime",
+        "visibility": "Visibility"
+      },
+      "kind": "class",
+      "members": {
+        "content_hash": "attribute member_descriptor",
+        "created_at": "attribute member_descriptor",
+        "discovery": "attribute member_descriptor",
+        "metadata": "attribute member_descriptor",
+        "readers": "attribute member_descriptor",
+        "resource_type": "attribute member_descriptor",
+        "tracking_id": "attribute member_descriptor",
+        "updated_at": "attribute member_descriptor",
+        "visibility": "attribute member_descriptor"
+      }
+    },
+    "ResourceType": {
+      "kind": "enum",
+      "members": {
+        "BINARY": "binary",
+        "DOCUMENT": "document",
+        "FIGURE": "figure",
+        "GEOSPATIAL": "geospatial",
+        "TABULAR": "tabular",
+        "TIMESERIES": "timeseries"
+      }
+    },
+    "SelectionError": {
+      "bases": [
+        "BookshelfError",
+        "_UnquotedKeyError",
+        "KeyError",
+        "LookupError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "SeriesMetadata": {
+      "fields": {
+        "columns": "tuple[str, ...]",
+        "has_more": "bool",
+        "index": "tuple[Mapping[str, Any], ...]",
+        "limit": "int",
+        "offset": "int",
+        "total_rows": "int"
+      },
+      "kind": "class",
+      "members": {
+        "columns": "attribute member_descriptor",
+        "has_more": "attribute member_descriptor",
+        "index": "attribute member_descriptor",
+        "limit": "attribute member_descriptor",
+        "offset": "attribute member_descriptor",
+        "total_rows": "attribute member_descriptor"
+      }
+    },
+    "ServerError": {
+      "bases": [
+        "APIError",
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "TransportError": {
+      "bases": [
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "UnexpectedResponseError": {
+      "bases": [
+        "APIError",
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "UnsupportedConversionError": {
+      "bases": [
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "VersionNotFoundError": {
+      "bases": [
+        "NotFoundError",
+        "APIError",
+        "BookshelfError",
+        "_UnquotedKeyError",
+        "KeyError",
+        "LookupError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "Visibility": {
+      "kind": "enum",
+      "members": {
+        "HIDDEN": "hidden",
+        "ORG": "org",
+        "PUBLIC": "public"
+      }
+    },
+    "Volume": {
+      "kind": "class",
+      "members": {
+        "__contains__": "(self, version: str) -> bool",
+        "__getitem__": "(self, version: str) -> Book",
+        "__iter__": "(self) -> Iterator[str]",
+        "__len__": "(self) -> int",
+        "book": "(self, version: str | None = None, *, edition: int | None = None, refresh: bool = False) -> Book",
+        "description": "property -> str | None",
+        "discovery": "property -> dict[str, Any]",
+        "editions": "(self, version: str) -> tuple[int, ...]",
+        "latest": "property -> str | None",
+        "license": "property -> str | None",
+        "metadata": "property -> dict[str, Any]",
+        "title": "property -> str | None",
+        "versions": "property -> tuple[str, ...]"
+      }
+    },
+    "VolumeSearchResults": {
+      "fields": {
+        "has_more": "bool",
+        "items": "tuple[VolumeSummary, ...]",
+        "limit": "int",
+        "offset": "int",
+        "total": "int"
+      },
+      "kind": "class",
+      "members": {
+        "__iter__": "(self) -> Iterator[VolumeSummary]",
+        "has_more": "attribute member_descriptor",
+        "items": "attribute member_descriptor",
+        "limit": "attribute member_descriptor",
+        "offset": "attribute member_descriptor",
+        "total": "attribute member_descriptor"
+      }
+    },
+    "VolumeSummary": {
+      "fields": {
+        "deprecated": "bool",
+        "description": "str | None",
+        "discovery": "Mapping[str, Any]",
+        "formats": "tuple[str, ...]",
+        "latest_edition": "int | None",
+        "latest_version": "str | None",
+        "license": "str | None",
+        "name": "str",
+        "resource_types": "tuple[ResourceType, ...]",
+        "title": "str | None",
+        "total_resources": "int",
+        "total_size_bytes": "int"
+      },
+      "kind": "class",
+      "members": {
+        "deprecated": "attribute member_descriptor",
+        "description": "attribute member_descriptor",
+        "discovery": "attribute member_descriptor",
+        "formats": "attribute member_descriptor",
+        "latest_edition": "attribute member_descriptor",
+        "latest_version": "attribute member_descriptor",
+        "license": "attribute member_descriptor",
+        "name": "attribute member_descriptor",
+        "resource_types": "attribute member_descriptor",
+        "title": "attribute member_descriptor",
+        "total_resources": "attribute member_descriptor",
+        "total_size_bytes": "attribute member_descriptor"
+      }
+    },
+    "__version__": {
+      "kind": "value",
+      "type": "str"
+    }
+  },
+  "bookshelf.__all__": [
+    "APIError",
+    "ActionsTokenError",
+    "Activity",
+    "AsyncActivity",
+    "AsyncBook",
+    "AsyncBookEntry",
+    "AsyncBookshelf",
+    "AsyncDraftBook",
+    "AsyncResource",
+    "AsyncVolume",
+    "AuthConfigurationError",
+    "AuthenticationError",
+    "AuthenticationRequiredError",
+    "Book",
+    "BookCorrection",
+    "BookEntry",
+    "Bookshelf",
+    "BookshelfError",
+    "CacheDirectoryError",
+    "CacheSummary",
+    "ConfigurationError",
+    "ConflictError",
+    "ContentCache",
+    "ContractError",
+    "DataFrameSupportError",
+    "DataPreview",
+    "DraftBook",
+    "EntryNotFoundError",
+    "Facet",
+    "FacetValue",
+    "Facets",
+    "ForbiddenError",
+    "GatewayError",
+    "HashMismatchError",
+    "Identity",
+    "InvalidBundleError",
+    "InvalidRecipeError",
+    "InvalidReferenceError",
+    "ItemError",
+    "NotFoundError",
+    "OAuthError",
+    "OAuthProtocolError",
+    "OPENAPI_VERSION",
+    "PRODUCTION_API_URL",
+    "PartialRegistrationError",
+    "Problem",
+    "RateLimitError",
+    "RecordRefusedError",
+    "RecordingError",
+    "RegisterItem",
+    "RegistrationFailure",
+    "RegistrationSuccess",
+    "RequestValidationError",
+    "Resource",
+    "ResourceInfo",
+    "ResourceType",
+    "SelectionError",
+    "SeriesMetadata",
+    "ServerError",
+    "TransportError",
+    "UnexpectedResponseError",
+    "UnsupportedConversionError",
+    "Used",
+    "VersionNotFoundError",
+    "Visibility",
+    "Volume",
+    "VolumeSearchResults",
+    "VolumeSummary",
+    "__version__",
+    "setup"
+  ],
+  "bookshelf.auth": {
+    "ActionsOidcToken": {
+      "kind": "class",
+      "members": {
+        "access_token": "(self, send: Callable[[Request], Response]) -> str",
+        "async_auth_flow": "(self, request: Request) -> AsyncGenerator[Request, Response]",
+        "sync_auth_flow": "(self, request: Request) -> Generator[Request, Response, None]"
+      }
+    },
+    "ActionsTokenError": {
+      "bases": [
+        "AuthConfigurationError",
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "AuthConfigurationError": {
+      "bases": [
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "BsatAssertion": {
+      "kind": "class",
+      "members": {
+        "access_token": "(self, send: Callable[[Request], Response]) -> str",
+        "async_auth_flow": "(self, request: Request) -> AsyncGenerator[Request, Response]",
+        "sync_auth_flow": "(self, request: Request) -> Generator[Request, Response, None]"
+      }
+    },
+    "ClientCredentials": {
+      "kind": "class",
+      "members": {
+        "access_token": "(self, send: Callable[[Request], Response]) -> str",
+        "async_auth_flow": "(self, request: Request) -> AsyncGenerator[Request, Response]",
+        "sync_auth_flow": "(self, request: Request) -> Generator[Request, Response, None]"
+      }
+    },
+    "RefreshTokenExchange": {
+      "kind": "class",
+      "members": {
+        "access_token": "(self, send: Callable[[Request], Response]) -> str",
+        "async_auth_flow": "(self, request: Request) -> AsyncGenerator[Request, Response]",
+        "sync_auth_flow": "(self, request: Request) -> Generator[Request, Response, None]"
+      }
+    },
+    "StaticToken": {
+      "kind": "class",
+      "members": {
+        "access_token": "(self, _send: Callable[[Request], Response]) -> str",
+        "auth_flow": "(self, request: Request) -> Generator[Request, Response, None]"
+      }
+    },
+    "TokenProvider": {
+      "kind": "class",
+      "members": {
+        "access_token": "(self, send: Callable[[Request], Response]) -> str"
+      }
+    },
+    "access_token": {
+      "kind": "function",
+      "signature": "(api_url: str | None = None, *, timeout: float = 30.0) -> str | None"
+    },
+    "default_auth": {
+      "kind": "function",
+      "signature": "(api_url: str | None = None, *, strict: bool = False) -> Auth | None"
+    }
+  },
+  "bookshelf.legacy": {
+    "BookShelf": {
+      "kind": "class",
+      "members": {
+        "is_available": "(self, name: str, version: str | None = None, edition: int | None = None) -> bool",
+        "is_cached": "(self, name: str, version: str, edition: int) -> bool",
+        "list_books": "(self) -> list[str]",
+        "list_versions": "(self, name: str) -> list[str]",
+        "load": "(self, name: str, version: str | None = None, edition: int | None = None, force: bool = False) -> LocalBook"
+      }
+    },
+    "LocalBook": {
+      "kind": "class",
+      "members": {
+        "get_long_format_data": "(self, timeseries_name: str) -> DataFrame",
+        "long_version": "(self) -> str",
+        "metadata": "(self) -> dict[str, Any]",
+        "timeseries": "(self, timeseries_name: str) -> ScmRun"
+      }
+    },
+    "UnknownBook": {
+      "bases": [
+        "ValueError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "UnknownEdition": {
+      "bases": [
+        "UnknownVersion",
+        "ValueError",
+        "Exception"
+      ],
+      "kind": "error"
+    },
+    "UnknownVersion": {
+      "bases": [
+        "ValueError",
+        "Exception"
+      ],
+      "kind": "error"
+    }
+  }
+}
