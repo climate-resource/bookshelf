@@ -1,7 +1,7 @@
 # Configuration
 
 Constructor arguments take precedence over ambient configuration,
-so a value passed to `Bookshelf`, `AsyncBookshelf` or `BookshelfClient`
+so a value passed to `Bookshelf` or `AsyncBookshelf`
 always beats the matching environment variable.
 
 ## Choosing a deployment
