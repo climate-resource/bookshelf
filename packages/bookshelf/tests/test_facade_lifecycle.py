@@ -8,7 +8,7 @@ import httpx
 import pytest
 
 from bookshelf._core.errors import ConflictError, ForbiddenError, RequestValidationError
-from bookshelf.facade import AsyncBookshelf, Bookshelf
+from bookshelf._facade import AsyncBookshelf, Bookshelf
 from tests import _core_payloads as payloads
 
 BASE_URL = "https://bookshelf.test"

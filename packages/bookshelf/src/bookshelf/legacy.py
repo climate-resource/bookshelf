@@ -12,10 +12,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from bookshelf._consume.conversions import scmrun_class
+from bookshelf._consume.frames import legacy_long_timeseries
 from bookshelf._core.errors import NotFoundError
+from bookshelf._facade import Book, BookEntry, Bookshelf
 from bookshelf._records import Visibility
 from bookshelf.cache import ContentCache
-from bookshelf.facade import Book, BookEntry, Bookshelf
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -202,7 +203,7 @@ class LocalBook:
     def get_long_format_data(self, timeseries_name: str) -> pd.DataFrame:
         """Return a timeseries resource in the 0.4 long format."""
         _deprecated("LocalBook.get_long_format_data()", "BookEntry.as_long_df()")
-        return self._entry(timeseries_name).as_resource().as_long_df(legacy_columns=True)
+        return legacy_long_timeseries(self._entry(timeseries_name).as_resource().as_long_df())
 
 
 __all__ = ["BookShelf", "LocalBook", "UnknownBook", "UnknownEdition", "UnknownVersion"]

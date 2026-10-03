@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 
 from bookshelf._consume.volumes import AsyncVolume, Volume
-from bookshelf._core.errors import NotFoundError
+from bookshelf._core.errors import NotFoundError, VersionNotFoundError
 from bookshelf._generated import models
 from bookshelf.cache import ContentCache
 
@@ -167,6 +167,15 @@ def test_asking_for_a_book_without_a_version_resolves_the_latest(volume: Volume)
 
 def test_indexing_a_volume_resolves_that_version(volume: Volume) -> None:
     assert volume["v2.4"].version == "v2.4"
+
+
+def test_indexing_a_version_the_volume_lacks_is_a_key_error(volume: Volume) -> None:
+    with pytest.raises(KeyError, match="no version 'v9'") as caught:
+        volume["v9"]
+
+    assert isinstance(caught.value, VersionNotFoundError)
+    assert isinstance(caught.value, NotFoundError)
+    assert volume._client.asked == []  # type: ignore[attr-defined]
 
 
 def test_a_volume_with_nothing_published_refuses_to_guess_a_latest(cache: ContentCache) -> None:

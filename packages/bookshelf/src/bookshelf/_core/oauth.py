@@ -149,7 +149,7 @@ class OAuthError(BookshelfError):
     Covers the flow itself rather than one HTTP response,
     so it carries no status code and no OAuth error code.
     A token endpoint that answers with an ``{"error": ...}`` body
-    raises :class:`~bookshelf._core.errors.OAuthProtocolError` instead.
+    raises [`OAuthProtocolError`][bookshelf.OAuthProtocolError] instead.
     """
 
 

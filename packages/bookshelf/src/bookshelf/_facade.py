@@ -43,10 +43,15 @@ from bookshelf._produce.facade import (
     AsyncLiveSink,
     AsyncProduceSink,
     LiveSink,
+    ProcessingInput,
     ProduceSink,
 )
 from bookshelf._produce.facade import people as _people
-from bookshelf._records import BookCorrection, Identity, VolumeSearchResults
+from bookshelf._produce.resources import AsyncResource as AsyncProducedResource
+from bookshelf._produce.resources import Resource as ProducedResource
+from bookshelf._produce.types import AuthorInput
+from bookshelf._produce.visibility import INHERIT, VisibilityInput
+from bookshelf._records import BookCorrection, Identity, ResourceType, VolumeSearchResults
 from bookshelf._records import book_correction as _book_correction_record
 from bookshelf._records import identity as _identity
 from bookshelf._records import search_results as _search_results
@@ -240,16 +245,8 @@ class Bookshelf:
         )
         self._cache = ContentCache() if cache is None else cache
         self._book_ttl = default_book_ttl() if book_ttl is None else _book_ttl(book_ttl)
-        # A subclass changes these by rebinding them after this runs, not by redefining them.
-        sink: ProduceSink = LiveSink(self._client, self._cache)
-        self.activity = sink.activity
-        """Open an ambient producer activity with deterministic provenance."""
-        self.register_external = sink.register_external
-        """Catalogue an external pointer without attributing it to an activity."""
-        self.register_file = sink.register_file
-        """Upload a file and catalogue it as an input, attributing it to no activity."""
-        self.draft_book = sink.draft_book
-        """Create a mutable draft whose membership changes remain intentional calls."""
+        # A subclass reroutes every producer call by replacing the sink.
+        self._sink: ProduceSink = LiveSink(self._client, self._cache)
 
     def __enter__(self) -> Self:
         return self
@@ -260,6 +257,129 @@ class Bookshelf:
     def close(self) -> None:
         """Close the sync transport if it was opened."""
         self._client.close()
+
+    def activity(
+        self,
+        *,
+        code_ref: str | None = None,
+        config: Mapping[str, Any] | None = None,
+        kind: str = "run",
+        runner: str | None = None,
+        activity_id: UUID | None = None,
+        config_hash: str | None = None,
+    ) -> Activity:
+        """Open an ambient producer activity with deterministic provenance."""
+        return self._sink.activity(
+            code_ref=code_ref,
+            config=config,
+            kind=kind,
+            runner=runner,
+            activity_id=activity_id,
+            config_hash=config_hash,
+        )
+
+    def register_external(
+        self,
+        *,
+        type: str | ResourceType,
+        uri: str,
+        hash: str | None = None,
+        name: str | None = None,
+        visibility: VisibilityInput = INHERIT,
+        tags: Sequence[str] = (),
+        description: str | None = None,
+        authors: Sequence[AuthorInput] | None = None,
+        doi: str | None = None,
+        citation: str | None = None,
+        license: str | None = None,
+        license_url: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        tracking_id: UUID | None = None,
+    ) -> ProducedResource:
+        """Catalogue an external pointer without attributing it to an activity."""
+        return self._sink.register_external(
+            type=type,
+            uri=uri,
+            hash=hash,
+            name=name,
+            visibility=visibility,
+            tags=tags,
+            description=description,
+            authors=authors,
+            doi=doi,
+            citation=citation,
+            license=license,
+            license_url=license_url,
+            metadata=metadata,
+            tracking_id=tracking_id,
+        )
+
+    def register_file(
+        self,
+        *,
+        type: str | ResourceType,
+        path: Path,
+        hash: str | None = None,
+        name: str | None = None,
+        visibility: VisibilityInput = INHERIT,
+        tags: Sequence[str] = (),
+        description: str | None = None,
+        authors: Sequence[AuthorInput] | None = None,
+        doi: str | None = None,
+        citation: str | None = None,
+        license: str | None = None,
+        license_url: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        tracking_id: UUID | None = None,
+    ) -> ProducedResource:
+        """Upload a file and catalogue it as an input, attributing it to no activity."""
+        return self._sink.register_file(
+            type=type,
+            path=path,
+            hash=hash,
+            name=name,
+            visibility=visibility,
+            tags=tags,
+            description=description,
+            authors=authors,
+            doi=doi,
+            citation=citation,
+            license=license,
+            license_url=license_url,
+            metadata=metadata,
+            tracking_id=tracking_id,
+        )
+
+    def draft_book(
+        self,
+        volume: str,
+        *,
+        version: str,
+        description: str | None = None,
+        license: str | None = None,
+        visibility: VisibilityInput = INHERIT,
+        metadata: Mapping[str, Any] | None = None,
+        bundle_hash: str | None = None,
+        discovery: Mapping[str, Any] | None = None,
+        authors: Sequence[Mapping[str, Any]] | None = None,
+        processing: ProcessingInput | None = None,
+    ) -> DraftBook:
+        """Create a mutable draft whose membership changes remain intentional calls.
+
+        The credential is confirmed first, logging in when a stored login is missing.
+        """
+        return self._sink.draft_book(
+            volume,
+            version=version,
+            description=description,
+            license=license,
+            visibility=visibility,
+            metadata=metadata,
+            bundle_hash=bundle_hash,
+            discovery=discovery,
+            authors=authors,
+            processing=processing,
+        )
 
     def ensure_authenticated(self, *, interactive: bool | None = None) -> Identity:
         """Confirm the API accepts this client's credential, logging in first when it can.
@@ -453,17 +573,17 @@ class Bookshelf:
 
         return send_bundle(self._client, bundle)
 
-    def discard_draft(self, book_id: str) -> None:
+    def discard_draft(self, book_id: str | UUID) -> None:
         """Delete a draft book, so a failed publish leaves no edition behind.
 
         Only a draft can be discarded.
         A published book is protected by the API and arrives back as an error.
         """
-        self._client.delete_book(book_id)
+        self._client.delete_book(str(book_id))
 
     def update_draft(
         self,
-        book_id: str,
+        book_id: str | UUID,
         *,
         metadata: Mapping[str, Any] | None = None,
     ) -> models.BookResponse:
@@ -473,7 +593,7 @@ class Bookshelf:
         Its discovery profile is baked on at creation and is not revisable here.
         """
         return self._client.update_book(
-            book_id,
+            str(book_id),
             _book_update(
                 metadata=metadata,
             ),
@@ -569,15 +689,7 @@ class AsyncBookshelf:
         )
         self._cache = ContentCache() if cache is None else cache
         self._book_ttl = default_book_ttl() if book_ttl is None else _book_ttl(book_ttl)
-        sink: AsyncProduceSink = AsyncLiveSink(self._client, self._cache)
-        self.activity = sink.activity
-        """Open an ambient asynchronous producer activity."""
-        self.register_external = sink.register_external
-        """Catalogue an external pointer without attributing it to an activity."""
-        self.register_file = sink.register_file
-        """Upload a file and catalogue it as an input, attributing it to no activity."""
-        self.draft_book = sink.draft_book
-        """Create an asynchronous mutable draft book handle."""
+        self._sink: AsyncProduceSink = AsyncLiveSink(self._client, self._cache)
 
     async def __aenter__(self) -> Self:
         return self
@@ -588,6 +700,129 @@ class AsyncBookshelf:
     async def aclose(self) -> None:
         """Close both transport surfaces if either was opened."""
         await self._client.aclose()
+
+    def activity(
+        self,
+        *,
+        code_ref: str | None = None,
+        config: Mapping[str, Any] | None = None,
+        kind: str = "run",
+        runner: str | None = None,
+        activity_id: UUID | None = None,
+        config_hash: str | None = None,
+    ) -> AsyncActivity:
+        """Open an ambient asynchronous producer activity."""
+        return self._sink.activity(
+            code_ref=code_ref,
+            config=config,
+            kind=kind,
+            runner=runner,
+            activity_id=activity_id,
+            config_hash=config_hash,
+        )
+
+    async def register_external(
+        self,
+        *,
+        type: str | ResourceType,
+        uri: str,
+        hash: str | None = None,
+        name: str | None = None,
+        visibility: VisibilityInput = INHERIT,
+        tags: Sequence[str] = (),
+        description: str | None = None,
+        authors: Sequence[AuthorInput] | None = None,
+        doi: str | None = None,
+        citation: str | None = None,
+        license: str | None = None,
+        license_url: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        tracking_id: UUID | None = None,
+    ) -> AsyncProducedResource:
+        """Catalogue an external pointer without attributing it to an activity."""
+        return await self._sink.register_external(
+            type=type,
+            uri=uri,
+            hash=hash,
+            name=name,
+            visibility=visibility,
+            tags=tags,
+            description=description,
+            authors=authors,
+            doi=doi,
+            citation=citation,
+            license=license,
+            license_url=license_url,
+            metadata=metadata,
+            tracking_id=tracking_id,
+        )
+
+    async def register_file(
+        self,
+        *,
+        type: str | ResourceType,
+        path: Path,
+        hash: str | None = None,
+        name: str | None = None,
+        visibility: VisibilityInput = INHERIT,
+        tags: Sequence[str] = (),
+        description: str | None = None,
+        authors: Sequence[AuthorInput] | None = None,
+        doi: str | None = None,
+        citation: str | None = None,
+        license: str | None = None,
+        license_url: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        tracking_id: UUID | None = None,
+    ) -> AsyncProducedResource:
+        """Upload a file and catalogue it as an input, attributing it to no activity."""
+        return await self._sink.register_file(
+            type=type,
+            path=path,
+            hash=hash,
+            name=name,
+            visibility=visibility,
+            tags=tags,
+            description=description,
+            authors=authors,
+            doi=doi,
+            citation=citation,
+            license=license,
+            license_url=license_url,
+            metadata=metadata,
+            tracking_id=tracking_id,
+        )
+
+    async def draft_book(
+        self,
+        volume: str,
+        *,
+        version: str,
+        description: str | None = None,
+        license: str | None = None,
+        visibility: VisibilityInput = INHERIT,
+        metadata: Mapping[str, Any] | None = None,
+        bundle_hash: str | None = None,
+        discovery: Mapping[str, Any] | None = None,
+        authors: Sequence[Mapping[str, Any]] | None = None,
+        processing: ProcessingInput | None = None,
+    ) -> AsyncDraftBook:
+        """Create an asynchronous mutable draft book handle.
+
+        The credential is confirmed first, logging in when a stored login is missing.
+        """
+        return await self._sink.draft_book(
+            volume,
+            version=version,
+            description=description,
+            license=license,
+            visibility=visibility,
+            metadata=metadata,
+            bundle_hash=bundle_hash,
+            discovery=discovery,
+            authors=authors,
+            processing=processing,
+        )
 
     async def ensure_authenticated(self, *, interactive: bool | None = None) -> Identity:
         """Confirm the API accepts this client's credential, logging in first when it can.
@@ -768,17 +1003,17 @@ class AsyncBookshelf:
 
         return await send_bundle_async(self._client, bundle)
 
-    async def discard_draft(self, book_id: str) -> None:
+    async def discard_draft(self, book_id: str | UUID) -> None:
         """Delete a draft book, so a failed publish leaves no edition behind.
 
         Only a draft can be discarded.
         A published book is protected by the API and arrives back as an error.
         """
-        await self._client.delete_book_async(book_id)
+        await self._client.delete_book_async(str(book_id))
 
     async def update_draft(
         self,
-        book_id: str,
+        book_id: str | UUID,
         *,
         metadata: Mapping[str, Any] | None = None,
     ) -> models.BookResponse:
@@ -788,7 +1023,7 @@ class AsyncBookshelf:
         Its discovery profile is baked on at creation and is not revisable here.
         """
         return await self._client.update_book_async(
-            book_id,
+            str(book_id),
             _book_update(
                 metadata=metadata,
             ),

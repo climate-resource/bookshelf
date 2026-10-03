@@ -8,7 +8,7 @@ from bookshelf._consume.books import AsyncBook, Book
 from bookshelf._consume.lookup import resolve_book, resolve_book_async
 from bookshelf._consume.presentation import Describable, Section, Sections, human_bytes
 from bookshelf._core.client import BookshelfClient
-from bookshelf._core.errors import NotFoundError
+from bookshelf._core.errors import NotFoundError, VersionNotFoundError
 from bookshelf._core.names import book_coordinate, version_key
 from bookshelf._generated import models
 from bookshelf._records import discovery_text, json_fields
@@ -95,12 +95,15 @@ class _VolumeBase(Describable):
         return next(reversed(self._versions), None)
 
     def editions(self, version: str) -> tuple[int, ...]:
-        """The published editions of one version, oldest first."""
+        """The published editions of one version, oldest first.
+
+        A version the volume has not published raises ``VersionNotFoundError``, which is also a ``KeyError``.
+        """
         try:
             return self._versions[version]
         except KeyError:
             available = ", ".join(self._versions) or "(none)"
-            raise NotFoundError(
+            raise VersionNotFoundError(
                 f"volume {self.name!r} has no version {version!r}, available: {available}",
                 status_code=404,
             ) from None
@@ -120,6 +123,7 @@ class _VolumeBase(Describable):
     def _resolve(self, version: str | None) -> str:
         """Settle which version a lookup means, defaulting to the newest."""
         if version is not None:
+            self.editions(version)
             return version
         latest = self.latest
         if latest is None:
@@ -172,7 +176,10 @@ class Volume(_VolumeBase):
         )
 
     def __getitem__(self, version: str) -> Book:
-        """Resolve the newest edition of one version, the same as ``book(version)``."""
+        """Resolve the newest edition of one version, the same as ``book(version)``.
+
+        A version the volume has not published raises ``VersionNotFoundError``, which is also a ``KeyError``.
+        """
         return self.book(version)
 
 

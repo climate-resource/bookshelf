@@ -14,8 +14,8 @@ from typing import Any
 import httpx
 import pytest
 
+from bookshelf._facade import AsyncBookshelf, Bookshelf
 from bookshelf.cache import ContentCache
-from bookshelf.facade import AsyncBookshelf, Bookshelf
 from tests import _core_payloads as payloads
 
 BASE_URL = "https://bookshelf.test"

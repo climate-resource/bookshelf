@@ -18,7 +18,7 @@ import httpx
 import pytest
 
 from bookshelf._core.errors import BookshelfError
-from bookshelf.facade import AsyncBookshelf, Bookshelf
+from bookshelf._facade import AsyncBookshelf, Bookshelf
 from bookshelf.publisher.bundle import Bundle, InvalidBundleError
 from bookshelf.publisher.recipe import load_record_recipe
 from bookshelf.publisher.record import _ACTIVE_RECORDING, _RecordingContext, setup

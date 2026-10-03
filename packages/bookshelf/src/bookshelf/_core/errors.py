@@ -106,6 +106,10 @@ class EntryNotFoundError(NotFoundError, _UnquotedKeyError):
     """A book indexes no entry by the requested name."""
 
 
+class VersionNotFoundError(NotFoundError, _UnquotedKeyError):
+    """A volume has published no book under the requested version."""
+
+
 class ConflictError(APIError):
     """Raised on HTTP 409 responses."""
 
@@ -199,6 +203,14 @@ class UnexpectedResponseError(APIError):
     """Raised when the server answers with a status the contract does not declare."""
 
 
+class ContractError(APIError):
+    """The API answered with JSON that is not shaped like the operation's response.
+
+    The server and this SDK disagree about the contract, usually because one of them is out of date.
+    Upgrading bookshelf is the first thing to try.
+    """
+
+
 _ERROR_BY_STATUS: dict[int, type[APIError]] = {
     400: RequestValidationError,
     401: AuthenticationError,
@@ -247,21 +259,29 @@ def _non_json_detail(response: ApiResponse) -> str:
     return describe_body(response.status_code, response.media_type, empty=not response.content)
 
 
-def unexpected_body_error(response: ApiResponse, cause: Exception) -> GatewayError:
-    """Report a success whose body is not what the operation returns, naming where it came from."""
+def unexpected_body_error(response: ApiResponse, cause: Exception) -> GatewayError | ContractError:
+    """Report a success whose body is not what the operation returns, naming where it came from.
+
+    A body that is not JSON came from something in front of the API.
+    JSON of the wrong shape came from the API itself, so it is contract drift.
+    """
     described = _non_json_detail(response)
+    error: type[GatewayError | ContractError]
     if _json_body(response) is _NOT_JSON:
+        error = GatewayError
         detail = (
             f"{described}, not the JSON the Bookshelf API returns. "
             "Check the API URL names the deployment root"
         )
     else:
+        error = ContractError
         detail = f"{described} that is not shaped like this operation's response"
         if isinstance(cause, PydanticValidationError):
             first = cause.errors()[0]
             location = ".".join(str(part) for part in first["loc"])
             detail = f"{detail} ({location}: {first['msg']})" if location else detail
-    return GatewayError(
+        detail = f"{detail}. Upgrading bookshelf may fix this"
+    return error(
         detail,
         status_code=response.status_code,
         request_method=response.method,

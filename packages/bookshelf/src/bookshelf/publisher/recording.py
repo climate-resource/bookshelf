@@ -20,6 +20,7 @@ from bookshelf._core.config import UNSET, AuthInput
 from bookshelf._core.errors import BookshelfError
 from bookshelf._core.hashing import sha256_path
 from bookshelf._core.names import validate_resource_name
+from bookshelf._facade import Bookshelf
 from bookshelf._generated import models
 from bookshelf._produce import helpers
 from bookshelf._produce.activities import Activity
@@ -40,7 +41,6 @@ from bookshelf._produce.serialise import (
 from bookshelf._produce.types import AuthorInput, HasTrackingId, RegisterItem, Role, UsedInput
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
 from bookshelf.cache import ContentCache
-from bookshelf.facade import Bookshelf
 from bookshelf.publisher.bundle import (
     Bundle,
     BundleActivity,
@@ -963,10 +963,7 @@ class RecordingBookshelf(Bookshelf):
         )
         # Every producer call moves to the recording adapter,
         # so reads stay live and writes land in the bundle.
-        self.activity = self.recording_sink.activity
-        self.register_external = self.recording_sink.register_external
-        self.register_file = self.recording_sink.register_file
-        self.draft_book = self.recording_sink.draft_book
+        self._sink = self.recording_sink
 
     def use(self, name: str) -> ResolvedResource | dict[str, ResolvedResource]:
         """Resolve one resource the recorded version declares."""

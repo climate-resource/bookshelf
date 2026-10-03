@@ -15,10 +15,10 @@ import pytest
 
 from bookshelf import HashMismatchError
 from bookshelf._core.errors import BookshelfError, NotFoundError
+from bookshelf._facade import Bookshelf
 from bookshelf._generated import models
 from bookshelf._produce.books import DraftBook
 from bookshelf.cache import ContentCache
-from bookshelf.facade import Bookshelf
 from bookshelf.publisher import resource as resource_module
 from bookshelf.publisher.bundle import Bundle, BundleResource
 from bookshelf.publisher.recipe import load_record_recipe

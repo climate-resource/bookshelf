@@ -13,6 +13,10 @@ class _Inherit(enum.Enum):
 
     INHERIT = enum.auto()
 
+    def __repr__(self) -> str:
+        # Rendered as the default in public signatures.
+        return "<inherited>"
+
 
 INHERIT = _Inherit.INHERIT
 

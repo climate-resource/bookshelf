@@ -669,7 +669,8 @@ def test_as_long_df_can_drop_missing_values(tmp_path: Path, server_side: bool) -
     assert len(full) == 6, "missing values stay by default"
     assert len(dense) == 3
     pd.testing.assert_frame_equal(dense, full.dropna(subset=["value"]).reset_index(drop=True))
-    legacy = entry.as_long_df(server_side=server_side, dropna=True, legacy_columns=True)
+    with pytest.warns(DeprecationWarning, match="legacy_columns"):
+        legacy = entry.as_long_df(server_side=server_side, dropna=True, legacy_columns=True)
     assert legacy["values"].notna().all()
     assert len(legacy) == 3
 

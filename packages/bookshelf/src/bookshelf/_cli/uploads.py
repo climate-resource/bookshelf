@@ -12,8 +12,8 @@ import typer
 from bookshelf._cli._runtime import base_url, command_errors, emit_payload
 from bookshelf._core.hashing import sha256_path
 from bookshelf._core.names import flatten_to_resource_name
+from bookshelf._facade import Bookshelf
 from bookshelf._generated import models
-from bookshelf.facade import Bookshelf
 from bookshelf.publisher.reference import DigestReference
 
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import shutil
+import warnings
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -122,6 +123,16 @@ def _read_cached(
     frame = read_frame(path, scan=scan)
     coded = scans[0].dictionary if scans else None
     return settle_cached(resource_type, frame, selection, coded or ())
+
+
+def _warn_legacy_columns(legacy_columns: bool) -> None:
+    if legacy_columns:
+        warnings.warn(
+            "as_long_df(legacy_columns=True) is deprecated and will be removed in bookshelf 2.0, "
+            "use the tidy year and value columns instead",
+            DeprecationWarning,
+            stacklevel=3,
+        )
 
 
 def _long(wide: pd.DataFrame, legacy_columns: bool, dropna: bool) -> pd.DataFrame:
@@ -314,7 +325,9 @@ class Resource(_ResourceHandle):
         ``legacy_columns`` reproduces the 0.4 long format instead:
         a ``values`` column, a ``year`` column of ``YYYY-01-01 00:00:00`` strings,
         and rows sorted by the dimensions and then the year.
+        It is deprecated and will be removed in bookshelf 2.0.
         """
+        _warn_legacy_columns(legacy_columns)
         wide = self._read(
             "as_long_df()", filters, year_min, year_max, server_side, timeseries_only=True
         )
@@ -624,7 +637,9 @@ class AsyncResource(_ResourceHandle):
         ``legacy_columns`` reproduces the 0.4 long format instead:
         a ``values`` column, a ``year`` column of ``YYYY-01-01 00:00:00`` strings,
         and rows sorted by the dimensions and then the year.
+        It is deprecated and will be removed in bookshelf 2.0.
         """
+        _warn_legacy_columns(legacy_columns)
         wide = await self._read(
             "as_long_df()", filters, year_min, year_max, server_side, timeseries_only=True
         )

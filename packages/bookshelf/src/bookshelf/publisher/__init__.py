@@ -48,6 +48,7 @@ It returns a :class:`PublishOutcome` saying what the publish resolved to::
         outcome = publish_bundle(Bundle.read(Path("bundle")), bs)
 """
 
+from bookshelf._produce.helpers import uuid7
 from bookshelf.publisher.bundle import Bundle, BundleManifest, InvalidBundleError
 from bookshelf.publisher.publish import PublishOutcome, publish_bundle
 from bookshelf.publisher.recipe import InvalidRecipeError, RecordRecipe, load_record_recipe
@@ -101,4 +102,5 @@ __all__ = [
     "resolve_resource",
     "run_record",
     "setup",
+    "uuid7",
 ]
