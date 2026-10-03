@@ -21,12 +21,11 @@ because a spent login must not cost the caller the public data it never needed a
 import enum
 import os
 import threading
-import warnings
 from collections.abc import Callable, Mapping
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Any, Literal
 
 import httpx
 
@@ -40,6 +39,7 @@ from bookshelf._core.auth import (
     RefreshTokenExchange,
     StaticToken,
     TokenProvider,
+    _RefreshingAuth,
     decode_jwt_expiry,
 )
 from bookshelf._core.config import AUTH_MODE_VAR, GITHUB_ACTIONS_AUTH_MODE
@@ -49,7 +49,7 @@ from bookshelf._core.credentials import (
     StoredCredentials,
     default_store,
 )
-from bookshelf._core.errors import AuthConfigurationError
+from bookshelf._core.errors import AuthConfigurationError, AuthenticationError
 
 _SPENT_CREDENTIAL_MESSAGE = (
     "The stored Bookshelf login could not be refreshed, "
@@ -287,18 +287,43 @@ def _client_credentials(environ: Mapping[str, str]) -> ClientCredentials:
     )
 
 
+class _StoreGuard(_RefreshingAuth):
+    """Refuse an exchange while a newer bookshelf owns the store.
+
+    The exchange spends a single-use secret the newer install still needs,
+    and the replacement could not be saved, so the check runs before every exchange.
+    """
+
+    def __init__(self, store: CredentialStore, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+        super().__init__(*args, **kwargs)
+        self._store = store
+
+    def _refresh_request(self) -> httpx.Request:
+        if self._store.read_only():
+            raise AuthenticationError(
+                "the credentials file was written by a newer bookshelf, "
+                "so this version will not refresh its tokens. "
+                "Upgrade bookshelf, or set BOOKSHELF_TOKEN",
+                status_code=401,
+                request_method="POST",
+                request_url=self._token_url,
+            )
+        return super()._refresh_request()
+
+
+class _GuardedRefreshTokenExchange(_StoreGuard, RefreshTokenExchange):
+    pass
+
+
+class _GuardedBsatAssertion(_StoreGuard, BsatAssertion):
+    pass
+
+
 def _provider_from_stored(stored: StoredCredentials, store: CredentialStore) -> TokenProvider:
-    if store.read_only():
-        # Refreshing spends a single-use secret the newer install still needs, and it could not be saved.
-        warnings.warn(
-            "the credentials file was written by a newer bookshelf, so its access token is used "
-            "as stored and never refreshed. Upgrade bookshelf, or set BOOKSHELF_TOKEN",
-            stacklevel=2,
-        )
-        return StaticToken(stored.access_token)
     expires_at = stored.expires_at.timestamp() if stored.expires_at is not None else None
     if stored.kind is CredentialKind.AGENT and stored.identity_assertion is not None:
-        return BsatAssertion(
+        return _GuardedBsatAssertion(
+            store,
             stored.identity_assertion,
             base_url=stored.api_url,
             access_token=stored.access_token,
@@ -317,7 +342,8 @@ def _provider_from_stored(stored: StoredCredentials, store: CredentialStore) -> 
             "Set BOOKSHELF_WORKOS_CLIENT_ID to your WorkOS client ID, "
             "or pass an explicit auth= provider."
         )
-    return RefreshTokenExchange(
+    return _GuardedRefreshTokenExchange(
+        store,
         stored.access_token,
         stored.refresh_token,
         token_url=f"{oauth.get_workos_base_url()}/user_management/authenticate",

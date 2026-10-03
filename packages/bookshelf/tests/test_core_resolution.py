@@ -324,32 +324,74 @@ def test_an_adopted_login_uses_the_new_record() -> None:
     assert isinstance(adopted.token_provider(), StaticToken)
 
 
-def test_a_newer_store_is_never_refreshed_against(tmp_path: Path) -> None:
+NEWER_API = "https://api.example"
+
+
+def _store_file(path: Path, version: int, expires_at: str) -> str:
+    text = json.dumps(
+        {
+            "version": version,
+            "records": {
+                f"{NEWER_API}|user": {
+                    "access_token": "theirs",
+                    "api_url": NEWER_API,
+                    "kind": "user",
+                    "refresh_token": "single-use",
+                    "expires_at": expires_at,
+                }
+            },
+            "active": {NEWER_API: "user"},
+        }
+    )
+    path.write_text(text)
+    return text
+
+
+def _refuse_requests(request: httpx.Request) -> httpx.Response:
+    pytest.fail(f"no request expected, got {request.url}")
+
+
+@pytest.fixture
+def workos_client_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(oauth, "resolve_workos_client_id", lambda _url: "client")
+
+
+@pytest.mark.usefixtures("workos_client_id")
+def test_a_newer_store_serves_a_live_token_without_refreshing(tmp_path: Path) -> None:
+    path = tmp_path / "credentials.json"
+    _store_file(path, credentials.STORE_VERSION + 1, "2999-01-01T00:00:00+00:00")
+    store = credentials.FileCredentialStore(path)
+
+    provider = resolve_credential(NEWER_API, environ={}, store=store).token_provider()
+
+    assert provider is not None
+    assert provider.access_token(_refuse_requests) == "theirs"
+
+
+@pytest.mark.usefixtures("workos_client_id")
+def test_a_newer_store_refuses_to_refresh_an_expired_token(tmp_path: Path) -> None:
     """Refreshing would spend the single-use refresh token the newer install still needs."""
     path = tmp_path / "credentials.json"
-    path.write_text(
-        json.dumps(
-            {
-                "version": credentials.STORE_VERSION + 1,
-                "records": {
-                    "https://api.example|user": {
-                        "access_token": "theirs",
-                        "api_url": "https://api.example",
-                        "kind": "user",
-                        "refresh_token": "single-use",
-                        "expires_at": "2000-01-01T00:00:00+00:00",
-                    }
-                },
-                "active": {"https://api.example": "user"},
-            }
-        )
-    )
-    credential = resolve_credential(
-        "https://api.example", environ={}, store=credentials.FileCredentialStore(path)
-    )
+    before = _store_file(path, credentials.STORE_VERSION + 1, "2000-01-01T00:00:00+00:00")
+    store = credentials.FileCredentialStore(path)
 
-    with pytest.warns(UserWarning, match="never refreshed"):
-        provider = credential.token_provider()
+    provider = resolve_credential(NEWER_API, environ={}, store=store).token_provider()
 
-    assert isinstance(provider, StaticToken)
-    assert provider.access_token(lambda _: pytest.fail("no request expected")) == "theirs"
+    assert provider is not None
+    with pytest.raises(AuthenticationError, match="newer bookshelf"):
+        provider.access_token(_refuse_requests)
+    assert path.read_text() == before
+
+
+@pytest.mark.usefixtures("workos_client_id")
+def test_a_store_upgraded_after_resolution_is_not_refreshed_against(tmp_path: Path) -> None:
+    path = tmp_path / "credentials.json"
+    _store_file(path, credentials.STORE_VERSION, "2000-01-01T00:00:00+00:00")
+    store = credentials.FileCredentialStore(path)
+    provider = resolve_credential(NEWER_API, environ={}, store=store).token_provider()
+    upgraded = _store_file(path, credentials.STORE_VERSION + 1, "2000-01-01T00:00:00+00:00")
+
+    assert provider is not None
+    with pytest.raises(AuthenticationError, match="newer bookshelf"):
+        provider.access_token(_refuse_requests)
+    assert path.read_text() == upgraded

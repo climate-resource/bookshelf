@@ -515,3 +515,33 @@ def test_logout_leaves_a_newer_store_alone() -> None:
     assert "newer bookshelf" in " ".join(result.stderr.split())
     assert "Revoked" not in result.stderr
     assert path.read_text() == newer
+
+
+def test_token_from_an_expired_newer_store_is_a_credential_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BOOKSHELF_WORKOS_CLIENT_ID", "client")
+    path = credentials.credentials_path()
+    newer = json.dumps(
+        {
+            "version": credentials.STORE_VERSION + 1,
+            "records": {
+                f"{API_URL}|user": {
+                    "access_token": "theirs",
+                    "api_url": API_URL,
+                    "kind": "user",
+                    "refresh_token": "single-use",
+                    "expires_at": "2000-01-01T00:00:00+00:00",
+                }
+            },
+            "active": {API_URL: "user"},
+        }
+    )
+    path.write_text(newer)
+
+    result = runner.invoke(app, ["auth", "token"])
+
+    assert result.exit_code == 3
+    assert result.stdout == ""
+    assert "newer bookshelf" in " ".join(result.stderr.split())
+    assert path.read_text() == newer
