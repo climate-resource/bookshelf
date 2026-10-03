@@ -7,7 +7,11 @@ The ones most likely to need action are:
 - `bookshelf validate --json`, `search --json` and `auth list --json` changed shape.
 - A refused `record` parameter and a malformed base URL now exit 2.
 - A recipe `uri` input over `http://` is refused, so it has to move to `https://`.
-- Methods that returned generated models now return SDK-owned types.
+- The promised API now returns SDK-owned types instead of generated models.
+  The producer and curation API is provisional, see [Outside the promise](api/index.md#outside-the-promise).
+- A response of the wrong shape now raises the new `ContractError`.
+- `ResourceInfo` gains `resource_type` and `content_hash`.
+- `Book.metadata` and `Volume.metadata` are now plain dicts, with new properties alongside them.
 
 The `bookshelf` command line interface, its exit codes and its JSON output are outside the
 [semantic versioning promise](api/index.md#outside-the-promise), so they can change in a minor release.
