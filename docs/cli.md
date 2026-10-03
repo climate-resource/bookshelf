@@ -75,6 +75,7 @@ Use `bookshelf auth list --json` to see what is stored, and `bookshelf auth toke
 A file written by a newer `bookshelf` is read for whatever this version understands, and never overwritten,
 so going back to an older version cannot log the newer one out.
 Logging in or out with the older version fails with exit code 2 until you upgrade.
+The older version also never refreshes a token from that file, because refreshing spends a secret the newer one needs.
 
 ## Command reference
 

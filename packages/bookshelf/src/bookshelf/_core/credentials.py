@@ -161,6 +161,10 @@ class CredentialStore(Protocol):
         """Delete every record, one deployment's records, or one identity on one deployment."""
         ...
 
+    def read_only(self) -> bool:
+        """Report whether a newer bookshelf owns the store, so nothing may be written back to it."""
+        ...
+
 
 class _ReadOnlyStoreError(AuthConfigurationError):
     """The credentials file belongs to a newer bookshelf, so this version will not write it."""
@@ -262,6 +266,9 @@ class _DocumentStore(CredentialStore, ABC):
     def _update(self) -> Iterator[dict[str, Any]]:
         """Yield the current document for changing in place, then persist it if it changed."""
 
+    def read_only(self) -> bool:
+        return False
+
     def load(self, api_url: str | None = None) -> StoredCredentials | None:
         store = self._read()
         target = normalise_api_url(api_url) if api_url is not None else store.get("default_api_url")
@@ -352,6 +359,9 @@ class FileCredentialStore(_DocumentStore):
 
     def _read(self) -> dict[str, Any]:
         return self._load()[0]
+
+    def read_only(self) -> bool:
+        return self._load()[1] is _FileState.NEWER
 
     def _load(self) -> tuple[dict[str, Any], _FileState]:
         """Return the document, and what a write has to do about the file it came from.

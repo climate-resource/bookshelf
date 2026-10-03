@@ -1,13 +1,15 @@
 """Tests for credential resolution: explicit beats ambient, machine beats human."""
 
+import json
 import time
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from pathlib import Path
 
 import httpx
 import pytest
 
-from bookshelf._core import oauth
+from bookshelf._core import credentials, oauth
 from bookshelf._core.auth import (
     ActionsOidcToken,
     AnonymousFallback,
@@ -320,3 +322,34 @@ def test_an_adopted_login_uses_the_new_record() -> None:
     assert adopted.source is CredentialSource.STORED_LOGIN
     assert adopted.store is credential.store
     assert isinstance(adopted.token_provider(), StaticToken)
+
+
+def test_a_newer_store_is_never_refreshed_against(tmp_path: Path) -> None:
+    """Refreshing would spend the single-use refresh token the newer install still needs."""
+    path = tmp_path / "credentials.json"
+    path.write_text(
+        json.dumps(
+            {
+                "version": credentials.STORE_VERSION + 1,
+                "records": {
+                    "https://api.example|user": {
+                        "access_token": "theirs",
+                        "api_url": "https://api.example",
+                        "kind": "user",
+                        "refresh_token": "single-use",
+                        "expires_at": "2000-01-01T00:00:00+00:00",
+                    }
+                },
+                "active": {"https://api.example": "user"},
+            }
+        )
+    )
+    credential = resolve_credential(
+        "https://api.example", environ={}, store=credentials.FileCredentialStore(path)
+    )
+
+    with pytest.warns(UserWarning, match="never refreshed"):
+        provider = credential.token_provider()
+
+    assert isinstance(provider, StaticToken)
+    assert provider.access_token(lambda _: pytest.fail("no request expected")) == "theirs"

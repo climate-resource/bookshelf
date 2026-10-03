@@ -21,6 +21,7 @@ because a spent login must not cost the caller the public data it never needed a
 import enum
 import os
 import threading
+import warnings
 from collections.abc import Callable, Mapping
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
@@ -287,6 +288,14 @@ def _client_credentials(environ: Mapping[str, str]) -> ClientCredentials:
 
 
 def _provider_from_stored(stored: StoredCredentials, store: CredentialStore) -> TokenProvider:
+    if store.read_only():
+        # Refreshing spends a single-use secret the newer install still needs, and it could not be saved.
+        warnings.warn(
+            "the credentials file was written by a newer bookshelf, so its access token is used "
+            "as stored and never refreshed. Upgrade bookshelf, or set BOOKSHELF_TOKEN",
+            stacklevel=2,
+        )
+        return StaticToken(stored.access_token)
     expires_at = stored.expires_at.timestamp() if stored.expires_at is not None else None
     if stored.kind is CredentialKind.AGENT and stored.identity_assertion is not None:
         return BsatAssertion(
