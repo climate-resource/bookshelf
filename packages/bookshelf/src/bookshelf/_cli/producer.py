@@ -35,8 +35,8 @@ from bookshelf._cli._runtime import (
 )
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import BookshelfError
+from bookshelf._facade import Bookshelf
 from bookshelf._generated import models
-from bookshelf.facade import Bookshelf
 from bookshelf.publisher import (
     Bundle,
     RecordRecipe,

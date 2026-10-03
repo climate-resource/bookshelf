@@ -16,9 +16,9 @@ from matplotlib.figure import Figure
 
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.hashing import sha256_hex
+from bookshelf._facade import AsyncBookshelf
 from bookshelf._generated import models
 from bookshelf.cache import ContentCache
-from bookshelf.facade import AsyncBookshelf
 from bookshelf.publisher.bundle import Bundle, BundleActivity, BundleBook, InvalidBundleError
 from bookshelf.publisher.recording import RecordingSink
 from bookshelf.publisher.replay import replay_bundle, replay_bundle_sync

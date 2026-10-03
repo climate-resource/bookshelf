@@ -8,11 +8,24 @@
 from __future__ import annotations
 
 from datetime import date as date_aliased
-from enum import StrEnum
+from enum import StrEnum as _ClosedStrEnum
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, RootModel
+
+
+class StrEnum(_ClosedStrEnum):
+    """A string enum that keeps a value this contract does not list, rather than refusing it."""
+
+    @classmethod
+    def _missing_(cls, value: object) -> StrEnum | None:
+        if not isinstance(value, str):
+            return None
+        member = str.__new__(cls, value)
+        member._name_ = value
+        member._value_ = value
+        return member
 
 
 class AdminImpact(BaseModel):

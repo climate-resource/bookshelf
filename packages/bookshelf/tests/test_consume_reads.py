@@ -13,6 +13,7 @@ from bookshelf import (
     AsyncBookshelf,
     Bookshelf,
     DataPreview,
+    ResourceType,
     SelectionError,
     UnsupportedConversionError,
 )
@@ -380,7 +381,7 @@ def test_describe_names_the_reads_the_type_answers(tmp_path: Path) -> None:
 
     info = bs.resource(TRACKING_ID).describe()
 
-    assert info.type is models.ResourceType.timeseries
+    assert info.resource_type is ResourceType.TIMESERIES
     assert str(info.tracking_id) == TRACKING_ID
     assert "as_scmrun()" in info.readers
     assert "preview()" in info.readers
@@ -452,7 +453,7 @@ async def test_the_async_reads_match_the_sync_ones(tmp_path: Path) -> None:
     pd.testing.assert_frame_equal(remote, expected, check_like=True)
     assert list(years.columns) == [2000, 2001]
     assert preview.completeness == "partial"
-    assert info.type is models.ResourceType.timeseries
+    assert info.resource_type is ResourceType.TIMESERIES
 
 
 def _empty_methane() -> pd.DataFrame:
@@ -668,7 +669,8 @@ def test_as_long_df_can_drop_missing_values(tmp_path: Path, server_side: bool) -
     assert len(full) == 6, "missing values stay by default"
     assert len(dense) == 3
     pd.testing.assert_frame_equal(dense, full.dropna(subset=["value"]).reset_index(drop=True))
-    legacy = entry.as_long_df(server_side=server_side, dropna=True, legacy_columns=True)
+    with pytest.warns(DeprecationWarning, match="legacy_columns"):
+        legacy = entry.as_long_df(server_side=server_side, dropna=True, legacy_columns=True)
     assert legacy["values"].notna().all()
     assert len(legacy) == 3
 
@@ -737,7 +739,7 @@ def test_a_numpy_edition_is_an_edition(tmp_path: Path) -> None:
 
     book = bs.book("primap-hist", "v2.6", edition=np.int64(1))
 
-    assert book.metadata.edition == 1
+    assert book.edition == 1
 
 
 def test_a_set_of_values_is_sent_in_a_stable_order() -> None:
