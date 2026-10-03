@@ -5,7 +5,6 @@ A deliberate change regenerates it with ``UPDATE_SURFACE_GOLDEN=1``,
 and the diff then shows up in review beside a changelog entry.
 """
 
-import dataclasses
 import enum
 import inspect
 import json
@@ -53,6 +52,19 @@ CLIENT_METHODS = (
     "correct_book",
 )
 CACHE_MEMBERS = ("__init__", "get", "summary", "evict_lru", "clear")
+# The SDK builds these handles, so their constructors are not part of the promise.
+HANDLES = frozenset(
+    {
+        "AsyncBook",
+        "AsyncBookEntry",
+        "AsyncResource",
+        "AsyncVolume",
+        "Book",
+        "BookEntry",
+        "Resource",
+        "Volume",
+    }
+)
 DUNDERS = ("__getitem__", "__iter__", "__len__", "__contains__")
 
 
@@ -111,22 +123,34 @@ def _member(cls: type, name: str) -> str | None:
     return f"attribute {type(value).__name__}"
 
 
+def _own_classes(cls: type) -> list[type]:
+    return [klass for klass in cls.__mro__ if klass.__module__.startswith("bookshelf")]
+
+
 def _public_names(cls: type) -> list[str]:
     """Name the members a caller reaches, leaving out constructors only the SDK calls."""
     names = {
         name
-        for klass in cls.__mro__
-        if klass.__module__.startswith("bookshelf")
+        for klass in _own_classes(cls)
         for name in vars(klass)
         if not name.startswith("_") or name in DUNDERS
     }
+    if cls.__name__ not in HANDLES:
+        names.add("__init__")
     return sorted(names)
 
 
+def _attributes(cls: type) -> dict[str, str]:
+    """The instance attributes a class declares, which ``vars`` cannot see."""
+    return {
+        name: _annotation(annotation)
+        for klass in reversed(_own_classes(cls))
+        for name, annotation in inspect.get_annotations(klass).items()
+        if not name.startswith("_")
+    }
+
+
 def _describe_class(name: str, cls: type) -> dict[str, Any]:
-    if issubclass(cls, BaseException):
-        bases = [base.__name__ for base in cls.__mro__[1:] if base not in (BaseException, object)]
-        return {"kind": "error", "bases": bases}
     if issubclass(cls, enum.Enum):
         return {"kind": "enum", "members": {member.name: member.value for member in cls}}
     if name in ("Bookshelf", "AsyncBookshelf"):
@@ -140,11 +164,12 @@ def _describe_class(name: str, cls: type) -> dict[str, Any]:
         "members": {
             member: text for member in members if (text := _member(cls, member)) is not None
         },
+        "attributes": _attributes(cls),
     }
-    if dataclasses.is_dataclass(cls):
-        described["fields"] = {
-            field.name: _annotation(field.type) for field in dataclasses.fields(cls)
-        }
+    if issubclass(cls, BaseException):
+        described["bases"] = [
+            base.__name__ for base in cls.__mro__[1:] if base not in (BaseException, object)
+        ]
     return described
 
 
@@ -193,3 +218,16 @@ def test_no_promised_signature_names_a_generated_model_or_sentinel() -> None:
     assert not [text for text in _RAW_ANNOTATIONS if "models." in text or "_generated" in text]
     assert "_Unset" not in rendered
     assert "_Inherit" not in rendered
+
+
+def test_the_snapshot_covers_constructors_error_members_and_attributes() -> None:
+    """Guards the collector itself, so a future exclusion cannot quietly drop coverage."""
+    captured = surface()
+    root = captured["bookshelf"]
+
+    assert "__init__" in captured["bookshelf.auth"]["ClientCredentials"]["members"]
+    assert "item_errors" in root["ConflictError"]["members"]
+    assert "status_code" in root["APIError"]["attributes"]
+    assert root["Book"]["attributes"]["book_id"] == "UUID"
+    assert root["BookEntry"]["attributes"]["name_in_book"] == "str"
+    assert "__init__" not in root["Book"]["members"]

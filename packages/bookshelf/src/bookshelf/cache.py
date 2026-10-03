@@ -174,6 +174,9 @@ class MetadataCache:
 class ContentCache:
     """A small disk cache keyed only by canonical content hash."""
 
+    base_dir: Path
+    max_bytes: int
+
     def __init__(self, base_dir: Path | None = None, *, max_bytes: int = DEFAULT_MAX_BYTES) -> None:
         self.base_dir = Path(base_dir) if base_dir is not None else default_cache_dir()
         self.max_bytes = max_bytes

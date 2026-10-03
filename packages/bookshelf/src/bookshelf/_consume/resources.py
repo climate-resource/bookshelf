@@ -144,6 +144,7 @@ class _ResourceHandle(Describable):
     """Identity and lazily resolved metadata shared by both resource flavours."""
 
     _title = "Bookshelf Resource"
+    tracking_id: UUID
 
     def __init__(
         self,
@@ -448,6 +449,8 @@ class BookEntry(Resource):
     """A resource handle with its book scoped exploration capabilities."""
 
     _title = "Bookshelf Book Entry"
+    book_id: UUID
+    name_in_book: str
 
     def __init__(
         self,
@@ -767,6 +770,8 @@ class AsyncBookEntry(AsyncResource):
     """An async resource handle with book scoped exploration capabilities."""
 
     _title = "Bookshelf Async Book Entry"
+    book_id: UUID
+    name_in_book: str
 
     def __init__(
         self,

@@ -36,6 +36,7 @@ class _VolumeBase(Describable):
     """Identity, versions and discovery for one volume, shared by both flavours."""
 
     _title = "Bookshelf Volume"
+    name: str
     _access = 'volume["{version}"]'
 
     def __init__(

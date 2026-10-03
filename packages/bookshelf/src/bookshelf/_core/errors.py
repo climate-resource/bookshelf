@@ -61,6 +61,12 @@ class APIError(BookshelfError):
         request_url: URL or path of the failing request, when known.
     """
 
+    detail: str
+    status_code: int
+    problem: Problem | None
+    request_method: str | None
+    request_url: str | None
+
     def __init__(
         self,
         detail: str,
@@ -145,6 +151,8 @@ class RateLimitError(APIError):
         retry_after: Seconds the server asked the client to wait, when it said.
     """
 
+    retry_after: float | None
+
     def __init__(
         self,
         detail: str,
@@ -180,6 +188,8 @@ class OAuthProtocolError(APIError):
     ``error`` carries the OAuth error code (e.g. ``authorization_pending``),
     which token-endpoint polling dispatches on.
     """
+
+    error: str
 
     def __init__(
         self,

@@ -17,6 +17,7 @@ from bookshelf.cache import ContentCache
 
 class _BookBase(Describable):
     _title = "Bookshelf Book"
+    book_id: UUID
 
     def __init__(
         self,

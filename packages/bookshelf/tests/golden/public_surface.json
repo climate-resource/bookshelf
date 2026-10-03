@@ -1,21 +1,39 @@
 {
   "bookshelf": {
     "APIError": {
+      "attributes": {
+        "detail": "str",
+        "problem": "Problem | None",
+        "request_method": "str | None",
+        "request_url": "str | None",
+        "status_code": "int"
+      },
       "bases": [
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, detail: str, *, status_code: int, problem: Problem | None = None, request_method: str | None = None, request_url: str | None = None) -> None",
+        "errors": "property -> list[dict[str, Any]]"
+      }
     },
     "ActionsTokenError": {
+      "attributes": {},
       "bases": [
         "AuthConfigurationError",
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, *args, **kwargs)"
+      }
     },
     "AsyncBook": {
+      "attributes": {
+        "book_id": "UUID"
+      },
       "kind": "class",
       "members": {
         "__getitem__": "(self, name_in_book: str) -> AsyncBookEntry",
@@ -31,6 +49,11 @@
       }
     },
     "AsyncBookEntry": {
+      "attributes": {
+        "book_id": "UUID",
+        "name_in_book": "str",
+        "tracking_id": "UUID"
+      },
       "kind": "class",
       "members": {
         "as_arrow": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None) -> Table",
@@ -52,6 +75,7 @@
       }
     },
     "AsyncBookshelf": {
+      "attributes": {},
       "kind": "class",
       "members": {
         "__aenter__": "async (self) -> Self",
@@ -68,6 +92,9 @@
       }
     },
     "AsyncResource": {
+      "attributes": {
+        "tracking_id": "UUID"
+      },
       "kind": "class",
       "members": {
         "as_arrow": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None) -> Table",
@@ -85,6 +112,9 @@
       }
     },
     "AsyncVolume": {
+      "attributes": {
+        "name": "str"
+      },
       "kind": "class",
       "members": {
         "__contains__": "(self, version: str) -> bool",
@@ -102,28 +132,50 @@
       }
     },
     "AuthConfigurationError": {
+      "attributes": {},
       "bases": [
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, *args, **kwargs)"
+      }
     },
     "AuthenticationError": {
+      "attributes": {
+        "detail": "str",
+        "problem": "Problem | None",
+        "request_method": "str | None",
+        "request_url": "str | None",
+        "status_code": "int"
+      },
       "bases": [
         "APIError",
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, detail: str, *, status_code: int, problem: Problem | None = None, request_method: str | None = None, request_url: str | None = None) -> None",
+        "errors": "property -> list[dict[str, Any]]"
+      }
     },
     "AuthenticationRequiredError": {
+      "attributes": {},
       "bases": [
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, *args, **kwargs)"
+      }
     },
     "Book": {
+      "attributes": {
+        "book_id": "UUID"
+      },
       "kind": "class",
       "members": {
         "__getitem__": "(self, name_in_book: str) -> BookEntry",
@@ -139,7 +191,7 @@
       }
     },
     "BookCorrection": {
-      "fields": {
+      "attributes": {
         "book_id": "UUID",
         "corrected": "tuple[str, ...]",
         "corrected_at": "datetime",
@@ -148,6 +200,7 @@
       },
       "kind": "class",
       "members": {
+        "__init__": "(self, book_id: UUID, corrected: tuple[str, ...], corrected_at: datetime, discovery: Mapping[str, Any], metadata: Mapping[str, Any]) -> None",
         "book_id": "attribute member_descriptor",
         "corrected": "attribute member_descriptor",
         "corrected_at": "attribute member_descriptor",
@@ -156,6 +209,11 @@
       }
     },
     "BookEntry": {
+      "attributes": {
+        "book_id": "UUID",
+        "name_in_book": "str",
+        "tracking_id": "UUID"
+      },
       "kind": "class",
       "members": {
         "as_arrow": "(self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None) -> Table",
@@ -177,6 +235,7 @@
       }
     },
     "Bookshelf": {
+      "attributes": {},
       "kind": "class",
       "members": {
         "__enter__": "(self) -> Self",
@@ -193,21 +252,29 @@
       }
     },
     "BookshelfError": {
+      "attributes": {},
       "bases": [
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, *args, **kwargs)"
+      }
     },
     "CacheDirectoryError": {
+      "attributes": {},
       "bases": [
         "BookshelfError",
         "OSError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, *args, **kwargs)"
+      }
     },
     "CacheSummary": {
-      "fields": {
+      "attributes": {
         "entries": "int",
         "max_bytes": "int",
         "newest_mtime": "float | None",
@@ -217,6 +284,7 @@
       },
       "kind": "class",
       "members": {
+        "__init__": "(self, path: Path, entries: int, total_bytes: int, max_bytes: int, oldest_mtime: float | None, newest_mtime: float | None) -> None",
         "entries": "attribute member_descriptor",
         "max_bytes": "attribute member_descriptor",
         "newest_mtime": "attribute member_descriptor",
@@ -226,21 +294,41 @@
       }
     },
     "ConfigurationError": {
+      "attributes": {},
       "bases": [
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, *args, **kwargs)"
+      }
     },
     "ConflictError": {
+      "attributes": {
+        "detail": "str",
+        "problem": "Problem | None",
+        "request_method": "str | None",
+        "request_url": "str | None",
+        "status_code": "int"
+      },
       "bases": [
         "APIError",
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, detail: str, *, status_code: int, problem: Problem | None = None, request_method: str | None = None, request_url: str | None = None) -> None",
+        "errors": "property -> list[dict[str, Any]]",
+        "item_errors": "property -> tuple[ItemError, ...]"
+      }
     },
     "ContentCache": {
+      "attributes": {
+        "base_dir": "Path",
+        "max_bytes": "int"
+      },
       "kind": "class",
       "members": {
         "__init__": "(self, base_dir: Path | None = None, *, max_bytes: int = 5368709120) -> None",
@@ -251,32 +339,55 @@
       }
     },
     "ContractError": {
+      "attributes": {
+        "detail": "str",
+        "problem": "Problem | None",
+        "request_method": "str | None",
+        "request_url": "str | None",
+        "status_code": "int"
+      },
       "bases": [
         "APIError",
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, detail: str, *, status_code: int, problem: Problem | None = None, request_method: str | None = None, request_url: str | None = None) -> None",
+        "errors": "property -> list[dict[str, Any]]"
+      }
     },
     "DataFrameSupportError": {
+      "attributes": {},
       "bases": [
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, *args, **kwargs)"
+      }
     },
     "DataPreview": {
-      "fields": {
+      "attributes": {
         "completeness": "Completeness",
         "data": "DataFrame"
       },
       "kind": "class",
       "members": {
+        "__init__": "(self, data: DataFrame, completeness: Completeness) -> None",
         "completeness": "attribute member_descriptor",
         "data": "attribute member_descriptor"
       }
     },
     "EntryNotFoundError": {
+      "attributes": {
+        "detail": "str",
+        "problem": "Problem | None",
+        "request_method": "str | None",
+        "request_url": "str | None",
+        "status_code": "int"
+      },
       "bases": [
         "NotFoundError",
         "APIError",
@@ -286,10 +397,14 @@
         "LookupError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, detail: str, *, status_code: int, problem: Problem | None = None, request_method: str | None = None, request_url: str | None = None) -> None",
+        "errors": "property -> list[dict[str, Any]]"
+      }
     },
     "Facet": {
-      "fields": {
+      "attributes": {
         "column": "str",
         "total_unique": "int",
         "truncated": "bool",
@@ -297,6 +412,7 @@
       },
       "kind": "class",
       "members": {
+        "__init__": "(self, column: str, values: tuple[FacetValue, ...], total_unique: int, truncated: bool) -> None",
         "column": "attribute member_descriptor",
         "total_unique": "attribute member_descriptor",
         "truncated": "attribute member_descriptor",
@@ -304,18 +420,19 @@
       }
     },
     "FacetValue": {
-      "fields": {
+      "attributes": {
         "count": "int",
         "value": "Any"
       },
       "kind": "class",
       "members": {
+        "__init__": "(self, value: Any, count: int) -> None",
         "count": "attribute member_descriptor",
         "value": "attribute member_descriptor"
       }
     },
     "Facets": {
-      "fields": {
+      "attributes": {
         "categorical_columns": "tuple[str, ...]",
         "facets": "tuple[Facet, ...]",
         "numeric_columns": "tuple[str, ...]",
@@ -324,6 +441,7 @@
       "kind": "class",
       "members": {
         "__getitem__": "(self, column: str) -> Facet",
+        "__init__": "(self, facets: tuple[Facet, ...], categorical_columns: tuple[str, ...], numeric_columns: tuple[str, ...], total_rows: int) -> None",
         "categorical_columns": "attribute member_descriptor",
         "facets": "attribute member_descriptor",
         "numeric_columns": "attribute member_descriptor",
@@ -331,30 +449,56 @@
       }
     },
     "ForbiddenError": {
+      "attributes": {
+        "detail": "str",
+        "problem": "Problem | None",
+        "request_method": "str | None",
+        "request_url": "str | None",
+        "status_code": "int"
+      },
       "bases": [
         "APIError",
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, detail: str, *, status_code: int, problem: Problem | None = None, request_method: str | None = None, request_url: str | None = None) -> None",
+        "errors": "property -> list[dict[str, Any]]"
+      }
     },
     "GatewayError": {
+      "attributes": {
+        "detail": "str",
+        "problem": "Problem | None",
+        "request_method": "str | None",
+        "request_url": "str | None",
+        "status_code": "int"
+      },
       "bases": [
         "APIError",
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, detail: str, *, status_code: int, problem: Problem | None = None, request_method: str | None = None, request_url: str | None = None) -> None",
+        "errors": "property -> list[dict[str, Any]]"
+      }
     },
     "HashMismatchError": {
+      "attributes": {},
       "bases": [
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, *args, **kwargs)"
+      }
     },
     "Identity": {
-      "fields": {
+      "attributes": {
         "email": "str",
         "first_name": "str | None",
         "id": "str",
@@ -365,6 +509,7 @@
       },
       "kind": "class",
       "members": {
+        "__init__": "(self, id: str, email: str, first_name: str | None, last_name: str | None, organization_id: str | None, role: str | None, permissions: tuple[str, ...]) -> None",
         "email": "attribute member_descriptor",
         "first_name": "attribute member_descriptor",
         "id": "attribute member_descriptor",
@@ -375,63 +520,103 @@
       }
     },
     "InvalidBundleError": {
+      "attributes": {},
       "bases": [
         "BookshelfError",
         "ValueError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, message: str, *, remedy: str = \"Run 'bookshelf record' to rebuild the bundle.\") -> None"
+      }
     },
     "InvalidRecipeError": {
+      "attributes": {},
       "bases": [
         "BookshelfError",
         "ValueError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, *args, **kwargs)"
+      }
     },
     "InvalidReferenceError": {
+      "attributes": {},
       "bases": [
         "BookshelfError",
         "ValueError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, *args, **kwargs)"
+      }
     },
     "ItemError": {
-      "fields": {
+      "attributes": {
         "detail": "str",
         "status": "int"
       },
       "kind": "class",
       "members": {
+        "__init__": "(self, status: int, detail: str) -> None",
         "detail": "attribute member_descriptor",
         "status": "attribute member_descriptor"
       }
     },
     "NotFoundError": {
+      "attributes": {
+        "detail": "str",
+        "problem": "Problem | None",
+        "request_method": "str | None",
+        "request_url": "str | None",
+        "status_code": "int"
+      },
       "bases": [
         "APIError",
         "BookshelfError",
         "LookupError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, detail: str, *, status_code: int, problem: Problem | None = None, request_method: str | None = None, request_url: str | None = None) -> None",
+        "errors": "property -> list[dict[str, Any]]"
+      }
     },
     "OAuthError": {
+      "attributes": {},
       "bases": [
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, *args, **kwargs)"
+      }
     },
     "OAuthProtocolError": {
+      "attributes": {
+        "detail": "str",
+        "error": "str",
+        "problem": "Problem | None",
+        "request_method": "str | None",
+        "request_url": "str | None",
+        "status_code": "int"
+      },
       "bases": [
         "APIError",
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, detail: str, *, error: str, status_code: int, request_method: str | None = None, request_url: str | None = None) -> None",
+        "errors": "property -> list[dict[str, Any]]"
+      }
     },
     "OPENAPI_VERSION": {
       "kind": "value",
@@ -442,7 +627,7 @@
       "type": "str"
     },
     "Problem": {
-      "fields": {
+      "attributes": {
         "detail": "str",
         "errors": "tuple[Mapping[str, Any], ...]",
         "instance": "str | None",
@@ -452,6 +637,7 @@
       },
       "kind": "class",
       "members": {
+        "__init__": "(self, type: str, title: str, status: int, detail: str, instance: str | None, errors: tuple[Mapping[str, Any], ...]) -> None",
         "detail": "attribute member_descriptor",
         "errors": "attribute member_descriptor",
         "instance": "attribute member_descriptor",
@@ -461,38 +647,72 @@
       }
     },
     "RateLimitError": {
+      "attributes": {
+        "detail": "str",
+        "problem": "Problem | None",
+        "request_method": "str | None",
+        "request_url": "str | None",
+        "retry_after": "float | None",
+        "status_code": "int"
+      },
       "bases": [
         "APIError",
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, detail: str, *, status_code: int = 429, retry_after: float | None = None, problem: Problem | None = None, request_method: str | None = None, request_url: str | None = None) -> None",
+        "errors": "property -> list[dict[str, Any]]"
+      }
     },
     "RecordRefusedError": {
+      "attributes": {},
       "bases": [
         "BookshelfError",
         "ValueError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, *args, **kwargs)"
+      }
     },
     "RecordingError": {
+      "attributes": {},
       "bases": [
         "BookshelfError",
         "ValueError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, *args, **kwargs)"
+      }
     },
     "RequestValidationError": {
+      "attributes": {
+        "detail": "str",
+        "problem": "Problem | None",
+        "request_method": "str | None",
+        "request_url": "str | None",
+        "status_code": "int"
+      },
       "bases": [
         "APIError",
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, detail: str, *, status_code: int, problem: Problem | None = None, request_method: str | None = None, request_url: str | None = None) -> None",
+        "errors": "property -> list[dict[str, Any]]"
+      }
     },
     "Resource": {
+      "attributes": {
+        "tracking_id": "UUID"
+      },
       "kind": "class",
       "members": {
         "as_arrow": "(self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None) -> Table",
@@ -510,7 +730,7 @@
       }
     },
     "ResourceInfo": {
-      "fields": {
+      "attributes": {
         "content_hash": "str",
         "created_at": "datetime",
         "discovery": "Mapping[str, Any]",
@@ -523,6 +743,7 @@
       },
       "kind": "class",
       "members": {
+        "__init__": "(self, tracking_id: UUID, resource_type: ResourceType, content_hash: str, visibility: Visibility, readers: tuple[str, ...], metadata: Mapping[str, Any], discovery: Mapping[str, Any], created_at: datetime, updated_at: datetime) -> None",
         "content_hash": "attribute member_descriptor",
         "created_at": "attribute member_descriptor",
         "discovery": "attribute member_descriptor",
@@ -546,6 +767,7 @@
       }
     },
     "SelectionError": {
+      "attributes": {},
       "bases": [
         "BookshelfError",
         "_UnquotedKeyError",
@@ -553,10 +775,13 @@
         "LookupError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, *args, **kwargs)"
+      }
     },
     "SeriesMetadata": {
-      "fields": {
+      "attributes": {
         "columns": "tuple[str, ...]",
         "has_more": "bool",
         "index": "tuple[Mapping[str, Any], ...]",
@@ -566,6 +791,7 @@
       },
       "kind": "class",
       "members": {
+        "__init__": "(self, index: tuple[Mapping[str, Any], ...], columns: tuple[str, ...], total_rows: int, limit: int, offset: int, has_more: bool) -> None",
         "columns": "attribute member_descriptor",
         "has_more": "attribute member_descriptor",
         "index": "attribute member_descriptor",
@@ -575,36 +801,73 @@
       }
     },
     "ServerError": {
+      "attributes": {
+        "detail": "str",
+        "problem": "Problem | None",
+        "request_method": "str | None",
+        "request_url": "str | None",
+        "status_code": "int"
+      },
       "bases": [
         "APIError",
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, detail: str, *, status_code: int, problem: Problem | None = None, request_method: str | None = None, request_url: str | None = None) -> None",
+        "errors": "property -> list[dict[str, Any]]"
+      }
     },
     "TransportError": {
+      "attributes": {},
       "bases": [
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, *args, **kwargs)"
+      }
     },
     "UnexpectedResponseError": {
+      "attributes": {
+        "detail": "str",
+        "problem": "Problem | None",
+        "request_method": "str | None",
+        "request_url": "str | None",
+        "status_code": "int"
+      },
       "bases": [
         "APIError",
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, detail: str, *, status_code: int, problem: Problem | None = None, request_method: str | None = None, request_url: str | None = None) -> None",
+        "errors": "property -> list[dict[str, Any]]"
+      }
     },
     "UnsupportedConversionError": {
+      "attributes": {},
       "bases": [
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, *args, **kwargs)"
+      }
     },
     "VersionNotFoundError": {
+      "attributes": {
+        "detail": "str",
+        "problem": "Problem | None",
+        "request_method": "str | None",
+        "request_url": "str | None",
+        "status_code": "int"
+      },
       "bases": [
         "NotFoundError",
         "APIError",
@@ -614,7 +877,11 @@
         "LookupError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, detail: str, *, status_code: int, problem: Problem | None = None, request_method: str | None = None, request_url: str | None = None) -> None",
+        "errors": "property -> list[dict[str, Any]]"
+      }
     },
     "Visibility": {
       "kind": "enum",
@@ -625,6 +892,9 @@
       }
     },
     "Volume": {
+      "attributes": {
+        "name": "str"
+      },
       "kind": "class",
       "members": {
         "__contains__": "(self, version: str) -> bool",
@@ -643,7 +913,7 @@
       }
     },
     "VolumeSearchResults": {
-      "fields": {
+      "attributes": {
         "has_more": "bool",
         "items": "tuple[VolumeSummary, ...]",
         "limit": "int",
@@ -652,6 +922,7 @@
       },
       "kind": "class",
       "members": {
+        "__init__": "(self, items: tuple[VolumeSummary, ...], total: int, limit: int, offset: int, has_more: bool) -> None",
         "__iter__": "(self) -> Iterator[VolumeSummary]",
         "has_more": "attribute member_descriptor",
         "items": "attribute member_descriptor",
@@ -661,7 +932,7 @@
       }
     },
     "VolumeSummary": {
-      "fields": {
+      "attributes": {
         "deprecated": "bool",
         "description": "str | None",
         "discovery": "Mapping[str, Any]",
@@ -677,6 +948,7 @@
       },
       "kind": "class",
       "members": {
+        "__init__": "(self, name: str, title: str | None, description: str | None, license: str | None, latest_version: str | None, latest_edition: int | None, resource_types: tuple[ResourceType, ...], formats: tuple[str, ...], total_resources: int, total_size_bytes: int, deprecated: bool, discovery: Mapping[str, Any]) -> None",
         "deprecated": "attribute member_descriptor",
         "description": "attribute member_descriptor",
         "discovery": "attribute member_descriptor",
@@ -770,62 +1042,82 @@
   ],
   "bookshelf.auth": {
     "ActionsOidcToken": {
+      "attributes": {},
       "kind": "class",
       "members": {
+        "__init__": "(self, audience: str = 'bookshelf-read') -> None",
         "access_token": "(self, send: Callable[[Request], Response]) -> str",
         "async_auth_flow": "(self, request: Request) -> AsyncGenerator[Request, Response]",
         "sync_auth_flow": "(self, request: Request) -> Generator[Request, Response, None]"
       }
     },
     "ActionsTokenError": {
+      "attributes": {},
       "bases": [
         "AuthConfigurationError",
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, *args, **kwargs)"
+      }
     },
     "AuthConfigurationError": {
+      "attributes": {},
       "bases": [
         "BookshelfError",
         "Exception"
       ],
-      "kind": "error"
-    },
-    "BsatAssertion": {
       "kind": "class",
       "members": {
+        "__init__": "(self, *args, **kwargs)"
+      }
+    },
+    "BsatAssertion": {
+      "attributes": {},
+      "kind": "class",
+      "members": {
+        "__init__": "(self, assertion: str, *, base_url: str | None = None, token_url: str | None = None, access_token: str | None = None, expires_at: float | None = None, on_rotate: Callable[[str, str, float | None], None] | None = None) -> None",
         "access_token": "(self, send: Callable[[Request], Response]) -> str",
         "async_auth_flow": "(self, request: Request) -> AsyncGenerator[Request, Response]",
         "sync_auth_flow": "(self, request: Request) -> Generator[Request, Response, None]"
       }
     },
     "ClientCredentials": {
+      "attributes": {},
       "kind": "class",
       "members": {
+        "__init__": "(self, client_id: str, client_secret: str, *, token_url: str) -> None",
         "access_token": "(self, send: Callable[[Request], Response]) -> str",
         "async_auth_flow": "(self, request: Request) -> AsyncGenerator[Request, Response]",
         "sync_auth_flow": "(self, request: Request) -> Generator[Request, Response, None]"
       }
     },
     "RefreshTokenExchange": {
+      "attributes": {},
       "kind": "class",
       "members": {
+        "__init__": "(self, access_token: str | None, refresh_token: str, *, token_url: str, client_id: str, expires_at: float | None = None, on_rotate: Callable[[str, str | None, float | None], None] | None = None) -> None",
         "access_token": "(self, send: Callable[[Request], Response]) -> str",
         "async_auth_flow": "(self, request: Request) -> AsyncGenerator[Request, Response]",
         "sync_auth_flow": "(self, request: Request) -> Generator[Request, Response, None]"
       }
     },
     "StaticToken": {
+      "attributes": {},
       "kind": "class",
       "members": {
+        "__init__": "(self, token: str) -> None",
         "access_token": "(self, _send: Callable[[Request], Response]) -> str",
         "auth_flow": "(self, request: Request) -> Generator[Request, Response, None]"
       }
     },
     "TokenProvider": {
+      "attributes": {},
       "kind": "class",
       "members": {
+        "__init__": "(self, *args, **kwargs)",
         "access_token": "(self, send: Callable[[Request], Response]) -> str"
       }
     },
@@ -840,8 +1132,10 @@
   },
   "bookshelf.legacy": {
     "BookShelf": {
+      "attributes": {},
       "kind": "class",
       "members": {
+        "__init__": "(self, path: str | Path | None = None, remote_bookshelf: str | None = None)",
         "is_available": "(self, name: str, version: str | None = None, edition: int | None = None) -> bool",
         "is_cached": "(self, name: str, version: str, edition: int) -> bool",
         "list_books": "(self) -> list[str]",
@@ -850,8 +1144,10 @@
       }
     },
     "LocalBook": {
+      "attributes": {},
       "kind": "class",
       "members": {
+        "__init__": "(self, book: Book)",
         "get_long_format_data": "(self, timeseries_name: str) -> DataFrame",
         "long_version": "(self) -> str",
         "metadata": "(self) -> dict[str, Any]",
@@ -859,26 +1155,38 @@
       }
     },
     "UnknownBook": {
+      "attributes": {},
       "bases": [
         "ValueError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, *args, **kwargs)"
+      }
     },
     "UnknownEdition": {
+      "attributes": {},
       "bases": [
         "UnknownVersion",
         "ValueError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, name: str, version: str | None, edition: int | None = None)"
+      }
     },
     "UnknownVersion": {
+      "attributes": {},
       "bases": [
         "ValueError",
         "Exception"
       ],
-      "kind": "error"
+      "kind": "class",
+      "members": {
+        "__init__": "(self, name: str, version: str | None, edition: int | None = None)"
+      }
     }
   }
 }
