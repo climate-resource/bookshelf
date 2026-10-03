@@ -21,6 +21,7 @@ because a spent login must not cost the caller the public data it never needed a
 import enum
 import os
 import threading
+import time
 from collections.abc import Callable, Mapping
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
@@ -287,8 +288,29 @@ def _client_credentials(environ: Mapping[str, str]) -> ClientCredentials:
     )
 
 
+def _refuse_newer_store(token_url: str | None) -> AuthenticationError:
+    return AuthenticationError(
+        "the credentials file was written by a newer bookshelf, "
+        "so this version will not refresh its tokens. "
+        "Upgrade bookshelf, or set BOOKSHELF_TOKEN",
+        status_code=401,
+        request_method="POST",
+        request_url=token_url,
+    )
+
+
+class _NewerStoreToken(_RefreshingAuth):
+    """A token from a store a newer bookshelf owns, served until it expires and never refreshed."""
+
+    def _needs_refresh(self) -> bool:
+        return self._expires_at is not None and self._expires_at <= time.time()
+
+    def _refresh_request(self) -> httpx.Request:
+        raise _refuse_newer_store(None)
+
+
 class _StoreGuard(_RefreshingAuth):
-    """Refuse an exchange while a newer bookshelf owns the store.
+    """Refuse an exchange once a newer bookshelf owns the store.
 
     The exchange spends a single-use secret the newer install still needs,
     and the replacement could not be saved, so the check runs before every exchange.
@@ -300,14 +322,7 @@ class _StoreGuard(_RefreshingAuth):
 
     def _refresh_request(self) -> httpx.Request:
         if self._store.read_only():
-            raise AuthenticationError(
-                "the credentials file was written by a newer bookshelf, "
-                "so this version will not refresh its tokens. "
-                "Upgrade bookshelf, or set BOOKSHELF_TOKEN",
-                status_code=401,
-                request_method="POST",
-                request_url=self._token_url,
-            )
+            raise _refuse_newer_store(self._token_url)
         return super()._refresh_request()
 
 
@@ -321,6 +336,8 @@ class _GuardedBsatAssertion(_StoreGuard, BsatAssertion):
 
 def _provider_from_stored(stored: StoredCredentials, store: CredentialStore) -> TokenProvider:
     expires_at = stored.expires_at.timestamp() if stored.expires_at is not None else None
+    if store.read_only():
+        return _NewerStoreToken(access_token=stored.access_token, expires_at=expires_at)
     if stored.kind is CredentialKind.AGENT and stored.identity_assertion is not None:
         return _GuardedBsatAssertion(
             store,

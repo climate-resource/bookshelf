@@ -29,6 +29,7 @@ from platformdirs import user_config_dir
 from bookshelf._core.auth import decode_jwt_expiry
 from bookshelf._core.errors import AuthConfigurationError, BookshelfError
 
+# Bump only together with a new file name, so an older install never refreshes against a migrated file.
 STORE_VERSION = 2
 # Seconds to wait for another process to finish writing the store.
 LOCK_TIMEOUT = 30.0
