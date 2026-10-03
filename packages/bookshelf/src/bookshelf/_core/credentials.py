@@ -14,6 +14,7 @@ import enum
 import json
 import os
 import stat
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
@@ -26,8 +27,10 @@ from filelock import FileLock, Timeout
 from platformdirs import user_config_dir
 
 from bookshelf._core.auth import decode_jwt_expiry
-from bookshelf._core.errors import BookshelfError
+from bookshelf._core.errors import AuthConfigurationError, BookshelfError
 
+# An older install may still refresh any token pair it can read,
+# so a version bump must not carry a refresh secret over: users log in again instead.
 STORE_VERSION = 2
 # Seconds to wait for another process to finish writing the store.
 LOCK_TIMEOUT = 30.0
@@ -160,6 +163,22 @@ class CredentialStore(Protocol):
         """Delete every record, one deployment's records, or one identity on one deployment."""
         ...
 
+    def read_only(self) -> bool:
+        """Report whether a newer bookshelf owns the store, so nothing may be written back to it."""
+        ...
+
+
+class _ReadOnlyStoreError(AuthConfigurationError):
+    """The credentials file belongs to a newer bookshelf, so this version will not write it."""
+
+
+class _FileState(enum.Enum):
+    """What a write has to do about the credentials file it read."""
+
+    WRITABLE = enum.auto()
+    UNREADABLE = enum.auto()
+    NEWER = enum.auto()
+
 
 def _empty() -> dict[str, Any]:
     return {"version": STORE_VERSION, "records": {}, "active": {}}
@@ -249,6 +268,9 @@ class _DocumentStore(CredentialStore, ABC):
     def _update(self) -> Iterator[dict[str, Any]]:
         """Yield the current document for changing in place, then persist it if it changed."""
 
+    def read_only(self) -> bool:
+        return False
+
     def load(self, api_url: str | None = None) -> StoredCredentials | None:
         store = self._read()
         target = normalise_api_url(api_url) if api_url is not None else store.get("default_api_url")
@@ -277,13 +299,21 @@ class _DocumentStore(CredentialStore, ABC):
 
     def rotate(self, previous: StoredCredentials, current: StoredCredentials) -> bool:
         previous, current = _normalised(previous), _normalised(current)
-        with self._update() as store:
-            stored = store["records"].get(previous.key)
-            if not isinstance(stored, dict) or stored.get("access_token") != previous.access_token:
-                return False
-            store["records"][previous.key] = _credentials_to_record(
-                replace(current, kind=previous.kind)
-            )
+        try:
+            with self._update() as store:
+                stored = store["records"].get(previous.key)
+                if (
+                    not isinstance(stored, dict)
+                    or stored.get("access_token") != previous.access_token
+                ):
+                    return False
+                store["records"][previous.key] = _credentials_to_record(
+                    replace(current, kind=previous.kind)
+                )
+        except _ReadOnlyStoreError as exc:
+            # The request in flight still has its fresh token, so a refusal to persist only warns.
+            warnings.warn(f"the refreshed token was not saved: {exc}", stacklevel=2)
+            return False
         return True
 
     def set_active(self, api_url: str, kind: CredentialKind) -> StoredCredentials:
@@ -332,21 +362,34 @@ class FileCredentialStore(_DocumentStore):
     def _read(self) -> dict[str, Any]:
         return self._load()[0]
 
-    def _load(self) -> tuple[dict[str, Any], bool]:
-        """Return the document, and whether an existing file could not be read as one."""
+    def read_only(self) -> bool:
+        return self._load()[1] is _FileState.NEWER
+
+    def _load(self) -> tuple[dict[str, Any], _FileState]:
+        """Return the document, and what a write has to do about the file it came from.
+
+        A newer store version is read for the keys this version knows, and never written,
+        so a downgrade cannot log the newer install out.
+        """
         try:
             with self.path.open("r") as f:
                 data = json.load(f)
         except FileNotFoundError:
-            return _empty(), False
+            return _empty(), _FileState.WRITABLE
         except (json.JSONDecodeError, OSError):
-            return _empty(), True
-        if not isinstance(data, dict) or data.get("version") != STORE_VERSION:
-            # TODO: hook in future migrations here
-            return _empty(), True
-        data.setdefault("records", {})
-        data.setdefault("active", {})
-        return data, False
+            return _empty(), _FileState.UNREADABLE
+        if not isinstance(data, dict):
+            return _empty(), _FileState.UNREADABLE
+        version = data.get("version")
+        newer = (
+            isinstance(version, int) and not isinstance(version, bool) and version > STORE_VERSION
+        )
+        if not newer and version != STORE_VERSION:
+            return _empty(), _FileState.UNREADABLE
+        for section in ("records", "active"):
+            if not isinstance(data.get(section), dict):
+                data[section] = {}
+        return data, _FileState.NEWER if newer else _FileState.WRITABLE
 
     @contextmanager
     def _update(self) -> Iterator[dict[str, Any]]:
@@ -361,12 +404,19 @@ class FileCredentialStore(_DocumentStore):
                 "which another bookshelf process is holding"
             ) from exc
         try:
-            store, unreadable = self._load()
+            store, state = self._load()
             before = copy.deepcopy(store)
             yield store
             if store != before:
-                if unreadable:
-                    # Kept aside rather than overwritten, because a newer version may have written it.
+                if state is _FileState.NEWER:
+                    raise _ReadOnlyStoreError(
+                        f"{path} was written by a newer bookshelf (store version "
+                        f"{before['version']}, this one writes {STORE_VERSION}), "
+                        "so this version only reads it. "
+                        "Upgrade bookshelf to log in or out, or set BOOKSHELF_TOKEN instead"
+                    )
+                if state is _FileState.UNREADABLE:
+                    # Kept aside rather than overwritten, so nothing in it is lost.
                     os.replace(path, path.with_name(f"{path.name}.unreadable"))
                 self._write(store)
         finally:

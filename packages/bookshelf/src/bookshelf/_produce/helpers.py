@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import platform
 import secrets
 import time
 from collections.abc import Mapping, Sequence
@@ -13,6 +12,7 @@ from uuid import UUID
 
 from pydantic import RootModel
 
+from bookshelf._core.ci import in_ci
 from bookshelf._core.errors import BookshelfError
 from bookshelf._generated import models
 from bookshelf._produce.provenance import canonical_config_hash, committed_source_url
@@ -45,12 +45,15 @@ def uuid7() -> UUID:
 
 
 def runner() -> str:
-    """Describe the current execution environment without background work."""
+    """Describe the current execution environment without naming the machine.
+
+    The value is published with the activity, so a laptop is ``local`` rather than its hostname.
+    """
     if run_id := os.environ.get("GITHUB_RUN_ID"):
         return f"github-actions:{run_id}"
-    if os.environ.get("CI"):
+    if in_ci():
         return "ci"
-    return platform.node() or "local"
+    return "local"
 
 
 def resource_type(value: str | models.ResourceType) -> models.ResourceType:

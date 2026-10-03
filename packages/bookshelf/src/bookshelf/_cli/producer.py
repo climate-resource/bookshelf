@@ -51,6 +51,8 @@ from bookshelf.publisher.recipe import available_versions
 
 _RECORD_REQUIREMENTS = ("nbformat", "nbconvert")
 _PAGE_SIZE = 100
+# run_record's summary is Python API, so the CLI renames its counts to match validate and publish.
+_RECORD_KEYS = {"resources": "resource_count", "book_entries": "entry_count"}
 _MAX_PAGES = 1000
 
 
@@ -82,17 +84,23 @@ def _load_recipe(path: Path) -> RecordRecipe:
         ) from exc
 
 
-def _resolve_version(version: str | None, loaded: RecordRecipe) -> str:
+def _resolve_version(book: str | None, legacy: str | None, loaded: RecordRecipe) -> str:
     """Resolve which version to build, naming the ones the recipe declares either way.
 
-    ``--version`` is required rather than defaulted,
+    ``--book`` is required rather than defaulted,
     because a default in the recipe would be a second place a version is stated.
     Both the omitted case and the unknown case list the versions,
     so the message is the answer rather than a prompt to go and read the recipe.
     """
+    if book is not None and legacy is not None and book != legacy:
+        raise CliError(
+            f"--book {book!r} and --version {legacy!r} disagree. Pass --book alone.",
+            exit_code=EXIT_USAGE,
+        )
+    version = book if book is not None else legacy
     if version is None:
         raise CliError(
-            f"record needs --version naming the version to build. "
+            f"record needs --book naming the version to build. "
             f"{available_versions(loaded.versions)}",
             exit_code=EXIT_USAGE,
         )
@@ -141,7 +149,14 @@ def _bundle_errors(root: Path) -> Generator[None]:
 
     A malformed manifest is a distinct outcome from a crash,
     so a caller can branch on it.
+    A directory that is not there at all is a usage error instead, because no bundle was given.
     """
+    if not root.is_dir():
+        raise CliError(
+            f"no bundle directory at {root}. "
+            "Name the directory 'bookshelf record' wrote, or run that to build one.",
+            exit_code=EXIT_USAGE,
+        )
     try:
         yield
     except InvalidBundleError as exc:
@@ -162,10 +177,14 @@ def record(
         Path("bookshelf.yaml"), "--recipe", help="Sectioned Bookshelf recipe."
     ),
     bundle: Path = typer.Option(Path("bundle"), "--bundle", help="Bundle directory to write."),
-    version: str | None = typer.Option(
+    book: str | None = typer.Option(
         None,
-        "--version",
+        "--book",
+        metavar="VERSION",
         help="Required. Version to build, naming a book under 'books:' in the recipe.",
+    ),
+    legacy_version: str | None = typer.Option(
+        None, "--version", hidden=True, help="Old spelling of --book."
     ),
     parameter: list[str] = typer.Option(
         [],
@@ -189,7 +208,7 @@ def record(
         # Load the recipe here, even when BUILD is given.
         # run_record loads it either way, so a malformed one must fail here rather than there.
         loaded = _load_recipe(recipe)
-        selected = _resolve_version(version, loaded)
+        selected = _resolve_version(book, legacy_version, loaded)
         resolved_build = _resolve_build(build, loaded, recipe)
         try:
             summary = run_record(
@@ -202,7 +221,10 @@ def record(
         except RecordRefusedError as exc:
             # A refusal is the caller's to fix, where the base error would read as a crash.
             raise CliError(str(exc), exit_code=EXIT_USAGE) from exc
-        emit_payload(summary, json_output=json_output)
+        emit_payload(
+            {_RECORD_KEYS.get(key, key): value for key, value in summary.items()},
+            json_output=json_output,
+        )
 
 
 def validate(
@@ -216,8 +238,8 @@ def validate(
             framing = loaded.require_framing()
         summary = {
             "bundle_path": str(bundle.resolve()),
-            "resources": len(loaded.manifest.resources),
-            "book_entries": len(framing.entries),
+            "resource_count": len(loaded.manifest.resources),
+            "entry_count": len(framing.entries),
             "placements": [
                 {"name": entry.name, "tracking_id": str(entry.tracking_id), "source": entry.source}
                 for entry in framing.entries
@@ -259,7 +281,7 @@ def publish(
             "volume": framing.volume,
             "version": framing.version,
             "edition": outcome.edition,
-            "resources": outcome.resource_count,
+            "resource_count": outcome.resource_count,
             "dedupe_hits": outcome.dedupe_hits,
             "converged": outcome.converged,
         }
@@ -279,7 +301,7 @@ def discard(
         parsed = parse_address(address)
         if parsed.entry is not None:
             raise CliError(
-                f"discard takes a book, not a file within one, and {address!r} names a file. "
+                f"discard takes a book, not an entry within one, and {address!r} names an entry. "
                 f"Run 'bookshelf discard {parsed.volume}@{parsed.version}_eNNN'.",
                 exit_code=EXIT_USAGE,
             )

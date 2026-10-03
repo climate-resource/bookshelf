@@ -17,6 +17,7 @@ from contextlib import AbstractContextManager, nullcontext
 from typing import TextIO
 
 from bookshelf._core import credentials, oauth
+from bookshelf._core.ci import in_ci
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.credentials import CredentialKind, CredentialStore, StoredCredentials
 from bookshelf._core.errors import AuthenticationError, AuthenticationRequiredError
@@ -47,7 +48,7 @@ def is_interactive() -> bool:
 
     ``$CI`` wins over everything, because runners can allocate a pseudo terminal.
     """
-    if os.environ.get("CI", "").strip().lower() not in ("", "0", "false"):
+    if in_ci():
         return False
     return (_isatty(sys.stdin) and _isatty(sys.stderr)) or _in_notebook()
 

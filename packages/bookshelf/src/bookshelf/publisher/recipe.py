@@ -31,6 +31,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from pydantic_core import ErrorDetails
 
 from bookshelf._core.errors import BookshelfError
+from bookshelf._core.names import validate_book_version
 from bookshelf._generated import models
 from bookshelf._produce import helpers
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
@@ -408,6 +409,11 @@ class BookSpec(DiscoveryFields):
     visibility: str | None = None
     resources: dict[str, ResourceSpec] = Field(default_factory=dict)
 
+    @field_validator("version")
+    @classmethod
+    def _an_addressable_version(cls, value: str) -> str:
+        return validate_book_version(value)
+
     @field_validator("visibility", mode="before")
     @classmethod
     def _a_known_tier(cls, value: Any) -> Any:  # noqa: ANN401
@@ -470,7 +476,7 @@ class RecordRecipe(BaseModel):
     def _one_book_per_version(self) -> Self:
         """Refuse a recipe that declares the same version twice.
 
-        Two books claiming one version would make ``--version`` pick by position,
+        Two books claiming one version would make ``--book`` pick by position,
         which is not a choice an author ever intends to express.
         It sits on the model rather than in the loader so that ``resolve`` can trust it
         however the recipe was built.

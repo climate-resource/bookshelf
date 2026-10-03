@@ -21,6 +21,11 @@ runner = CliRunner()
         ("ngfs@v4_scenario_e011", Address("ngfs", "v4_scenario", 11)),
         ("ngfs@v1_e1000", Address("ngfs", "v1", 1000)),
         ("ngfs@v1_ebola", Address("ngfs", "v1_ebola")),
+        ("bookshelf://primap-hist/v2.8", Address("primap-hist", "v2.8")),
+        (
+            "bookshelf://primap-hist/v2.8_e003/by_country",
+            Address("primap-hist", "v2.8", 3, "by_country"),
+        ),
     ],
 )
 def test_a_well_formed_address_parses(text: str, expected: Address) -> None:
@@ -49,6 +54,9 @@ def test_a_well_formed_address_parses(text: str, expected: Address) -> None:
         "primap-hist/",
         "primap-hist@v2.8/a/b",
         "primap-hist@v2.8/x?y",
+        "bookshelf://primap-hist",
+        "bookshelf://primap-hist/v2.8/a/b",
+        "bookshelf://sha256/" + "ab" * 32,
     ],
 )
 def test_a_malformed_address_is_a_usage_error(text: str) -> None:

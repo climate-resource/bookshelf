@@ -126,7 +126,7 @@ def test_show_entry_reports_the_tracking_id_and_hash(monkeypatch: pytest.MonkeyP
 def test_show_book_reports_each_resource_hash(monkeypatch: pytest.MonkeyPatch) -> None:
     document = _run_json(monkeypatch, "show", "example@v1.0.0")
 
-    assert {resource["content_hash"] for resource in document["resources"]} == {RESOURCE["hash"]}
+    assert {resource["content_hash"] for resource in document["entries"]} == {RESOURCE["hash"]}
 
 
 def test_show_book_separates_each_resource_block(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -135,8 +135,8 @@ def test_show_book_separates_each_resource_block(monkeypatch: pytest.MonkeyPatch
     result = runner.invoke(app, ["show", "example@v1.0.0"])
 
     assert result.exit_code == 0, result.output
-    resources = result.stdout.split("Resources\n", 1)[1]
-    assert "\n\n  Name" in resources
+    entries = result.stdout.split("Entries\n", 1)[1]
+    assert "\n\n  Name" in entries
 
 
 def test_search_says_when_results_are_truncated(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -202,3 +202,46 @@ def test_a_free_text_miss_does_not_point_at_facets(monkeypatch: pytest.MonkeyPat
 
     assert result.exit_code == 0, result.output
     assert "--facets" not in result.stderr
+
+
+def test_show_reads_a_bookshelf_reference_as_the_address_it_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    by_address = _run_json(monkeypatch, "show", "example@v1.0.0/by_country")
+    by_reference = _run_json(monkeypatch, "show", "bookshelf://example/v1.0.0/by_country")
+
+    assert by_reference == by_address
+    assert by_address["size_bytes"] == RESOURCE["size_bytes"]
+    assert by_address["address"].endswith("/by_country")
+
+
+def test_show_refuses_a_digest_reference(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_client(monkeypatch)
+
+    result = runner.invoke(app, ["show", "bookshelf://sha256/" + "ab" * 32])
+
+    assert result.exit_code == 2
+    assert "by digest" in result.stderr
+
+
+def test_search_json_ends_with_the_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_client(monkeypatch, volume_total=26)
+
+    result = runner.invoke(app, ["search", "--json", "--limit", "1"])
+
+    assert result.exit_code == 0, result.output
+    lines = [json.loads(line) for line in result.stdout.splitlines()]
+    assert lines[-1] == {
+        "page": {"offset": 0, "limit": 1, "returned": 1, "total": 26, "next_offset": 1}
+    }
+    assert all("page" not in line for line in lines[:-1])
+
+
+def test_search_json_page_has_no_next_offset_on_the_last_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_client(monkeypatch)
+
+    result = runner.invoke(app, ["search", "--json"])
+
+    assert json.loads(result.stdout.splitlines()[-1])["page"]["next_offset"] is None

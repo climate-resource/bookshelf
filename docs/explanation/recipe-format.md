@@ -3,7 +3,7 @@
 A feedstock's recipe sits alongside a build script,
 and states the volume, what every book defaults to, the build,
 and each book the feedstock can produce.
-`bookshelf record --version` picks one of those books and records it.
+`bookshelf record --book` picks one of those books and records it.
 
 The aim is to collect the metadata for the books in a single location.
 This makes it easier to reason about and simplifies the build scripts.
@@ -343,7 +343,7 @@ Publishing an unchanged book is idempotent, resulting in an unchanged edition.
 With the recipe carrying the facts, the build file keeps only the processing:
 
 ```python
-build = bookshelf.setup()             # the version comes from --version
+build = bookshelf.setup()             # the version comes from --book
 raw = build.use("raw")                # fetched, verified against the declared sha256, registered
 
 data = pd.read_csv(raw.path)

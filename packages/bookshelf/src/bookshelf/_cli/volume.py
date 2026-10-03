@@ -85,7 +85,7 @@ def _emit_volume(volume: models.VolumeResponse, *, json_output: bool) -> None:
 @volume_app.command("create")
 def volume_create(
     name: str = typer.Argument(help="Volume name, in alphanumerics, hyphens and underscores."),
-    licence: str = typer.Option(..., "--licence", help="SPDX licence identifier."),
+    licence: str = typer.Option(..., "--licence", "--license", help="SPDX licence identifier."),
     description: str | None = typer.Option(None, "--description", help="Long-form description."),
     author: list[str] = typer.Option(
         [], "--author", help="Name of somebody who made the data. Repeatable."

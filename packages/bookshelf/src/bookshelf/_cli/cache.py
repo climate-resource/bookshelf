@@ -12,6 +12,7 @@ from bookshelf._cli._runtime import (
     command_errors,
     command_group,
     emit,
+    emit_json,
     emit_payload,
     iso,
 )
@@ -50,8 +51,8 @@ def cache_info(
         document = {
             "path": str(summary.path),
             "entries": summary.entries,
-            "total_bytes": summary.total_bytes,
-            "max_bytes": summary.max_bytes,
+            "total_size_bytes": summary.total_bytes,
+            "max_size_bytes": summary.max_bytes,
             "oldest": _iso_mtime(summary.oldest_mtime),
             "newest": _iso_mtime(summary.newest_mtime),
         }
@@ -72,9 +73,9 @@ def cache_prune(
         summary = cache.summary()
         emit_payload(
             {
-                "bytes_freed": freed,
-                "total_bytes": summary.total_bytes,
-                "max_bytes": max_bytes,
+                "freed_size_bytes": freed,
+                "total_size_bytes": summary.total_bytes,
+                "max_size_bytes": max_bytes,
             },
             json_output=json_output,
         )
@@ -94,13 +95,19 @@ def cache_clear(
                 exit_code=EXIT_USAGE,
             )
         freed = ContentCache().clear()
-        emit_payload({"bytes_freed": freed}, json_output=json_output)
+        emit_payload({"freed_size_bytes": freed}, json_output=json_output)
 
 
 @cache_app.command("path")
-def cache_path() -> None:
+def cache_path(
+    json_output: bool = typer.Option(False, "--json", help="Emit the path as JSON."),
+) -> None:
     """Print the cache directory as a bare string, for shell interpolation."""
-    emit(str(default_cache_dir()))
+    path = str(default_cache_dir())
+    if json_output:
+        emit_json({"path": path})
+    else:
+        emit(path)
 
 
 __all__ = ["cache_app"]

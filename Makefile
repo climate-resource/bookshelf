@@ -56,6 +56,10 @@ test-golden-update:  ## rewrite the bundle goldens after an intended format chan
 .PHONY: test
 test: test-sdk  ## run the tests
 
+.PHONY: cli-reference
+cli-reference:  ## regenerate the command reference in docs/cli.md
+	uv run --package bookshelf --locked --all-extras python packages/bookshelf/scripts/generate_cli_reference.py
+
 .PHONY: docs
 docs:  ## build the docs
 	uv run mkdocs build

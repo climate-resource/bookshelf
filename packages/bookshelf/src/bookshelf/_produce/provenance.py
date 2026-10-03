@@ -11,6 +11,11 @@ from uuid import UUID, uuid5
 from bookshelf._core.errors import BookshelfError
 from bookshelf._core.hashing import canonical_json_bytes, sha256_hex
 
+
+class _CodeRefError(BookshelfError):
+    """The code ref cannot be read from git, so the caller has to pass ``code_ref=``."""
+
+
 # Fixed so a derived id is reproducible across processes and releases.
 _ACTIVITY_NAMESPACE = UUID("6f2a1d3e-9c47-5b8a-a1f0-3d7e5c2b4a96")
 
@@ -29,7 +34,7 @@ def derive_code_ref(path: Path | None = None) -> str:
     try:
         import git
     except ImportError as exc:
-        raise BookshelfError(
+        raise _CodeRefError(
             "Cannot derive code_ref: git could not be run, "
             "because it is not installed or not on PATH. "
             "Pass code_ref= explicitly."
@@ -39,7 +44,7 @@ def derive_code_ref(path: Path | None = None) -> str:
     try:
         return _derive_code_ref(Path.cwd() if path is None else path)
     except (git.GitError, OSError) as exc:
-        raise BookshelfError(
+        raise _CodeRefError(
             f"Cannot derive code_ref: git could not be queried ({exc}). Pass code_ref= explicitly."
         ) from exc
 
@@ -75,12 +80,12 @@ def _derive_code_ref(path: Path) -> str:
     try:
         repo = git.Repo(path, search_parent_directories=True)
     except git.NoSuchPathError as exc:
-        raise BookshelfError(
+        raise _CodeRefError(
             "Cannot derive code_ref: the working directory no longer exists. "
             "Pass code_ref= explicitly."
         ) from exc
     except git.InvalidGitRepositoryError as exc:
-        raise BookshelfError(
+        raise _CodeRefError(
             "Cannot derive code_ref: not inside a git repository. "
             "Run from a clone, or pass code_ref= explicitly."
         ) from exc
@@ -91,31 +96,31 @@ def _derive_code_ref(path: Path) -> str:
         dirty = repo.is_dirty(untracked_files=True)
     except (git.GitCommandNotFound, OSError) as exc:
         # A git that is absent, or present but not executable, lands here.
-        raise BookshelfError(
+        raise _CodeRefError(
             f"Cannot derive code_ref: git could not be run ({exc}). Pass code_ref= explicitly."
         ) from exc
     except git.GitCommandError as exc:
         detail = str(exc.stderr or "").strip()
         said = f" git said: {detail}" if detail else ""
-        raise BookshelfError(
+        raise _CodeRefError(
             "Cannot derive code_ref: git refused to read this repository. "
             f"Pass code_ref= explicitly.{said}"
         ) from exc
 
     if repo.bare:
-        raise BookshelfError(
+        raise _CodeRefError(
             "Cannot derive code_ref: this repository is bare, so it has no working tree "
             "whose state can be recorded. "
             "Run from a normal clone, or pass code_ref= explicitly."
         )
     if "origin" not in {remote.name for remote in repo.remotes}:
-        raise BookshelfError(
+        raise _CodeRefError(
             "Cannot derive code_ref: this repository has no 'origin' remote, "
             "so the code has no address to record. "
             "Add one with 'git remote add origin <url>', or pass code_ref= explicitly."
         )
     if not repo.head.is_valid():
-        raise BookshelfError(
+        raise _CodeRefError(
             "Cannot derive code_ref: this repository has no commits, "
             "so there is no revision to record. "
             "Commit first, or pass code_ref= explicitly."

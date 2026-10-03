@@ -30,6 +30,13 @@ def test_path_prints_the_bare_directory(cache_dir: Path) -> None:
     assert result.stdout == f"{cache_dir}\n"
 
 
+def test_path_json_carries_the_directory(cache_dir: Path) -> None:
+    result = runner.invoke(app, ["cache", "path", "--json"])
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout) == {"path": str(cache_dir)}
+
+
 def test_info_reports_entries_size_and_cap(cache_dir: Path) -> None:
     cache = ContentCache()
     cache.put(_hash_for(b"one"), b"one")
@@ -38,8 +45,8 @@ def test_info_reports_entries_size_and_cap(cache_dir: Path) -> None:
     assert result.exit_code == 0
     document = json.loads(result.stdout)
     assert document["entries"] == 2
-    assert document["total_bytes"] == 8
-    assert document["max_bytes"] > 0
+    assert document["total_size_bytes"] == 8
+    assert document["max_size_bytes"] > 0
     assert document["oldest"] is not None
     assert document["path"] == str(cache_dir)
 
@@ -51,8 +58,8 @@ def test_prune_evicts_oldest_entries_down_to_the_cap(cache_dir: Path) -> None:
     result = runner.invoke(app, ["cache", "prune", "--max-bytes", "4", "--json"])
     assert result.exit_code == 0
     document = json.loads(result.stdout)
-    assert document["bytes_freed"] == 4
-    assert document["total_bytes"] == 4
+    assert document["freed_size_bytes"] == 4
+    assert document["total_size_bytes"] == 4
 
 
 def test_clear_requires_explicit_confirmation(cache_dir: Path) -> None:
@@ -65,7 +72,7 @@ def test_clear_requires_explicit_confirmation(cache_dir: Path) -> None:
 
     result = runner.invoke(app, ["cache", "clear", "--yes", "--json"])
     assert result.exit_code == 0
-    assert json.loads(result.stdout)["bytes_freed"] == 4
+    assert json.loads(result.stdout)["freed_size_bytes"] == 4
     assert cache.summary().entries == 0
 
 
@@ -77,7 +84,7 @@ def test_clear_leaves_foreign_files_alone(cache_dir: Path) -> None:
     foreign.write_text("keep me")
     result = runner.invoke(app, ["cache", "clear", "--yes", "--json"])
     assert result.exit_code == 0
-    assert json.loads(result.stdout)["bytes_freed"] == 4
+    assert json.loads(result.stdout)["freed_size_bytes"] == 4
     assert foreign.read_text() == "keep me"
     assert cache.summary().entries == 0
 

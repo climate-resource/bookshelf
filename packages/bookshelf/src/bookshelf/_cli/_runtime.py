@@ -19,6 +19,7 @@ import typer
 from bookshelf._core import errors
 from bookshelf._core.config import resolve_base_url
 from bookshelf._core.resolution import LOGIN_REMEDY, CredentialSource, resolve_credential
+from bookshelf._produce.provenance import _CodeRefError
 
 EXIT_OK = 0
 EXIT_UNEXPECTED = 1
@@ -28,6 +29,22 @@ EXIT_FORBIDDEN = 4
 EXIT_NOT_FOUND = 5
 EXIT_NETWORK = 6
 EXIT_INVALID_BUNDLE = 7
+EXIT_CONFLICT = 8
+EXIT_CONTRACT = 9
+
+EXIT_CODES: tuple[tuple[int, str], ...] = (
+    (EXIT_OK, "success"),
+    (EXIT_UNEXPECTED, "any other failure, including a bug worth reporting"),
+    (EXIT_USAGE, "usage: bad arguments, a malformed address, or unusable local setup"),
+    (EXIT_AUTH_REQUIRED, "no accepted credential: log in, or refresh the one in play"),
+    (EXIT_FORBIDDEN, "the credential lacks a permission"),
+    (EXIT_NOT_FOUND, "the volume, book, entry or resource does not exist"),
+    (EXIT_NETWORK, "network, gateway or server failure, worth retrying"),
+    (EXIT_INVALID_BUNDLE, "the bundle is malformed or refused"),
+    (EXIT_CONFLICT, "the request conflicts with what the platform holds"),
+    (EXIT_CONTRACT, "the server answered outside the API contract: upgrade bookshelf"),
+)
+"""Every exit code the CLI uses, with its meaning, for help text and the reference page."""
 
 
 class CliError(Exception):
@@ -38,10 +55,18 @@ class CliError(Exception):
         self.exit_code = exit_code
 
 
-def command_group(help_text: str) -> typer.Typer:
+def exit_code_epilog() -> str:
+    """Render the exit code table for the end of ``--help``."""
+    rows = "\n".join(f"  {code}  {meaning}" for code, meaning in EXIT_CODES)
+    # Click rewraps an epilog paragraph unless it opens with \b.
+    return f"Exit codes:\n\n\b\n{rows}"
+
+
+def command_group(help_text: str, *, epilog: str | None = None) -> typer.Typer:
     """Return a command group whose help, usage errors and tracebacks are the same plain text on a TTY."""
     return typer.Typer(
         help=help_text,
+        epilog=epilog,
         no_args_is_help=True,
         rich_markup_mode=None,
         pretty_exceptions_enable=False,
@@ -201,7 +226,7 @@ def iso(moment: datetime | None) -> str | None:
 
 
 def _exit_code_for(exc: errors.BookshelfError) -> int:
-    if isinstance(exc, errors.AuthenticationError):
+    if isinstance(exc, errors.AuthenticationError | errors.AuthenticationRequiredError):
         return EXIT_AUTH_REQUIRED
     if isinstance(exc, errors.ForbiddenError):
         return EXIT_FORBIDDEN
@@ -212,7 +237,18 @@ def _exit_code_for(exc: errors.BookshelfError) -> int:
         errors.ServerError | errors.TransportError | errors.RateLimitError | errors.GatewayError,
     ):
         return EXIT_NETWORK
-    if isinstance(exc, errors.RequestValidationError | errors.ConfigurationError):
+    if isinstance(exc, errors.ConflictError):
+        return EXIT_CONFLICT
+    if isinstance(exc, errors.UnexpectedResponseError):
+        return EXIT_CONTRACT
+    if isinstance(
+        exc,
+        errors.RequestValidationError
+        | errors.ConfigurationError
+        | errors.AuthConfigurationError
+        | errors.SelectionError
+        | _CodeRefError,
+    ):
         return EXIT_USAGE
     return EXIT_UNEXPECTED
 
@@ -289,6 +325,9 @@ def command_errors() -> Generator[None]:
 
 __all__ = [
     "EXIT_AUTH_REQUIRED",
+    "EXIT_CODES",
+    "EXIT_CONFLICT",
+    "EXIT_CONTRACT",
     "EXIT_FORBIDDEN",
     "EXIT_INVALID_BUNDLE",
     "EXIT_NETWORK",
@@ -300,6 +339,7 @@ __all__ = [
     "base_url",
     "command_errors",
     "command_group",
+    "exit_code_epilog",
     "emit",
     "emit_json",
     "emit_payload",

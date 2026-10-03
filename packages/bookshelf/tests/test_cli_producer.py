@@ -59,8 +59,8 @@ def test_validate_reports_the_bundle_summary(make_bundle: BundleFactory) -> None
     assert result.exit_code == EXIT_OK
     assert _payload(result.stdout) == {
         "bundle_path": str(bundle.root.resolve()),
-        "resources": 2,
-        "book_entries": 2,
+        "resource_count": 2,
+        "entry_count": 2,
         "placements": [],
         "published": True,
         "processing": [],
@@ -73,7 +73,7 @@ def test_validate_human_output_names_every_field(make_bundle: BundleFactory) -> 
     result = runner.invoke(app, ["validate", str(bundle.root)])
 
     assert result.exit_code == EXIT_OK
-    for label in ("Bundle path", "Resources", "Book entries", "Published", "Processing"):
+    for label in ("Bundle path", "Resource count", "Entry count", "Published", "Processing"):
         assert label in result.stdout
 
 
@@ -168,11 +168,44 @@ def test_validate_reports_a_crafted_hash_as_an_invalid_bundle(make_bundle: Bundl
     assert "cannot read a bundle" not in _plain(result.stderr)
 
 
-def test_validate_rejects_a_missing_bundle(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["validate", str(tmp_path / "absent")])
+@pytest.mark.parametrize("command", ["validate", "publish"])
+def test_a_missing_bundle_directory_is_a_usage_error(tmp_path: Path, command: str) -> None:
+    result = runner.invoke(app, [command, str(tmp_path / "absent")])
 
-    assert result.exit_code == EXIT_INVALID_BUNDLE
-    assert "cannot read a bundle" in _plain(result.stderr)
+    assert result.exit_code == EXIT_USAGE
+    assert "no bundle directory at" in _plain(result.stderr)
+
+
+def test_record_accepts_the_old_version_flag(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: dict[str, Any] = {}
+    monkeypatch.setattr(
+        "bookshelf._cli.producer.run_record", lambda **kwargs: seen.update(kwargs) or {}
+    )
+    args = _record_args(tmp_path, "--bundle", str(tmp_path / "bundle"))
+    args[args.index("--book")] = "--version"
+
+    result = runner.invoke(app, args)
+
+    assert result.exit_code == EXIT_OK, result.output
+    assert seen["version"] == VERSION
+
+
+def test_record_refuses_a_book_and_version_that_disagree(tmp_path: Path) -> None:
+    args = _record_args(tmp_path, "--version", "v9.9.9")
+
+    result = runner.invoke(app, args)
+
+    assert result.exit_code == EXIT_USAGE
+    assert "disagree" in _plain(result.stderr)
+
+
+def test_record_help_hides_the_old_version_flag() -> None:
+    result = runner.invoke(app, ["record", "--help"])
+
+    assert "--book" in _plain(result.stdout)
+    assert "--version" not in _plain(result.stdout)
 
 
 def test_validate_rejects_a_malformed_manifest(tmp_path: Path) -> None:
@@ -225,7 +258,7 @@ def _record_args(tmp_path: Path, *extra: str) -> list[str]:
     recipe = _recipe(tmp_path / "bookshelf.yaml")
     build = tmp_path / "build.py"
     build.write_text("x = 1\n")
-    return ["record", str(build), "--recipe", str(recipe), "--version", VERSION, *extra]
+    return ["record", str(build), "--recipe", str(recipe), "--book", VERSION, *extra]
 
 
 def test_record_force_refuses_a_directory_that_is_not_a_bundle(tmp_path: Path) -> None:
@@ -261,7 +294,7 @@ def test_record_names_the_fix_when_no_build_file_resolves(tmp_path: Path) -> Non
             str(recipe),
             "--bundle",
             str(tmp_path / "bundle"),
-            "--version",
+            "--book",
             VERSION,
         ],
     )
@@ -283,7 +316,7 @@ def test_record_names_the_fix_when_the_build_file_is_absent(tmp_path: Path) -> N
             str(recipe),
             "--bundle",
             str(tmp_path / "bundle"),
-            "--version",
+            "--book",
             VERSION,
         ],
     )
@@ -306,7 +339,7 @@ def test_record_names_the_fix_when_the_build_file_is_not_python(tmp_path: Path) 
             str(recipe),
             "--bundle",
             str(tmp_path / "bundle"),
-            "--version",
+            "--book",
             VERSION,
         ],
     )
@@ -373,7 +406,7 @@ def test_record_validates_the_recipe_even_when_a_build_file_is_given(tmp_path: P
             str(recipe),
             "--bundle",
             str(tmp_path / "bundle"),
-            "--version",
+            "--book",
             VERSION,
         ],
     )
@@ -392,7 +425,7 @@ def test_record_without_a_version_names_the_versions_the_recipe_declares(
     result = runner.invoke(app, ["record", "--bundle", str(tmp_path / "bundle")])
 
     assert result.exit_code == EXIT_USAGE
-    assert "--version" in _plain(result.stderr)
+    assert "--book" in _plain(result.stderr)
     assert f"'{VERSION}'" in _plain(result.stderr)
 
 
@@ -404,7 +437,7 @@ def test_record_with_an_unknown_version_names_the_versions_the_recipe_declares(
     monkeypatch.chdir(tmp_path)
 
     result = runner.invoke(
-        app, ["record", "--bundle", str(tmp_path / "bundle"), "--version", "v9.9.9"]
+        app, ["record", "--bundle", str(tmp_path / "bundle"), "--book", "v9.9.9"]
     )
 
     assert result.exit_code == EXIT_USAGE
@@ -462,7 +495,7 @@ def test_record_passes_parameters_and_paths_through(
             str(recipe),
             "--bundle",
             str(tmp_path / "bundle"),
-            "--version",
+            "--book",
             VERSION,
             "-p",
             "tag=v5.0",
@@ -482,7 +515,7 @@ def test_record_passes_parameters_and_paths_through(
     # Values are YAML scalars, so a bare 5.0 arrives as a float and not a string.
     # The version is not among them, because it is not a build parameter.
     assert seen["parameters"] == {"tag": "v5.0", "revision": 5.0, "strict": True}
-    assert _payload(result.stdout)["resources"] == 1
+    assert _payload(result.stdout)["resource_count"] == 1
 
 
 def test_record_resolves_the_build_file_from_the_recipe(
@@ -498,7 +531,7 @@ def test_record_resolves_the_build_file_from_the_recipe(
     monkeypatch.chdir(tmp_path)
 
     result = runner.invoke(
-        app, ["record", "--bundle", str(tmp_path / "bundle"), "--version", VERSION, "--json"]
+        app, ["record", "--bundle", str(tmp_path / "bundle"), "--book", VERSION, "--json"]
     )
 
     assert result.exit_code == EXIT_OK
@@ -521,7 +554,7 @@ def test_record_rejects_a_malformed_parameter(
             str(recipe),
             "--bundle",
             str(tmp_path / "bundle"),
-            "--version",
+            "--book",
             VERSION,
             "-p",
             "nonsense",
@@ -638,7 +671,7 @@ def test_discard_reports_an_edition_that_is_not_there(monkeypatch: pytest.Monkey
     [
         ("example", "needs an exact edition"),
         ("example@v1.0.0", "needs an exact edition"),
-        ("example@v1.0.0_e001/by_country", "not a file within one"),
+        ("example@v1.0.0_e001/by_country", "not an entry within one"),
     ],
 )
 def test_discard_rejects_an_address_that_is_not_one_edition(
@@ -687,7 +720,7 @@ def test_publish_renders_the_outcome(
     assert summary["volume"] == "example"
     assert summary["version"] == "v1.0.0"
     assert summary["edition"] == 2
-    assert summary["resources"] == 1
+    assert summary["resource_count"] == 1
     assert summary["dedupe_hits"] == 1
     assert summary["converged"] is False
     assert [dry_run for _bundle_arg, dry_run in calls] == [False]
@@ -708,7 +741,7 @@ def test_publish_renders_a_no_op(
     summary = _payload(result.stdout)
     assert summary["outcome"] == "no-op"
     assert summary["edition"] == 3
-    assert summary["resources"] == 0
+    assert summary["resource_count"] == 0
     assert summary["converged"] is True
 
 
