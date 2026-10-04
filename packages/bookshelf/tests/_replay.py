@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 
-from bookshelf.facade import Bookshelf
+from bookshelf._facade import Bookshelf
 from tests import _core_payloads as payloads
 
 BASE_URL = "https://bookshelf.test"

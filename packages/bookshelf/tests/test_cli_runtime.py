@@ -31,6 +31,8 @@ from bookshelf._produce.provenance import _CodeRefError
         (errors.TransportError("refused"), 6),
         (errors.ConflictError("clash", status_code=409), 8),
         (errors.UnexpectedResponseError("odd", status_code=418), 9),
+        (errors.ContractError("wrong shape", status_code=200), 9),
+        (errors.VersionNotFoundError("no such version", status_code=404), 5),
         (errors.AuthenticationRequiredError("log in"), 3),
         (errors.AuthConfigurationError("half a client pair"), 2),
         (errors.SelectionError("no such column"), 2),

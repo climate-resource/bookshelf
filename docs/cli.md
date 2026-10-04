@@ -53,7 +53,7 @@ so they drop straight into shell interpolation.
 | 6 | network, gateway or server failure, worth retrying | `TransportError`, `ServerError`, `RateLimitError`, `GatewayError` |
 | 7 | the bundle is malformed or refused | `InvalidBundleError` |
 | 8 | the request conflicts with what the platform holds | `ConflictError` |
-| 9 | the server answered outside the API contract: upgrade bookshelf | `UnexpectedResponseError` |
+| 9 | the server answered outside the API contract: upgrade bookshelf | `UnexpectedResponseError`, `ContractError` |
 
 Some cases worth knowing:
 

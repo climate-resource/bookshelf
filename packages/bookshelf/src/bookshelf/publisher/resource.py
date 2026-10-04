@@ -29,6 +29,7 @@ from bookshelf._core.integrity import HashMismatchError
 from bookshelf._core.names import flatten_to_resource_name
 from bookshelf._generated import models
 from bookshelf._produce.types import HasTrackingId
+from bookshelf._records import ResourceType
 from bookshelf.cache import ContentCache
 from bookshelf.publisher.recipe import ResourceSpec, credited
 from bookshelf.publisher.reference import BookshelfReference, DigestReference, parse_reference
@@ -113,7 +114,7 @@ class PublishedEntry(Protocol):
 
     tracking_id: UUID
 
-    def resource_type(self) -> models.ResourceType:
+    def resource_type(self) -> ResourceType:
         """The type the platform registered the resource under."""
         ...
 
@@ -430,7 +431,7 @@ def _held(
 ) -> ResolvedResource:
     """Wrap a platform-held resource, checking a stated type rather than trusting it."""
     registered = entry.resource_type()
-    if declared is not None and registered != declared:
+    if declared is not None and registered.value != declared.value:
         raise BookshelfError(
             f"resource {name!r} declares type {declared.value}, "
             f"but {uri} is {registered.value}. "

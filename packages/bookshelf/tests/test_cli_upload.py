@@ -11,7 +11,7 @@ from typer.testing import CliRunner
 
 from bookshelf._cli import app
 from bookshelf._cli._runtime import EXIT_AUTH_REQUIRED, EXIT_OK, EXIT_USAGE
-from bookshelf.facade import Bookshelf
+from bookshelf._facade import Bookshelf
 from tests import _core_payloads as payloads
 
 API_URL = "https://bookshelf.test"

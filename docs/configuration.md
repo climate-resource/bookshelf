@@ -7,11 +7,11 @@ Constructor arguments take precedence over environment variables.
 `base_url=` names the API deployment a client talks to.
 Pass it when the deployment must be explicit, for example in a script that runs against staging.
 Without it, the SDK reads `$BOOKSHELF_URL`, then falls back to a built-in default.
-`bookshelf.PRODUCTION_API_URL` and `bookshelf.STAGING_API_URL` name the two deployments.
+`bookshelf.PRODUCTION_API_URL` names the production deployment, which is the default.
 
-| Variable        | Effect                                                                  |
-| --------------- | ----------------------------------------------------------------------- |
-| `BOOKSHELF_URL` | The API deployment to use. `BOOKSHELF_API_URL` is accepted as an alias. |
+| Variable        | Effect                                                                                |
+| --------------- | ------------------------------------------------------------------------------------- |
+| `BOOKSHELF_URL` | The API deployment to use. `BOOKSHELF_API_URL` is a deprecated alias, removed in 2.0. |
 
 Stored credentials are scoped to a deployment,
 so pointing a client at staging never sends it a production login.
@@ -50,7 +50,7 @@ Cached content never expires, and the oldest entries are removed once the cache 
 
 | Variable                   | Effect                                                                                              |
 | -------------------------- | --------------------------------------------------------------------------------------------------- |
-| `BOOKSHELF_CACHE_DIR`      | Moves the local content cache. `BOOKSHELF_CACHE_LOCATION` is accepted as an alias.                  |
+| `BOOKSHELF_CACHE_DIR`      | Moves the local content cache. `BOOKSHELF_CACHE_LOCATION` is a deprecated alias, removed in 2.0.    |
 | `BOOKSHELF_CACHE_BOOK_TTL` | Seconds a remembered pinned edition is trusted before it is checked again. The default is one hour. |
 
 `book_ttl=` on `Bookshelf` and `AsyncBookshelf` overrides `BOOKSHELF_CACHE_BOOK_TTL` for one client.

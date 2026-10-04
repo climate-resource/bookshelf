@@ -239,7 +239,7 @@ def _exit_code_for(exc: errors.BookshelfError) -> int:
         return EXIT_NETWORK
     if isinstance(exc, errors.ConflictError):
         return EXIT_CONFLICT
-    if isinstance(exc, errors.UnexpectedResponseError):
+    if isinstance(exc, errors.UnexpectedResponseError | errors.ContractError):
         return EXIT_CONTRACT
     if isinstance(
         exc,

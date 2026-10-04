@@ -18,7 +18,7 @@ import pytest
 import yaml
 from pydantic import BaseModel
 
-from bookshelf.facade import Bookshelf
+from bookshelf._facade import Bookshelf
 from bookshelf.publisher import recording as recording_module
 from bookshelf.publisher.bundle import Bundle
 from bookshelf.publisher.recipe import DiscoveryFields, PersonSpec, VolumeSection, _ResourceFields

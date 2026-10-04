@@ -12,7 +12,7 @@ from typer.testing import CliRunner
 from bookshelf._cli import app
 from bookshelf._cli._runtime import EXIT_FORBIDDEN, EXIT_OK, EXIT_USAGE
 from bookshelf._core import credentials
-from bookshelf.facade import Bookshelf
+from bookshelf._facade import Bookshelf
 from tests import _core_payloads as payloads
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")

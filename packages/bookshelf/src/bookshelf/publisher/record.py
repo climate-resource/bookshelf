@@ -19,12 +19,12 @@ import yaml
 from bookshelf._core.config import UNSET, AuthInput
 from bookshelf._core.errors import BookshelfError
 from bookshelf._core.names import flatten_to_resource_name
+from bookshelf._facade import Bookshelf
 from bookshelf._generated import models
 from bookshelf._produce import helpers
 from bookshelf._produce.books import DraftBook
 from bookshelf._produce.facade import nests_discovery
 from bookshelf._produce.provenance import derive_code_ref
-from bookshelf.facade import Bookshelf
 from bookshelf.publisher.bundle import MANIFEST_NAME, RESOURCES_DIRNAME, Bundle
 from bookshelf.publisher.notebook import (
     ExecutedNotebook,

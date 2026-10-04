@@ -3,8 +3,8 @@
 from dataclasses import dataclass
 from typing import Literal
 
+from bookshelf._facade import Bookshelf
 from bookshelf._generated import models
-from bookshelf.facade import Bookshelf
 from bookshelf.publisher.bundle import Bundle
 from bookshelf.publisher.replay import replay_bundle_sync
 

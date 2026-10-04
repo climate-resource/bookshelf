@@ -252,6 +252,32 @@ def _tool_version(name: str, expected: str, runner: Runner, command: Sequence[st
     print(output)
 
 
+_CLOSED_ENUM_IMPORT = "from enum import StrEnum\n"
+_OPEN_ENUM = '''
+
+class StrEnum(_ClosedStrEnum):
+    """A string enum that keeps a value this contract does not list, rather than refusing it."""
+
+    @classmethod
+    def _missing_(cls, value: object) -> StrEnum | None:
+        if not isinstance(value, str):
+            return None
+        member = str.__new__(cls, value)
+        member._name_ = value
+        member._value_ = value
+        return member
+'''
+
+
+def _open_enums(source: str) -> str:
+    """Let every generated enum carry a value a newer server sends, so parsing the response survives it."""
+    if _CLOSED_ENUM_IMPORT not in source:
+        return source
+    source = source.replace(_CLOSED_ENUM_IMPORT, "from enum import StrEnum as _ClosedStrEnum\n", 1)
+    head, separator, tail = source.partition("\n\nclass ")
+    return head + _OPEN_ENUM + separator + tail
+
+
 def _write_initializer(tree: Path, version: str) -> None:
     (tree / "__init__.py").write_text(
         _header(version)
@@ -294,7 +320,7 @@ def _generate_temporary(tree: Path, version: str, runner: Runner) -> None:
     )
     if not models_path.is_file():
         raise GenerationError("datamodel-codegen did not create models.py")
-    models_path.write_text(_header(version) + "\n" + models_path.read_text())
+    models_path.write_text(_header(version) + "\n" + _open_enums(models_path.read_text()))
     _write_initializer(tree, version)
     runner("ruff-check", ["ruff", "check", "--fix", str(tree)])
     runner("ruff-format", ["ruff", "format", str(tree)])
