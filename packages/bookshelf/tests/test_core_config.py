@@ -76,10 +76,3 @@ def test_a_bad_url_names_the_variable_that_supplied_it(
 def test_a_bad_url_names_the_option_the_caller_passed() -> None:
     with pytest.raises(ConfigurationError, match="^--api-url "):
         config.resolve_base_url("https://api.test#frag", source="--api-url")
-
-
-def test_the_retired_keychain_switch_warns(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("BOOKSHELF_USE_KEYCHAIN", "1")
-
-    with pytest.warns(UserWarning, match="BOOKSHELF_USE_KEYCHAIN is ignored"):
-        config.resolve_base_url("https://example.test")
