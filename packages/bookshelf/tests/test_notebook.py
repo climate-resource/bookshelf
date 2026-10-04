@@ -202,7 +202,8 @@ class TestPublishExtraGating:
         monkeypatch.setitem(sys.modules, "nbconvert", None)  # type: ignore[arg-type]
         build_path = _write_build(tmp_path, "value = 1\n")
 
-        with pytest.raises(RuntimeError, match=r"pip install bookshelf\[publish\]"):
+        with pytest.raises(RuntimeError, match=r"pip install bookshelf\[publish\]") as caught:
             execute_python_build(
                 build_path, params={}, workdir=tmp_path, artifacts_dir=tmp_path / "artifacts"
             )
+        assert "import of nbconvert halted" in str(caught.value)

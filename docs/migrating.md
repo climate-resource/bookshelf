@@ -65,6 +65,7 @@ The compatibility layer differs from 0.4 in a few places:
   and `UnknownBook`, `UnknownVersion` and `UnknownEdition` from `bookshelf.legacy`.
 - `bookshelf.constants`, `bookshelf.utils` and `bookshelf.dataset_structure` are gone with no replacement.
   Helpers such as `print_dataset_structure` have to be copied into your own code.
+- Importing any of these removed submodules raises an `ImportError` that links to this page.
 
 ## Step 2: move to the new API
 
@@ -156,6 +157,8 @@ Check each of these against your own usage.
 
 Omitting the edition loads the latest one, and the platform can hold newer editions than the S3 bucket did.
 For example, 0.4 loads `rcmip-emissions` `v5.1.0` as edition 1, and 1.0 loads edition 2.
+The 0.4 `BookShelf.load()` resolves through the platform too,
+so the same unchanged call can return different data after the upgrade, without a warning.
 Pass `edition=` wherever reproducibility matters.
 
 New versions are only published to the platform.
