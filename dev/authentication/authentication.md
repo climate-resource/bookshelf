@@ -193,3 +193,6 @@ The file is written `0600`.
 
 It holds every stored identity and which one is active for each deployment,
 so `auth switch` is a local change.
+
+The file format may change in any release, so do not read or write it yourself,
+instead use CLI helpers such as `bookshelf auth token` to access the contents.
