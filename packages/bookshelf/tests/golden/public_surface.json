@@ -626,6 +626,17 @@
       "kind": "value",
       "type": "str"
     },
+    "PartialRegistrationError": {
+      "attributes": {},
+      "bases": [
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "class",
+      "members": {
+        "failed_indices": "property -> tuple[int, ...]"
+      }
+    },
     "Problem": {
       "attributes": {
         "detail": "str",

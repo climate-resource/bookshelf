@@ -26,7 +26,6 @@ PROVISIONAL = frozenset(
         "AsyncActivity",
         "AsyncDraftBook",
         "DraftBook",
-        "PartialRegistrationError",
         "RegisterItem",
         "RegistrationFailure",
         "RegistrationSuccess",
@@ -65,6 +64,10 @@ HANDLES = frozenset(
         "Volume",
     }
 )
+# Promised classes whose members hand back producer types or generated models, which are provisional.
+PROVISIONAL_MEMBERS = {
+    "PartialRegistrationError": frozenset({"__init__", "successful_outcomes"}),
+}
 DUNDERS = ("__getitem__", "__iter__", "__len__", "__contains__")
 
 
@@ -137,7 +140,7 @@ def _public_names(cls: type) -> list[str]:
     }
     if cls.__name__ not in HANDLES:
         names.add("__init__")
-    return sorted(names)
+    return sorted(names - PROVISIONAL_MEMBERS.get(cls.__name__, frozenset()))
 
 
 def _attributes(cls: type) -> dict[str, str]:
@@ -231,3 +234,6 @@ def test_the_snapshot_covers_constructors_error_members_and_attributes() -> None
     assert root["Book"]["attributes"]["book_id"] == "UUID"
     assert root["BookEntry"]["attributes"]["name_in_book"] == "str"
     assert "__init__" not in root["Book"]["members"]
+    assert root["PartialRegistrationError"]["members"] == {
+        "failed_indices": "property -> tuple[int, ...]"
+    }

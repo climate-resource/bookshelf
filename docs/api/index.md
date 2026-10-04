@@ -28,11 +28,18 @@ The promised names in the `bookshelf` package are:
   `resource`, `resource_by_hash` and `correct_book`.
 - Handles: `Volume`, `AsyncVolume`, `Book`, `AsyncBook`, `BookEntry`, `AsyncBookEntry`,
   `Resource` and `AsyncResource`.
+  A handle is obtained from a client, for example `bs.book(...)`, and is not built directly.
+  Its methods and attributes are promised, but its constructor is not.
 - Values: `ResourceInfo`, `DataPreview`, `ResourceType`, `Visibility`, `Identity`, `VolumeSummary`,
   `VolumeSearchResults`, `Facets`, `Facet`, `FacetValue`, `SeriesMetadata`, `BookCorrection`,
   `Problem`, `ItemError` and `CacheSummary`.
 - The cache: `ContentCache`, with the members on the [Cache](cache.md) page.
 - Errors: `BookshelfError` and every subclass on the [Errors](errors.md) page.
+  That includes `PartialRegistrationError` and the publisher errors,
+  `InvalidBundleError`, `InvalidRecipeError`, `InvalidReferenceError`, `RecordingError` and `RecordRefusedError`,
+  so an `except` clause naming one keeps working.
+  An attribute that returns a generated model or a producer type,
+  such as `PartialRegistrationError.successful_outcomes`, is provisional.
 - Metadata: `__version__`, `PRODUCTION_API_URL` and `OPENAPI_VERSION`.
 
 Beyond the root package:
@@ -61,11 +68,14 @@ That includes:
   See [the bundle format](../explanation/bundle-format.md) and [the recipe format](../explanation/recipe-format.md).
 - The layout of the cache directory and the stored credentials file, which are private to the SDK.
 - Underscore-prefixed modules and names, such as `bookshelf._core`.
-- `bookshelf.models`, which holds the generated API models and tracks the platform contract.
+- The generated API models, which track the platform contract.
+  They are private, and some provisional producer methods still return them.
+- Handle constructors, which take the private client and generated models.
 - The producer surface, which is exported but still settling.
   That covers `setup`, `Activity`, `AsyncActivity`, `DraftBook`, `AsyncDraftBook`, `RegisterItem`, `Used`,
-  `RegistrationSuccess`, `RegistrationFailure` and `PartialRegistrationError`.
+  `RegistrationSuccess` and `RegistrationFailure`.
   It also covers the `Bookshelf` methods `activity`, `draft_book`, `register_external`, `register_file`,
   `create_volume`, `get_or_create_volume`, `update_volume`, `delete_volume`, `update_draft`, `discard_draft`
   and `replay_bundle`, some of which still return generated models.
 - `bookshelf.publisher`, which drives recording, replaying and publishing bundles, and its submodules.
+  Its errors are the exception, because they are promised from the root package.

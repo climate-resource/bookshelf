@@ -1,8 +1,12 @@
 # Resources
 
 ::: bookshelf.Resource
+    options:
+      merge_init_into_class: false
 
 ::: bookshelf.AsyncResource
+    options:
+      merge_init_into_class: false
 
 ::: bookshelf.DataPreview
 

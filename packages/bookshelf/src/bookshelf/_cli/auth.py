@@ -30,12 +30,14 @@ from bookshelf._cli._runtime import (
     iso,
     note,
     requested_api_url,
+    with_remedy,
 )
 from bookshelf._core import credentials, errors, oauth, session
 from bookshelf._core.auth import JWT_BEARER_GRANT, TokenProvider, decode_jwt_expiry
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.credentials import CredentialKind, StoredCredentials, default_store
 from bookshelf._core.resolution import (
+    NEWER_STORE_REMEDY,
     CredentialSource,
     ResolvedCredential,
     resolve_credential,
@@ -68,6 +70,12 @@ def auth_login(
     """Log in: through WorkOS as a human, or as an agent with --agent."""
     base = base_url()
     with command_errors():
+        if default_store().read_only():
+            raise CliError(
+                f"{credentials.credentials_path()} was written by a newer bookshelf, "
+                f"so this version cannot store a login in it. {NEWER_STORE_REMEDY}",
+                exit_code=EXIT_USAGE,
+            )
         if not agent:
             if claim or email is not None:
                 raise CliError(
@@ -89,6 +97,11 @@ def auth_login(
 
 
 def _login_user(base: str, *, no_browser: bool, json_output: bool) -> None:
+    try:
+        oauth.require_workos_client_id(base)
+    except oauth.OAuthError as exc:
+        raise CliError(str(exc), exit_code=EXIT_USAGE) from exc
+
     def show_code(flow: oauth.DeviceFlowInfo) -> None:
         note(field("Your code:", flow.user_code))
         note(field("Visit", flow.verification_uri_complete))
@@ -305,7 +318,7 @@ def auth_token(
             # A stored login that cannot be refreshed is spent as far as this command goes,
             # so it exits as a credential problem rather than a usage one.
             if credential.stored is not None:
-                raise CliError(f"{exc} {remedy}", exit_code=EXIT_AUTH_REQUIRED) from exc
+                raise CliError(with_remedy(str(exc), remedy), exit_code=EXIT_AUTH_REQUIRED) from exc
             raise CliError(str(exc), exit_code=EXIT_USAGE) from exc
 
 
@@ -323,7 +336,9 @@ def _current_token(provider: TokenProvider, *, remedy: str) -> str:
         raise CliError(f"token endpoint unreachable: {exc}", exit_code=EXIT_NETWORK) from exc
     except errors.AuthenticationError as exc:
         raise CliError(
-            f"the credential could not be exchanged for a fresh token: {exc.detail} {remedy}",
+            with_remedy(
+                f"the credential could not be exchanged for a fresh token: {exc.detail}", remedy
+            ),
             exit_code=EXIT_AUTH_REQUIRED,
         ) from exc
 
@@ -496,9 +511,15 @@ def auth_list(
         store = default_store()
         records = store.records()
         active = store.active_kinds()
+        # This version never refreshes a token from a newer store, so expiry is the end of it.
+        refreshable = not store.read_only()
         now = datetime.now(UTC)
         if not records:
-            note("No stored identities. Run 'bookshelf auth login' to add one.")
+            note(
+                "No stored identities. Run 'bookshelf auth login' to add one."
+                if refreshable
+                else f"No stored identities this version can read. {NEWER_STORE_REMEDY}"
+            )
             return
         emit_payloads(
             (
@@ -508,7 +529,7 @@ def auth_list(
                     "api_url": record.api_url,
                     "active": active.get(record.api_url) == record.kind,
                     "expired": record.expires_at is not None and record.expires_at <= now,
-                    "needs_login": _spent(record, now),
+                    "needs_login": _spent(record, now, refreshable=refreshable),
                     "claimed": record.claimed,
                     "expires_at": iso(record.expires_at),
                     "assertion_expires_at": iso(record.assertion_expires_at),
@@ -519,10 +540,12 @@ def auth_list(
         )
 
 
-def _spent(record: StoredCredentials, now: datetime) -> bool:
+def _spent(record: StoredCredentials, now: datetime, *, refreshable: bool) -> bool:
     """Say whether a record is past use without a fresh login: its token expired with nothing to renew it."""
     if record.expires_at is None or record.expires_at > now:
         return False
+    if not refreshable:
+        return True
     if record.refresh_token is not None:
         return False
     if record.kind is CredentialKind.AGENT and record.identity_assertion is not None:

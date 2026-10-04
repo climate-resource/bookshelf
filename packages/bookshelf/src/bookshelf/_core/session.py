@@ -21,6 +21,7 @@ from bookshelf._core.ci import in_ci
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.credentials import CredentialKind, CredentialStore, StoredCredentials
 from bookshelf._core.errors import AuthenticationError, AuthenticationRequiredError
+from bookshelf._core.resolution import NEWER_STORE_REMEDY
 from bookshelf._generated import models
 
 _LOGIN_REMEDY = (
@@ -137,6 +138,12 @@ def _require_login_allowed(
         raise AuthenticationRequiredError(
             f"The API rejected {credential.describe().label}. "
             f"Check it is current for {client.base_url}."
+        ) from rejected
+    if credential.store.read_only():
+        raise AuthenticationRequiredError(
+            f"No credential was accepted for {client.base_url}, and the credentials file "
+            "was written by a newer bookshelf, so this version cannot log in to it. "
+            f"{NEWER_STORE_REMEDY}"
         ) from rejected
     if not (is_interactive() if interactive is None else interactive):
         what = "The stored login was rejected" if rejected else "No Bookshelf credential was found"

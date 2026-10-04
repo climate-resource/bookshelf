@@ -1,6 +1,7 @@
 """Confirming a client's credential, and logging in when a person can."""
 
 import contextvars
+import json
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -351,3 +352,23 @@ async def test_the_async_client_logs_in_off_the_loop(monkeypatch: pytest.MonkeyP
     assert user.email == USER["email"]
     assert calls == [BASE_URL]
     assert recorded[-1].headers["Authorization"] == "Bearer fresh"
+
+
+@pytest.mark.parametrize("interactive", [True, False])
+def test_a_newer_store_is_never_offered_a_login(
+    monkeypatch: pytest.MonkeyPatch, interactive: bool
+) -> None:
+    """The login could not be saved, so it would only fail after the person signed in."""
+    monkeypatch.setattr(session, "login_user", _fake_login(calls := []))
+    credentials.credentials_path().write_text(
+        json.dumps({"version": credentials.STORE_VERSION + 1, "records": {}, "active": {}})
+    )
+
+    with (
+        Bookshelf(BASE_URL, transport=httpx.MockTransport(_api([], accept=None))) as bs,
+        pytest.raises(AuthenticationRequiredError, match="newer bookshelf") as excinfo,
+    ):
+        bs.ensure_authenticated(interactive=interactive)
+
+    assert "auth login" not in str(excinfo.value)
+    assert calls == []

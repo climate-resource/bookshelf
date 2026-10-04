@@ -79,6 +79,11 @@ sorted(co2.get_unique_meta("scenario"))[:8]
 # ## Plotting
 #
 # `ScmRun` carries its own plotting helpers.
+# `lineplot()` draws with seaborn and matplotlib, which the `figures` extra installs.
+#
+# ```bash
+# uv add "bookshelf[scmrun,figures]"
+# ```
 
 # %%
 from matplotlib import pyplot as plt
