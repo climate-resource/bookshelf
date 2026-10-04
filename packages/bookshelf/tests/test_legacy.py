@@ -16,8 +16,8 @@ import pytest
 import bookshelf
 from bookshelf import legacy
 from bookshelf._core import config
+from bookshelf._facade import Bookshelf
 from bookshelf.cache import ContentCache, default_cache_dir
-from bookshelf.facade import Bookshelf
 from tests import _core_payloads as payloads
 
 BASE_URL = "https://bookshelf.test"
@@ -313,7 +313,8 @@ def test_as_long_df_keeps_its_tidy_shape_by_default(tmp_path: Path) -> None:
 def test_the_legacy_cache_location_variable_is_honoured(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("BOOKSHELF_CACHE_DIR", raising=False)
     monkeypatch.setenv("BOOKSHELF_CACHE_LOCATION", "/legacy/cache")
-    assert default_cache_dir() == Path("/legacy/cache")
+    with pytest.warns(FutureWarning, match="set BOOKSHELF_CACHE_DIR instead"):
+        assert default_cache_dir() == Path("/legacy/cache")
     monkeypatch.setenv("BOOKSHELF_CACHE_DIR", "/new/cache")
     assert default_cache_dir() == Path("/new/cache")
 

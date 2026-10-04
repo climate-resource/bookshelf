@@ -1,9 +1,7 @@
 """The producer surface the public facades bind to, reached through the facade itself."""
 
-import ast
 import hashlib
 import inspect
-import itertools
 import json
 from pathlib import Path
 from typing import Any
@@ -12,14 +10,13 @@ from uuid import UUID
 import httpx
 import pytest
 
-import bookshelf.facade
 from bookshelf._core.errors import BookshelfError
+from bookshelf._facade import AsyncBookshelf, Bookshelf
 from bookshelf._generated import models
-from bookshelf._produce.facade import LiveSink
+from bookshelf._produce.facade import AsyncLiveSink, LiveSink
 from bookshelf._produce.types import RegisterItem
-from bookshelf.facade import AsyncBookshelf, Bookshelf
 from bookshelf.publisher.bundle import Bundle
-from bookshelf.publisher.recording import RecordingBookshelf, RecordingSink
+from bookshelf.publisher.recording import RecordingActivity, RecordingBookshelf, RecordingSink
 from tests import _core_payloads as payloads
 
 BASE_URL = "https://bookshelf.test"
@@ -290,44 +287,22 @@ def test_the_live_and_recording_adapters_declare_the_same_call(call: str) -> Non
     assert _parameters(LiveSink, call) == _parameters(RecordingSink, call)
 
 
-def test_a_recording_facade_binds_every_producer_call_to_its_bundle(tmp_path: Path) -> None:
+def test_a_recording_facade_routes_every_producer_call_to_its_bundle(tmp_path: Path) -> None:
     """A recorded build keeps live reads, so only the four producer calls move to the bundle."""
     bundle = Bundle(tmp_path / "bundle")
 
     with RecordingBookshelf(bundle) as recording:
-        bound = [
-            recording.activity,
-            recording.register_external,
-            recording.register_file,
-            recording.draft_book,
-        ]
-
-    assert [call.__self__ for call in bound] == [recording.recording_sink] * 4
+        assert recording._sink is recording.recording_sink
+        assert isinstance(recording.activity(), RecordingActivity)
 
 
-@pytest.mark.parametrize("facade", ["Bookshelf", "AsyncBookshelf"])
-def test_every_bound_producer_call_carries_a_docstring(facade: str) -> None:
-    """The API reference reads the binding in ``__init__``, so an undocumented one goes missing."""
-    source = Path(bookshelf.facade.__file__).read_text()
-    constructor = next(
-        node
-        for cls in ast.parse(source).body
-        if isinstance(cls, ast.ClassDef) and cls.name == facade
-        for node in cls.body
-        if isinstance(node, ast.FunctionDef) and node.name == "__init__"
-    )
-    documented = {
-        target.attr: after.value.value
-        for assignment, after in itertools.pairwise(constructor.body)
-        if isinstance(assignment, ast.Assign)
-        for target in assignment.targets
-        if isinstance(target, ast.Attribute)
-        if isinstance(after, ast.Expr) and isinstance(after.value, ast.Constant)
-    }
-
-    names = ("activity", "register_external", "register_file", "draft_book")
-    assert set(names) <= documented.keys()
-    assert all(documented[name].strip() for name in names)
+@pytest.mark.parametrize("facade", [Bookshelf, AsyncBookshelf])
+def test_every_producer_call_is_a_documented_method(facade: type) -> None:
+    """``help()`` and the API reference only see methods, so the calls must not be instance attributes."""
+    for name in ("activity", "register_external", "register_file", "draft_book"):
+        method = vars(facade)[name]
+        assert inspect.isfunction(method)
+        assert (method.__doc__ or "").strip()
 
 
 def test_a_refused_public_figure_uploads_nothing() -> None:
@@ -374,3 +349,19 @@ def test_a_refused_figure_late_in_a_batch_uploads_nothing_before_it() -> None:
         )
 
     assert recorded == []
+
+
+@pytest.mark.parametrize(
+    ("facade", "sink"), [(Bookshelf, LiveSink), (AsyncBookshelf, AsyncLiveSink)]
+)
+@pytest.mark.parametrize("name", ["activity", "register_external", "register_file", "draft_book"])
+def test_every_producer_method_forwards_the_sink_parameters(
+    facade: type, sink: type, name: str
+) -> None:
+    """The facade restates each sink signature, so a keyword added to one must reach the other."""
+
+    def shape(method: Any) -> list[tuple[str, Any, Any]]:
+        parameters = inspect.signature(method).parameters.values()
+        return [(p.name, p.kind, p.default) for p in parameters]
+
+    assert shape(getattr(facade, name)) == shape(getattr(sink, name))

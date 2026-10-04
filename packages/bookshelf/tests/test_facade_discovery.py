@@ -6,7 +6,7 @@ from urllib.parse import parse_qs
 import httpx
 import pytest
 
-from bookshelf.facade import AsyncBookshelf, Bookshelf
+from bookshelf._facade import AsyncBookshelf, Bookshelf
 from tests import _core_payloads as payloads
 
 BASE_URL = "https://bookshelf.test"

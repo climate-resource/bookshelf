@@ -20,7 +20,7 @@ from typing import Any
 
 import pytest
 
-from bookshelf import facade
+from bookshelf import _facade as facade
 from bookshelf._consume import resources, volumes
 from bookshelf._produce import books
 from bookshelf._produce import facade as produce

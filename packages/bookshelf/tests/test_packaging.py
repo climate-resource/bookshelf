@@ -121,7 +121,7 @@ def test_the_root_package_exports_typed_errors_and_deployments() -> None:
 
     assert bookshelf.NotFoundError is errors.NotFoundError
     assert issubclass(bookshelf.ConflictError, bookshelf.APIError)
-    assert bookshelf.STAGING_API_URL == config.STAGING_API_URL
+    assert not hasattr(bookshelf, "STAGING_API_URL")
     assert bookshelf.PRODUCTION_API_URL == config.PRODUCTION_API_URL
 
 

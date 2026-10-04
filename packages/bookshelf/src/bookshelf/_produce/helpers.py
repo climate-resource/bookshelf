@@ -28,6 +28,7 @@ from bookshelf._produce.types import (
 )
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
 from bookshelf._produce.visibility import resolve as resolve_visibility
+from bookshelf._records import known_member
 
 MAX_REGISTRATION_BATCH = 1000
 
@@ -55,7 +56,7 @@ def runner() -> str:
 
 def resource_type(value: str | models.ResourceType) -> models.ResourceType:
     """Normalise a public resource-type input."""
-    return value if isinstance(value, models.ResourceType) else models.ResourceType(value)
+    return known_member(models.ResourceType, value)
 
 
 def visibility(

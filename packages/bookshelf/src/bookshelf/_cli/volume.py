@@ -19,8 +19,8 @@ from bookshelf._cli._runtime import (
     emit_payload,
     iso,
 )
+from bookshelf._facade import Bookshelf
 from bookshelf._generated import models
-from bookshelf.facade import Bookshelf
 
 volume_app = command_group("Create, update and delete volumes.")
 

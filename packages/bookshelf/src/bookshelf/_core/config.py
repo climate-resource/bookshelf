@@ -30,6 +30,10 @@ class _Unset(enum.Enum):
 
     UNSET = enum.auto()
 
+    def __repr__(self) -> str:
+        # Rendered as the default in public signatures.
+        return "<from environment>"
+
 
 UNSET = _Unset.UNSET
 
@@ -40,7 +44,7 @@ def resolve_base_url(base_url: str | None, *, source: str = "base_url") -> str:
     """Resolve the API base URL.
 
     The argument wins, then ``$BOOKSHELF_URL`` (canonical),
-    then ``$BOOKSHELF_API_URL`` (accepted alias), then ``DEFAULT_API_URL``.
+    then ``$BOOKSHELF_API_URL`` (a deprecated alias that warns), then ``DEFAULT_API_URL``.
     The result never carries a trailing slash.
     A value that is not a plain http or https URL with a host raises :class:`ConfigurationError`,
     naming ``source`` when the argument supplied it, and the variable otherwise.
@@ -59,6 +63,13 @@ def resolve_base_url(base_url: str | None, *, source: str = "base_url") -> str:
         (DEFAULT_API_URL, "the default"),
     )
     raw, origin = next((value, name) for value, name in candidates if value)
+    if origin == "$BOOKSHELF_API_URL":
+        warnings.warn(
+            "BOOKSHELF_API_URL is deprecated and will be removed in bookshelf 2.0, "
+            "set BOOKSHELF_URL instead",
+            FutureWarning,
+            stacklevel=2,
+        )
     resolved = raw.rstrip("/")
     problem = _base_url_problem(resolved)
     if problem is not None:
