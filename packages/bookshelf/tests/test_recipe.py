@@ -1106,7 +1106,7 @@ def test_direct_setup_without_a_version_points_at_the_version_flag() -> None:
 
     message = str(excinfo.value)
     assert "no version was passed" in message
-    assert "--version" in message
+    assert "--book" in message
 
 
 @contextmanager
@@ -1365,4 +1365,15 @@ def test_a_uri_the_platform_would_refuse_as_a_pointer_is_rejected(tmp_path: Path
     )
 
     with pytest.raises(BookshelfError, match="platform would refuse"):
+        load_record_recipe(path)
+
+
+def test_a_book_version_ending_in_an_edition_suffix_is_refused(tmp_path: Path) -> None:
+    path = tmp_path / "bookshelf.yaml"
+    path.write_text(
+        'volume:\n  name: my-dataset\nbooks:\n  - version: "v1.0_e002"\n    license: MIT\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(InvalidRecipeError, match="reserved for the edition"):
         load_record_recipe(path)

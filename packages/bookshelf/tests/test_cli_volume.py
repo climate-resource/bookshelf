@@ -114,10 +114,13 @@ def test_volume_json_reads_back_every_field_the_command_can_set(
     assert payload["metadata"] == {"source": "upstream"}
 
 
-def test_volume_create_human_output_names_the_volume(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("flag", ["--licence", "--license"])
+def test_volume_create_human_output_names_the_volume(
+    monkeypatch: pytest.MonkeyPatch, flag: str
+) -> None:
     _patch_client(monkeypatch, 201, payloads.VOLUME)
 
-    result = runner.invoke(app, ["volume", "create", "example", "--licence", "MIT"])
+    result = runner.invoke(app, ["volume", "create", "example", flag, "MIT"])
 
     assert result.exit_code == EXIT_OK
     assert "example" in result.stdout

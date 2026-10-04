@@ -7,7 +7,7 @@ import pytest
 from bookshelf._core.errors import BookshelfError
 from bookshelf._core.names import RESOURCE_NAME_PATTERN
 from bookshelf._generated import models
-from bookshelf._produce.helpers import paired_successes, single_success, used_ref
+from bookshelf._produce.helpers import paired_successes, runner, single_success, used_ref
 from bookshelf._produce.types import RegisterItem, RegistrationSuccess, Used
 
 
@@ -97,3 +97,24 @@ def test_the_name_charset_matches_the_generated_wire_model() -> None:
         RESOURCE_NAME_PATTERN.pattern
         == models.RegisterResourceItemName.model_json_schema()["pattern"]
     )
+
+
+@pytest.mark.parametrize(
+    ("environment", "expected"),
+    [
+        ({"GITHUB_RUN_ID": "42", "CI": "true"}, "github-actions:42"),
+        ({"CI": "true"}, "ci"),
+        ({"CI": "false"}, "local"),
+        ({"CI": "0"}, "local"),
+        ({}, "local"),
+    ],
+)
+def test_the_runner_never_names_the_machine(
+    monkeypatch: pytest.MonkeyPatch, environment: dict[str, str], expected: str
+) -> None:
+    for name in ("GITHUB_RUN_ID", "CI"):
+        monkeypatch.delenv(name, raising=False)
+    for name, value in environment.items():
+        monkeypatch.setenv(name, value)
+
+    assert runner() == expected

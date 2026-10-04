@@ -48,7 +48,6 @@ def resolve_base_url(base_url: str | None, *, source: str = "base_url") -> str:
     The result never carries a trailing slash.
     A value that is not a plain http or https URL with a host raises :class:`ConfigurationError`,
     naming ``source`` when the argument supplied it, and the variable otherwise.
-    ``$BOOKSHELF_REMOTE`` named the 0.4 S3 bucket and has no effect here, so setting it warns.
     """
     if os.environ.get("BOOKSHELF_REMOTE"):
         warnings.warn(

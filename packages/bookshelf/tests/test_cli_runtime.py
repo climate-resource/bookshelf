@@ -2,14 +2,22 @@
 
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 import typer
 from typer.testing import CliRunner
 
 from bookshelf._cli import app
-from bookshelf._cli._runtime import command_errors, emit_document, emit_payload, iso
+from bookshelf._cli._runtime import (
+    EXIT_CODES,
+    command_errors,
+    emit_document,
+    emit_payload,
+    iso,
+)
 from bookshelf._core import errors
+from bookshelf._produce.provenance import _CodeRefError
 
 
 @pytest.mark.parametrize(
@@ -21,8 +29,15 @@ from bookshelf._core import errors
         (errors.RequestValidationError("bad", status_code=422), 2),
         (errors.ServerError("boom", status_code=502), 6),
         (errors.TransportError("refused"), 6),
-        (errors.ConflictError("clash", status_code=409), 1),
-        (errors.UnexpectedResponseError("odd", status_code=418), 1),
+        (errors.ConflictError("clash", status_code=409), 8),
+        (errors.UnexpectedResponseError("odd", status_code=418), 9),
+        (errors.ContractError("wrong shape", status_code=200), 9),
+        (errors.VersionNotFoundError("no such version", status_code=404), 5),
+        (errors.AuthenticationRequiredError("log in"), 3),
+        (errors.AuthConfigurationError("half a client pair"), 2),
+        (errors.SelectionError("no such column"), 2),
+        (_CodeRefError("not inside a git repository"), 2),
+        (errors.BookshelfError("anything else"), 1),
         (errors.RateLimitError("slow down", status_code=429), 6),
         (errors.GatewayError("blocked", status_code=403), 6),
         (errors.ConfigurationError("bad url"), 2),
@@ -136,3 +151,18 @@ def test_a_malformed_api_url_is_a_usage_error(
     assert result.exit_code == 2
     assert "BOOKSHELF_URL" in result.stderr
     assert result.exception is None or isinstance(result.exception, SystemExit)
+
+
+def test_root_help_lists_every_exit_code() -> None:
+    result = CliRunner().invoke(app, ["--help"])
+
+    assert result.exit_code == 0
+    for code, meaning in EXIT_CODES:
+        assert f"{code}  {meaning}" in result.stdout
+
+
+def test_every_exit_code_is_documented() -> None:
+    page = (Path(__file__).parents[3] / "docs" / "cli.md").read_text()
+
+    for code, meaning in EXIT_CODES:
+        assert f"| {code} | {meaning} |" in page

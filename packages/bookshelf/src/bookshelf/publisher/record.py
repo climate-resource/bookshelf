@@ -130,7 +130,7 @@ def setup(
 ) -> Build:
     """Construct live or recording handles for a standalone build file.
 
-    Under an active recording the version comes from ``bookshelf record --version``,
+    Under an active recording the version comes from ``bookshelf record --book``,
     so a build file names no version and the two can never disagree.
     Passing one that contradicts the recorder is an error rather than an override.
 
@@ -152,7 +152,7 @@ def setup(
             raise BookshelfError(
                 f"build version {version!r} does not match the recorded version "
                 f"{context.resolved.version!r}. "
-                "Drop version= from the build file, because 'bookshelf record --version' states it"
+                "Drop version= from the build file, because 'bookshelf record --book' states it"
             )
         context.bookshelf = RecordingBookshelf(
             context.bundle,
@@ -183,7 +183,7 @@ def setup(
     if version is None:
         raise BookshelfError(
             "bookshelf.setup found no active recording, and no version was passed. "
-            "The recorder takes the version from 'bookshelf record --version'. "
+            "The recorder takes the version from 'bookshelf record --book'. "
             "Pass version= to build against the API directly instead."
         )
     if collection is None:

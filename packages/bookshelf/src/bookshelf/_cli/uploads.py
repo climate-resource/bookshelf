@@ -56,7 +56,7 @@ def upload(
         emit_payload(
             {
                 "uri": uri,
-                "hash": content_hash,
+                "content_hash": content_hash,
                 "tracking_id": str(resource.tracking_id),
                 "outcome": outcome.status.value,
                 "name": resource.name,

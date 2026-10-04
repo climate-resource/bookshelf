@@ -1,10 +1,8 @@
 # Configuration
 
-Constructor arguments take precedence over ambient configuration,
-so a value passed to `Bookshelf` or `AsyncBookshelf`
-always beats the matching environment variable.
+Constructor arguments take precedence over environment variables.
 
-## Choosing a deployment
+## Backend
 
 `base_url=` names the API deployment a client talks to.
 Pass it when the deployment must be explicit, for example in a script that runs against staging.

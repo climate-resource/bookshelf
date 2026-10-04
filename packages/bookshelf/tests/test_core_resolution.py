@@ -1,13 +1,15 @@
 """Tests for credential resolution: explicit beats ambient, machine beats human."""
 
+import json
 import time
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from pathlib import Path
 
 import httpx
 import pytest
 
-from bookshelf._core import oauth
+from bookshelf._core import credentials, oauth
 from bookshelf._core.auth import (
     ActionsOidcToken,
     AnonymousFallback,
@@ -320,3 +322,106 @@ def test_an_adopted_login_uses_the_new_record() -> None:
     assert adopted.source is CredentialSource.STORED_LOGIN
     assert adopted.store is credential.store
     assert isinstance(adopted.token_provider(), StaticToken)
+
+
+NEWER_API = "https://api.example"
+
+
+def _store_file(path: Path, version: int, expires_at: str) -> str:
+    text = json.dumps(
+        {
+            "version": version,
+            "records": {
+                f"{NEWER_API}|user": {
+                    "access_token": "theirs",
+                    "api_url": NEWER_API,
+                    "kind": "user",
+                    "refresh_token": "single-use",
+                    "expires_at": expires_at,
+                }
+            },
+            "active": {NEWER_API: "user"},
+        }
+    )
+    path.write_text(text)
+    return text
+
+
+def _refuse_requests(request: httpx.Request) -> httpx.Response:
+    pytest.fail(f"no request expected, got {request.url}")
+
+
+@pytest.fixture
+def workos_client_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(oauth, "resolve_workos_client_id", lambda _url: "client")
+
+
+@pytest.fixture
+def no_workos_client_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A custom deployment has no built-in client ID, which a read-only store must not need."""
+    monkeypatch.delenv("BOOKSHELF_WORKOS_CLIENT_ID", raising=False)
+    monkeypatch.setattr(oauth, "resolve_workos_client_id", lambda _url: None)
+
+
+@pytest.mark.usefixtures("no_workos_client_id")
+def test_a_newer_store_serves_a_live_token_without_refreshing(tmp_path: Path) -> None:
+    path = tmp_path / "credentials.json"
+    _store_file(path, credentials.STORE_VERSION + 1, "2999-01-01T00:00:00+00:00")
+    store = credentials.FileCredentialStore(path)
+
+    provider = resolve_credential(NEWER_API, environ={}, store=store).token_provider()
+
+    assert provider is not None
+    assert provider.access_token(_refuse_requests) == "theirs"
+
+
+@pytest.mark.usefixtures("no_workos_client_id")
+def test_a_newer_store_refuses_to_refresh_an_expired_token(tmp_path: Path) -> None:
+    """Refreshing would spend the single-use refresh token the newer install still needs."""
+    path = tmp_path / "credentials.json"
+    before = _store_file(path, credentials.STORE_VERSION + 1, "2000-01-01T00:00:00+00:00")
+    store = credentials.FileCredentialStore(path)
+
+    provider = resolve_credential(NEWER_API, environ={}, store=store).token_provider()
+
+    assert provider is not None
+    with pytest.raises(AuthenticationError, match="newer bookshelf"):
+        provider.access_token(_refuse_requests)
+    assert path.read_text() == before
+
+
+@pytest.mark.usefixtures("workos_client_id")
+def test_a_store_upgraded_after_resolution_is_not_refreshed_against(tmp_path: Path) -> None:
+    path = tmp_path / "credentials.json"
+    _store_file(path, credentials.STORE_VERSION, "2000-01-01T00:00:00+00:00")
+    store = credentials.FileCredentialStore(path)
+    provider = resolve_credential(NEWER_API, environ={}, store=store).token_provider()
+    upgraded = _store_file(path, credentials.STORE_VERSION + 1, "2000-01-01T00:00:00+00:00")
+
+    assert provider is not None
+    with pytest.raises(AuthenticationError, match="newer bookshelf"):
+        provider.access_token(_refuse_requests)
+    assert path.read_text() == upgraded
+
+
+@pytest.mark.usefixtures("no_workos_client_id")
+def test_an_expired_newer_store_token_degrades_to_anonymous(tmp_path: Path) -> None:
+    path = tmp_path / "credentials.json"
+    _store_file(path, credentials.STORE_VERSION + 1, "2000-01-01T00:00:00+00:00")
+    seen: list[str | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers.get("Authorization"))
+        return httpx.Response(200, json={})
+
+    auth = resolve_credential(
+        NEWER_API, environ={}, store=credentials.FileCredentialStore(path)
+    ).auth()
+    with (
+        httpx.Client(transport=httpx.MockTransport(handler), auth=auth) as client,
+        pytest.warns(UserWarning, match="newer bookshelf"),
+    ):
+        response = client.get(f"{NEWER_API}/v1/books")
+
+    assert response.status_code == 200
+    assert seen == [None]
