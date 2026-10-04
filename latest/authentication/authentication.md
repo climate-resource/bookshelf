@@ -81,7 +81,7 @@ Nothing refreshes it, so a short-lived token will expire part way through a long
 `bookshelf auth token` prints a current token from a session that is already logged in,
 which is the usual way to get one.
 
-In Python, `auth=` on `Bookshelf`, `AsyncBookshelf` and `BookshelfClient` overrides everything else.
+In Python, `auth=` on `Bookshelf` and `AsyncBookshelf` overrides everything else.
 It takes a bearer token string, any `httpx.Auth` instance, or `None`.
 
 ```python
@@ -193,3 +193,6 @@ The file is written `0600`.
 
 It holds every stored identity and which one is active for each deployment,
 so `auth switch` is a local change.
+
+The file format may change in any release, so do not read or write it yourself,
+instead use CLI helpers such as `bookshelf auth token` to access the contents.

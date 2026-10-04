@@ -49,12 +49,12 @@ book = bs.book("rcmip-emissions", "v5.1.0")
 book
 
 # %% [markdown]
-# The metadata carries the coordinates that were actually resolved.
+# The book carries the coordinates that were actually resolved.
 # Record the edition whenever a result needs to be reproducible later,
 # because the latest edition moves as data is reprocessed.
 
 # %%
-book.metadata.volume_name, book.metadata.version, book.metadata.edition
+book.volume, book.version, book.edition
 
 # %% [markdown]
 # Pass `edition=` to pin one.
@@ -62,7 +62,7 @@ book.metadata.volume_name, book.metadata.version, book.metadata.edition
 
 # %%
 pinned = bs.book("primap-hist", "v2.6", edition=5)
-pinned.metadata.version, pinned.metadata.edition
+pinned.version, pinned.edition
 
 # %% [markdown]
 # ## Book entries

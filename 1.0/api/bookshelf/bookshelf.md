@@ -23,3 +23,11 @@
         - resource
         - resource_by_hash
         - correct_book
+
+::: bookshelf.VolumeSearchResults
+
+::: bookshelf.VolumeSummary
+
+::: bookshelf.Identity
+
+::: bookshelf.BookCorrection

@@ -7,8 +7,8 @@ Misusing the API raises Python's own `TypeError` or `ValueError` instead,
 for example passing an argument a resource type does not accept.
 These signal a bug in the calling code rather than a condition to handle.
 
-A server response that does not match the published schema is the one gap.
-It raises pydantic's `ValidationError`, which is not a `BookshelfError`.
+A success response whose JSON does not match the operation's schema raises `ContractError`.
+It means the platform and this SDK disagree about the contract, so upgrading bookshelf is the first thing to try.
 
 ## Not found
 
@@ -18,6 +18,8 @@ whether the platform answered 404 or the SDK settled the lookup locally.
 
 Looking up an entry a book does not index raises `EntryNotFoundError`.
 It is also a `KeyError`, so `book["name"]` behaves like any other mapping.
+Looking up a version a volume has not published raises `VersionNotFoundError`,
+which is also a `KeyError`, so `volume["version"]` behaves the same way.
 
 Filtering or ordering on a column the data does not have raises `SelectionError`,
 which is also a `KeyError`.
@@ -32,8 +34,11 @@ A 429 raises `RateLimitError`, with the wait the server asked for in `retry_afte
 An HTML or other non-JSON error page comes from the CDN or proxy in front of the API rather than the API itself.
 Its 4xx raises `GatewayError` and its 5xx raises `ServerError`.
 The message names the status and the URL, never the page.
-A success whose body is not the JSON the operation returns also raises `GatewayError`.
+A success whose body is not JSON at all also raises `GatewayError`.
 That is usually the web app's page answering a base URL with the wrong path.
+
+`APIError.problem` holds the parsed problem document as a `Problem`, when the API sent one.
+A 409 from a batch that committed some items carries the rejected ones on `ConflictError.item_errors`.
 
 A malformed `BOOKSHELF_URL` or `base_url` raises `ConfigurationError`.
 So does one carrying a query string, a fragment, a `user@` part or a trailing `/v1`.
@@ -71,6 +76,8 @@ The client retries a request a few times before it raises, backing off with jitt
 
 ::: bookshelf.EntryNotFoundError
 
+::: bookshelf.VersionNotFoundError
+
 ::: bookshelf.ConflictError
 
 ::: bookshelf.ServerError
@@ -80,6 +87,8 @@ The client retries a request a few times before it raises, backing off with jitt
 ::: bookshelf.GatewayError
 
 ::: bookshelf.UnexpectedResponseError
+
+::: bookshelf.ContractError
 
 ::: bookshelf.OAuthProtocolError
 
@@ -112,3 +121,11 @@ The client retries a request a few times before it raises, backing off with jitt
 ::: bookshelf.InvalidRecipeError
 
 ::: bookshelf.InvalidReferenceError
+
+::: bookshelf.RecordingError
+
+::: bookshelf.RecordRefusedError
+
+::: bookshelf.Problem
+
+::: bookshelf.ItemError

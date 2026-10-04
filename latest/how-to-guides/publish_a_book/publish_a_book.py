@@ -148,7 +148,7 @@ type(draft).__name__
 # `code_ref` and `config` are what make a run reproducible.
 # `code_ref` defaults to a reference derived from the working tree when it is omitted.
 #
-# `runner` defaults to the machine's hostname.
+# `runner` defaults to `github-actions:<run id>`, `ci` or `local`, and never names the machine.
 # It is set explicitly here so the recorded manifest is identical on every build.
 
 # %%

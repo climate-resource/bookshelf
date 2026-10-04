@@ -83,7 +83,7 @@ async def latest_co2() -> tuple[str, int, tuple[int, int]]:
             year_min=2020,
             year_max=2100,
         )
-        return book.metadata.version, book.metadata.edition, frame.shape
+        return book.version, book.edition, frame.shape
 
 
 await latest_co2()

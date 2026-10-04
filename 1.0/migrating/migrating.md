@@ -50,7 +50,8 @@ The compatibility layer differs from 0.4 in a few places:
 
 - `remote_bookshelf=` and `$BOOKSHELF_REMOTE` are ignored with a warning.
   Set `$BOOKSHELF_URL` to choose a deployment instead.
-- `BookShelf(path=...)` becomes the content cache directory, and `$BOOKSHELF_CACHE_LOCATION` still works.
+- `BookShelf(path=...)` becomes the content cache directory,
+  and `$BOOKSHELF_CACHE_LOCATION` still works with a deprecation warning.
   The 0.4 cache is not reused, so the first read downloads each book again.
 - `load(force=True)` is accepted and ignored, because there is no metadata cache to refresh.
 - `LocalBook.metadata()` returns a dict of the old shape, but without the `profile` key
@@ -64,6 +65,7 @@ The compatibility layer differs from 0.4 in a few places:
   and `UnknownBook`, `UnknownVersion` and `UnknownEdition` from `bookshelf.legacy`.
 - `bookshelf.constants`, `bookshelf.utils` and `bookshelf.dataset_structure` are gone with no replacement.
   Helpers such as `print_dataset_structure` have to be copied into your own code.
+- Importing any of these removed submodules raises an `ImportError` that links to this page.
 
 ## Step 2: move to the new API
 
@@ -71,22 +73,22 @@ The compatibility layer differs from 0.4 in a few places:
 
 Note the subtle change in capitalisation from `BookShelf` to `Bookshelf`.
 
-| 0.4                                  | 1.0                                                      |
-| ------------------------------------ | -------------------------------------------------------- |
-| `BookShelf()`                        | `Bookshelf()`                                            |
-| `BookShelf(path=...)`                | `Bookshelf(cache=ContentCache(path))`                    |
-| `shelf.load(name, version)`          | `bs.book(name, version)`                                 |
-| `shelf.load(name, version, edition)` | `bs.book(name, version, edition=edition)`                |
-| `shelf.load(name)`                   | `bs.book(name, bs.volume(name).latest)`                  |
-| `shelf.list_versions(name)`          | `bs.volume(name).versions`                               |
-| `shelf.is_available(name, version)`  | `bs.book(...)`, catching `NotFoundError`                 |
-| `shelf.is_cached(...)`               | No check-only call. `as_path()` fills the cache.         |
-| `book.long_version()`                | `f"{book.metadata.version}_e{book.metadata.edition:03}"` |
-| `book.metadata()`                    | `book.metadata`, a Pydantic model                        |
-| `book.metadata()["resources"]`       | `book.entry_names`, a tuple of names without suffixes    |
-| `book.timeseries(name)`              | `book[name].as_scmrun()`                                 |
-| `book.get_long_format_data(name)`    | `book[name].as_long_df()`                                |
-| `UnknownBook`, `UnknownVersion`      | `bookshelf.NotFoundError`                                |
+| 0.4                                  | 1.0                                                   |
+| ------------------------------------ | ----------------------------------------------------- |
+| `BookShelf()`                        | `Bookshelf()`                                         |
+| `BookShelf(path=...)`                | `Bookshelf(cache=ContentCache(path))`                 |
+| `shelf.load(name, version)`          | `bs.book(name, version)`                              |
+| `shelf.load(name, version, edition)` | `bs.book(name, version, edition=edition)`             |
+| `shelf.load(name)`                   | `bs.book(name, bs.volume(name).latest)`               |
+| `shelf.list_versions(name)`          | `bs.volume(name).versions`                            |
+| `shelf.is_available(name, version)`  | `bs.book(...)`, catching `NotFoundError`              |
+| `shelf.is_cached(...)`               | No check-only call. `as_path()` fills the cache.      |
+| `book.long_version()`                | `f"{book.version}_e{book.edition:03}"`                |
+| `book.metadata()`                    | `book.volume`, `book.version` and `book.metadata`     |
+| `book.metadata()["resources"]`       | `book.entry_names`, a tuple of names without suffixes |
+| `book.timeseries(name)`              | `book[name].as_scmrun()`                              |
+| `book.get_long_format_data(name)`    | `book[name].as_long_df()`                             |
+| `UnknownBook`, `UnknownVersion`      | `bookshelf.NotFoundError`                             |
 
 `bs.volume(name).editions(version)` lists the editions of a version,
 which 0.4 had no call for.
@@ -109,7 +111,7 @@ from bookshelf import Bookshelf
 
 with Bookshelf() as bs:
     book = bs.book("rcmip-emissions", "v5.1.0", edition=1)
-    print(book.metadata.version, book.metadata.edition)
+    print(book.version, book.edition)
 
     entry = book["magicc"]
     run = entry.as_scmrun()
@@ -155,6 +157,8 @@ Check each of these against your own usage.
 
 Omitting the edition loads the latest one, and the platform can hold newer editions than the S3 bucket did.
 For example, 0.4 loads `rcmip-emissions` `v5.1.0` as edition 1, and 1.0 loads edition 2.
+The 0.4 `BookShelf.load()` resolves through the platform too,
+so the same unchanged call can return different data after the upgrade, without a warning.
 Pass `edition=` wherever reproducibility matters.
 
 New versions are only published to the platform.
@@ -185,10 +189,10 @@ Sort by the metadata columns before comparing frames or taking positional slices
 
 ## Configuration
 
-| 0.4                          | 1.0                                                            |
-| ---------------------------- | -------------------------------------------------------------- |
-| `$BOOKSHELF_REMOTE`          | `$BOOKSHELF_URL`, naming the platform API rather than a bucket |
-| `$BOOKSHELF_CACHE_LOCATION`  | `$BOOKSHELF_CACHE_DIR`, with the old name as a fallback        |
+| 0.4                         | 1.0                                                             |
+| --------------------------- | --------------------------------------------------------------- |
+| `$BOOKSHELF_REMOTE`         | `$BOOKSHELF_URL`, naming the platform API rather than a bucket  |
+| `$BOOKSHELF_CACHE_LOCATION` | `$BOOKSHELF_CACHE_DIR`, with the old name a deprecated fallback |
 
 [Configuration](configuration.md) lists every setting.
 
