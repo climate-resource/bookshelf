@@ -194,8 +194,5 @@ The file is written `0600`.
 It holds every stored identity and which one is active for each deployment,
 so `auth switch` is a local change.
 
-The file format is private and may change in any release, so do not read or write it yourself.
-`bookshelf auth list --json` reports what is stored, and `bookshelf auth token` prints a usable token.
-A file written by a newer `bookshelf` is read but never overwritten,
-so logging in or out with an older version fails until you upgrade it.
-The older version uses the stored access token as it is and never refreshes it.
+The file format may change in any release, so do not read or write it yourself,
+instead use CLI helpers such as `bookshelf auth token` to access the contents.

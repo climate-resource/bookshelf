@@ -44,18 +44,11 @@ def resolve_base_url(base_url: str | None, *, source: str = "base_url") -> str:
     The result never carries a trailing slash.
     A value that is not a plain http or https URL with a host raises :class:`ConfigurationError`,
     naming ``source`` when the argument supplied it, and the variable otherwise.
-    ``$BOOKSHELF_REMOTE`` and ``$BOOKSHELF_USE_KEYCHAIN`` have no effect any more, so setting either warns.
     """
     if os.environ.get("BOOKSHELF_REMOTE"):
         warnings.warn(
             "BOOKSHELF_REMOTE is ignored: bookshelf 1.x reads from the platform API, "
             "set BOOKSHELF_URL to choose a deployment",
-            stacklevel=2,
-        )
-    if os.environ.get("BOOKSHELF_USE_KEYCHAIN"):
-        warnings.warn(
-            "BOOKSHELF_USE_KEYCHAIN is ignored: credentials live only in the credentials file, "
-            "so unset it",
             stacklevel=2,
         )
     candidates = (

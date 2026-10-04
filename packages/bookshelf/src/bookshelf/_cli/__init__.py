@@ -1,8 +1,9 @@
 """``bookshelf`` command line interface.
 
 A machine-first CLI over the Bookshelf API.
-Payload goes to stdout and diagnostics to stderr in every command,
-and the exit code carries the meaning (see :data:`bookshelf._cli._runtime.EXIT_CODES`).
+Payload goes to stdout and diagnostics to stderr in every command.
+
+See :data:`bookshelf._cli._runtime.EXIT_CODES` for a list of exit codes.
 """
 
 import typer

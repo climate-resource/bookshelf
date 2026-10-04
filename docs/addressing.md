@@ -10,13 +10,13 @@ Both name the same things and follow the same rules for each part.
 
 ## Examples
 
-| Address                            | Reference                                     | Names                                       |
-| ---------------------------------- | --------------------------------------------- | ------------------------------------------- |
-| `primap-hist`                      |                                               | the volume                                  |
-| `primap-hist/by_country`           |                                               | that entry in the newest published book     |
-| `primap-hist@v2.6`                 | `bookshelf://primap-hist/v2.6`                | the newest published edition of `v2.6`      |
-| `primap-hist@v2.6_e002`            | `bookshelf://primap-hist/v2.6_e002`           | edition 2 of `v2.6`, whatever its status    |
-| `primap-hist@v2.6_e002/by_country` | `bookshelf://primap-hist/v2.6_e002/by_country` | one entry of that edition                   |
+| Address                            | Reference                                      | Names                                    |
+| ---------------------------------- | ---------------------------------------------- | ---------------------------------------- |
+| `primap-hist`                      |                                                | the volume                               |
+| `primap-hist/by_country`           |                                                | that entry in the newest published book  |
+| `primap-hist@v2.6`                 | `bookshelf://primap-hist/v2.6`                 | the newest published edition of `v2.6`   |
+| `primap-hist@v2.6_e002`            | `bookshelf://primap-hist/v2.6_e002`            | edition 2 of `v2.6`, whatever its status |
+| `primap-hist@v2.6_e002/by_country` | `bookshelf://primap-hist/v2.6_e002/by_country` | one entry of that edition                |
 
 Leaving the edition off means the newest published edition,
 and leaving the version off as well means the newest published version.
@@ -68,7 +68,5 @@ Two cases ignore case:
 
 ## Unicode
 
-Every part is ASCII.
-An address holding any other character names nothing that can exist.
-The edition takes ASCII digits only,
-so a lookalike digit such as `٠٠١` or `００１` is refused rather than read as `001`.
+Every part of the address is ASCII, including the edition.
+Any non-ascii characters are refused.
