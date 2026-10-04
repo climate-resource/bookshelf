@@ -6,6 +6,7 @@ import hashlib
 import importlib.util
 import json
 import subprocess
+import sys
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -488,3 +489,25 @@ def test_invalid_interrupted_candidate_does_not_guess_backup_winner(generator: M
     with pytest.raises(generator.GenerationError, match="live is invalid"):
         generator._normal_state("0.1.0", generator._default_runner, generator._default_hook)
     assert {path: _manifest(path) for path in paths} == before
+
+
+def test_generated_enums_keep_a_value_the_contract_does_not_list(
+    generator: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = (
+        "from __future__ import annotations\n\nfrom enum import StrEnum\n\n"
+        "from pydantic import BaseModel\n\n\n"
+        "class Kind(StrEnum):\n    a = 'a'\n\n\nclass Item(BaseModel):\n    kind: Kind\n"
+    )
+    module = ModuleType("open_enum_models")
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+    exec(
+        compile(generator._open_enums(source), "<models>", "exec", dont_inherit=True), vars(module)
+    )
+
+    assert module.Item(kind="newer").kind == "newer"
+    assert module.Kind("a") is module.Kind.a
+
+
+def test_a_model_core_without_enums_is_left_alone(generator: ModuleType) -> None:
+    assert generator._open_enums('MARKER = "new"\n') == 'MARKER = "new"\n'

@@ -24,11 +24,11 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from bookshelf._core.client import BookshelfClient
+from bookshelf._facade import AsyncBookshelf, Bookshelf
 from bookshelf._generated import models
 from bookshelf._produce.facade import discovery_input
 from bookshelf._produce.serialise import SVG_CONTENT_TYPE, content_type_for
 from bookshelf._produce.uploads import upload_bytes, upload_bytes_async
-from bookshelf.facade import AsyncBookshelf, Bookshelf
 from bookshelf.publisher.bundle import (
     Bundle,
     BundleActivity,

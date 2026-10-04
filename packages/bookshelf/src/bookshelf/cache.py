@@ -8,6 +8,7 @@ import json
 import os
 import shutil
 import time
+import warnings
 from collections.abc import Awaitable, Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -85,11 +86,21 @@ def _writable(base_dir: Path) -> Iterator[None]:
 def default_cache_dir() -> Path:
     """Return the cache directory: ``$BOOKSHELF_CACHE_DIR``, or the platform default.
 
-    ``$BOOKSHELF_CACHE_LOCATION`` is the 0.4 name for the same setting and is honoured as a fallback.
+    ``$BOOKSHELF_CACHE_LOCATION`` is the 0.4 name for the same setting,
+    honoured as a fallback with a warning until bookshelf 2.0.
     """
-    override = os.environ.get("BOOKSHELF_CACHE_DIR") or os.environ.get("BOOKSHELF_CACHE_LOCATION")
+    override = os.environ.get("BOOKSHELF_CACHE_DIR")
     if override:
         return Path(override)
+    legacy = os.environ.get("BOOKSHELF_CACHE_LOCATION")
+    if legacy:
+        warnings.warn(
+            "BOOKSHELF_CACHE_LOCATION is deprecated and will be removed in bookshelf 2.0, "
+            "set BOOKSHELF_CACHE_DIR instead",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return Path(legacy)
     return Path(user_cache_dir("bookshelf", "climateresource")) / "content"
 
 
@@ -162,6 +173,9 @@ class MetadataCache:
 
 class ContentCache:
     """A small disk cache keyed only by canonical content hash."""
+
+    base_dir: Path
+    max_bytes: int
 
     def __init__(self, base_dir: Path | None = None, *, max_bytes: int = DEFAULT_MAX_BYTES) -> None:
         self.base_dir = Path(base_dir) if base_dir is not None else default_cache_dir()

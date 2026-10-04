@@ -25,8 +25,14 @@ def test_base_url_argument_wins(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_base_url_env_beats_default(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("BOOKSHELF_API_URL", "https://env.test")
+    monkeypatch.setenv("BOOKSHELF_URL", "https://env.test")
     assert config.resolve_base_url(None) == "https://env.test"
+
+
+def test_the_api_url_alias_still_works_but_warns(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BOOKSHELF_API_URL", "https://env.test")
+    with pytest.warns(FutureWarning, match="set BOOKSHELF_URL instead"):
+        assert config.resolve_base_url(None) == "https://env.test"
 
 
 def test_base_url_defaults_to_production() -> None:
@@ -50,7 +56,7 @@ def test_explicit_none_stays_unauthenticated(monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_client_constructor_coerces_and_resolves(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("BOOKSHELF_API_URL", "https://env.test")
+    monkeypatch.setenv("BOOKSHELF_URL", "https://env.test")
     client = BookshelfClient(auth="bsat_x")
     assert client.base_url == "https://env.test"
     assert isinstance(client.auth, StaticToken)
@@ -63,6 +69,7 @@ def test_client_constructor_coerces_and_resolves(monkeypatch: pytest.MonkeyPatch
     assert client.credential.source is CredentialSource.NONE
 
 
+@pytest.mark.filterwarnings("ignore:BOOKSHELF_API_URL is deprecated:FutureWarning")
 @pytest.mark.parametrize("variable", ["BOOKSHELF_URL", "BOOKSHELF_API_URL"])
 def test_a_bad_url_names_the_variable_that_supplied_it(
     monkeypatch: pytest.MonkeyPatch, variable: str

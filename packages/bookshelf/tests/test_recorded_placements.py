@@ -16,8 +16,8 @@ from bookshelf._cli import app
 from bookshelf._cli._runtime import EXIT_OK
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import BookshelfError
+from bookshelf._facade import Bookshelf
 from bookshelf._generated import models
-from bookshelf.facade import Bookshelf
 from bookshelf.publisher.bundle import Bundle, BundleBookEntry, InvalidBundleError
 from bookshelf.publisher.preview import PreviewIdentity, upload_preview
 from bookshelf.publisher.recipe import load_record_recipe

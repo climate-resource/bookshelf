@@ -3,8 +3,8 @@
 from uuid import RFC_4122, UUID
 
 
-def test_uuid7_is_public() -> None:
-    from bookshelf import uuid7
+def test_uuid7_is_public_from_the_publisher() -> None:
+    from bookshelf.publisher import uuid7
 
     first, second = uuid7(), uuid7()
     assert isinstance(first, UUID)

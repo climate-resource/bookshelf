@@ -42,11 +42,11 @@ publishing, authentication, and code generation.
 
 ## Minting tracking ids
 
-Use `bookshelf.uuid7()` to generate a tracking id before writing a resource,
+Use `bookshelf.publisher.uuid7()` to generate a tracking id before writing a resource,
 for example to store the id in a Zarr store's attributes:
 
 ```python
-from bookshelf import uuid7
+from bookshelf.publisher import uuid7
 
 tracking_id = uuid7()
 # Store str(tracking_id) in the data, then pass tracking_id=tracking_id when registering it.

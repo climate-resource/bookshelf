@@ -1,9 +1,9 @@
-"""Public facade for the Bookshelf SDK."""
+"""The Bookshelf SDK."""
 
 import importlib.metadata
 
 from bookshelf._core.actions_oidc import ActionsTokenError
-from bookshelf._core.config import PRODUCTION_API_URL, STAGING_API_URL
+from bookshelf._core.config import PRODUCTION_API_URL
 from bookshelf._core.errors import (
     APIError,
     AuthConfigurationError,
@@ -12,6 +12,7 @@ from bookshelf._core.errors import (
     BookshelfError,
     ConfigurationError,
     ConflictError,
+    ContractError,
     EntryNotFoundError,
     ForbiddenError,
     GatewayError,
@@ -23,13 +24,11 @@ from bookshelf._core.errors import (
     ServerError,
     TransportError,
     UnexpectedResponseError,
+    VersionNotFoundError,
 )
 from bookshelf._core.frames import DataFrameSupportError
 from bookshelf._core.oauth import OAuthError
-from bookshelf._generated import OPENAPI_VERSION, models
-from bookshelf._produce.helpers import uuid7
-from bookshelf.cache import CacheDirectoryError, ContentCache
-from bookshelf.facade import (
+from bookshelf._facade import (
     Activity,
     AsyncActivity,
     AsyncBook,
@@ -54,15 +53,29 @@ from bookshelf.facade import (
     Used,
     Volume,
 )
+from bookshelf._generated import OPENAPI_VERSION
+from bookshelf._generated import models as models
+from bookshelf._records import (
+    BookCorrection,
+    Facet,
+    Facets,
+    FacetValue,
+    Identity,
+    ItemError,
+    Problem,
+    ResourceType,
+    SeriesMetadata,
+    Visibility,
+    VolumeSearchResults,
+    VolumeSummary,
+)
+from bookshelf.cache import CacheDirectoryError, CacheSummary, ContentCache
 from bookshelf.publisher import (
     InvalidBundleError,
     InvalidRecipeError,
     InvalidReferenceError,
     RecordingError,
     RecordRefusedError,
-    replay_bundle,
-    replay_bundle_sync,
-    run_record,
     setup,
 )
 
@@ -84,7 +97,6 @@ def __getattr__(name: str) -> object:
 __all__ = [
     "OPENAPI_VERSION",
     "PRODUCTION_API_URL",
-    "STAGING_API_URL",
     "APIError",
     "ActionsTokenError",
     "Activity",
@@ -99,28 +111,37 @@ __all__ = [
     "AuthenticationError",
     "AuthenticationRequiredError",
     "Book",
+    "BookCorrection",
     "BookEntry",
     "Bookshelf",
     "BookshelfError",
     "CacheDirectoryError",
+    "CacheSummary",
     "ConfigurationError",
     "ConflictError",
     "ContentCache",
+    "ContractError",
     "DataFrameSupportError",
     "DataPreview",
     "DraftBook",
     "EntryNotFoundError",
+    "Facet",
+    "FacetValue",
+    "Facets",
     "ForbiddenError",
     "GatewayError",
     "HashMismatchError",
+    "Identity",
     "InvalidBundleError",
     "InvalidRecipeError",
     "InvalidReferenceError",
+    "ItemError",
     "NotFoundError",
     "OAuthError",
     "OAuthProtocolError",
-    "RateLimitError",
     "PartialRegistrationError",
+    "Problem",
+    "RateLimitError",
     "RecordRefusedError",
     "RecordingError",
     "RegisterItem",
@@ -129,18 +150,19 @@ __all__ = [
     "RequestValidationError",
     "Resource",
     "ResourceInfo",
+    "ResourceType",
     "SelectionError",
+    "SeriesMetadata",
     "ServerError",
     "TransportError",
     "UnexpectedResponseError",
     "UnsupportedConversionError",
     "Used",
+    "VersionNotFoundError",
+    "Visibility",
     "Volume",
+    "VolumeSearchResults",
+    "VolumeSummary",
     "__version__",
-    "models",
-    "replay_bundle",
-    "replay_bundle_sync",
-    "run_record",
     "setup",
-    "uuid7",
 ]

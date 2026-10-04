@@ -9,6 +9,7 @@ from bookshelf._core import client as client_module
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import (
     ConfigurationError,
+    ContractError,
     GatewayError,
     NotFoundError,
     RateLimitError,
@@ -323,26 +324,26 @@ def test_a_malformed_base_url_is_a_configuration_error(url: str) -> None:
 
 
 @pytest.mark.parametrize(
-    ("body", "content_type"),
+    ("body", "content_type", "error"),
     [
-        ("<!doctype html><html>spa</html>", "text/html"),
-        ("", "application/json"),
-        ("[]", "application/json"),
-        ('{"unexpected": true}', "application/json"),
+        ("<!doctype html><html>spa</html>", "text/html", GatewayError),
+        ("", "application/json", GatewayError),
+        ("[]", "application/json", ContractError),
+        ('{"unexpected": true}', "application/json", ContractError),
     ],
 )
 @pytest.mark.parametrize("call", ["get_volume", "list_books", "get_current_user"])
-def test_a_success_status_without_the_expected_json_is_a_gateway_error(
-    sleeps: list[float], body: str, content_type: str, call: str
+def test_a_success_status_without_the_expected_json_is_a_gateway_or_contract_error(
+    sleeps: list[float], body: str, content_type: str, error: type[Exception], call: str
 ) -> None:
-    """An SPA fallback or a misrouted proxy answers 200 with something that is not the API."""
+    """A proxy page is a gateway error, and JSON of the wrong shape is contract drift."""
     calls, handler = counting(
         lambda _request, _n: httpx.Response(
             200, content=body.encode(), headers={"content-type": content_type}
         )
     )
 
-    with make_client(handler) as client, pytest.raises(GatewayError) as excinfo:
+    with make_client(handler) as client, pytest.raises(error) as excinfo:
         if call == "get_volume":
             client.get_volume("example")
         else:

@@ -14,8 +14,8 @@ from typing import Any
 import httpx
 import pytest
 
+from bookshelf._facade import AsyncBookshelf, Bookshelf
 from bookshelf.cache import ContentCache
-from bookshelf.facade import AsyncBookshelf, Bookshelf
 from tests import _core_payloads as payloads
 
 BASE_URL = "https://bookshelf.test"
@@ -192,14 +192,14 @@ def test_an_expired_record_adopts_the_corrected_metadata() -> None:
 
     checked: list[httpx.Request] = []
     book = _sync(checked, [corrected], book_ttl=0).book("example", "v1.0.0", edition=2)
-    assert book.metadata.metadata == {"maturity": "approved"}
-    assert book.metadata.visibility.value == "public"
+    assert book.metadata == {"maturity": "approved"}
+    assert book.visibility.value == "public"
     assert book.entry_names == ("by_country",)
 
     trusted: list[httpx.Request] = []
     again = _sync(trusted, []).book("example", "v1.0.0", edition=2)
     assert trusted == []
-    assert again.metadata.metadata == {"maturity": "approved"}
+    assert again.metadata == {"maturity": "approved"}
 
 
 @pytest.mark.asyncio
@@ -212,8 +212,8 @@ async def test_the_async_surface_adopts_the_corrected_metadata_too() -> None:
     )
     book = await bs.book("example", "v1.0.0", edition=2)
 
-    assert book.metadata.metadata == {"maturity": "approved"}
-    assert book.metadata.visibility.value == "public"
+    assert book.metadata == {"maturity": "approved"}
+    assert book.visibility.value == "public"
 
 
 def test_refresh_resolves_a_fresh_record_and_its_entries_again() -> None:
@@ -233,7 +233,7 @@ def test_refresh_resolves_a_fresh_record_and_its_entries_again() -> None:
         "/v1/books",
         f"/v1/books/{BOOK_ID}/entries",
     ]
-    assert book.metadata.metadata == {"maturity": "approved"}
+    assert book.metadata == {"maturity": "approved"}
     assert book.entry_names == ("by_country", "extra")
 
     trusted: list[httpx.Request] = []
@@ -259,12 +259,12 @@ async def test_the_async_surface_refreshes_too() -> None:
         "/v1/books",
         f"/v1/books/{BOOK_ID}/entries",
     ]
-    assert book.metadata.metadata == {"maturity": "approved"}
+    assert book.metadata == {"maturity": "approved"}
 
     trusted: list[httpx.Request] = []
     again = await _async(trusted, []).book("example", "v1.0.0", edition=2)
     assert trusted == []
-    assert again.metadata.metadata == {"maturity": "approved"}
+    assert again.metadata == {"maturity": "approved"}
 
 
 def test_the_recheck_restarts_the_trust_window() -> None:

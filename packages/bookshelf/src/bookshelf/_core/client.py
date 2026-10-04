@@ -57,7 +57,7 @@ class BookshelfClient:
     a bare token string, or ``None`` for explicit unauthenticated access.
     When omitted, ambient credentials are resolved
     (``$BOOKSHELF_TOKEN``, then client-credential env vars, then stored login).
-    ``base_url`` falls back to ``$BOOKSHELF_URL`` (or its alias ``$BOOKSHELF_API_URL``)
+    ``base_url`` falls back to ``$BOOKSHELF_URL`` (or its deprecated alias ``$BOOKSHELF_API_URL``)
     and then the production URL.
     """
 

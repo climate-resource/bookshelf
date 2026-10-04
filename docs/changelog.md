@@ -1,9 +1,11 @@
 # Changelog
 
-Versions follow [Semantic Versioning](https://semver.org/) (`<major>.<minor>.<patch>`).
-
-Backward incompatible (breaking) changes will only be introduced in major versions
+Versions follow [Semantic Versioning](https://semver.org/) (`<major>.<minor>.<patch>`)
+for the Python API that [the API reference](api/index.md#what-semver-covers) lists.
+Breaking changes to it only land in major versions,
 with advance notice in the **Deprecations** section of releases.
+The command line interface may change between minor versions,
+and the bundle and recipe formats follow their own schema versions.
 
 
 <!--
