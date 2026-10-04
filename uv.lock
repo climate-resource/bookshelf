@@ -223,7 +223,7 @@ requires-dist = [
     { name = "scmdata", marker = "extra == 'scmrun'", specifier = ">=0.18" },
     { name = "typer", specifier = ">=0.26" },
 ]
-provides-extras = ["dataframes", "scmrun", "figures", "publish"]
+provides-extras = ["scmrun", "figures", "publish"]
 
 [package.metadata.requires-dev]
 codegen = [
