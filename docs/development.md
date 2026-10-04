@@ -64,10 +64,6 @@ uv run --project packages/bookshelf --locked \
 
 CI runs both and fails when either leaves a diff.
 
-The model driver validates a complete temporary tree before promotion.
-It keeps the last-known-good tree as a same-filesystem backup and recovers a sole valid backup on startup.
-Ambiguous, invalid or multiple-backup states stop without deleting evidence.
-
 ## Building the distribution
 
 Build the sdist and wheel, then install the wheel into a scratch environment:

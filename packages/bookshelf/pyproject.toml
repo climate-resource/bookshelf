@@ -40,8 +40,6 @@ Issues = "https://github.com/climate-resource/bookshelf/issues"
 bookshelf = "bookshelf._cli:main"
 
 [project.optional-dependencies]
-# Empty alias so older `bookshelf[dataframes]` install lines still resolve.
-dataframes = []
 scmrun = ["scmdata>=0.18"]
 figures = ["matplotlib>=3.10"]
 publish = [
