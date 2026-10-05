@@ -3,7 +3,7 @@ Bookshelf 1.0 reads from the Bookshelf platform API rather than the S3 bucket,
 and [Migrating from 0.4](migrating.md) walks through the upgrade.
 
 - Python 3.12 or newer is required.
-- scmdata is no longer a core dependency.
+- pandas and PyArrow are core dependencies, and scmdata is no longer one.
   Install `bookshelf[scmrun]` to read `ScmRun` objects, and `bookshelf[publish]` to record notebooks.
 - `$BOOKSHELF_REMOTE` is replaced by `$BOOKSHELF_URL`, which names the platform API.
 - `$BOOKSHELF_CACHE_LOCATION` is replaced by `$BOOKSHELF_CACHE_DIR`.
