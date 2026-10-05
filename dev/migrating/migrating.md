@@ -15,7 +15,8 @@ described in [Publishing a book](how-to-guides/publish_a_book.py).
 2. Move each warning call site to the new API, using the [mapping](#api-mapping) below.
 
 The first step gets you onto the platform quickly.
-The second step has to be done before bookshelf 2.0, which removes the old classes.
+The second step has to be done before bookshelf 1.1, which removes the old classes
+once the feedstocks have migrated.
 
 ## Step 1: upgrade
 
