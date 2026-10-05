@@ -6,9 +6,7 @@ The chain is walked once, first answer wins (explicit beats ambient, machine bea
 2. a GitHub Actions OIDC token, only when ``$BOOKSHELF_AUTH`` asks for one
 3. ``$BOOKSHELF_CLIENT_ID`` + ``$BOOKSHELF_CLIENT_SECRET`` as client credentials,
    minted at ``$BOOKSHELF_TOKEN_URL``
-4. the stored active credential for the deployment, refreshed by kind:
-   a WorkOS user pair through the refresh-token grant,
-   an agent record through its identity assertion
+4. the stored login for the deployment, refreshed through the WorkOS refresh-token grant
 5. unauthenticated (public reads)
 
 Step 2 is opt-in rather than ambient,
@@ -35,7 +33,6 @@ from bookshelf._core.actions_oidc import READ_AUDIENCE
 from bookshelf._core.auth import (
     ActionsOidcToken,
     AnonymousFallback,
-    BsatAssertion,
     ClientCredentials,
     RefreshTokenExchange,
     StaticToken,
@@ -44,26 +41,17 @@ from bookshelf._core.auth import (
     decode_jwt_expiry,
 )
 from bookshelf._core.config import AUTH_MODE_VAR, GITHUB_ACTIONS_AUTH_MODE
-from bookshelf._core.credentials import (
-    CredentialKind,
-    CredentialStore,
-    StoredCredentials,
-    default_store,
-)
+from bookshelf._core.credentials import CredentialStore, StoredCredentials, default_store
 from bookshelf._core.errors import AuthConfigurationError, AuthenticationError
 
 _SPENT_CREDENTIAL_MESSAGE = (
     "The stored Bookshelf login could not be refreshed, "
     "so this client is continuing anonymously and only public data is reachable. "
     "Run 'bookshelf auth logout' to discard the stored credential, "
-    "or 'bookshelf auth login' to claim a fresh one "
-    "('bookshelf auth login --agent --claim --email you@org.com' for an agent identity)."
+    "or 'bookshelf auth login' to sign in again."
 )
 
-LOGIN_REMEDY = (
-    "Run 'bookshelf auth login' to sign in, "
-    "or 'bookshelf auth login --agent' to register an agent identity."
-)
+LOGIN_REMEDY = "Run 'bookshelf auth login' to sign in."
 
 
 class CredentialSource(enum.StrEnum):
@@ -99,7 +87,7 @@ class CredentialDescription:
     """What a resolved credential is, reported without calling the API."""
 
     source: CredentialSource
-    kind: Literal["user", "agent", "machine", "anonymous"]
+    kind: Literal["user", "machine", "anonymous"]
     label: str
     """How a message names the credential, e.g. ``$BOOKSHELF_TOKEN``."""
     remedy: str
@@ -107,7 +95,6 @@ class CredentialDescription:
     subject: str | None = None
     organization_id: str | None = None
     expires_at: datetime | None = None
-    claimed: bool | None = None
 
 
 def github_actions_requested(environ: Mapping[str, str]) -> bool:
@@ -210,7 +197,7 @@ class ResolvedCredential:
             exp = decode_jwt_expiry(token)
             return CredentialDescription(
                 source,
-                kind="agent" if token.startswith("bsat_") else "user",
+                kind="user",
                 label=label,
                 remedy=remedy,
                 expires_at=None if exp is None else datetime.fromtimestamp(exp, tz=UTC),
@@ -225,13 +212,12 @@ class ResolvedCredential:
         stored = self.stored
         return CredentialDescription(
             source,
-            kind=stored.kind.value,
+            kind="user",
             label="the stored login",
             remedy=LOGIN_REMEDY,
             subject=stored.subject,
             organization_id=stored.organization_id,
             expires_at=stored.expires_at,
-            claimed=bool(stored.claimed) if stored.kind is CredentialKind.AGENT else None,
         )
 
     def _build_provider(self) -> TokenProvider:
@@ -330,24 +316,10 @@ class _GuardedRefreshTokenExchange(_StoreGuard, RefreshTokenExchange):
     pass
 
 
-class _GuardedBsatAssertion(_StoreGuard, BsatAssertion):
-    pass
-
-
 def _provider_from_stored(stored: StoredCredentials, store: CredentialStore) -> TokenProvider:
     expires_at = stored.expires_at.timestamp() if stored.expires_at is not None else None
     if store.read_only():
         return _NewerStoreToken(access_token=stored.access_token, expires_at=expires_at)
-    if stored.kind is CredentialKind.AGENT and stored.identity_assertion is not None:
-        return _GuardedBsatAssertion(
-            store,
-            stored.identity_assertion,
-            base_url=stored.api_url,
-            access_token=stored.access_token,
-            expires_at=expires_at,
-            on_rotate=_rotation_sink(stored, store),
-        )
-
     if stored.refresh_token is None:
         return StaticToken(stored.access_token)
 
@@ -372,23 +344,17 @@ def _provider_from_stored(stored: StoredCredentials, store: CredentialStore) -> 
 
 def _rotation_sink(
     stored: StoredCredentials, store: CredentialStore
-) -> Callable[[str, str | None, float | None], None]:
+) -> Callable[[str, str, float | None], None]:
     """Build the callback that writes each rotated credential over the one before it."""
-    # An agent record with no assertion is served by the refresh-token grant, so it rotates one.
-    as_agent = stored.kind is CredentialKind.AGENT and stored.identity_assertion is not None
     latest = previous = stored
     # The sync and async refresh locks are separate, so both surfaces can land here at once.
     lock = threading.Lock()
 
-    def persist(access_token: str, secret: str | None, expires_at: float | None) -> None:
+    def persist(access_token: str, refresh_token: str, expires_at: float | None) -> None:
         nonlocal latest, previous
         moment = datetime.fromtimestamp(expires_at, tz=UTC) if expires_at is not None else None
         with lock:
-            latest = (
-                latest.with_token(access_token, expires_at=moment, identity_assertion=secret)
-                if as_agent
-                else latest.with_token(access_token, expires_at=moment, refresh_token=secret)
-            )
+            latest = latest.with_token(access_token, expires_at=moment, refresh_token=refresh_token)
             if store.rotate(previous, latest):
                 previous = latest
 

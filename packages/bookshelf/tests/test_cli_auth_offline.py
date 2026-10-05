@@ -34,13 +34,6 @@ def isolated_credentials(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
         monkeypatch.delenv(name, raising=False)
 
 
-def test_claim_requires_email() -> None:
-    result = runner.invoke(app, ["auth", "login", "--agent", "--claim"])
-
-    assert result.exit_code == 2
-    assert "--email" in result.stderr
-
-
 def test_token_without_credentials_names_the_fix() -> None:
     result = runner.invoke(app, ["auth", "token"])
 
@@ -63,7 +56,6 @@ def test_token_prints_the_stored_token() -> None:
         credentials.StoredCredentials(
             access_token="stored-token",
             api_url=API_URL,
-            kind=credentials.CredentialKind.USER,
             subject="reader@example.com",
         )
     )
@@ -90,7 +82,6 @@ def test_token_refreshes_through_the_provider_and_rewrites_the_record(
         credentials.StoredCredentials(
             access_token="stale-token",
             api_url=API_URL,
-            kind=credentials.CredentialKind.USER,
             refresh_token="rt-old",
             expires_at=datetime(2020, 1, 1, tzinfo=UTC),
             subject="reader@example.com",
@@ -159,7 +150,6 @@ def test_token_without_a_workos_client_id_is_a_credential_error() -> None:
         credentials.StoredCredentials(
             access_token="stale-token",
             api_url=API_URL,
-            kind=credentials.CredentialKind.USER,
             refresh_token="rt-old",
             expires_at=datetime(2020, 1, 1, tzinfo=UTC),
         )
@@ -177,7 +167,6 @@ def test_token_reports_a_spent_credential(monkeypatch: pytest.MonkeyPatch) -> No
         credentials.StoredCredentials(
             access_token="stale-token",
             api_url=API_URL,
-            kind=credentials.CredentialKind.USER,
             refresh_token="rt-spent",
             expires_at=datetime(2020, 1, 1, tzinfo=UTC),
         )
@@ -211,7 +200,6 @@ def test_whoami_offline_reports_stored_identity() -> None:
         credentials.StoredCredentials(
             access_token="stored-token",
             api_url=API_URL,
-            kind=credentials.CredentialKind.USER,
             subject="reader@example.com",
             organization_id="org_123",
         )
@@ -235,7 +223,6 @@ def test_whoami_offline_reports_environment_shadowing(
         credentials.StoredCredentials(
             access_token="stored-token",
             api_url=API_URL,
-            kind=credentials.CredentialKind.USER,
             subject="reader@example.com",
         )
     )
@@ -260,23 +247,20 @@ def test_logout_without_credentials_succeeds() -> None:
     assert "Not logged in" in result.stderr
 
 
-def test_logout_clears_state_when_revocation_fails() -> None:
+def test_logout_clears_the_stored_login() -> None:
     credentials.default_store().save_login(
         credentials.StoredCredentials(
-            access_token="bsat_dead",
+            access_token="stored-token",
             api_url=API_URL,
-            kind=credentials.CredentialKind.AGENT,
             expires_at=datetime(2030, 1, 1, tzinfo=UTC),
-            identity_assertion="assertion",
-            subject="agent:dead",
-            claimed=True,
+            subject="reader@example.com",
         )
     )
 
     result = runner.invoke(app, ["auth", "logout"])
 
-    assert result.exit_code == 6
-    assert "revocation failed" in result.stderr.lower()
+    assert result.exit_code == 0, result.output
+    assert f"Cleared credentials for {API_URL}" in result.stderr
     assert credentials.default_store().records() == []
 
 
@@ -317,7 +301,10 @@ def test_list_json_stays_one_document_per_line() -> None:
     assert result.exit_code == 0, result.output
     lines = [line for line in result.stdout.splitlines() if line]
     assert len(lines) == len(result.stdout.strip().splitlines())
-    assert [json.loads(line)["id"] for line in lines] == ["a@example.com", "b@example.com"]
+    rows = [json.loads(line) for line in lines]
+    assert [row["id"] for row in rows] == ["a@example.com", "b@example.com"]
+    # The most recent login's deployment is the default.
+    assert [row["default"] for row in rows] == [False, True]
 
 
 def test_api_url_is_read_from_the_top_level_option() -> None:
@@ -373,7 +360,6 @@ def _jwt(exp: float) -> str:
     [
         (_jwt(0), "expired at 1970-01-01T00:00:00Z", "malformed"),
         (_jwt(4102444800), "revoked, or issued for another deployment", "malformed"),
-        ("bsat_unknown", "revoked, or issued for another deployment", "malformed"),
     ],
 )
 def test_whoami_says_why_the_server_rejected_a_token(
@@ -415,17 +401,6 @@ def test_list_marks_a_credential_that_can_no_longer_be_renewed() -> None:
         )
     )
 
-    credentials.default_store().save_login(
-        credentials.StoredCredentials(
-            access_token="refreshing-agent",
-            api_url="http://127.0.0.1:7",
-            kind=credentials.CredentialKind.AGENT,
-            subject="agent:c",
-            expires_at=past,
-            refresh_token="refresh",
-        )
-    )
-
     result = runner.invoke(app, ["auth", "list", "--json"])
 
     assert result.exit_code == 0, result.output
@@ -433,12 +408,10 @@ def test_list_marks_a_credential_that_can_no_longer_be_renewed() -> None:
     assert {name: row["expired"] for name, row in rows.items()} == {
         "a@example.com": True,
         "b@example.com": True,
-        "agent:c": True,
     }
     assert {name: row["needs_login"] for name, row in rows.items()} == {
         "a@example.com": True,
         "b@example.com": False,
-        "agent:c": False,
     }
 
 
@@ -465,11 +438,7 @@ def test_logout_json_lists_what_was_cleared() -> None:
     result = runner.invoke(app, ["auth", "logout", "--json"])
 
     assert result.exit_code == 0, result.output
-    assert json.loads(result.stdout) == {
-        "cleared": [API_URL],
-        "revoked": [],
-        "revocation_failed": [],
-    }
+    assert json.loads(result.stdout) == {"cleared": [API_URL]}
 
 
 def test_logout_json_without_credentials_clears_nothing() -> None:
@@ -479,17 +448,13 @@ def test_logout_json_without_credentials_clears_nothing() -> None:
     assert json.loads(result.stdout)["cleared"] == []
 
 
-def test_switch_json_names_the_active_identity() -> None:
+def test_switch_json_names_the_default_login() -> None:
     _store_reader()
 
     result = runner.invoke(app, ["auth", "switch", "reader@example.com", "--json"])
 
     assert result.exit_code == 0, result.output
-    assert json.loads(result.stdout) == {
-        "kind": "user",
-        "id": "reader@example.com",
-        "api_url": API_URL,
-    }
+    assert json.loads(result.stdout) == {"id": "reader@example.com", "api_url": API_URL}
 
 
 def test_logout_leaves_a_newer_store_alone() -> None:
@@ -498,13 +463,13 @@ def test_logout_leaves_a_newer_store_alone() -> None:
         {
             "version": credentials.STORE_VERSION + 1,
             "records": {
-                f"{API_URL}|agent": {
-                    "access_token": "bsat_theirs",
+                f"{API_URL}|user": {
+                    "access_token": "theirs",
                     "api_url": API_URL,
-                    "kind": "agent",
+                    "kind": "user",
                 }
             },
-            "active": {API_URL: "agent"},
+            "active": {API_URL: "user"},
         }
     )
     path.write_text(newer)
@@ -513,7 +478,6 @@ def test_logout_leaves_a_newer_store_alone() -> None:
 
     assert result.exit_code == 2
     assert "newer bookshelf" in " ".join(result.stderr.split())
-    assert "Revoked" not in result.stderr
     assert path.read_text() == newer
 
 

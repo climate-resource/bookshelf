@@ -90,8 +90,6 @@ The client retries a request a few times before it raises, backing off with jitt
 
 ::: bookshelf.ContractError
 
-::: bookshelf.OAuthProtocolError
-
 ::: bookshelf.TransportError
 
 ::: bookshelf.AuthenticationRequiredError

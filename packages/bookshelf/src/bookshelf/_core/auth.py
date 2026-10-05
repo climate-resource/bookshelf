@@ -45,8 +45,6 @@ from bookshelf._core.errors import AuthenticationError, describe_body
 # Refresh proactively when the access token expires within this window (seconds).
 REFRESH_LEEWAY = 300.0
 
-JWT_BEARER_GRANT = "urn:ietf:params:oauth:grant-type:jwt-bearer"
-
 
 def decode_jwt_expiry(token: str) -> float | None:
     """Best-effort decode of a JWT ``exp`` claim into epoch seconds.
@@ -101,7 +99,7 @@ class _RefreshingAuth(TokenProvider):
 
     Subclasses supply the token-endpoint request via :meth:`_refresh_request`
     and may hook :meth:`_handle_token_payload` for grant-specific state
-    (rotated refresh tokens, reissued assertions, persistence callbacks).
+    (rotated refresh tokens, persistence callbacks).
     Both hooks are sans-io, the flow drivers only add locking.
     """
 
@@ -275,7 +273,7 @@ class RefreshTokenExchange(_RefreshingAuth):
         token_url: str,
         client_id: str,
         expires_at: float | None = None,
-        on_rotate: Callable[[str, str | None, float | None], None] | None = None,
+        on_rotate: Callable[[str, str, float | None], None] | None = None,
     ) -> None:
         super().__init__(access_token=access_token, expires_at=expires_at)
         self._refresh_token = refresh_token
@@ -347,52 +345,6 @@ class ActionsOidcToken(_RefreshingAuth):
 
     def _apply_token_response(self, response: httpx.Response) -> None:
         self._access_token = token_from_response(response)
-
-
-class BsatAssertion(_RefreshingAuth):
-    """An agent identity assertion exchanged via the ``jwt-bearer`` grant.
-
-    The token endpoint may reissue the assertion alongside the access token,
-    in which case the reissued assertion replaces the stored one.
-    Every successful exchange invokes ``on_rotate`` with the new
-    ``(access_token, assertion, expires_at)`` for persistence,
-    because a reissued assertion invalidates the stored one.
-
-    Give either ``base_url`` (the API's own ``/oauth2/token`` is derived from it)
-    or an explicit ``token_url``.
-    """
-
-    def __init__(
-        self,
-        assertion: str,
-        *,
-        base_url: str | None = None,
-        token_url: str | None = None,
-        access_token: str | None = None,
-        expires_at: float | None = None,
-        on_rotate: Callable[[str, str, float | None], None] | None = None,
-    ) -> None:
-        super().__init__(access_token=access_token, expires_at=expires_at)
-        if (base_url is None) == (token_url is None):
-            raise ValueError("Give exactly one of base_url or token_url.")
-        self._assertion = assertion
-        self._token_url = token_url or f"{str(base_url).rstrip('/')}/oauth2/token"
-        self._on_rotate = on_rotate
-
-    def _refresh_request(self) -> httpx.Request:
-        return httpx.Request(
-            "POST",
-            self._token_url,
-            data={"grant_type": JWT_BEARER_GRANT, "assertion": self._assertion},
-        )
-
-    def _handle_token_payload(self, payload: dict[str, object]) -> None:
-        reissued = payload.get("identity_assertion")
-        if isinstance(reissued, str) and reissued:
-            self._assertion = reissued
-        if self._on_rotate is not None:
-            assert self._access_token is not None
-            self._on_rotate(self._access_token, self._assertion, self._expires_at)
 
 
 # Task and thread local, so requests running beside a quiet check still latch and warn.
@@ -512,7 +464,6 @@ __all__ = [
     "REFRESH_LEEWAY",
     "ActionsOidcToken",
     "AnonymousFallback",
-    "BsatAssertion",
     "ClientCredentials",
     "RefreshTokenExchange",
     "StaticToken",

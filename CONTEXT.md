@@ -22,14 +22,14 @@ The bytes behind an Entry, or an `external_uri` pointer, carrying a permanent `t
 ### Credentials
 
 **Credential store**:
-Where stored logins live,
-and the rules for which one is active per deployment and which deployment is the default.
+Where stored logins live, one per deployment,
+and the rule for which deployment is the default.
 Has a file adapter for real use and an in-memory adapter for tests.
 _Avoid_: credentials file (that is one adapter), keychain
 
 **Stored login**:
 One record in the Credential store,
-for a user (WorkOS) or an agent (Bookshelf agent identity) on one deployment.
+for a WorkOS user on one deployment.
 
 **Resolved credential**:
 The credential one walk of the resolution chain chose for a deployment.
@@ -39,7 +39,7 @@ _Avoid_: ambient auth, credential source (that is one of its attributes)
 
 **Rotation**:
 Replacing a Stored login's secrets after a refresh.
-It never changes which identity is active or which deployment is the default.
+It never changes which deployment is the default.
 
 ## Relationships
 

@@ -34,7 +34,6 @@ class ApiRequest:
     params: dict[str, str | int | bool | list[str]] = field(default_factory=dict)
     headers: dict[str, str] = field(default_factory=dict)
     json_body: Any | None = None
-    form_body: dict[str, str] | None = None
     content: bytes | None = None
     absolute_url: str | None = None
     expensive: bool = False

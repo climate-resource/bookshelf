@@ -14,11 +14,10 @@ def test_oauth_error_is_a_bookshelf_error() -> None:
     """One ``except BookshelfError`` around a login has to catch every flow failure.
 
     ``OAuthError`` describes the flow rather than one HTTP response,
-    so it stays outside the ``APIError`` tree that ``OAuthProtocolError`` belongs to.
+    so it stays outside the ``APIError`` tree.
     """
     assert issubclass(_oauth.OAuthError, errors.BookshelfError)
     assert not issubclass(_oauth.OAuthError, errors.APIError)
-    assert issubclass(errors.OAuthProtocolError, errors.APIError)
 
     with pytest.raises(errors.BookshelfError):
         raise _oauth.OAuthError("state mismatch")

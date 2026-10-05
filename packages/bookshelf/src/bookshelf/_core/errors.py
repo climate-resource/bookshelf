@@ -182,33 +182,6 @@ class GatewayError(APIError):
     """
 
 
-class OAuthProtocolError(APIError):
-    """An OAuth ``{"error": ...}`` body from the agent authorization server.
-
-    ``error`` carries the OAuth error code (e.g. ``authorization_pending``),
-    which token-endpoint polling dispatches on.
-    """
-
-    error: str
-
-    def __init__(
-        self,
-        detail: str,
-        *,
-        error: str,
-        status_code: int,
-        request_method: str | None = None,
-        request_url: str | None = None,
-    ) -> None:
-        super().__init__(
-            detail,
-            status_code=status_code,
-            request_method=request_method,
-            request_url=request_url,
-        )
-        self.error = error
-
-
 class UnexpectedResponseError(APIError):
     """Raised when the server answers with a status the contract does not declare."""
 

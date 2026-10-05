@@ -193,7 +193,6 @@ class BookshelfClient:
             params=req.params or None,
             headers=req.headers or None,
             json=req.json_body,
-            data=req.form_body,
             content=req.content,
         )
 
@@ -333,22 +332,6 @@ class BookshelfClient:
     # from the build_*/parse_* pairs in bookshelf/_core/ops.py.
     # Everything below this line is overwritten on every run, so never edit it by hand.
     # To add an operation, add its build_*/parse_* pair to ops.py and regenerate.
-
-    def agent_token_exchange(self, request: models.BodyAgentTokenExchange) -> models.TokenResponse:
-        return ops.parse_agent_token_exchange(self._send(ops.build_agent_token_exchange(request)))
-
-    async def agent_token_exchange_async(
-        self, request: models.BodyAgentTokenExchange
-    ) -> models.TokenResponse:
-        return ops.parse_agent_token_exchange(
-            await self._send_async(ops.build_agent_token_exchange(request))
-        )
-
-    def agent_token_revoke(self, request: models.BodyAgentTokenRevoke) -> None:
-        ops.parse_agent_token_revoke(self._send(ops.build_agent_token_revoke(request)))
-
-    async def agent_token_revoke_async(self, request: models.BodyAgentTokenRevoke) -> None:
-        ops.parse_agent_token_revoke(await self._send_async(ops.build_agent_token_revoke(request)))
 
     def attach_entry(
         self, book_id: str, request: models.BookEntryAttach
@@ -1022,20 +1005,6 @@ class BookshelfClient:
                     if_none_match=if_none_match,
                 )
             )
-        )
-
-    def register_agent_identity(
-        self, request: models.AgentIdentityRequest
-    ) -> models.AnonymousRegistrationResponse | models.ServiceAuthRegistrationResponse:
-        return ops.parse_register_agent_identity(
-            self._send(ops.build_register_agent_identity(request))
-        )
-
-    async def register_agent_identity_async(
-        self, request: models.AgentIdentityRequest
-    ) -> models.AnonymousRegistrationResponse | models.ServiceAuthRegistrationResponse:
-        return ops.parse_register_agent_identity(
-            await self._send_async(ops.build_register_agent_identity(request))
         )
 
     def register_resources(

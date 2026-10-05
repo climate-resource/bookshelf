@@ -19,7 +19,7 @@ from typing import TextIO
 from bookshelf._core import credentials, oauth
 from bookshelf._core.ci import in_ci
 from bookshelf._core.client import BookshelfClient
-from bookshelf._core.credentials import CredentialKind, CredentialStore, StoredCredentials
+from bookshelf._core.credentials import CredentialStore, StoredCredentials
 from bookshelf._core.errors import AuthenticationError, AuthenticationRequiredError
 from bookshelf._generated import models
 
@@ -112,7 +112,6 @@ def login_user(
         StoredCredentials(
             access_token=access_token,
             api_url=api_url,
-            kind=CredentialKind.USER,
             refresh_token=str(refresh_token) if refresh_token else None,
             expires_at=credentials.expiry_from(token_data.get("expires_in")),
             subject=user.email,

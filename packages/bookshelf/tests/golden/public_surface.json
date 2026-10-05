@@ -598,26 +598,6 @@
         "__init__": "(self, *args, **kwargs)"
       }
     },
-    "OAuthProtocolError": {
-      "attributes": {
-        "detail": "str",
-        "error": "str",
-        "problem": "Problem | None",
-        "request_method": "str | None",
-        "request_url": "str | None",
-        "status_code": "int"
-      },
-      "bases": [
-        "APIError",
-        "BookshelfError",
-        "Exception"
-      ],
-      "kind": "class",
-      "members": {
-        "__init__": "(self, detail: str, *, error: str, status_code: int, request_method: str | None = None, request_url: str | None = None) -> None",
-        "errors": "property -> list[dict[str, Any]]"
-      }
-    },
     "OPENAPI_VERSION": {
       "kind": "value",
       "type": "str"
@@ -1010,7 +990,6 @@
     "ItemError",
     "NotFoundError",
     "OAuthError",
-    "OAuthProtocolError",
     "OPENAPI_VERSION",
     "PRODUCTION_API_URL",
     "PartialRegistrationError",
@@ -1074,16 +1053,6 @@
         "__init__": "(self, *args, **kwargs)"
       }
     },
-    "BsatAssertion": {
-      "attributes": {},
-      "kind": "class",
-      "members": {
-        "__init__": "(self, assertion: str, *, base_url: str | None = None, token_url: str | None = None, access_token: str | None = None, expires_at: float | None = None, on_rotate: Callable[[str, str, float | None], None] | None = None) -> None",
-        "access_token": "(self, send: Callable[[Request], Response]) -> str",
-        "async_auth_flow": "(self, request: Request) -> AsyncGenerator[Request, Response]",
-        "sync_auth_flow": "(self, request: Request) -> Generator[Request, Response, None]"
-      }
-    },
     "ClientCredentials": {
       "attributes": {},
       "kind": "class",
@@ -1098,7 +1067,7 @@
       "attributes": {},
       "kind": "class",
       "members": {
-        "__init__": "(self, access_token: str | None, refresh_token: str, *, token_url: str, client_id: str, expires_at: float | None = None, on_rotate: Callable[[str, str | None, float | None], None] | None = None) -> None",
+        "__init__": "(self, access_token: str | None, refresh_token: str, *, token_url: str, client_id: str, expires_at: float | None = None, on_rotate: Callable[[str, str, float | None], None] | None = None) -> None",
         "access_token": "(self, send: Callable[[Request], Response]) -> str",
         "async_auth_flow": "(self, request: Request) -> AsyncGenerator[Request, Response]",
         "sync_auth_flow": "(self, request: Request) -> Generator[Request, Response, None]"

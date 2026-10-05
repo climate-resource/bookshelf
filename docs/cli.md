@@ -245,7 +245,7 @@ $ bookshelf auth [OPTIONS] COMMAND [ARGS]...
 
 ### `bookshelf auth login`
 
-Log in: through WorkOS as a human, or as an agent with --agent.
+Log in through WorkOS.
 
 ```console
 $ bookshelf auth login [OPTIONS]
@@ -253,9 +253,6 @@ $ bookshelf auth login [OPTIONS]
 
 Options:
 
-- `--agent`: Register an agent identity instead of a human login.
-- `--claim`: Run the claim ceremony so a human binds the identity.
-- `--email <str>`: Email the approving human signs in with. Required with --claim.
 - `--no-browser`: For a box that cannot open a browser.
 - `--json`: Emit the credential summary as JSON.
 
@@ -286,7 +283,7 @@ Options:
 
 ### `bookshelf auth logout`
 
-Revoke and clear stored credentials. Local state is cleared even when revocation fails.
+Clear stored credentials.
 
 ```console
 $ bookshelf auth logout [OPTIONS]
@@ -294,13 +291,12 @@ $ bookshelf auth logout [OPTIONS]
 
 Options:
 
-- `--all`: Clear every stored identity for every deployment.
-- `--no-revoke`: Skip server-side revocation and only clear local state.
+- `--all`: Clear every stored login for every deployment.
 - `--json`: Emit the outcome as JSON.
 
 ### `bookshelf auth list`
 
-List every stored identity, marking the active one per deployment.
+List every stored login, marking the default deployment.
 
 ```console
 $ bookshelf auth list [OPTIONS]
@@ -308,11 +304,11 @@ $ bookshelf auth list [OPTIONS]
 
 Options:
 
-- `--json`: Emit one JSON object per identity.
+- `--json`: Emit one JSON object per login.
 
 ### `bookshelf auth switch`
 
-Make a stored identity active without re-authenticating.
+Make a stored login's deployment the default without re-authenticating.
 
 ```console
 $ bookshelf auth switch [OPTIONS] {identity}
@@ -320,11 +316,11 @@ $ bookshelf auth switch [OPTIONS] {identity}
 
 Arguments:
 
-- `identity`: The identity to make active, as shown by 'auth list'.  \[required]
+- `identity`: The login to make the default, as shown by 'auth list'.  \[required]
 
 Options:
 
-- `--json`: Emit the identity as JSON.
+- `--json`: Emit the login as JSON.
 
 ### `bookshelf cache`
 

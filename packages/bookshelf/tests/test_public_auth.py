@@ -144,7 +144,6 @@ def test_the_public_names_are_exactly_these() -> None:
         "ActionsOidcToken",
         "ActionsTokenError",
         "AuthConfigurationError",
-        "BsatAssertion",
         "ClientCredentials",
         "RefreshTokenExchange",
         "StaticToken",

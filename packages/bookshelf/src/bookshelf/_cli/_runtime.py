@@ -254,26 +254,10 @@ def _exit_code_for(exc: errors.BookshelfError) -> int:
 
 
 def _forbidden_remedy() -> str:
-    """Pick the 403 remedy for the credential actually in play.
-
-    The claim hint only fits an unclaimed agent: a human lacks permissions an admin must grant,
-    and a claimed agent is already capped to whatever its claimer can do.
-    """
+    """Pick the 403 remedy for the credential actually in play."""
     described = resolve_credential(base_url()).describe()
     if described.source not in (CredentialSource.STORED_LOGIN, CredentialSource.NONE):
         return f"Ask an organisation admin to grant the required permission to {described.label}."
-    if described.kind == "agent" and not described.claimed:
-        return (
-            "Your credential does not reach this data. "
-            "Run 'bookshelf auth login --agent --claim --email you@org.com' "
-            "to bind this agent to your organisation."
-        )
-    if described.kind == "agent" and described.claimed:
-        return (
-            "This agent holds only the permissions its user had when claiming it. "
-            "Once an organisation admin grants that user the permission, run "
-            "'bookshelf auth login --agent --claim --email you@org.com' again."
-        )
     return (
         "Ask an organisation admin to grant the required permission, "
         "then run 'bookshelf auth login' again to refresh it."

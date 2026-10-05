@@ -222,9 +222,6 @@ Each is an `httpx.Auth`, so one provider object serves both the sync and async s
   The refresh token rotates on each use and an `on_rotate` callback persists the new pair.
 - `ClientCredentials`: an OAuth2 `client_credentials` machine credential.
   A refresh is a plain re-POST, there is nothing to persist.
-- `BsatAssertion`: an agent identity assertion re-exchanged via the `jwt-bearer` grant
-  against the API's `POST /oauth2/token`.
-  It is explicit-only and never resolved from the environment.
 - `ActionsOidcToken`: the running job's GitHub Actions OIDC token, minted for the read audience.
   It mints on first use and mints again once the API refuses the one it holds.
 

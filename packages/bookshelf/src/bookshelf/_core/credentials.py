@@ -1,8 +1,6 @@
 """Stored credentials for ``bookshelf auth login``, shared with the CLI.
 
-The store holds several records at once, keyed by deployment plus identity kind
-(``user`` for a WorkOS login, ``agent`` for a Bookshelf agent identity).
-One record per deployment is active, and one deployment is the default.
+The store holds one WorkOS login per deployment, and one deployment is the default.
 
 :class:`FileCredentialStore` keeps them in a JSON file at the ``platformdirs`` user-config path
 ``bookshelf/credentials.json``, readable only by the current user.
@@ -36,15 +34,9 @@ STORE_VERSION = 2
 LOCK_TIMEOUT = 30.0
 
 
-class CredentialKind(enum.StrEnum):
-    """Which identity system issued a stored credential.
-
-    The values are what the store file holds,
-    so naming them here does not move the on-disk format.
-    """
-
-    USER = "user"
-    AGENT = "agent"
+# Records are stored under ``{api_url}|user`` with an ``active`` entry per deployment,
+# so a store this version writes stays readable by the release candidates before it.
+_USER_KIND = "user"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -56,33 +48,22 @@ class StoredCredentials:
     token_type: str = "bearer"
     expires_at: datetime | None = None
     refresh_token: str | None = None
-    kind: CredentialKind = CredentialKind.USER
-    identity_assertion: str | None = None
-    assertion_expires_at: datetime | None = None
     subject: str | None = None
     organization_id: str | None = None
-    claimed: bool | None = None
 
     @property
     def key(self) -> str:
         """The store key this record lives under."""
-        return record_key(self.api_url, self.kind)
+        return record_key(self.api_url)
 
     def with_token(
-        self,
-        access_token: str,
-        *,
-        expires_at: datetime | None,
-        refresh_token: str | None = None,
-        identity_assertion: str | None = None,
-        assertion_expires_at: datetime | None = None,
+        self, access_token: str, *, expires_at: datetime | None, refresh_token: str | None = None
     ) -> "StoredCredentials":
         """Return this record carrying a freshly minted access token.
 
         Everything the mint did not replace is carried over,
-        so a rotation cannot drop the subject, the organisation
-        or the claim that the record was bound to.
-        A secret left out keeps the one already stored,
+        so a rotation cannot drop the subject or the organisation.
+        A refresh token left out keeps the one already stored,
         because an issuer that does not rotate returns nothing in its place.
         """
         return replace(
@@ -90,12 +71,6 @@ class StoredCredentials:
             access_token=access_token,
             expires_at=expires_at,
             refresh_token=self.refresh_token if refresh_token is None else refresh_token,
-            identity_assertion=(
-                self.identity_assertion if identity_assertion is None else identity_assertion
-            ),
-            assertion_expires_at=(
-                self.assertion_expires_at if assertion_expires_at is None else assertion_expires_at
-            ),
         )
 
 
@@ -104,9 +79,9 @@ def normalise_api_url(api_url: str) -> str:
     return api_url.rstrip("/")
 
 
-def record_key(api_url: str, kind: CredentialKind) -> str:
-    """Return the store key for one deployment plus identity kind."""
-    return f"{normalise_api_url(api_url)}|{kind}"
+def record_key(api_url: str) -> str:
+    """Return the store key for one deployment."""
+    return f"{normalise_api_url(api_url)}|{_USER_KIND}"
 
 
 def credentials_path() -> Path:
@@ -123,7 +98,7 @@ class CredentialStore(Protocol):
     """Where stored logins live, and the rules for which one is in play."""
 
     def load(self, api_url: str | None = None) -> StoredCredentials | None:
-        """Return the active record for ``api_url``, or for the default deployment without one.
+        """Return the record for ``api_url``, or for the default deployment without one.
 
         Expired credentials are returned as stored,
         the credential provider decides whether they can still be refreshed.
@@ -134,12 +109,12 @@ class CredentialStore(Protocol):
         """Return every stored record."""
         ...
 
-    def active_kinds(self) -> dict[str, CredentialKind]:
-        """Return the active identity kind per deployment."""
+    def default_api_url(self) -> str | None:
+        """Return the deployment a client without an explicit URL uses."""
         ...
 
     def save_login(self, record: StoredCredentials) -> StoredCredentials:
-        """Store a fresh login, make it active and its deployment the default, and return it.
+        """Store a fresh login, make its deployment the default, and return it.
 
         A record with no ``expires_at`` takes its expiry from the access token's JWT ``exp`` claim.
         """
@@ -148,19 +123,19 @@ class CredentialStore(Protocol):
     def rotate(self, previous: StoredCredentials, current: StoredCredentials) -> bool:
         """Replace ``previous`` in place, unless the stored record has changed since it was loaded.
 
-        Leaves the active identity and the default deployment alone, and returns whether it wrote.
+        Leaves the default deployment alone, and returns whether it wrote.
         """
         ...
 
-    def set_active(self, api_url: str, kind: CredentialKind) -> StoredCredentials:
-        """Make a stored identity active and its deployment the default.
+    def set_default(self, api_url: str) -> StoredCredentials:
+        """Make a stored deployment the default.
 
-        Raises ``KeyError`` when no such record is stored.
+        Raises ``KeyError`` when no login is stored for it.
         """
         ...
 
-    def clear(self, api_url: str | None = None, kind: CredentialKind | None = None) -> None:
-        """Delete every record, one deployment's records, or one identity on one deployment."""
+    def clear(self, api_url: str | None = None) -> None:
+        """Delete every record, or one deployment's records."""
         ...
 
     def read_only(self) -> bool:
@@ -184,13 +159,6 @@ def _empty() -> dict[str, Any]:
     return {"version": STORE_VERSION, "records": {}, "active": {}}
 
 
-def _parse_kind(value: Any) -> CredentialKind | None:
-    try:
-        return CredentialKind(value)
-    except ValueError:
-        return None
-
-
 def _parse_datetime(value: Any) -> datetime | None:
     if not isinstance(value, str):
         return None
@@ -212,9 +180,8 @@ def _record_to_credentials(record: Any) -> StoredCredentials | None:
         return None
     if not isinstance(record.get("api_url"), str):
         return None
-    # A kind this version does not know is a record it cannot serve.
-    kind = _parse_kind(record.get("kind", CredentialKind.USER))
-    if kind is None:
+    # Agent records from earlier release candidates are left alone.
+    if record.get("kind", _USER_KIND) != _USER_KIND:
         return None
     return StoredCredentials(
         access_token=access_token,
@@ -222,12 +189,8 @@ def _record_to_credentials(record: Any) -> StoredCredentials | None:
         expires_at=_parse_datetime(record.get("expires_at")),
         api_url=record["api_url"],
         refresh_token=record.get("refresh_token"),
-        kind=kind,
-        identity_assertion=record.get("identity_assertion"),
-        assertion_expires_at=_parse_datetime(record.get("assertion_expires_at")),
         subject=record.get("subject"),
         organization_id=record.get("organization_id"),
-        claimed=record.get("claimed"),
     )
 
 
@@ -238,12 +201,9 @@ def _credentials_to_record(record: StoredCredentials) -> dict[str, Any]:
         "expires_at": _iso(record.expires_at),
         "api_url": record.api_url,
         "refresh_token": record.refresh_token,
-        "kind": str(record.kind),
-        "identity_assertion": record.identity_assertion,
-        "assertion_expires_at": _iso(record.assertion_expires_at),
+        "kind": _USER_KIND,
         "subject": record.subject,
         "organization_id": record.organization_id,
-        "claimed": record.claimed,
     }
 
 
@@ -276,24 +236,21 @@ class _DocumentStore(CredentialStore, ABC):
         target = normalise_api_url(api_url) if api_url is not None else store.get("default_api_url")
         if not isinstance(target, str):
             return None
-        kind = _parse_kind(store["active"].get(target))
-        if kind is None:
-            return None
-        return _record_to_credentials(store["records"].get(record_key(target, kind)))
+        return _record_to_credentials(store["records"].get(record_key(target)))
 
     def records(self) -> list[StoredCredentials]:
         found = (_record_to_credentials(record) for record in self._read()["records"].values())
         return [credentials for credentials in found if credentials is not None]
 
-    def active_kinds(self) -> dict[str, CredentialKind]:
-        parsed = {key: _parse_kind(value) for key, value in self._read()["active"].items()}
-        return {key: kind for key, kind in parsed.items() if kind is not None}
+    def default_api_url(self) -> str | None:
+        default = self._read().get("default_api_url")
+        return default if isinstance(default, str) else None
 
     def save_login(self, record: StoredCredentials) -> StoredCredentials:
         record = _normalised(record)
         with self._update() as store:
             store["records"][record.key] = _credentials_to_record(record)
-            store["active"][record.api_url] = str(record.kind)
+            store["active"][record.api_url] = _USER_KIND
             store["default_api_url"] = record.api_url
         return record
 
@@ -307,40 +264,35 @@ class _DocumentStore(CredentialStore, ABC):
                     or stored.get("access_token") != previous.access_token
                 ):
                     return False
-                store["records"][previous.key] = _credentials_to_record(
-                    replace(current, kind=previous.kind)
-                )
+                store["records"][previous.key] = _credentials_to_record(current)
         except _ReadOnlyStoreError as exc:
             # The request in flight still has its fresh token, so a refusal to persist only warns.
             warnings.warn(f"the refreshed token was not saved: {exc}", stacklevel=2)
             return False
         return True
 
-    def set_active(self, api_url: str, kind: CredentialKind) -> StoredCredentials:
+    def set_default(self, api_url: str) -> StoredCredentials:
         api_url = normalise_api_url(api_url)
-        key = record_key(api_url, kind)
+        key = record_key(api_url)
         with self._update() as store:
             credentials = _record_to_credentials(store["records"].get(key))
             if credentials is None:
                 raise KeyError(key)
-            store["active"][api_url] = str(kind)
+            store["active"][api_url] = _USER_KIND
             store["default_api_url"] = api_url
         return credentials
 
-    def clear(self, api_url: str | None = None, kind: CredentialKind | None = None) -> None:
+    def clear(self, api_url: str | None = None) -> None:
         with self._update() as store:
             if api_url is None:
                 store.clear()
                 store.update(_empty())
                 return
             api_url = normalise_api_url(api_url)
-            kinds = [kind] if kind is not None else list(CredentialKind)
-            for target_kind in kinds:
-                store["records"].pop(record_key(api_url, target_kind), None)
-            active_kind = store["active"].get(api_url)
-            if kind is None or active_kind == kind:
-                store["active"].pop(api_url, None)
-            if store.get("default_api_url") == api_url and api_url not in store["active"]:
+            for key in [key for key in store["records"] if key.startswith(f"{api_url}|")]:
+                del store["records"][key]
+            store["active"].pop(api_url, None)
+            if store.get("default_api_url") == api_url:
                 store["default_api_url"] = next(iter(store["active"]), None)
 
 
@@ -467,7 +419,6 @@ def default_store() -> CredentialStore:
 
 __all__ = [
     "STORE_VERSION",
-    "CredentialKind",
     "CredentialStore",
     "FileCredentialStore",
     "MemoryCredentialStore",
