@@ -14,86 +14,46 @@
 # %% [markdown]
 # # Reading asynchronously
 #
-# `AsyncBookshelf` mirrors `Bookshelf` with the same functionality,
-# except that every call reaching the API is awaited.
-# Everything else behaves the same way.
+# The SDK is synchronous.
+# From async code, run each call in a worker thread with `asyncio.to_thread`,
+# so the event loop keeps serving other work while the request waits on the network.
 #
-# Use this when fetching several books concurrently,
-# or when the SDK is embedded in an async service.
-
-# %% [markdown]
-# ## What async buys you
-#
-# Skip this section if you have written async Python before.
-#
-# Fetching a book is mostly waiting.
-# The request goes out, the server does its work, and eventually the bytes come back.
-# Ordinary synchronous code spends that wait with the whole program stopped,
-# so four books fetched one after another cost four waits back to back.
-#
-# Async code hands that waiting time back.
-# `await` marks a point where a function pauses and lets other work run,
-# resuming once its own answer arrives,
-# and an event loop does the swapping between the functions that are paused.
-#
-# Two consequences follow, and both matter here.
-#
-# - Requests can be in flight at the same time,
-#   so four fetches take roughly as long as the slowest one rather than the sum of all four.
-# - Code running inside a loop must not block it,
-#   because one synchronous call that stalls for a second stalls everything else on that loop too.
-#
-# This is concurrency rather than parallelism.
-# It is still one thread doing one thing at a time, just no longer sitting idle while the network works.
-# So it pays off when you are waiting on many requests,
-# and does nothing at all for a single request or for heavy computation on data already in memory.
-#
-# Three pieces of syntax cover everything below.
-#
-# - `async def` declares a function that is allowed to pause.
-# - `await` pauses until one result is ready.
-# - `asyncio.gather(...)` starts several at once and waits for all of them.
-#
-# The usual first surprise is that calling an `async def` function does not run it.
-# It returns a coroutine, which does nothing until it is awaited.
+# One `Bookshelf` can be shared between threads.
+# Its connection pool, token refresh and download cache are built for concurrent use.
 #
 # Notebooks run inside an event loop already,
-# so `await` works at the top level of a cell exactly as it does below.
-# A plain `.py` script has no loop running,
-# so it needs `asyncio.run(main())` as its entry point.
+# so `await` works at the top level of a cell.
+# A plain `.py` script needs `asyncio.run(main())` as its entry point.
 
 # %%
 import asyncio
 
-from bookshelf import AsyncBookshelf
+from bookshelf import Bookshelf
+
+bs = Bookshelf()
 
 # %% [markdown]
-# ## awaiting
+# ## One call
 #
-# Resolving the book and converting its data are both awaited.
-# Indexing the book is not, because it is a local lookup over entries already fetched.
-
+# Resolving the book and reading its data are separate calls, so each goes to a thread.
+# Indexing the book is a local lookup and needs no thread.
 
 # %%
-async def latest_co2() -> tuple[str, int, tuple[int, int]]:
-    async with AsyncBookshelf() as bs:
-        book = await bs.book("rcmip-emissions", "v5.1.0")
-        frame = await book["magicc"].as_df(
-            filters={"region": "World", "variable": "Emissions|CO2"},
-            year_min=2020,
-            year_max=2100,
-        )
-        return book.version, book.edition, frame.shape
-
-
-await latest_co2()
+book = await asyncio.to_thread(bs.book, "rcmip-emissions", "v5.1.0")
+frame = await asyncio.to_thread(
+    book["magicc"].as_df,
+    filters={"region": "World", "variable": "Emissions|CO2"},
+    year_min=2020,
+    year_max=2100,
+)
+book.version, book.edition, frame.shape
 
 # %% [markdown]
 # ## Fetching concurrently
 #
-# This is the reason to reach for the async facade in analysis work.
-# One client keeps many requests in flight at once,
-# so the whole set costs about as long as its slowest member.
+# Wrap the synchronous steps for one book in a function,
+# then gather one thread per book.
+# The whole set costs about as long as its slowest member.
 
 # %%
 COORDINATES = [
@@ -103,79 +63,53 @@ COORDINATES = [
 ]
 
 
-async def shapes() -> list[tuple[str, tuple[int, int]]]:
-    async with AsyncBookshelf() as bs:
-
-        async def one(volume: str, version: str, entry: str) -> tuple[str, tuple[int, int]]:
-            book = await bs.book(volume, version)
-            frame = await book[entry].as_df(year_min=2000, year_max=2020)
-            return f"{volume}/{version}/{entry}", frame.shape
-
-        return await asyncio.gather(*(one(*coordinate) for coordinate in COORDINATES))
+def shape(volume: str, version: str, entry: str) -> tuple[str, tuple[int, int]]:
+    frame = bs.book(volume, version)[entry].as_df(year_min=2000, year_max=2020)
+    return f"{volume}/{version}/{entry}", frame.shape
 
 
-for label, shape in await shapes():
-    print(f"{label:35} {shape}")
+for label, size in await asyncio.gather(
+    *(asyncio.to_thread(shape, *coordinate) for coordinate in COORDINATES)
+):
+    print(f"{label:35} {size}")
+
+# %%
+bs.close()
 
 # %% [markdown]
-# ## Client lifetime
-#
-# The client is long lived by design.
-# Token state lives in the credential provider and each surface pools connections.
-#
-# The `async with` blocks above are fine for a script or a notebook cell.
-# In a long running service they are wrong,
-# because opening a client per request churns the connection pool
-# and throws away the cached access token every time.
+# ## In a service
 #
 # Construct one client at startup and close it at shutdown.
-# In FastAPI that is a lifespan.
-
-# %% [markdown]
+# Opening a client per request churns the connection pool
+# and throws away the cached access token every time.
+#
+# FastAPI runs a plain `def` endpoint in its thread pool,
+# so the synchronous calls can be made directly there.
+#
 # ```python
 # from contextlib import asynccontextmanager
 #
 # from fastapi import FastAPI, Request
 #
-# from bookshelf import AsyncBookshelf
+# from bookshelf import Bookshelf
 #
 #
 # @asynccontextmanager
 # async def lifespan(app: FastAPI):
-#     app.state.bookshelf = AsyncBookshelf()
-#     yield
-#     await app.state.bookshelf.aclose()
+#     with Bookshelf() as bs:
+#         app.state.bookshelf = bs
+#         yield
 #
 #
 # app = FastAPI(lifespan=lifespan)
 #
 #
 # @app.get("/co2")
-# async def co2(request: Request):
-#     bs: AsyncBookshelf = request.app.state.bookshelf
-#     book = await bs.book("rcmip-emissions", "v5.1.0")
-#     frame = await book["magicc"].as_df(
+# def co2(request: Request):
+#     bs: Bookshelf = request.app.state.bookshelf
+#     book = bs.book("rcmip-emissions", "v5.1.0")
+#     frame = book["magicc"].as_df(
 #         filters={"region": "World", "variable": "Emissions|CO2"}, server_side=True
 #     )
 #     return frame.to_dict(orient="split")
 # ```
-
-# %% [markdown]
-# ## Producing asynchronously
-#
-# The producer surface mirrors too.
-# The activity is an `async with`,
-# and `draft_book`, `register`, `attach` and `publish` are all awaited.
-#
-# ```python
-# async with AsyncBookshelf() as bs:
-#     draft = await bs.draft_book("my-volume", version="v1.0.0", license="CC-BY-4.0")
-#
-#     async with bs.activity(config={"scenario": "ssp245"}) as activity:
-#         output = await activity.register(frame, type="timeseries")
-#
-#     await draft.attach(output, name_in_book="ssp245")
-#     await draft.publish()
-# ```
-#
-# See [Publishing a book](publish_a_book) for what each of those steps means.

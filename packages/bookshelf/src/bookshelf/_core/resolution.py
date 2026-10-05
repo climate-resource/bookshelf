@@ -387,20 +387,17 @@ def _rotation_sink(
     # An agent record with no assertion is served by the refresh-token grant, so it rotates one.
     as_agent = stored.kind is CredentialKind.AGENT and stored.identity_assertion is not None
     latest = previous = stored
-    # The sync and async refresh locks are separate, so both surfaces can land here at once.
-    lock = threading.Lock()
 
     def persist(access_token: str, secret: str | None, expires_at: float | None) -> None:
         nonlocal latest, previous
         moment = datetime.fromtimestamp(expires_at, tz=UTC) if expires_at is not None else None
-        with lock:
-            latest = (
-                latest.with_token(access_token, expires_at=moment, identity_assertion=secret)
-                if as_agent
-                else latest.with_token(access_token, expires_at=moment, refresh_token=secret)
-            )
-            if store.rotate(previous, latest):
-                previous = latest
+        latest = (
+            latest.with_token(access_token, expires_at=moment, identity_assertion=secret)
+            if as_agent
+            else latest.with_token(access_token, expires_at=moment, refresh_token=secret)
+        )
+        if store.rotate(previous, latest):
+            previous = latest
 
     return persist
 

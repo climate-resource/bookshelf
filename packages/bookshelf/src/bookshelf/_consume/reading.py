@@ -1,4 +1,4 @@
-"""The read decisions both handle flavours share, kept free of I/O.
+"""The read decisions a resource handle makes, kept free of I/O.
 
 A handle fetches either the cached file or a ``/data`` response,
 and hands it here to be checked, selected, shaped and summarised.

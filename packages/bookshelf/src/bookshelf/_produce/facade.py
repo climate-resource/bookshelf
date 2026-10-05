@@ -1,8 +1,8 @@
-"""Producer write adapters and the seam the public facades bind to."""
+"""Producer write adapters and the seam the public facade binds to."""
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol
 from uuid import UUID
@@ -10,16 +10,16 @@ from uuid import UUID
 from pydantic import RootModel
 
 from bookshelf._core.client import BookshelfClient
-from bookshelf._core.session import require_authentication, require_authentication_async
+from bookshelf._core.session import require_authentication
 from bookshelf._generated import models
 from bookshelf._produce import helpers
-from bookshelf._produce.activities import Activity, AsyncActivity
-from bookshelf._produce.books import AsyncDraftBook, DraftBook
+from bookshelf._produce.activities import Activity
+from bookshelf._produce.books import DraftBook
 from bookshelf._produce.provenance import derive_code_ref
-from bookshelf._produce.resources import AsyncResource, Resource
+from bookshelf._produce.resources import Resource
 from bookshelf._produce.serialise import serialise
 from bookshelf._produce.types import AuthorInput
-from bookshelf._produce.uploads import upload_bytes, upload_bytes_async
+from bookshelf._produce.uploads import upload_bytes
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
 from bookshelf.cache import ContentCache
 
@@ -137,7 +137,7 @@ def _draft_request(
 
 
 class LiveSink:
-    """Live synchronous adapter for producer writes."""
+    """Live adapter for producer writes."""
 
     def __init__(
         self,
@@ -324,26 +324,8 @@ class LiveSink:
         return DraftBook(self._client, detail, activity=self.writing_activity)
 
 
-class AsyncLiveSink:
-    """Live asynchronous adapter for producer writes."""
-
-    def __init__(
-        self,
-        client: BookshelfClient,
-        cache: ContentCache,
-        *,
-        default_visibility: models.Visibility = models.Visibility.hidden,
-    ) -> None:
-        self._client = client
-        self._cache = cache
-        self.default_visibility = default_visibility
-        self._write_activity: AsyncActivity | None = None
-
-    def writing_activity(self) -> AsyncActivity:
-        """The activity ``book.write`` registers through, opened on first use."""
-        if self._write_activity is None:
-            self._write_activity = self.activity()
-        return self._write_activity._open()
+class ProduceSink(Protocol):
+    """The producer seam, satisfied by :class:`LiveSink` and the recording adapter."""
 
     def activity(
         self,
@@ -354,182 +336,7 @@ class AsyncLiveSink:
         runner: str | None = None,
         activity_id: UUID | None = None,
         config_hash: str | None = None,
-    ) -> AsyncActivity:
-        """Open an ambient asynchronous producer activity."""
-        return AsyncActivity(
-            self._client,
-            self._cache,
-            activity_id=activity_id or helpers.uuid7(),
-            kind=kind,
-            code_ref=code_ref or derive_code_ref(),
-            config=dict(config or {}),
-            runner=runner or helpers.runner(),
-            config_hash=config_hash,
-            default_visibility=self.default_visibility,
-        )
-
-    async def register_external(
-        self,
-        *,
-        type: str | models.ResourceType,
-        uri: str,
-        hash: str | None = None,
-        name: str | None = None,
-        visibility: VisibilityInput = INHERIT,
-        tags: Sequence[str] = (),
-        description: str | None = None,
-        authors: Sequence[AuthorInput] | None = None,
-        doi: str | None = None,
-        citation: str | None = None,
-        license: str | None = None,
-        license_url: str | None = None,
-        metadata: Mapping[str, Any] | None = None,
-        tracking_id: UUID | None = None,
-    ) -> AsyncResource:
-        """Catalogue an external pointer without attributing it to an activity."""
-        item = helpers.external_item(
-            type=type,
-            uri=uri,
-            hash=hash,
-            name=name,
-            visibility=helpers.visibility(visibility, self.default_visibility),
-            discovery=helpers.resource_discovery(
-                tags,
-                description=description,
-                authors=authors,
-                doi=doi,
-                citation=citation,
-                license=license,
-                license_url=license_url,
-            ),
-            metadata=metadata,
-            tracking_id=tracking_id,
-        )
-        return await self._register_one(item)
-
-    async def register_file(
-        self,
-        *,
-        type: str | models.ResourceType,
-        path: Path,
-        hash: str | None = None,
-        name: str | None = None,
-        visibility: VisibilityInput = INHERIT,
-        tags: Sequence[str] = (),
-        description: str | None = None,
-        authors: Sequence[AuthorInput] | None = None,
-        doi: str | None = None,
-        citation: str | None = None,
-        license: str | None = None,
-        license_url: str | None = None,
-        metadata: Mapping[str, Any] | None = None,
-        tracking_id: UUID | None = None,
-    ) -> AsyncResource:
-        """Upload a file and catalogue it as an input, attributing it to no activity.
-
-        The bytes are content addressed, so a file the organisation already holds
-        is not transferred again and the registration answers with the canonical resource.
-        The file is read into memory once, for the digest and the upload alike.
-        """
-        serialised = serialise(path, type=helpers.resource_type(type).value)
-        content_hash = hash or serialised.hash
-        storage_path = await upload_bytes_async(
-            self._client,
-            serialised.data,
-            hash_=content_hash,
-            content_type=serialised.content_type,
-        )
-        item = helpers.managed_item(
-            type=type,
-            storage_path=storage_path,
-            hash=content_hash,
-            format=serialised.format,
-            name=name,
-            visibility=helpers.visibility(visibility, self.default_visibility),
-            discovery=helpers.resource_discovery(
-                tags,
-                description=description,
-                authors=authors,
-                doi=doi,
-                citation=citation,
-                license=license,
-                license_url=license_url,
-            ),
-            metadata=helpers.with_source_url(metadata, path),
-            tracking_id=tracking_id,
-        )
-        return await self._register_one(item)
-
-    async def _register_one(self, item: models.RegisterResourceItem) -> AsyncResource:
-        """Send one registration and wrap the outcome the platform answers with."""
-        response = await self._client.register_resources_async(
-            models.RegisterResourcesRequest(items=[item], atomic=True)
-        )
-        successful, failures = helpers.registration_results(response)
-        helpers.raise_partial_registration(successful, failures)
-        outcome = helpers.single_success(successful)
-        return AsyncResource(
-            self._client,
-            self._cache,
-            tracking_id=outcome.tracking_id,
-            resource_type=helpers.registered_resource_type(outcome, item.type),
-            registration_outcome=outcome,
-            name=helpers.registered_name(item),
-        )
-
-    async def draft_book(
-        self,
-        volume: str,
-        *,
-        version: str,
-        description: str | None = None,
-        license: str | None = None,
-        visibility: VisibilityInput = INHERIT,
-        metadata: Mapping[str, Any] | None = None,
-        bundle_hash: str | None = None,
-        discovery: Mapping[str, Any] | None = None,
-        authors: Sequence[Mapping[str, Any]] | None = None,
-        processing: ProcessingInput | None = None,
-    ) -> AsyncDraftBook:
-        """Create an asynchronous mutable draft book handle.
-
-        The credential is confirmed first, logging in when a stored login is missing.
-        """
-        await require_authentication_async(self._client)
-        detail = await self._client.draft_book_async(
-            _draft_request(
-                volume,
-                version=version,
-                description=description,
-                license=license,
-                visibility=helpers.visibility(visibility, self.default_visibility),
-                metadata=metadata,
-                bundle_hash=bundle_hash,
-                discovery=discovery,
-                authors=authors,
-                processing=processing,
-            )
-        )
-        return AsyncDraftBook(self._client, detail, activity=self.writing_activity)
-
-
-class _ProduceSink[ActivityT, ResourceT, DraftT](Protocol):
-    """Adapter interface for producer writes, parameterised by what each call hands back.
-
-    The synchronous adapters return their handles directly.
-    The asynchronous ones return an awaitable for the two calls that reach the API.
-    """
-
-    def activity(
-        self,
-        *,
-        code_ref: str | None = None,
-        config: Mapping[str, Any] | None = None,
-        kind: str = "run",
-        runner: str | None = None,
-        activity_id: UUID | None = None,
-        config_hash: str | None = None,
-    ) -> ActivityT: ...
+    ) -> Activity: ...
 
     def register_external(
         self,
@@ -548,7 +355,7 @@ class _ProduceSink[ActivityT, ResourceT, DraftT](Protocol):
         license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
-    ) -> ResourceT: ...
+    ) -> Resource: ...
 
     def register_file(
         self,
@@ -567,7 +374,7 @@ class _ProduceSink[ActivityT, ResourceT, DraftT](Protocol):
         license_url: str | None = None,
         metadata: Mapping[str, Any] | None = None,
         tracking_id: UUID | None = None,
-    ) -> ResourceT: ...
+    ) -> Resource: ...
 
     def draft_book(
         self,
@@ -582,19 +389,10 @@ class _ProduceSink[ActivityT, ResourceT, DraftT](Protocol):
         discovery: Mapping[str, Any] | None = None,
         authors: Sequence[Mapping[str, Any]] | None = None,
         processing: ProcessingInput | None = None,
-    ) -> DraftT: ...
-
-
-ProduceSink = _ProduceSink[Activity, Resource, DraftBook]
-"""The synchronous producer seam, satisfied by :class:`LiveSink` and the recording adapter."""
-
-AsyncProduceSink = _ProduceSink[AsyncActivity, Awaitable[AsyncResource], Awaitable[AsyncDraftBook]]
-"""The asynchronous producer seam."""
+    ) -> DraftBook: ...
 
 
 __all__ = [
-    "AsyncLiveSink",
-    "AsyncProduceSink",
     "LiveSink",
     "ProduceSink",
 ]

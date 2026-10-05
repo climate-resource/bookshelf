@@ -3,8 +3,7 @@
 Request building and response parsing are pure functions that never touch the network.
 Each operation has a ``build_*`` function that produces an :class:`ApiRequest`
 and a ``parse_*`` function that consumes an :class:`ApiResponse`.
-:class:`BookshelfClient` is a thin shell that carries bytes between the two over httpx,
-once per surface (sync and async), so the two surfaces cannot drift.
+:class:`BookshelfClient` is a thin shell that carries bytes between the two over httpx.
 
 Keeping the request/response logic free of I/O means every operation
 can be tested without a socket,

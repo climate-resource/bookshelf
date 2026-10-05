@@ -6,7 +6,6 @@ from typing import Literal
 from bookshelf._facade import Bookshelf
 from bookshelf._generated import models
 from bookshelf.publisher.bundle import Bundle
-from bookshelf.publisher.replay import replay_bundle_sync
 
 PublishKind = Literal["no-op", "would-publish", "published"]
 """What a publish did: nothing, nothing yet, or a replay through to publication."""
@@ -42,7 +41,7 @@ def publish_bundle(bundle: Bundle, bs: Bookshelf, *, dry_run: bool = False) -> P
 
     Args:
         bundle: Loaded bundle to publish.
-        bs: Open synchronous client used for the replay.
+        bs: Open client used for the replay.
         dry_run: Report what would be sent without sending it.
 
     Returns:
@@ -65,7 +64,7 @@ def publish_bundle(bundle: Bundle, bs: Bookshelf, *, dry_run: bool = False) -> P
             converged=False,
         )
 
-    response = replay_bundle_sync(bundle, bs)
+    response = bs.replay_bundle(bundle)
     wrote = any(
         result.status != models.ReplayResourceStatus.skipped for result in response.resources or []
     )

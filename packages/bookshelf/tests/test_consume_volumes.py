@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from bookshelf._consume.volumes import AsyncVolume, Volume
+from bookshelf._consume.volumes import Volume
 from bookshelf._core.errors import NotFoundError, VersionNotFoundError
 from bookshelf._generated import models
 from bookshelf.cache import ContentCache
@@ -204,12 +204,8 @@ def test_a_version_with_only_drafts_is_not_a_version_you_can_read(cache: Content
     assert volume.latest == "v2.6"
 
 
-def test_the_async_twin_advertises_a_call_it_actually_has(cache: ContentCache) -> None:
-    """An index cannot be awaited, so `volume["v2.6"]` would raise on the async flavour."""
+def test_the_repr_advertises_indexing_by_version(cache: ContentCache) -> None:
     detail = _detail(models.VersionInfo(version="v2.6", editions=[_edition(1)]))
-    sync_hint = repr(Volume(_FakeClient(), cache, detail, book_ttl=TTL))  # type: ignore[arg-type]
-    async_hint = repr(AsyncVolume(_FakeClient(), cache, detail, book_ttl=TTL))  # type: ignore[arg-type]
+    hint = repr(Volume(_FakeClient(), cache, detail, book_ttl=TTL))  # type: ignore[arg-type]
 
-    assert 'volume["v2.6"]' in sync_hint
-    assert 'await volume.book("v2.6")' in async_hint
-    assert not hasattr(AsyncVolume, "__getitem__")
+    assert 'volume["v2.6"]' in hint

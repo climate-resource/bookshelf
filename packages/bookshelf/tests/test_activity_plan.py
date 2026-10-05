@@ -12,11 +12,11 @@ import httpx
 import pytest
 
 from bookshelf._core.client import BookshelfClient
-from bookshelf._facade import AsyncBookshelf, Bookshelf
+from bookshelf._facade import Bookshelf
 from bookshelf.cache import ContentCache
 from bookshelf.publisher.bundle import Bundle, InvalidBundleError
 from bookshelf.publisher.recording import RecordingSink
-from bookshelf.publisher.replay import replay_bundle, replay_bundle_sync
+from bookshelf.publisher.replay import replay_bundle
 from tests import _core_payloads as payloads
 from tests._replay import BASE_URL, replay_client, replayed
 
@@ -42,7 +42,7 @@ def test_a_recorded_plan_replays_as_the_activity_plan(tmp_path: Path) -> None:
     recorded: list[httpx.Request] = []
 
     with replay_client(recorded) as client:
-        replay_bundle_sync(bundle, client)
+        replay_bundle(bundle, client)
 
     resources = {resource["name"]: resource for resource in replayed(recorded)["resources"]}
     card = resources["method-card"]
@@ -104,22 +104,6 @@ def test_a_live_plan_is_cited_by_its_own_request_and_every_later_one() -> None:
     ]
 
 
-async def test_an_async_live_plan_is_cited_the_same_way() -> None:
-    registrations: list[dict[str, Any]] = []
-
-    async with (
-        AsyncBookshelf(BASE_URL, auth=None, async_transport=_transport(registrations)) as client,
-        client.activity(kind="build", code_ref="test", config={}) as activity,
-    ):
-        await activity.register(b"method", type="document", name="method-card", role="plan")
-        await activity.register(b"beta", type="document", name="beta")
-
-    assert _plan_refs(registrations) == [
-        [{"resource_name": "method-card", "role": "plan"}],
-        [{"tracking_id": CARD_ID, "role": "plan"}],
-    ]
-
-
 def test_a_live_plan_needs_a_name() -> None:
     with (
         Bookshelf(BASE_URL, auth=None, transport=_transport([])) as client,
@@ -176,27 +160,7 @@ def test_replay_refuses_an_edited_plan_before_any_upload(
     recorded: list[httpx.Request] = []
 
     with replay_client(recorded) as client, pytest.raises(InvalidBundleError, match=match):
-        replay_bundle_sync(bundle.root, client)
-    assert recorded == []
-
-
-@pytest.mark.parametrize(("edit", "match"), _EDITS)
-async def test_async_replay_refuses_an_edited_plan_before_any_upload(
-    tmp_path: Path, edit: str, match: str
-) -> None:
-    bundle = _record_plan_bundle(tmp_path)
-    _edit_plan(bundle, edit)
-    recorded: list[httpx.Request] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        recorded.append(request)
-        return httpx.Response(500)
-
-    async with AsyncBookshelf(
-        BASE_URL, auth=None, async_transport=httpx.MockTransport(handler)
-    ) as client:
-        with pytest.raises(InvalidBundleError, match=match):
-            await replay_bundle(bundle.root, client)
+        replay_bundle(bundle.root, client)
     assert recorded == []
 
 

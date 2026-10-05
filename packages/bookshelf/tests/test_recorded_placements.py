@@ -23,7 +23,7 @@ from bookshelf.publisher.preview import PreviewIdentity, upload_preview
 from bookshelf.publisher.recipe import load_record_recipe
 from bookshelf.publisher.record import _ACTIVE_RECORDING, Build, _RecordingContext, setup
 from bookshelf.publisher.recording import RecordingBookshelf
-from bookshelf.publisher.replay import replay_bundle_sync
+from bookshelf.publisher.replay import replay_bundle
 from tests._preview import BASE_URL as PREVIEW_URL
 from tests._preview import SHA, PreviewDeployment
 from tests._replay import replay_client, replayed
@@ -246,7 +246,7 @@ def test_replay_sends_the_placed_tracking_id(make_bundle: BundleFactory) -> None
     recorded: list[httpx.Request] = []
 
     with replay_client(recorded) as bs:
-        replay_bundle_sync(_placed(make_bundle), bs)
+        replay_bundle(_placed(make_bundle), bs)
 
     entries = replayed(recorded)["book"]["entries"]
     assert entries == [

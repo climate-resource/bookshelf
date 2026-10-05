@@ -16,14 +16,12 @@ from matplotlib.figure import Figure
 
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.hashing import sha256_hex
-from bookshelf._facade import AsyncBookshelf
 from bookshelf._generated import models
 from bookshelf.cache import ContentCache
 from bookshelf.publisher.bundle import Bundle, BundleActivity, BundleBook, InvalidBundleError
 from bookshelf.publisher.recording import RecordingSink
-from bookshelf.publisher.replay import replay_bundle, replay_bundle_sync
-from tests import _core_payloads as payloads
-from tests._replay import BASE_URL, replay_client, replay_response, replayed
+from bookshelf.publisher.replay import replay_bundle
+from tests._replay import replay_client, replay_response, replayed
 
 CONFIG_HASH = "sha256:" + "0" * 64
 POINTER_HASH = "sha256:" + "a" * 64
@@ -72,7 +70,7 @@ def test_a_used_input_travels_as_the_name_of_an_earlier_resource(tmp_path: Path)
     recorded: list[httpx.Request] = []
 
     with replay_client(recorded) as client:
-        replay_bundle_sync(bundle, client)
+        replay_bundle(bundle, client)
 
     resources = replayed(recorded)["resources"]
     assert [resource["name"] for resource in resources] == ["raw", "derived"]
@@ -102,7 +100,7 @@ def test_a_used_digest_travels_as_the_bytes_the_platform_holds(tmp_path: Path) -
     recorded: list[httpx.Request] = []
 
     with replay_client(recorded) as client:
-        replay_bundle_sync(bundle, client)
+        replay_bundle(bundle, client)
 
     resources = replayed(recorded)["resources"]
     assert [resource["name"] for resource in resources] == ["derived"]
@@ -118,7 +116,7 @@ def test_a_used_digest_travels_after_the_names_alongside_it(tmp_path: Path) -> N
     recorded: list[httpx.Request] = []
 
     with replay_client(recorded) as client:
-        replay_bundle_sync(bundle, client)
+        replay_bundle(bundle, client)
 
     resources = replayed(recorded)["resources"]
     assert resources[1]["used"] == ["raw", {"content_hash": upload}]
@@ -165,7 +163,7 @@ def test_a_pointer_carries_its_target_and_no_storage_path(tmp_path: Path) -> Non
     recorded: list[httpx.Request] = []
 
     with replay_client(recorded) as client:
-        replay_bundle_sync(bundle, client)
+        replay_bundle(bundle, client)
 
     pointer, managed = replayed(recorded)["resources"]
     assert pointer["kind"] == "pointer"
@@ -183,7 +181,7 @@ def test_a_resource_stating_no_discovery_sends_no_discovery_object(tmp_path: Pat
     recorded: list[httpx.Request] = []
 
     with replay_client(recorded) as client:
-        replay_bundle_sync(bundle, client)
+        replay_bundle(bundle, client)
 
     for resource in replayed(recorded)["resources"]:
         assert "discovery" not in resource
@@ -204,7 +202,7 @@ def test_a_resource_sends_only_the_discovery_fields_it_recorded(tmp_path: Path) 
     recorded: list[httpx.Request] = []
 
     with replay_client(recorded) as client:
-        replay_bundle_sync(bundle, client)
+        replay_bundle(bundle, client)
 
     (resource,) = replayed(recorded)["resources"]
     assert resource["discovery"] == {"description": "What we made."}
@@ -221,7 +219,7 @@ def test_a_book_stating_no_discovery_sends_no_discovery_object(tmp_path: Path) -
     recorded: list[httpx.Request] = []
 
     with replay_client(recorded) as client:
-        replay_bundle_sync(bundle, client)
+        replay_bundle(bundle, client)
 
     assert "discovery" not in replayed(recorded)["book"]
 
@@ -244,7 +242,7 @@ def test_a_book_sends_the_discovery_it_states(tmp_path: Path) -> None:
     recorded: list[httpx.Request] = []
 
     with replay_client(recorded) as client:
-        replay_bundle_sync(bundle, client)
+        replay_bundle(bundle, client)
 
     assert replayed(recorded)["book"]["discovery"] == {"title": "An example", "license": "MIT"}
 
@@ -255,7 +253,7 @@ def test_an_entry_without_a_data_dictionary_sends_none(tmp_path: Path) -> None:
     recorded: list[httpx.Request] = []
 
     with replay_client(recorded) as client:
-        replay_bundle_sync(bundle, client)
+        replay_bundle(bundle, client)
 
     (entry,) = replayed(recorded)["book"]["entries"]
     assert entry == {"name": "derived"}
@@ -266,7 +264,7 @@ def test_an_activity_without_a_runner_sends_no_runner(tmp_path: Path) -> None:
     recorded: list[httpx.Request] = []
 
     with replay_client(recorded) as client:
-        replay_bundle_sync(bundle, client)
+        replay_bundle(bundle, client)
 
     assert "runner" not in replayed(recorded)["activity"]
 
@@ -276,7 +274,7 @@ def test_the_managed_bytes_are_uploaded_before_the_replay(tmp_path: Path) -> Non
     recorded: list[httpx.Request] = []
 
     with replay_client(recorded) as client:
-        replay_bundle_sync(bundle, client)
+        replay_bundle(bundle, client)
 
     assert [request.url.path for request in recorded] == [
         "/v1/resources/uploads",
@@ -290,7 +288,7 @@ def test_the_recorded_activity_travels_under_its_own_id(tmp_path: Path) -> None:
     recorded: list[httpx.Request] = []
 
     with replay_client(recorded) as client:
-        replay_bundle_sync(bundle, client)
+        replay_bundle(bundle, client)
 
     activity = replayed(recorded)["activity"]
     assert activity["activity_id"] == "0197a000-0000-7000-8000-00000000a001"
@@ -303,7 +301,7 @@ def test_a_converged_replay_reports_what_the_server_settled(tmp_path: Path) -> N
     answered = replay_response(converged=True, resource_count=2, dedupe_hits=2, edition=5)
 
     with replay_client(recorded, response=answered) as client:
-        response = replay_bundle_sync(bundle, client)
+        response = replay_bundle(bundle, client)
 
     assert response.converged is True
     assert response.dedupe_hits == 2
@@ -317,33 +315,9 @@ def test_a_bundle_path_is_read_before_it_is_replayed(tmp_path: Path) -> None:
     recorded: list[httpx.Request] = []
 
     with replay_client(recorded) as client:
-        replay_bundle_sync(tmp_path / "bundle", client)
+        replay_bundle(tmp_path / "bundle", client)
 
     assert [resource["name"] for resource in replayed(recorded)["resources"]] == ["raw", "derived"]
-
-
-async def test_the_async_replay_sends_the_same_request(tmp_path: Path) -> None:
-    bundle = _derived_bundle(tmp_path / "bundle")
-    synchronous: list[httpx.Request] = []
-    with replay_client(synchronous) as client:
-        replay_bundle_sync(bundle, client)
-
-    asynchronous: list[httpx.Request] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        asynchronous.append(request)
-        if request.url.path == "/v1/resources/uploads":
-            return httpx.Response(
-                200, json={"already_exists": True, "storage_path": "ingest/org_1/abc"}
-            )
-        return httpx.Response(200, json=replay_response())
-
-    async with AsyncBookshelf(
-        BASE_URL, auth=None, async_transport=httpx.MockTransport(handler)
-    ) as client:
-        await replay_bundle(bundle, client)
-
-    assert replayed(asynchronous) == replayed(synchronous)
 
 
 def test_a_recorded_figure_replays_as_a_png_drawn_from_its_values(tmp_path: Path) -> None:
@@ -358,7 +332,7 @@ def test_a_recorded_figure_replays_as_a_png_drawn_from_its_values(tmp_path: Path
     recorded: list[httpx.Request] = []
 
     with replay_client(recorded) as client:
-        replay_bundle_sync(bundle, client)
+        replay_bundle(bundle, client)
 
     figure = next(
         resource for resource in replayed(recorded)["resources"] if resource["name"] == "fig"
@@ -404,7 +378,7 @@ def test_a_recorded_figure_replays_with_its_svg_companion(tmp_path: Path) -> Non
     recorded: list[httpx.Request] = []
 
     with replay_client(recorded) as client:
-        replay_bundle_sync(bundle, client)
+        replay_bundle(bundle, client)
 
     (figure,) = replayed(recorded)["resources"]
     assert figure["svg"] == {"storage_path": "ingest/org_1/abc", "hash": figure_record.svg_hash}
@@ -421,36 +395,11 @@ def test_a_figure_without_an_svg_companion_sends_no_svg(tmp_path: Path) -> None:
     recorded: list[httpx.Request] = []
 
     with replay_client(recorded) as client:
-        replay_bundle_sync(bundle, client)
+        replay_bundle(bundle, client)
 
     (figure,) = replayed(recorded)["resources"]
     assert "svg" not in figure
     assert [upload["content_type"] for upload in _uploads(recorded)] == ["image/png"]
-
-
-async def test_the_async_replay_uploads_the_svg_companion_too(tmp_path: Path) -> None:
-    fig = Figure()
-    fig.add_subplot().plot([1.0, 2.0])
-    bundle = _figure_bundle(tmp_path, fig)
-    recorded: list[httpx.Request] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        recorded.append(request)
-        if request.url.path == "/v1/resources/uploads":
-            return httpx.Response(200, json=payloads.UPLOAD_EXISTS)
-        return httpx.Response(200, json=replay_response())
-
-    async with AsyncBookshelf(
-        BASE_URL, auth=None, async_transport=httpx.MockTransport(handler)
-    ) as client:
-        await replay_bundle(bundle, client)
-
-    (figure,) = replayed(recorded)["resources"]
-    assert figure["svg"]["hash"] == bundle.manifest.resources[0].svg_hash
-    assert [upload["content_type"] for upload in _uploads(recorded)] == [
-        "image/png",
-        "image/svg+xml",
-    ]
 
 
 def test_a_recorded_figure_replays_with_its_caption_and_alt_text(tmp_path: Path) -> None:
@@ -472,7 +421,7 @@ def test_a_recorded_figure_replays_with_its_caption_and_alt_text(tmp_path: Path)
     recorded: list[httpx.Request] = []
 
     with replay_client(recorded) as client:
-        replay_bundle_sync(bundle, client)
+        replay_bundle(bundle, client)
 
     sent = {resource["name"]: resource for resource in replayed(recorded)["resources"]}
     assert sent["fig"]["discovery"] == {
@@ -507,6 +456,6 @@ def test_a_hand_edited_bundle_the_platform_would_refuse_uploads_nothing(
     recorded: list[httpx.Request] = []
 
     with replay_client(recorded) as client, pytest.raises(InvalidBundleError, match=match):
-        replay_bundle_sync(edited, client)
+        replay_bundle(edited, client)
 
     assert recorded == []

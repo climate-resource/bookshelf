@@ -7,7 +7,7 @@ import httpx
 from bookshelf._generated import models
 from bookshelf.publisher import RecordingBookshelf
 from bookshelf.publisher.bundle import Bundle, BundleBook
-from bookshelf.publisher.replay import replay_bundle_sync
+from bookshelf.publisher.replay import replay_bundle
 from tests._replay import replay_client, replayed
 
 
@@ -71,7 +71,7 @@ def test_replay_sends_the_recorded_dictionary_on_attach(tmp_path: Path) -> None:
 
     recorded: list[httpx.Request] = []
     with replay_client(recorded) as client:
-        replay_bundle_sync(bundle, client)
+        replay_bundle(bundle, client)
 
     sent = replayed(recorded)["book"]["entries"][0]["data_dictionary"]
     assert [entry["name"] for entry in sent] == ["region"]

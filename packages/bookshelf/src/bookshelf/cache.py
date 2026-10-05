@@ -1,6 +1,5 @@
 """Content addressed local cache for downloaded resources."""
 
-import asyncio
 import contextlib
 import errno
 import hashlib
@@ -9,13 +8,13 @@ import os
 import shutil
 import time
 import warnings
-from collections.abc import Awaitable, Callable, Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from filelock import AsyncFileLock, FileLock
+from filelock import FileLock
 from platformdirs import user_cache_dir
 
 from bookshelf._core.errors import BookshelfError
@@ -212,26 +211,6 @@ class ContentCache:
                 verify_path(temporary, content_hash)
             return self._committed(content_hash)
 
-    async def fetch_async(
-        self, content_hash: str, download: Callable[[Path], Awaitable[None]]
-    ) -> Path:
-        """Return the path of verified content, awaiting ``download`` only on a miss.
-
-        The async twin of `fetch`, hashing and waiting on the lock off the event loop.
-        """
-        hit = await asyncio.to_thread(self._verified, content_hash)
-        if hit is not None:
-            return hit
-        with _writable(self.base_dir):
-            async with AsyncFileLock(self._lock_path(content_hash)):
-                hit = await asyncio.to_thread(self._verified, content_hash)
-                if hit is not None:
-                    return hit
-                with self.stage(content_hash) as temporary:
-                    await download(temporary)
-                    await asyncio.to_thread(verify_path, temporary, content_hash)
-                return self._committed(content_hash)
-
     def put(self, content_hash: str, content: bytes) -> Path:
         """Atomically store content under its hash and enforce the size cap."""
         with _writable(self.base_dir), self.stage(content_hash) as temporary:
@@ -323,7 +302,8 @@ class ContentCache:
         for path, stat in entries:
             if total - freed <= cap:
                 break
-            path.unlink()
+            # A concurrent eviction may already have removed it.
+            path.unlink(missing_ok=True)
             freed += stat.st_size
         return freed
 

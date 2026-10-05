@@ -1,7 +1,6 @@
 """Typed exception hierarchy mapped from RFC 7807 ``problem+json`` responses.
 
-The parse layer is the only place that raises these from wire bytes,
-so both client surfaces fail identically.
+The parse layer is the only place that raises these from wire bytes.
 """
 
 import json

@@ -13,8 +13,8 @@ Reading public, published data needs no credentials.
   explores an entry before downloading it, and trims a query on the server.
 - [Converting and plotting](convert_and_plot) covers the pandas, Polars, PyArrow and `ScmRun`
   converters, the verified content cache, and getting a chart on screen.
-- [Reading asynchronously](read_asynchronously) covers the awaited facade, fetching several books
-  at once, and how long a client should live.
+- [Reading asynchronously](read_asynchronously) calls the SDK from async code with `asyncio.to_thread`,
+  fetches several books at once, and shares one client in a service.
 
 ## Producing data
 

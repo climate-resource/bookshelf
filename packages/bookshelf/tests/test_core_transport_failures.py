@@ -34,12 +34,7 @@ CLOUDFLARE_PAGE = (
 def sleeps(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     """Record every backoff instead of waiting it out."""
     recorded: list[float] = []
-
-    async def record_async(seconds: float) -> None:
-        recorded.append(seconds)
-
     monkeypatch.setattr(client_module.time, "sleep", recorded.append)
-    monkeypatch.setattr(client_module.asyncio, "sleep", record_async)
     return recorded
 
 
@@ -48,7 +43,6 @@ def make_client(handler: Any) -> BookshelfClient:
         BASE_URL,
         auth=None,
         transport=httpx.MockTransport(handler),
-        async_transport=httpx.MockTransport(handler),
     )
 
 
@@ -103,12 +97,11 @@ def test_a_rate_limited_write_is_replayed(sleeps: list[float]) -> None:
     assert calls["count"] == 2
 
 
-async def test_exhausted_rate_limit_raises_a_typed_error(sleeps: list[float]) -> None:
+def test_exhausted_rate_limit_raises_a_typed_error(sleeps: list[float]) -> None:
     calls, handler = counting(lambda _request, _n: html(429, {"retry-after": "3"}))
 
-    async with make_client(handler) as client:
-        with pytest.raises(RateLimitError) as excinfo:
-            await client.list_books_async()
+    with make_client(handler) as client, pytest.raises(RateLimitError) as excinfo:
+        client.list_books()
 
     assert calls["count"] == ATTEMPTS
     assert excinfo.value.status_code == 429
@@ -263,7 +256,7 @@ def test_a_local_or_prefixed_base_url_is_accepted(url: str) -> None:
 
 def test_timeouts_can_be_switched_off() -> None:
     with BookshelfClient(BASE_URL, auth=None, timeout=None) as client:
-        timeout = client._sync_client.timeout
+        timeout = client._http_client.timeout
 
     assert timeout.read is None
 
@@ -281,7 +274,7 @@ def test_a_connection_failure_names_the_url(sleeps: list[float]) -> None:
     assert calls["count"] == ATTEMPTS
 
 
-async def test_a_connect_timeout_is_not_replayed(sleeps: list[float]) -> None:
+def test_a_connect_timeout_is_not_replayed(sleeps: list[float]) -> None:
     """Each attempt already waited the whole connect timeout on an unreachable host."""
 
     def respond(request: httpx.Request, _n: int) -> httpx.Response:
@@ -289,9 +282,8 @@ async def test_a_connect_timeout_is_not_replayed(sleeps: list[float]) -> None:
 
     calls, handler = counting(respond)
 
-    async with make_client(handler) as client:
-        with pytest.raises(TransportError) as excinfo:
-            await client.list_books_async()
+    with make_client(handler) as client, pytest.raises(TransportError) as excinfo:
+        client.list_books()
 
     assert calls["count"] == 1
     assert f"{BASE_URL}/v1/books" in str(excinfo.value)
@@ -300,7 +292,7 @@ async def test_a_connect_timeout_is_not_replayed(sleeps: list[float]) -> None:
 
 def test_connecting_has_a_shorter_timeout_than_reading() -> None:
     with make_client(lambda _request: httpx.Response(200)) as client:
-        timeout = client._sync_client.timeout
+        timeout = client._http_client.timeout
 
     assert timeout.read == 30.0
     assert timeout.connect is not None and timeout.connect < timeout.read
@@ -355,20 +347,6 @@ def test_a_success_status_without_the_expected_json_is_a_gateway_or_contract_err
     assert content_type in message
     assert BASE_URL in message
     assert "<" not in message
-
-
-async def test_an_async_success_without_the_expected_json_is_a_gateway_error(
-    sleeps: list[float],
-) -> None:
-    calls, handler = counting(
-        lambda _request, _n: httpx.Response(
-            200, text="<html>spa</html>", headers={"content-type": "text/html"}
-        )
-    )
-
-    async with make_client(handler) as client:
-        with pytest.raises(GatewayError):
-            await client.get_volume_async("example")
 
 
 def test_a_metadata_read_timeout_is_not_replayed(sleeps: list[float]) -> None:
@@ -433,23 +411,6 @@ def test_a_rate_limited_download_waits_out_retry_after(sleeps: list[float], tmp_
 
     assert calls["count"] == 2
     assert 2.0 <= sleeps[0] <= 2.0 + RetryPolicy().backoff_base
-    assert destination.read_bytes() == b"bytes"
-
-
-async def test_an_async_rate_limited_download_waits_out_retry_after(
-    sleeps: list[float], tmp_path: Any
-) -> None:
-    calls, handler = counting(
-        lambda _request, n: (
-            html(429, {"retry-after": "1"}) if n == 1 else httpx.Response(200, content=b"bytes")
-        )
-    )
-    destination = tmp_path / "out"
-
-    async with make_client(handler) as client:
-        await client.stream_url_to_path_async("https://cdn.test/object", destination)
-
-    assert calls["count"] == 2
     assert destination.read_bytes() == b"bytes"
 
 

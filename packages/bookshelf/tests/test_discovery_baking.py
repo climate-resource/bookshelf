@@ -18,11 +18,11 @@ import httpx
 import pytest
 
 from bookshelf._core.errors import BookshelfError
-from bookshelf._facade import AsyncBookshelf, Bookshelf
+from bookshelf._facade import Bookshelf
 from bookshelf.publisher.bundle import Bundle, InvalidBundleError
 from bookshelf.publisher.recipe import load_record_recipe
 from bookshelf.publisher.record import _ACTIVE_RECORDING, _RecordingContext, setup
-from bookshelf.publisher.replay import replay_bundle, replay_bundle_sync
+from bookshelf.publisher.replay import replay_bundle
 from tests import _core_payloads as payloads
 from tests._replay import replay_response
 
@@ -150,7 +150,7 @@ def _publish(bundle: Bundle, recorded: list[httpx.Request] | None = None) -> dic
     """Replay a recorded bundle and return the book framing it sent."""
     seen = recorded if recorded is not None else []
     with Bookshelf(BASE_URL, auth=None, transport=_transport(seen)) as client:
-        replay_bundle_sync(bundle, client)
+        replay_bundle(bundle, client)
     return json.loads(seen[-1].content)["book"]  # type: ignore[no-any-return]
 
 
@@ -371,19 +371,3 @@ books:
     payload = _record_and_publish(recipe, tmp_path / "bundle", "v1.0.0")
 
     assert payload["discovery"]["description"] == "National greenhouse gas emissions."
-
-
-async def test_the_async_replay_sends_the_same_payload(tmp_path: Path) -> None:
-    recipe = _write(tmp_path, _RECIPE)
-    bundle = _record(recipe, tmp_path / "bundle", "v2.7")
-
-    synchronous = _publish(bundle)
-
-    recorded: list[httpx.Request] = []
-    async with AsyncBookshelf(BASE_URL, auth=None, async_transport=_transport(recorded)) as client:
-        await replay_bundle(bundle, client)
-
-    assert json.loads(recorded[-1].content)["book"] == synchronous
-    assert _volume_writes(recorded) == [
-        ("PATCH", "/v1/volumes/primap-hist", {"discovery": _STATED_VOLUME})
-    ]

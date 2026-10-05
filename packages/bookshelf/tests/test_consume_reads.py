@@ -10,7 +10,6 @@ import pandas as pd
 import pytest
 
 from bookshelf import (
-    AsyncBookshelf,
     Bookshelf,
     DataPreview,
     ResourceType,
@@ -432,30 +431,6 @@ def test_an_external_pointer_is_selected_by_the_platform(tmp_path: Path) -> None
     assert not any(request.url.scheme == "s3" for request in seen)
 
 
-async def test_the_async_reads_match_the_sync_ones(tmp_path: Path) -> None:
-    transport, seen = _shelf_transport()
-    sync_bs = Bookshelf(
-        BASE_URL, auth=None, transport=transport, cache=ContentCache(tmp_path / "sync")
-    )
-    expected = sync_bs.resource(TRACKING_ID).as_df(filters={"region": "AUS"})
-    async with AsyncBookshelf(
-        BASE_URL, auth=None, async_transport=transport, cache=ContentCache(tmp_path / "async")
-    ) as bs:
-        book = await bs.book("primap-hist", "v2.6")
-        entry = book["by_country"]
-        local = await entry.as_df(filters={"region": "AUS"})
-        remote = await entry.as_df(filters={"region": "AUS"}, server_side=True)
-        years = await entry.as_df(filters={"region": "AUS"}, int_years=True)
-        preview = await entry.preview(limit=1)
-        info = await entry.describe()
-
-    pd.testing.assert_frame_equal(local, expected)
-    pd.testing.assert_frame_equal(remote, expected, check_like=True)
-    assert list(years.columns) == [2000, 2001]
-    assert preview.completeness == "partial"
-    assert info.resource_type is ResourceType.TIMESERIES
-
-
 def _empty_methane() -> pd.DataFrame:
     frame = WIDE.copy()
     frame.loc[frame["variable"] == "Emissions|CH4", ["2000-01-01", "2001-01-01 00:00:00"]] = float(
@@ -469,19 +444,6 @@ def test_as_scmrun_keeps_timeseries_with_no_values(tmp_path: Path) -> None:
     bs, _ = _shelf(tmp_path, frame=_empty_methane())
 
     run = bs.book("primap-hist", "v2.6")["by_country"].as_scmrun()
-
-    assert len(run) == 3
-    assert run.filter(variable="Emissions|CH4").timeseries().isna().all(axis=None)
-
-
-async def test_the_async_as_scmrun_keeps_timeseries_with_no_values(tmp_path: Path) -> None:
-    pytest.importorskip("scmdata")
-    transport, _ = _shelf_transport(frame=_empty_methane())
-    async with AsyncBookshelf(
-        BASE_URL, auth=None, async_transport=transport, cache=ContentCache(tmp_path / "cache")
-    ) as bs:
-        book = await bs.book("primap-hist", "v2.6")
-        run = await book["by_country"].as_scmrun()
 
     assert len(run) == 3
     assert run.filter(variable="Emissions|CH4").timeseries().isna().all(axis=None)
@@ -687,17 +649,6 @@ def test_dropping_missing_values_from_a_frame_with_no_dimensions() -> None:
     )
 
 
-async def test_the_async_as_long_df_can_drop_missing_values(tmp_path: Path) -> None:
-    transport, _ = _shelf_transport(frame=_with_gaps())
-    async with AsyncBookshelf(
-        BASE_URL, auth=None, async_transport=transport, cache=ContentCache(tmp_path / "cache")
-    ) as bs:
-        book = await bs.book("primap-hist", "v2.6")
-        dense = await book["by_country"].as_long_df(dropna=True)
-
-    assert len(dense) == 3
-
-
 @pytest.mark.parametrize(
     ("version", "edition", "error"),
     [
@@ -717,19 +668,6 @@ def test_a_malformed_book_coordinate_fails_before_any_request(
 
     with pytest.raises(error):
         bs.book("primap-hist", version, edition=edition)
-
-    assert seen == []
-
-
-async def test_the_async_book_checks_its_coordinate_too(tmp_path: Path) -> None:
-    transport, seen = _shelf_transport()
-    async with AsyncBookshelf(
-        BASE_URL, auth=None, async_transport=transport, cache=ContentCache(tmp_path / "cache")
-    ) as bs:
-        with pytest.raises(TypeError, match="version"):
-            await bs.book("primap-hist", None)  # type: ignore[arg-type]
-        with pytest.raises(ValueError, match="edition"):
-            await bs.book("primap-hist", "v2.6", edition=-1)
 
     assert seen == []
 
@@ -819,9 +757,6 @@ class _ClearedOnce(ContentCache):
     def fetch(self, content_hash: str, download: Any) -> Path:
         return self._clear_once(super().fetch(content_hash, download))
 
-    async def fetch_async(self, content_hash: str, download: Any) -> Path:
-        return self._clear_once(await super().fetch_async(content_hash, download))
-
 
 @pytest.mark.parametrize("read", ["as_df", "fetch"])
 def test_a_cache_cleared_under_a_read_downloads_again(tmp_path: Path, read: str) -> None:
@@ -835,22 +770,6 @@ def test_a_cache_cleared_under_a_read_downloads_again(tmp_path: Path, read: str)
     assert cache.cleared
     assert [request.url.host for request in seen].count("s3.example") == 2
     expected = resource.as_df() if read == "as_df" else _parquet(WIDE)
-    assert result.equals(expected) if read == "as_df" else result == expected
-
-
-@pytest.mark.parametrize("read", ["as_df", "fetch"])
-async def test_a_cache_cleared_under_an_async_read_downloads_again(
-    tmp_path: Path, read: str
-) -> None:
-    transport, seen = _shelf_transport()
-    cache = _ClearedOnce(tmp_path / "cache")
-    async with AsyncBookshelf(BASE_URL, auth=None, async_transport=transport, cache=cache) as bs:
-        resource = await bs.resource(TRACKING_ID)
-        result = await getattr(resource, read)()
-        expected = await resource.as_df() if read == "as_df" else _parquet(WIDE)
-
-    assert cache.cleared
-    assert [request.url.host for request in seen].count("s3.example") == 2
     assert result.equals(expected) if read == "as_df" else result == expected
 
 

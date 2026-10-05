@@ -229,10 +229,10 @@ print((bundle_root / "manifest.lock").read_text())
 #
 # ```python
 # from bookshelf import Bookshelf
-# from bookshelf.publisher import Bundle, replay_bundle_sync
+# from bookshelf.publisher import Bundle, replay_bundle
 #
 # with Bookshelf() as bs:
-#     outcome = replay_bundle_sync(Bundle.read(bundle_root), bs)
+#     outcome = replay_bundle(Bundle.read(bundle_root), bs)
 # ```
 #
 # Replay uploads the managed bytes,

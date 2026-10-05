@@ -1,14 +1,13 @@
-"""Paged catalogue lookups shared by the facades and the Volume handles.
+"""Paged catalogue lookups shared by the facade and the Volume handles.
 
 The platform pages everything, and a volume holds few enough books that a caller
 should not have to page through them.
 These walk the pages once so both the facade and a Volume resolve a book the same way.
 """
 
-import asyncio
 from typing import Any, Literal
 
-from bookshelf._consume.books import AsyncBook, Book
+from bookshelf._consume.books import Book
 from bookshelf._consume.memo import (
     forget_book,
     remember_book,
@@ -72,19 +71,6 @@ def all_entries(client: BookshelfClient, book_id: str) -> list[models.BookEntryI
     raise BookshelfError(_ENTRY_CAP)
 
 
-async def all_entries_async(client: BookshelfClient, book_id: str) -> list[models.BookEntryItem]:
-    """The asynchronous twin of :func:`all_entries`."""
-    entries: list[models.BookEntryItem] = []
-    cursor: str | None = None
-    for _ in range(MAX_PAGES):
-        response = await client.list_book_entries_async(book_id, limit=PAGE_SIZE, cursor=cursor)
-        entries.extend(response.items)
-        cursor = response.next_cursor
-        if cursor is None:
-            return entries
-    raise BookshelfError(_ENTRY_CAP)
-
-
 def find_book(
     client: BookshelfClient, volume: str, version: str, edition: int | None
 ) -> models.BookListItem:
@@ -118,39 +104,6 @@ def find_book(
     return chosen
 
 
-async def find_book_async(
-    client: BookshelfClient, volume: str, version: str, edition: int | None
-) -> models.BookListItem:
-    """The asynchronous twin of :func:`find_book`."""
-    if edition is None:
-        response = await client.list_books_async(
-            volume=volume,
-            version=version,
-            status="published",
-            latest_only=True,
-            limit=PAGE_SIZE,
-        )
-        chosen = _chosen(response.items, None)
-    else:
-        chosen = None
-        for page in range(MAX_PAGES):
-            response = await client.list_books_async(
-                volume=volume,
-                version=version,
-                status="published",
-                limit=PAGE_SIZE,
-                offset=page * PAGE_SIZE,
-            )
-            chosen = _chosen(response.items, edition)
-            if chosen is not None or not response.has_more:
-                break
-        else:
-            raise BookshelfError(_LOOKUP_CAP)
-    if chosen is None:
-        raise missing_book(volume, version, edition)
-    return chosen
-
-
 def _republished(
     client: BookshelfClient, remembered: models.BookListItem
 ) -> models.BookListItem | Literal[False] | None:
@@ -160,28 +113,11 @@ def _republished(
     ``False`` once the edition is no longer published, or ``None`` when the platform could not say.
     """
     try:
-        return _refreshed(remembered, client.get_book(remembered.id))
+        live = client.get_book(remembered.id)
     except NotFoundError:
         return False
     except BookshelfError:
         return None
-
-
-async def _republished_async(
-    client: BookshelfClient, remembered: models.BookListItem
-) -> models.BookListItem | Literal[False] | None:
-    """The asynchronous twin of :func:`_republished`."""
-    try:
-        return _refreshed(remembered, await client.get_book_async(remembered.id))
-    except NotFoundError:
-        return False
-    except BookshelfError:
-        return None
-
-
-def _refreshed(
-    remembered: models.BookListItem, live: models.BookResponse
-) -> models.BookListItem | Literal[False]:
     if live.status is not models.BookStatus.published:
         return False
     return remembered.model_copy(
@@ -241,49 +177,7 @@ def resolve_book(
     return Book(client, cache, chosen, entries)
 
 
-async def resolve_book_async(
-    client: BookshelfClient,
-    cache: ContentCache,
-    volume: str,
-    version: str,
-    edition: int | None,
-    *,
-    book_ttl: float,
-    refresh: bool = False,
-) -> AsyncBook:
-    """The asynchronous twin of :func:`resolve_book`."""
-    version, edition = _checked_coordinate(version, edition)
-    if edition is not None and not refresh:
-        remembered = await asyncio.to_thread(
-            remembered_book, cache, client, volume, version, edition, ttl=book_ttl
-        )
-        if remembered is not None:
-            if not remembered.stale:
-                return AsyncBook(client, cache, remembered.book, remembered.entries)
-            live = await _republished_async(client, remembered.book)
-            if live is None:
-                return AsyncBook(client, cache, remembered.book, remembered.entries)
-            if live is False:
-                await asyncio.to_thread(forget_book, cache, client, volume, version, edition)
-            else:
-                await asyncio.to_thread(
-                    remember_book, cache, client, volume, version, live, remembered.entries
-                )
-                return AsyncBook(client, cache, live, remembered.entries)
-    try:
-        chosen = await find_book_async(client, volume, version, edition)
-    except NotFoundError:
-        if edition is not None:
-            await asyncio.to_thread(forget_book, cache, client, volume, version, edition)
-        raise
-    entries = await all_entries_async(client, chosen.id)
-    if edition is not None:
-        await asyncio.to_thread(remember_book, cache, client, volume, version, chosen, entries)
-    return AsyncBook(client, cache, chosen, entries)
-
-
 __all__ = [
     "book_order",
     "resolve_book",
-    "resolve_book_async",
 ]

@@ -14,7 +14,7 @@ from typing import Any
 import httpx
 import pytest
 
-from bookshelf._facade import AsyncBookshelf, Bookshelf
+from bookshelf._facade import Bookshelf
 from bookshelf.cache import ContentCache
 from tests import _core_payloads as payloads
 
@@ -67,10 +67,6 @@ def _sync(
     book_ttl: float | None = None,
 ) -> Bookshelf:
     return Bookshelf(base_url, auth=None, book_ttl=book_ttl, transport=_transport(recorded, pages))
-
-
-def _async(recorded: list[httpx.Request], pages: list[Any]) -> AsyncBookshelf:
-    return AsyncBookshelf(BASE_URL, auth=None, async_transport=_transport(recorded, pages))
 
 
 def test_a_pinned_edition_is_resolved_once_per_cache() -> None:
@@ -135,21 +131,6 @@ def test_a_cached_file_is_served_without_any_request(tmp_path: Path) -> None:
     assert second == []
 
 
-@pytest.mark.asyncio
-async def test_the_async_surface_reads_the_same_memory() -> None:
-    ContentCache().put(CONTENT_HASH, PAYLOAD)
-    _sync([], [BOOK_PAGE, ENTRIES_PAGE, RESOURCE_READ]).book("example", "v1.0.0", edition=2)[
-        "by_country"
-    ].as_path()
-
-    recorded: list[httpx.Request] = []
-    book = await _async(recorded, []).book("example", "v1.0.0", edition=2)
-    path = await book["by_country"].as_path()
-
-    assert path.read_bytes() == PAYLOAD
-    assert recorded == []
-
-
 def test_a_corrupt_record_is_dropped_and_asked_for_again() -> None:
     _sync([], [BOOK_PAGE, ENTRIES_PAGE]).book("example", "v1.0.0", edition=2)
     cache = ContentCache()
@@ -202,20 +183,6 @@ def test_an_expired_record_adopts_the_corrected_metadata() -> None:
     assert again.metadata == {"maturity": "approved"}
 
 
-@pytest.mark.asyncio
-async def test_the_async_surface_adopts_the_corrected_metadata_too() -> None:
-    _sync([], [BOOK_PAGE, ENTRIES_PAGE]).book("example", "v1.0.0", edition=2)
-    corrected = dict(BOOK_PUBLISHED, metadata={"maturity": "approved"}, visibility="public")
-
-    bs = AsyncBookshelf(
-        BASE_URL, auth=None, book_ttl=0, async_transport=_transport([], [corrected])
-    )
-    book = await bs.book("example", "v1.0.0", edition=2)
-
-    assert book.metadata == {"maturity": "approved"}
-    assert book.visibility.value == "public"
-
-
 def test_refresh_resolves_a_fresh_record_and_its_entries_again() -> None:
     _sync([], [BOOK_PAGE, ENTRIES_PAGE]).book("example", "v1.0.0", edition=2)
     corrected = dict(
@@ -240,31 +207,6 @@ def test_refresh_resolves_a_fresh_record_and_its_entries_again() -> None:
     again = _sync(trusted, []).book("example", "v1.0.0", edition=2)
     assert trusted == []
     assert again.entry_names == ("by_country", "extra")
-
-
-@pytest.mark.asyncio
-async def test_the_async_surface_refreshes_too() -> None:
-    _sync([], [BOOK_PAGE, ENTRIES_PAGE]).book("example", "v1.0.0", edition=2)
-
-    corrected = dict(
-        BOOK_PAGE, items=[dict(BOOK_PAGE["items"][0], metadata={"maturity": "approved"})]
-    )
-
-    checked: list[httpx.Request] = []
-    book = await _async(checked, [corrected, ENTRIES_PAGE]).book(
-        "example", "v1.0.0", edition=2, refresh=True
-    )
-
-    assert [request.url.path for request in checked] == [
-        "/v1/books",
-        f"/v1/books/{BOOK_ID}/entries",
-    ]
-    assert book.metadata == {"maturity": "approved"}
-
-    trusted: list[httpx.Request] = []
-    again = await _async(trusted, []).book("example", "v1.0.0", edition=2)
-    assert trusted == []
-    assert again.metadata == {"maturity": "approved"}
 
 
 def test_the_recheck_restarts_the_trust_window() -> None:
@@ -334,20 +276,6 @@ def test_the_ttl_default_comes_from_the_environment(monkeypatch: pytest.MonkeyPa
     assert len(checked) == 1
 
 
-@pytest.mark.asyncio
-async def test_the_async_surface_checks_an_expired_record_too() -> None:
-    _sync([], [BOOK_PAGE, ENTRIES_PAGE]).book("example", "v1.0.0", edition=2)
-
-    checked: list[httpx.Request] = []
-    bs = AsyncBookshelf(
-        BASE_URL, auth=None, book_ttl=0, async_transport=_transport(checked, [BOOK_PUBLISHED])
-    )
-    book = await bs.book("example", "v1.0.0", edition=2)
-
-    assert [request.url.path for request in checked] == [f"/v1/books/{BOOK_ID}"]
-    assert book.entry_names == ("by_country",)
-
-
 def test_an_outage_during_the_recheck_serves_the_remembered_edition() -> None:
     _sync([], [BOOK_PAGE, ENTRIES_PAGE]).book("example", "v1.0.0", edition=2)
 
@@ -408,30 +336,3 @@ def test_a_malformed_remembered_hash_is_a_miss() -> None:
 
     assert entry.content_hash() == CONTENT_HASH
     assert len(recorded) == 1
-
-
-@pytest.mark.asyncio
-async def test_the_async_surface_resolves_and_remembers_a_cold_pinned_edition() -> None:
-    """The path with nothing remembered yet, which the expiry test starts from a warm cache."""
-    first: list[httpx.Request] = []
-    book = await _async(first, [BOOK_PAGE, ENTRIES_PAGE]).book("example", "v1.0.0", edition=2)
-
-    assert [request.url.path for request in first] == ["/v1/books", f"/v1/books/{BOOK_ID}/entries"]
-    assert book.entry_names == ("by_country",)
-
-    second: list[httpx.Request] = []
-    again = await _async(second, []).book("example", "v1.0.0", edition=2)
-
-    assert second == [], "the async surface asked again for an edition it had just remembered"
-    assert again.entry_names == ("by_country",)
-
-
-@pytest.mark.asyncio
-async def test_the_async_surface_always_asks_for_the_latest_edition() -> None:
-    """A newer edition may have been published, so the unpinned read is never served from memory."""
-    await _async([], [BOOK_PAGE, ENTRIES_PAGE]).book("example", "v1.0.0", edition=2)
-
-    asked: list[httpx.Request] = []
-    await _async(asked, [BOOK_PAGE, ENTRIES_PAGE]).book("example", "v1.0.0")
-
-    assert [request.url.path for request in asked] == ["/v1/books", f"/v1/books/{BOOK_ID}/entries"]

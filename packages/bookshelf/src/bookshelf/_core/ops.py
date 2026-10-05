@@ -1,8 +1,7 @@
 """I/O-free ``build_*``/``parse_*`` pairs for every operation the SDK uses.
 
 This module is the only hand-maintained request/response logic.
-Both client shells route every call through the pair for its op,
-so the sync and async surfaces cannot drift.
+The client routes every call through the pair for its op.
 
 ``OP_REGISTRY`` enumerates the covered operations.
 The contract oracle walks it against the vendored OpenAPI spec.

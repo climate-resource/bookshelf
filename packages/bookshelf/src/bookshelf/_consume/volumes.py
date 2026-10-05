@@ -4,8 +4,8 @@ from collections.abc import Iterator
 from textwrap import shorten
 from typing import Any
 
-from bookshelf._consume.books import AsyncBook, Book
-from bookshelf._consume.lookup import resolve_book, resolve_book_async
+from bookshelf._consume.books import Book
+from bookshelf._consume.lookup import resolve_book
 from bookshelf._consume.presentation import Describable, Section, Sections, human_bytes
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import NotFoundError, VersionNotFoundError
@@ -32,12 +32,11 @@ def _describe_editions(editions: tuple[int, ...]) -> str:
     return f"editions {editions[0]:03}-{editions[-1]:03}"
 
 
-class _VolumeBase(Describable):
-    """Identity, versions and discovery for one volume, shared by both flavours."""
+class Volume(Describable):
+    """A volume indexed by version, resolving each into a published Book."""
 
     _title = "Bookshelf Volume"
     name: str
-    _access = 'volume["{version}"]'
 
     def __init__(
         self,
@@ -154,13 +153,9 @@ class _VolumeBase(Describable):
                 version: _describe_editions(editions)
                 for version, editions in self._versions.items()
             },
-            "Access": [self._access.format(version=latest if latest is not None else "<version>")],
+            "Access": [f'volume["{latest if latest is not None else "<version>"}"]'],
         }
         return f"{self._title} {self.name!r} (versions: {len(self._versions)})", sections
-
-
-class Volume(_VolumeBase):
-    """A volume indexed by version, resolving each into a published Book."""
 
     def book(
         self, version: str | None = None, *, edition: int | None = None, refresh: bool = False
@@ -184,26 +179,4 @@ class Volume(_VolumeBase):
         return self.book(version)
 
 
-class AsyncVolume(_VolumeBase):
-    """The asynchronous twin of [`Volume`][bookshelf.Volume]."""
-
-    _title = "Bookshelf Async Volume"
-    # An index cannot be awaited, so the hint names the coroutine.
-    _access = 'await volume.book("{version}")'
-
-    async def book(
-        self, version: str | None = None, *, edition: int | None = None, refresh: bool = False
-    ) -> AsyncBook:
-        """Resolve one published Book, defaulting to the newest version and edition."""
-        return await resolve_book_async(
-            self._client,
-            self._cache,
-            self.name,
-            self._resolve(version),
-            edition,
-            book_ttl=self._book_ttl,
-            refresh=refresh,
-        )
-
-
-__all__ = ["AsyncVolume", "Volume"]
+__all__ = ["Volume"]

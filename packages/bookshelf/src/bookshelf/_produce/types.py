@@ -13,7 +13,7 @@ from bookshelf._generated import models
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
 
 if TYPE_CHECKING:
-    from bookshelf._produce.resources import AsyncResource, Resource
+    from bookshelf._produce.resources import Resource
 
 
 type AuthorInput = models.Author | Mapping[str, Any]
@@ -104,7 +104,7 @@ class PartialRegistrationError(BookshelfError):
     ) -> None:
         self.successful = tuple(successful)
         self.failures = tuple(failures)
-        self.successful_resources: tuple[Resource | AsyncResource, ...] = ()
+        self.successful_resources: tuple[Resource, ...] = ()
         failed = ", ".join(str(failure.index) for failure in failures)
         super().__init__(f"registration batch partially failed at indices: {failed}")
 
