@@ -173,7 +173,7 @@ def token_endpoint(status: int, body: Mapping[str, object]) -> httpx.MockTranspo
 ROTATED = {"access_token": "new-tok", "refresh_token": "rt-2", "expires_in": 3600}
 
 
-def test_a_refresh_is_written_back_without_moving_the_default() -> None:
+def test_a_refresh_is_written_back_over_its_own_deployment() -> None:
     store = stored(expires_at=datetime.fromtimestamp(0, tz=UTC))
     store.save_login(StoredCredentials(access_token="prod-tok", api_url="https://prod.test"))
 
@@ -186,9 +186,9 @@ def test_a_refresh_is_written_back_without_moving_the_default() -> None:
     assert (rotated.access_token, rotated.refresh_token) == ("new-tok", "rt-2")
     assert rotated.subject == "reader@example.com"
     assert rotated.organization_id == "org_123"
-    default = store.load()
-    assert default is not None
-    assert default.api_url == "https://prod.test"
+    prod = store.load("https://prod.test")
+    assert prod is not None
+    assert prod.access_token == "prod-tok"
 
 
 def test_consecutive_refreshes_each_replace_the_last() -> None:

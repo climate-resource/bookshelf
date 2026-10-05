@@ -43,7 +43,7 @@ def test_round_trip(store: CredentialStore) -> None:
     expires = datetime(2030, 1, 1, tzinfo=UTC)
     login(store, "tok", f"{API}/bookshelf", refresh_token="rt", expires_at=expires)
 
-    loaded = store.load()
+    loaded = store.load(f"{API}/bookshelf")
 
     assert loaded is not None
     assert loaded.access_token == "tok"
@@ -56,7 +56,7 @@ def test_a_new_login_replaces_the_optional_secrets(store: CredentialStore) -> No
     login(store, "old-token", refresh_token="old-refresh")
     login(store, "new-token")
 
-    loaded = store.load()
+    loaded = store.load(API)
 
     assert loaded is not None
     assert loaded.access_token == "new-token"
@@ -68,7 +68,7 @@ def test_expiry_derived_from_jwt_exp_when_absent(store: CredentialStore) -> None
 
     login(store, jwt_with_exp(1893456000))
 
-    loaded = store.load()
+    loaded = store.load(API)
     assert loaded is not None
     assert loaded.expires_at == datetime.fromtimestamp(1893456000, tz=UTC)
 
@@ -81,11 +81,6 @@ def test_records_coexist_per_deployment(store: CredentialStore) -> None:
     loaded = store.load(API)
     assert loaded is not None
     assert loaded.access_token == "user-prod"
-    # The default deployment follows the most recent login.
-    assert store.default_api_url() == STAGING
-    default = store.load()
-    assert default is not None
-    assert default.api_url == STAGING
 
 
 def test_a_second_login_on_one_deployment_replaces_the_first(store: CredentialStore) -> None:
@@ -93,20 +88,6 @@ def test_a_second_login_on_one_deployment_replaces_the_first(store: CredentialSt
     login(store, "second", subject="other@test.com")
 
     assert [c.access_token for c in store.records()] == ["second"]
-
-
-def test_set_default_switches_without_reauthentication(store: CredentialStore) -> None:
-    login(store, "prod-tok", subject="me@test.com")
-    login(store, "staging-tok", STAGING, subject="me@test.com")
-
-    store.set_default(f"{API}/")
-
-    assert store.default_api_url() == API
-    loaded = store.load()
-    assert loaded is not None
-    assert loaded.access_token == "prod-tok"
-    with pytest.raises(KeyError):
-        store.set_default("https://elsewhere.test")
 
 
 def test_clear_one_deployment_leaves_the_others(store: CredentialStore) -> None:
@@ -117,8 +98,6 @@ def test_clear_one_deployment_leaves_the_others(store: CredentialStore) -> None:
 
     assert store.load(STAGING) is None
     assert store.load(API) is not None
-    # The default deployment moved off the cleared one.
-    assert store.load() is not None
 
 
 def test_clear_everything(store: CredentialStore) -> None:
@@ -126,11 +105,11 @@ def test_clear_everything(store: CredentialStore) -> None:
 
     store.clear()
 
-    assert store.load() is None
+    assert store.load(API) is None
     assert store.records() == []
 
 
-def test_rotation_replaces_the_secrets_and_keeps_the_default(store: CredentialStore) -> None:
+def test_rotation_replaces_the_secrets(store: CredentialStore) -> None:
     staging = login(store, "staging-tok", STAGING, refresh_token="rt-1", subject="me@test.com")
     login(store, "prod-tok", refresh_token="rt-prod")
 
@@ -143,10 +122,9 @@ def test_rotation_replaces_the_secrets_and_keeps_the_default(store: CredentialSt
     assert rotated.access_token == "staging-tok-2"
     assert rotated.refresh_token == "rt-2"
     assert rotated.subject == "me@test.com"
-    # Refreshing a staging client does not make staging the default deployment.
-    default = store.load()
-    assert default is not None
-    assert default.api_url == API
+    prod = store.load(API)
+    assert prod is not None
+    assert prod.access_token == "prod-tok"
 
 
 def test_rotation_does_not_bring_back_a_logged_out_login(store: CredentialStore) -> None:
@@ -225,7 +203,7 @@ def test_a_legacy_agent_record_is_ignored_on_read(path: Path) -> None:
     _legacy_agent_store(path)
     store = FileCredentialStore(path)
 
-    loaded = store.load()
+    loaded = store.load(API)
 
     assert loaded is not None
     assert loaded.access_token == "user-tok"
@@ -240,7 +218,6 @@ def test_clearing_a_deployment_purges_its_legacy_agent_record(path: Path) -> Non
     data = json.loads(path.read_text())
     assert data["records"] == {}
     assert data["active"] == {}
-    assert data["default_api_url"] is None
 
 
 def test_existing_file_permissions_are_tightened_before_write(
@@ -264,9 +241,9 @@ def test_existing_file_permissions_are_tightened_before_write(
 
 def test_missing_or_corrupt_file_reads_as_empty(path: Path) -> None:
     store = FileCredentialStore(path)
-    assert store.load() is None
+    assert store.load(API) is None
     path.write_text("{not json")
-    assert store.load() is None
+    assert store.load(API) is None
 
 
 def test_each_change_rereads_the_file(path: Path) -> None:
@@ -317,7 +294,7 @@ def test_a_login_sets_an_unreadable_file_aside_rather_than_overwriting_it(
     login(FileCredentialStore(path), "tok")
 
     assert path.with_name("credentials.json.unreadable").read_text() == content
-    loaded = FileCredentialStore(path).load()
+    loaded = FileCredentialStore(path).load(API)
     assert loaded is not None
     assert loaded.access_token == "tok"
 

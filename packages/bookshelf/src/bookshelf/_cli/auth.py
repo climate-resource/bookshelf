@@ -23,7 +23,6 @@ from bookshelf._cli._runtime import (
     field,
     iso,
     note,
-    requested_api_url,
 )
 from bookshelf._core import credentials, errors, oauth, session
 from bookshelf._core.auth import TokenProvider, decode_jwt_expiry
@@ -254,62 +253,30 @@ def auth_logout(
 def auth_list(
     json_output: bool = typer.Option(False, "--json", help="Emit one JSON object per login."),
 ) -> None:
-    """List every stored login, marking the default deployment."""
+    """List every stored login."""
     with command_errors():
         store = default_store()
         records = store.records()
-        default = store.default_api_url()
         now = datetime.now(UTC)
         if not records:
             note("No stored logins. Run 'bookshelf auth login' to add one.")
             return
         emit_payloads(
-            (_list_entry(record, default=default, now=now) for record in records),
+            (_list_entry(record, now=now) for record in records),
             json_output=json_output,
         )
 
 
-def _list_entry(record: StoredCredentials, *, default: str | None, now: datetime) -> dict[str, Any]:
+def _list_entry(record: StoredCredentials, *, now: datetime) -> dict[str, Any]:
     expired = record.expires_at is not None and record.expires_at <= now
     return {
         "id": record.subject,
         "api_url": record.api_url,
-        "default": record.api_url == default,
         "expired": expired,
         # Nothing stored can renew it, so only a fresh login brings it back.
         "needs_login": expired and record.refresh_token is None,
         "expires_at": iso(record.expires_at),
     }
-
-
-@auth_app.command("switch")
-def auth_switch(
-    identity: str = typer.Argument(help="The login to make the default, as shown by 'auth list'."),
-    json_output: bool = typer.Option(False, "--json", help="Emit the login as JSON."),
-) -> None:
-    """Make a stored login's deployment the default without re-authenticating."""
-    with command_errors():
-        store = default_store()
-        records = [record for record in store.records() if record.subject == identity]
-        if requested_api_url() is not None:
-            base = base_url()
-            records = [record for record in records if record.api_url == base]
-        if not records:
-            raise CliError(
-                f"no stored login {identity!r}. "
-                "Run 'bookshelf auth list' to see what this machine holds.",
-                exit_code=EXIT_USAGE,
-            )
-        if len(records) > 1:
-            raise CliError(
-                f"login {identity!r} exists on several deployments. Pass --api-url to pick one.",
-                exit_code=EXIT_USAGE,
-            )
-        record = records[0]
-        store.set_default(record.api_url)
-        note(f"Switched to {identity} ({record.api_url})")
-        if json_output:
-            emit_json({"id": identity, "api_url": record.api_url})
 
 
 __all__ = ["auth_app"]

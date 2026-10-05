@@ -92,11 +92,6 @@ def base_url() -> str:
         raise typer.Exit(code=EXIT_USAGE) from exc
 
 
-def requested_api_url() -> str | None:
-    """Return ``--api-url`` as given, for a command that narrows only when it was passed."""
-    return _api_url
-
-
 def emit(payload: str) -> None:
     """Write payload to stdout."""
     typer.echo(payload)
@@ -331,6 +326,5 @@ __all__ = [
     "field",
     "iso",
     "note",
-    "requested_api_url",
     "set_api_url",
 ]

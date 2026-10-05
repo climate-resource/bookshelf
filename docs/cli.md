@@ -296,7 +296,7 @@ Options:
 
 ### `bookshelf auth list`
 
-List every stored login, marking the default deployment.
+List every stored login.
 
 ```console
 $ bookshelf auth list [OPTIONS]
@@ -305,22 +305,6 @@ $ bookshelf auth list [OPTIONS]
 Options:
 
 - `--json`: Emit one JSON object per login.
-
-### `bookshelf auth switch`
-
-Make a stored login's deployment the default without re-authenticating.
-
-```console
-$ bookshelf auth switch [OPTIONS] {identity}
-```
-
-Arguments:
-
-- `identity`: The login to make the default, as shown by 'auth list'.  \[required]
-
-Options:
-
-- `--json`: Emit the login as JSON.
 
 ### `bookshelf cache`
 

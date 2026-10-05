@@ -289,13 +289,6 @@ def test_logout_purges_a_legacy_agent_record() -> None:
     assert json.loads(path.read_text())["records"] == {}
 
 
-def test_switch_to_unknown_identity_names_list_command() -> None:
-    result = runner.invoke(app, ["auth", "switch", "missing@example.com"])
-
-    assert result.exit_code == 2
-    assert "bookshelf auth list" in result.stderr
-
-
 def _store_two_identities() -> None:
     credentials.default_store().save_login(
         credentials.StoredCredentials(access_token="one", api_url=API_URL, subject="a@example.com")
@@ -328,8 +321,6 @@ def test_list_json_stays_one_document_per_line() -> None:
     assert len(lines) == len(result.stdout.strip().splitlines())
     rows = [json.loads(line) for line in lines]
     assert [row["id"] for row in rows] == ["a@example.com", "b@example.com"]
-    # The most recent login's deployment is the default.
-    assert [row["default"] for row in rows] == [False, True]
 
 
 def test_api_url_is_read_from_the_top_level_option() -> None:
@@ -471,15 +462,6 @@ def test_logout_json_without_credentials_clears_nothing() -> None:
 
     assert result.exit_code == 0
     assert json.loads(result.stdout)["cleared"] == []
-
-
-def test_switch_json_names_the_default_login() -> None:
-    _store_reader()
-
-    result = runner.invoke(app, ["auth", "switch", "reader@example.com", "--json"])
-
-    assert result.exit_code == 0, result.output
-    assert json.loads(result.stdout) == {"id": "reader@example.com", "api_url": API_URL}
 
 
 def test_logout_leaves_a_newer_store_alone() -> None:

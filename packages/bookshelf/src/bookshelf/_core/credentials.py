@@ -1,6 +1,6 @@
 """Stored credentials for ``bookshelf auth login``, shared with the CLI.
 
-The store holds one WorkOS login per deployment, and one deployment is the default.
+The store holds one WorkOS login per deployment.
 
 :class:`FileCredentialStore` keeps them in a JSON file at the ``platformdirs`` user-config path
 ``bookshelf/credentials.json``, readable only by the current user.
@@ -92,8 +92,8 @@ def expiry_from(expires_in: float | None) -> datetime | None:
 class CredentialStore(Protocol):
     """Where stored logins live, and the rules for which one is in play."""
 
-    def load(self, api_url: str | None = None) -> StoredCredentials | None:
-        """Return the record for ``api_url``, or for the default deployment without one.
+    def load(self, api_url: str) -> StoredCredentials | None:
+        """Return the record for ``api_url``.
 
         Expired credentials are returned as stored,
         the credential provider decides whether they can still be refreshed.
@@ -104,12 +104,8 @@ class CredentialStore(Protocol):
         """Return every stored record."""
         ...
 
-    def default_api_url(self) -> str | None:
-        """Return the deployment a client without an explicit URL uses."""
-        ...
-
     def save_login(self, record: StoredCredentials) -> StoredCredentials:
-        """Store a fresh login, make its deployment the default, and return it.
+        """Store a fresh login, replacing any for its deployment, and return it.
 
         A record with no ``expires_at`` takes its expiry from the access token's JWT ``exp`` claim.
         """
@@ -118,14 +114,7 @@ class CredentialStore(Protocol):
     def rotate(self, previous: StoredCredentials, current: StoredCredentials) -> bool:
         """Replace ``previous`` in place, unless the stored record has changed since it was loaded.
 
-        Leaves the default deployment alone, and returns whether it wrote.
-        """
-        ...
-
-    def set_default(self, api_url: str) -> None:
-        """Make a stored deployment the default.
-
-        Raises ``KeyError`` when no login is stored for it.
+        Returns whether it wrote.
         """
         ...
 
@@ -226,27 +215,18 @@ class _DocumentStore(CredentialStore, ABC):
     def read_only(self) -> bool:
         return False
 
-    def load(self, api_url: str | None = None) -> StoredCredentials | None:
-        store = self._read()
-        target = normalise_api_url(api_url) if api_url is not None else store.get("default_api_url")
-        if not isinstance(target, str):
-            return None
-        return _record_to_credentials(store["records"].get(record_key(target)))
+    def load(self, api_url: str) -> StoredCredentials | None:
+        return _record_to_credentials(self._read()["records"].get(record_key(api_url)))
 
     def records(self) -> list[StoredCredentials]:
         found = (_record_to_credentials(record) for record in self._read()["records"].values())
         return [credentials for credentials in found if credentials is not None]
-
-    def default_api_url(self) -> str | None:
-        default = self._read().get("default_api_url")
-        return default if isinstance(default, str) else None
 
     def save_login(self, record: StoredCredentials) -> StoredCredentials:
         record = _normalised(record)
         with self._update() as store:
             store["records"][record.key] = _credentials_to_record(record)
             store["active"][record.api_url] = _USER_KIND
-            store["default_api_url"] = record.api_url
         return record
 
     def rotate(self, previous: StoredCredentials, current: StoredCredentials) -> bool:
@@ -266,15 +246,6 @@ class _DocumentStore(CredentialStore, ABC):
             return False
         return True
 
-    def set_default(self, api_url: str) -> None:
-        api_url = normalise_api_url(api_url)
-        key = record_key(api_url)
-        with self._update() as store:
-            if _record_to_credentials(store["records"].get(key)) is None:
-                raise KeyError(key)
-            store["active"][api_url] = _USER_KIND
-            store["default_api_url"] = api_url
-
     def clear(self, api_url: str | None = None) -> None:
         with self._update() as store:
             if api_url is None:
@@ -285,8 +256,6 @@ class _DocumentStore(CredentialStore, ABC):
             for key in [key for key in store["records"] if key.startswith(f"{api_url}|")]:
                 del store["records"][key]
             store["active"].pop(api_url, None)
-            if store.get("default_api_url") == api_url:
-                store["default_api_url"] = next(iter(store["active"]), None)
 
 
 class FileCredentialStore(_DocumentStore):

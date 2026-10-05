@@ -22,8 +22,7 @@ The bytes behind an Entry, or an `external_uri` pointer, carrying a permanent `t
 ### Credentials
 
 **Credential store**:
-Where stored logins live, one per deployment,
-and the rule for which deployment is the default.
+Where stored logins live, one per deployment.
 Has a file adapter for real use and an in-memory adapter for tests.
 _Avoid_: credentials file (that is one adapter), keychain
 
@@ -39,7 +38,7 @@ _Avoid_: ambient auth, credential source (that is one of its attributes)
 
 **Rotation**:
 Replacing a Stored login's secrets after a refresh.
-It never changes which deployment is the default.
+It never changes which deployment the login is for.
 
 ## Relationships
 

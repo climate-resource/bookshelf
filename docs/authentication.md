@@ -116,17 +116,13 @@ and attempts to prompt for authentication if you are not logged in.
 
 ## Manage stored logins
 
-One machine holds one login per deployment, and one deployment is the default.
+One machine holds one login per deployment.
+Pick the deployment with `--api-url` or `$BOOKSHELF_URL`.
 
-- `bookshelf auth list` shows every stored login, marking the default deployment.
+- `bookshelf auth list` shows every stored login.
   `--json` emits one object per login.
   `expired` says the access token has expired,
   and `needs_login` says nothing stored can renew it, so only a fresh login brings it back.
-- `bookshelf auth switch <identity>` makes another stored login's deployment the default
-  without authenticating again.
-  Take the name from `auth list`.
-  When the same name exists on two deployments, name one with the root option:
-  `bookshelf --api-url URL auth switch <identity>`.
 - `bookshelf auth token` prints the current access token and nothing else,
   refreshing it first when one is due.
 - `bookshelf auth logout` clears the stored login.
@@ -170,8 +166,7 @@ Credentials live in `credentials.json` under the user config directory,
 which is `~/.config/bookshelf` on Linux and `~/Library/Application Support/bookshelf` on macOS.
 The file is written `0600`.
 
-It holds every stored login and which deployment is the default,
-so `auth switch` is a local change.
+It holds every stored login, one per deployment.
 
 The file format may change in any release, so do not read or write it yourself,
 instead use CLI helpers such as `bookshelf auth token` to access the contents.
