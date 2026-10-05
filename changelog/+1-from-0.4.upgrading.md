@@ -9,4 +9,5 @@ and [Migrating from 0.4](migrating.md) walks through the upgrade.
 - `$BOOKSHELF_CACHE_LOCATION` is replaced by `$BOOKSHELF_CACHE_DIR`.
   The old name still works but warns, and bookshelf 2.0 removes it.
 - `BookShelf` and `LocalBook` still work and warn at every call.
+  Bookshelf 1.1 removes them, once the feedstocks have migrated.
   An unpinned `load()` can now resolve a newer edition than 0.4 did, so pin `edition=` where it matters.
