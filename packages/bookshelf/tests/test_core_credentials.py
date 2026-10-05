@@ -99,10 +99,12 @@ def test_set_default_switches_without_reauthentication(store: CredentialStore) -
     login(store, "prod-tok", subject="me@test.com")
     login(store, "staging-tok", STAGING, subject="me@test.com")
 
-    switched = store.set_default(f"{API}/")
+    store.set_default(f"{API}/")
 
-    assert switched.access_token == "prod-tok"
     assert store.default_api_url() == API
+    loaded = store.load()
+    assert loaded is not None
+    assert loaded.access_token == "prod-tok"
     with pytest.raises(KeyError):
         store.set_default("https://elsewhere.test")
 
@@ -362,7 +364,9 @@ def test_a_rotation_into_a_newer_store_warns_and_leaves_it_alone(path: Path) -> 
     assert record is not None
 
     with pytest.warns(UserWarning, match="not saved"):
-        replaced = store.rotate(record, record.with_token("fresh", expires_at=None))
+        replaced = store.rotate(
+            record, record.with_token("fresh", expires_at=None, refresh_token="rt")
+        )
 
     assert replaced is False
     assert path.read_text() == newer

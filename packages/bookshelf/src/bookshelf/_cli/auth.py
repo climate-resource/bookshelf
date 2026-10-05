@@ -240,12 +240,12 @@ def auth_logout(
         cleared = sorted(
             {record.api_url for record in store.records() if base is None or record.api_url == base}
         )
+        # Unconditional, so records this version cannot read are purged as well.
+        store.clear(base)
         if not cleared:
             note("Not logged in." if base is None else f"Not logged in to {base}.")
-        else:
-            store.clear(base)
-            for deployment in cleared:
-                note(f"Cleared credentials for {deployment}")
+        for deployment in cleared:
+            note(f"Cleared credentials for {deployment}")
         if json_output:
             emit_json({"cleared": cleared})
 
@@ -264,25 +264,22 @@ def auth_list(
             note("No stored logins. Run 'bookshelf auth login' to add one.")
             return
         emit_payloads(
-            (
-                {
-                    "id": record.subject,
-                    "api_url": record.api_url,
-                    "default": record.api_url == default,
-                    "expired": record.expires_at is not None and record.expires_at <= now,
-                    "needs_login": _spent(record, now),
-                    "expires_at": iso(record.expires_at),
-                }
-                for record in records
-            ),
+            (_list_entry(record, default=default, now=now) for record in records),
             json_output=json_output,
         )
 
 
-def _spent(record: StoredCredentials, now: datetime) -> bool:
-    """Say whether a record is past use without a fresh login: its token expired with nothing to renew it."""
+def _list_entry(record: StoredCredentials, *, default: str | None, now: datetime) -> dict[str, Any]:
     expired = record.expires_at is not None and record.expires_at <= now
-    return expired and record.refresh_token is None
+    return {
+        "id": record.subject,
+        "api_url": record.api_url,
+        "default": record.api_url == default,
+        "expired": expired,
+        # Nothing stored can renew it, so only a fresh login brings it back.
+        "needs_login": expired and record.refresh_token is None,
+        "expires_at": iso(record.expires_at),
+    }
 
 
 @auth_app.command("switch")

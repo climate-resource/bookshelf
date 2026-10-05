@@ -24,7 +24,7 @@ from collections.abc import Callable, Mapping
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Literal
 
 import httpx
 
@@ -295,25 +295,38 @@ class _NewerStoreToken(_RefreshingAuth):
         raise _refuse_newer_store(None)
 
 
-class _StoreGuard(_RefreshingAuth):
+class _GuardedRefreshTokenExchange(RefreshTokenExchange):
     """Refuse an exchange once a newer bookshelf owns the store.
 
-    The exchange spends a single-use secret the newer install still needs,
+    The exchange spends a single-use refresh token the newer install still needs,
     and the replacement could not be saved, so the check runs before every exchange.
     """
 
-    def __init__(self, store: CredentialStore, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        store: CredentialStore,
+        access_token: str,
+        refresh_token: str,
+        *,
+        token_url: str,
+        client_id: str,
+        expires_at: float | None,
+        on_rotate: Callable[[str, str, float | None], None],
+    ) -> None:
+        super().__init__(
+            access_token,
+            refresh_token,
+            token_url=token_url,
+            client_id=client_id,
+            expires_at=expires_at,
+            on_rotate=on_rotate,
+        )
         self._store = store
 
     def _refresh_request(self) -> httpx.Request:
         if self._store.read_only():
             raise _refuse_newer_store(self._token_url)
         return super()._refresh_request()
-
-
-class _GuardedRefreshTokenExchange(_StoreGuard, RefreshTokenExchange):
-    pass
 
 
 def _provider_from_stored(stored: StoredCredentials, store: CredentialStore) -> TokenProvider:

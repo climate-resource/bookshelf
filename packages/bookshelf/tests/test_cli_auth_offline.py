@@ -264,6 +264,31 @@ def test_logout_clears_the_stored_login() -> None:
     assert credentials.default_store().records() == []
 
 
+def test_logout_purges_a_legacy_agent_record() -> None:
+    path = credentials.credentials_path()
+    path.write_text(
+        json.dumps(
+            {
+                "version": credentials.STORE_VERSION,
+                "records": {
+                    f"{API_URL}|agent": {
+                        "access_token": "bsat_legacy",
+                        "api_url": API_URL,
+                        "kind": "agent",
+                    }
+                },
+                "active": {API_URL: "agent"},
+                "default_api_url": API_URL,
+            }
+        )
+    )
+
+    result = runner.invoke(app, ["auth", "logout"])
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(path.read_text())["records"] == {}
+
+
 def test_switch_to_unknown_identity_names_list_command() -> None:
     result = runner.invoke(app, ["auth", "switch", "missing@example.com"])
 

@@ -57,20 +57,15 @@ class StoredCredentials:
         return record_key(self.api_url)
 
     def with_token(
-        self, access_token: str, *, expires_at: datetime | None, refresh_token: str | None = None
+        self, access_token: str, *, expires_at: datetime | None, refresh_token: str
     ) -> "StoredCredentials":
-        """Return this record carrying a freshly minted access token.
+        """Return this record carrying a freshly minted token pair.
 
         Everything the mint did not replace is carried over,
         so a rotation cannot drop the subject or the organisation.
-        A refresh token left out keeps the one already stored,
-        because an issuer that does not rotate returns nothing in its place.
         """
         return replace(
-            self,
-            access_token=access_token,
-            expires_at=expires_at,
-            refresh_token=self.refresh_token if refresh_token is None else refresh_token,
+            self, access_token=access_token, expires_at=expires_at, refresh_token=refresh_token
         )
 
 
@@ -127,7 +122,7 @@ class CredentialStore(Protocol):
         """
         ...
 
-    def set_default(self, api_url: str) -> StoredCredentials:
+    def set_default(self, api_url: str) -> None:
         """Make a stored deployment the default.
 
         Raises ``KeyError`` when no login is stored for it.
@@ -271,16 +266,14 @@ class _DocumentStore(CredentialStore, ABC):
             return False
         return True
 
-    def set_default(self, api_url: str) -> StoredCredentials:
+    def set_default(self, api_url: str) -> None:
         api_url = normalise_api_url(api_url)
         key = record_key(api_url)
         with self._update() as store:
-            credentials = _record_to_credentials(store["records"].get(key))
-            if credentials is None:
+            if _record_to_credentials(store["records"].get(key)) is None:
                 raise KeyError(key)
             store["active"][api_url] = _USER_KIND
             store["default_api_url"] = api_url
-        return credentials
 
     def clear(self, api_url: str | None = None) -> None:
         with self._update() as store:
