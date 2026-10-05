@@ -1,7 +1,7 @@
 # Bookshelf Python SDK
 
 The `bookshelf` package is the official Python SDK for the Bookshelf data platform.
-It provides synchronous and asynchronous facades
+It provides a facade
 for consuming published data,
 producing managed resources,
 and running record and replay publishing workflows.
@@ -19,7 +19,7 @@ uv add bookshelf
 The SDK requires Python 3.12 or newer.
 It ships with pandas and PyArrow, so `as_df()` and `as_arrow()` work out of the box.
 `as_polars()` uses Polars if you have it installed.
-SCMRun, figure (matplotlib) and publishing integrations are available as extras:
+SCMRun, figure (matplotlib and seaborn) and publishing integrations are available as extras:
 
 ```bash
 uv add "bookshelf[scmrun,figures,publish]"

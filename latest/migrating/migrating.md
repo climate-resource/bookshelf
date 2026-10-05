@@ -120,8 +120,7 @@ with Bookshelf() as bs:
 
 `Bookshelf` holds an HTTP connection pool.
 In long-running code, use it as a context manager or call `bs.close()` so the connections close when you are done.
-[Getting started](getting_started.md) covers `AsyncBookshelf`,
-and [Reading a published book](how-to-guides/read_a_book.py) covers the other converters.
+[Reading a published book](how-to-guides/read_a_book.py) covers the other converters.
 
 ### Reading data
 

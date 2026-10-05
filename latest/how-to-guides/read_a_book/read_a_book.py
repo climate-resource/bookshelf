@@ -222,4 +222,4 @@ entry.as_long_df(
 #
 # - [Converting and plotting](convert_and_plot) covers the other converters,
 #   the content cache, and hash verification.
-# - [Reading asynchronously](read_asynchronously) covers the awaited surface.
+# - [Reading asynchronously](read_asynchronously) calls the SDK from async code.

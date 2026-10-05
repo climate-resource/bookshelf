@@ -12,14 +12,13 @@ with Bookshelf() as bs:
     frame = entry.as_df(year_min=2020, year_max=2100)
 ```
 
-Use `AsyncBookshelf` for awaited I/O:
+From async code, run each call in a worker thread:
 
 ```python
-from bookshelf import AsyncBookshelf
+import asyncio
 
-async with AsyncBookshelf() as bs:
-    book = await bs.book("rcmip-emissions", "v5.1.0", edition=1)
-    frame = await book["magicc"].as_df()
+book = await asyncio.to_thread(bs.book, "rcmip-emissions", "v5.1.0", edition=1)
+frame = await asyncio.to_thread(book["magicc"].as_df)
 ```
 
 Publishing capabilities are part of the same SDK.

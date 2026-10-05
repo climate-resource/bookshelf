@@ -22,17 +22,23 @@ Adding a name, a keyword argument with a default, or a field to a returned value
 
 The promised names in the `bookshelf` package are:
 
-- Clients: `Bookshelf` and `AsyncBookshelf`.
-  Their constructors, except the `transport` and `async_transport` test seams,
-  and the methods `close`, `aclose`, `ensure_authenticated`, `search_volumes`, `volume`, `book`,
+- The client: `Bookshelf`.
+  Its constructor, except the `transport` test seam,
+  and the methods `close`, `ensure_authenticated`, `search_volumes`, `volume`, `book`,
   `resource`, `resource_by_hash` and `correct_book`.
-- Handles: `Volume`, `AsyncVolume`, `Book`, `AsyncBook`, `BookEntry`, `AsyncBookEntry`,
-  `Resource` and `AsyncResource`.
+- Handles: `Volume`, `Book`, `BookEntry` and `Resource`.
+  A handle is obtained from a client, for example `bs.book(...)`, and is not built directly.
+  Its methods and attributes are promised, but its constructor is not.
 - Values: `ResourceInfo`, `DataPreview`, `ResourceType`, `Visibility`, `Identity`, `VolumeSummary`,
   `VolumeSearchResults`, `Facets`, `Facet`, `FacetValue`, `SeriesMetadata`, `BookCorrection`,
   `Problem`, `ItemError` and `CacheSummary`.
 - The cache: `ContentCache`, with the members on the [Cache](cache.md) page.
 - Errors: `BookshelfError` and every subclass on the [Errors](errors.md) page.
+  That includes `PartialRegistrationError` and the publisher errors,
+  `InvalidBundleError`, `InvalidRecipeError`, `InvalidReferenceError`, `RecordingError` and `RecordRefusedError`,
+  so an `except` clause naming one keeps working.
+  An attribute that returns a generated model or a producer type,
+  such as `PartialRegistrationError.successful_outcomes`, is provisional.
 - Metadata: `__version__`, `PRODUCTION_API_URL` and `OPENAPI_VERSION`.
 
 Beyond the root package:
@@ -44,10 +50,9 @@ Beyond the root package:
 A value a newer platform adds arrives as a member of its own rather than an error,
 so compare with the named members and keep a fallback for the rest.
 
-Every asynchronous name follows one convention.
-The twin of a synchronous class carries an `Async` prefix and the same method names, which return awaitables.
-The one exception is `aclose`, which pairs with `close`.
-No promised name ends in `_async` or `_sync`.
+The API is synchronous.
+Async code calls it through `asyncio.to_thread`,
+as [Reading asynchronously](../how-to-guides/read_asynchronously.py) shows.
 
 ## Outside the promise
 
@@ -61,11 +66,14 @@ That includes:
   See [the bundle format](../explanation/bundle-format.md) and [the recipe format](../explanation/recipe-format.md).
 - The layout of the cache directory and the stored credentials file, which are private to the SDK.
 - Underscore-prefixed modules and names, such as `bookshelf._core`.
-- `bookshelf.models`, which holds the generated API models and tracks the platform contract.
+- The generated API models, which track the platform contract.
+  They are private, and some provisional producer methods still return them.
+- Handle constructors, which take the private client and generated models.
 - The producer surface, which is exported but still settling.
-  That covers `setup`, `Activity`, `AsyncActivity`, `DraftBook`, `AsyncDraftBook`, `RegisterItem`, `Used`,
-  `RegistrationSuccess`, `RegistrationFailure` and `PartialRegistrationError`.
+  That covers `setup`, `Activity`, `DraftBook`, `RegisterItem`, `Used`,
+  `RegistrationSuccess` and `RegistrationFailure`.
   It also covers the `Bookshelf` methods `activity`, `draft_book`, `register_external`, `register_file`,
   `create_volume`, `get_or_create_volume`, `update_volume`, `delete_volume`, `update_draft`, `discard_draft`
   and `replay_bundle`, some of which still return generated models.
 - `bookshelf.publisher`, which drives recording, replaying and publishing bundles, and its submodules.
+  Its errors are the exception, because they are promised from the root package.

@@ -1,9 +1,9 @@
 # Books
 
 ::: bookshelf.Book
-
-::: bookshelf.AsyncBook
+    options:
+      merge_init_into_class: false
 
 ::: bookshelf.BookEntry
-
-::: bookshelf.AsyncBookEntry
+    options:
+      merge_init_into_class: false

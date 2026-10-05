@@ -32,6 +32,7 @@ The `--json` keys follow a few rules:
 
 - A byte count ends in `_bytes`: `size_bytes` for one file, `total_size_bytes`, `max_size_bytes`
   and `freed_size_bytes` for the cache.
+  The flag that sets one is spelt the same way, such as `cache prune --max-size-bytes`.
 - A hash is `content_hash`, written `sha256:<hex>`.
 - A count ends in `_count`, such as `resource_count` and `entry_count`.
 - A named file in a book is an entry, so a book lists its `entries`.
@@ -59,9 +60,14 @@ Some cases worth knowing:
 
 - A bundle directory that does not exist is a usage error (2), where one that exists but is malformed is 7.
 - A build that cannot read its code ref from git, for example outside a repository, is a usage error (2).
-- Incomplete credential settings, such as `BOOKSHELF_CLIENT_ID` without its secret, are a usage error (2).
+- Incomplete credential settings are a usage error (2).
+  For example `BOOKSHELF_CLIENT_ID` and `BOOKSHELF_CLIENT_SECRET` without `BOOKSHELF_TOKEN_URL`,
+  or `auth login` against a deployment with no WorkOS client ID and no `BOOKSHELF_WORKOS_CLIENT_ID`.
+  `BOOKSHELF_CLIENT_ID` without its secret is ignored rather than refused.
 - A credentials file written by a newer `bookshelf` is read but never written, so a login or logout
-  against it exits 2.
+  against it exits 2 before anything is sent.
+- An error status the API contract does not declare for the operation, such as a proxy's JSON 403,
+  exits by its status: 400 and 422 exit 2, 401 exits 3, 403 exits 4, 404 exits 5 and 409 exits 8.
 - A rate limit the retries could not wait out is a network failure (6).
 
 `bookshelf --help` prints the same table.
@@ -75,7 +81,9 @@ Use `bookshelf auth list --json` to see what is stored, and `bookshelf auth toke
 A file written by a newer `bookshelf` is read for whatever this version understands, and never overwritten,
 so going back to an older version cannot log the newer one out.
 Logging in or out with the older version fails with exit code 2 until you upgrade.
-The older version also never refreshes a token from that file, because refreshing spends a secret the newer one needs.
+The older version also never refreshes a token from that file,
+because refreshing spends a secret the newer one needs.
+So `auth list` marks an expired token from that file as `needs_login`.
 
 ## Command reference
 
@@ -245,7 +253,7 @@ $ bookshelf auth [OPTIONS] COMMAND [ARGS]...
 
 ### `bookshelf auth login`
 
-Log in: through WorkOS as a human, or as an agent with --agent.
+Log in through WorkOS.
 
 ```console
 $ bookshelf auth login [OPTIONS]
@@ -253,9 +261,6 @@ $ bookshelf auth login [OPTIONS]
 
 Options:
 
-- `--agent`: Register an agent identity instead of a human login.
-- `--claim`: Run the claim ceremony so a human binds the identity.
-- `--email <str>`: Email the approving human signs in with. Required with --claim.
 - `--no-browser`: For a box that cannot open a browser.
 - `--json`: Emit the credential summary as JSON.
 
@@ -286,7 +291,7 @@ Options:
 
 ### `bookshelf auth logout`
 
-Revoke and clear stored credentials. Local state is cleared even when revocation fails.
+Clear stored credentials.
 
 ```console
 $ bookshelf auth logout [OPTIONS]
@@ -294,13 +299,12 @@ $ bookshelf auth logout [OPTIONS]
 
 Options:
 
-- `--all`: Clear every stored identity for every deployment.
-- `--no-revoke`: Skip server-side revocation and only clear local state.
+- `--all`: Clear every stored login for every deployment.
 - `--json`: Emit the outcome as JSON.
 
 ### `bookshelf auth list`
 
-List every stored identity, marking the active one per deployment.
+List every stored login.
 
 ```console
 $ bookshelf auth list [OPTIONS]
@@ -308,23 +312,7 @@ $ bookshelf auth list [OPTIONS]
 
 Options:
 
-- `--json`: Emit one JSON object per identity.
-
-### `bookshelf auth switch`
-
-Make a stored identity active without re-authenticating.
-
-```console
-$ bookshelf auth switch [OPTIONS] {identity}
-```
-
-Arguments:
-
-- `identity`: The identity to make active, as shown by 'auth list'.  \[required]
-
-Options:
-
-- `--json`: Emit the identity as JSON.
+- `--json`: Emit one JSON object per login.
 
 ### `bookshelf cache`
 
@@ -356,7 +344,7 @@ $ bookshelf cache prune [OPTIONS]
 
 Options:
 
-- `--max-bytes <int range>`: Cap to prune the cache down to.  \[default: 5368709120; x>=0]
+- `--max-size-bytes <int range>`: Cap to prune the cache down to.  \[default: 5368709120; x>=0]
 - `--json`: Emit the result as JSON.
 
 ### `bookshelf cache clear`

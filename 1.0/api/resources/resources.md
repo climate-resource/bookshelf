@@ -1,8 +1,8 @@
 # Resources
 
 ::: bookshelf.Resource
-
-::: bookshelf.AsyncResource
+    options:
+      merge_init_into_class: false
 
 ::: bookshelf.DataPreview
 
