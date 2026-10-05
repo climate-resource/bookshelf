@@ -19,7 +19,7 @@ uv add bookshelf
 The SDK requires Python 3.12 or newer.
 It ships with pandas and PyArrow, so `as_df()` and `as_arrow()` work out of the box.
 `as_polars()` uses Polars if you have it installed.
-SCMRun, figure (matplotlib) and publishing integrations are available as extras:
+SCMRun, figure (matplotlib and seaborn) and publishing integrations are available as extras:
 
 ```bash
 uv add "bookshelf[scmrun,figures,publish]"
