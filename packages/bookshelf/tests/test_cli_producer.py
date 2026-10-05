@@ -377,6 +377,22 @@ def test_record_names_the_fix_when_the_recipe_is_malformed(tmp_path: Path) -> No
     assert "volume.surplus is not a recipe key" in _plain(result.stderr)
 
 
+def test_a_recipe_refused_for_its_content_is_not_blamed_on_its_path(tmp_path: Path) -> None:
+    recipe = tmp_path / "bookshelf.yaml"
+    recipe.write_text(
+        'volume:\n  name: example\nbooks:\n  - version: "v1.0_e001"\n    license: MIT\n'
+    )
+
+    result = runner.invoke(
+        app, ["record", "--recipe", str(recipe), "--bundle", str(tmp_path / "bundle")]
+    )
+
+    stderr = " ".join(_plain(result.stderr).split())
+    assert result.exit_code == EXIT_USAGE
+    assert "_e" in stderr
+    assert "different one" not in stderr
+
+
 def test_record_points_a_flat_recipe_at_the_shape_that_replaced_it(tmp_path: Path) -> None:
     """The removed form is the one a feedstock author is most likely to still be holding."""
     recipe = tmp_path / "bookshelf.yaml"

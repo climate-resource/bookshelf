@@ -64,6 +64,13 @@ LOGIN_REMEDY = (
     "Run 'bookshelf auth login' to sign in, "
     "or 'bookshelf auth login --agent' to register an agent identity."
 )
+# This version can neither log in to nor log out of a store a newer bookshelf owns.
+NEWER_STORE_REMEDY = "Upgrade bookshelf, or set BOOKSHELF_TOKEN."
+
+_NEWER_STORE_MESSAGE = (
+    "The stored Bookshelf login could not be refreshed, "
+    "so this client is continuing anonymously and only public data is reachable."
+)
 
 
 class CredentialSource(enum.StrEnum):
@@ -177,7 +184,10 @@ class ResolvedCredential:
             return provider
         with self._lock:
             if self._fallback is None:
-                self._fallback = AnonymousFallback(provider, message=_SPENT_CREDENTIAL_MESSAGE)
+                message = (
+                    _NEWER_STORE_MESSAGE if self.store.read_only() else _SPENT_CREDENTIAL_MESSAGE
+                )
+                self._fallback = AnonymousFallback(provider, message=message)
             return self._fallback
 
     def quieted(self) -> AbstractContextManager[None]:
@@ -218,16 +228,17 @@ class ResolvedCredential:
         if source in _MACHINE_SOURCES:
             label, remedy = _MACHINE_SOURCES[source]
             return CredentialDescription(source, kind="machine", label=label, remedy=remedy)
+        remedy = NEWER_STORE_REMEDY if self.store.read_only() else LOGIN_REMEDY
         if self.stored is None:
             return CredentialDescription(
-                source, kind="anonymous", label="no credential", remedy=LOGIN_REMEDY
+                source, kind="anonymous", label="no credential", remedy=remedy
             )
         stored = self.stored
         return CredentialDescription(
             source,
             kind=stored.kind.value,
             label="the stored login",
-            remedy=LOGIN_REMEDY,
+            remedy=remedy,
             subject=stored.subject,
             organization_id=stored.organization_id,
             expires_at=stored.expires_at,
@@ -291,8 +302,7 @@ def _client_credentials(environ: Mapping[str, str]) -> ClientCredentials:
 def _refuse_newer_store(token_url: str | None) -> AuthenticationError:
     return AuthenticationError(
         "the credentials file was written by a newer bookshelf, "
-        "so this version will not refresh its tokens. "
-        "Upgrade bookshelf, or set BOOKSHELF_TOKEN",
+        f"so this version will not refresh its tokens. {NEWER_STORE_REMEDY}",
         status_code=401,
         request_method="POST",
         request_url=token_url,
@@ -397,6 +407,7 @@ def _rotation_sink(
 
 __all__ = [
     "LOGIN_REMEDY",
+    "NEWER_STORE_REMEDY",
     "CredentialDescription",
     "CredentialSource",
     "ResolvedCredential",

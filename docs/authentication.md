@@ -182,13 +182,19 @@ Whether a token is accepted is up to the receiving service.
 The GitHub Actions token is minted for the `bookshelf-read` audience,
 so pass `ActionsOidcToken(audience=...)` explicitly for a service that expects its own.
 
-`bookshelf.auth` is not yet covered by the [stable API promise](api/index.md),
-so its names can change in any release.
+Every name in `bookshelf.auth.__all__` is covered by the [semver promise](api/index.md#what-semver-covers).
 
 ## Where credentials are stored
 
-Credentials live in `credentials.json` under the user config directory,
-which is `~/.config/bookshelf` on Linux and `~/Library/Application Support/bookshelf` on macOS.
+Credentials live in `credentials.json`, in the user config directory that platformdirs picks:
+
+- On Linux it is `$XDG_CONFIG_HOME/bookshelf`, which defaults to `~/.config/bookshelf`.
+- On macOS it is `~/Library/Application Support/bookshelf`.
+  A recent platformdirs honours `$XDG_CONFIG_HOME` there too,
+  so with it set the file is under `$XDG_CONFIG_HOME/bookshelf` instead.
+
+`bookshelf auth login` prints the path it stored to,
+and `bookshelf auth list --json` shows what the file holds without reading it yourself.
 The file is written `0600`.
 
 It holds every stored identity and which one is active for each deployment,

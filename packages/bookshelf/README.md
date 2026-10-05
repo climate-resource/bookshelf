@@ -102,7 +102,7 @@ Pass `role="plan"` to `register` for the plan the activity followed, such as a m
 A plan needs a `name`, takes no `used=`, and is linked to every output of the activity rather than derived from its inputs.
 
 ```python
-from bookshelf import Bookshelf, Used, models
+from bookshelf import Bookshelf, Used
 
 with Bookshelf() as bs:
     source = bs.book("rcmip-emissions", "v5.1.0")["magicc"]
@@ -115,14 +115,7 @@ with Bookshelf() as bs:
         )
 
     draft = bs.draft_book("model-results", version="v1.0.0")
-    draft.attach(
-        output,
-        name_in_book="ssp245",
-        data_dictionary=[
-            models.DataDictionaryEntry(name="region", role="dimension"),
-            models.DataDictionaryEntry(name="value", type="number", role="measure"),
-        ],
-    )
+    draft.attach(output, name_in_book="ssp245")
     draft.publish()
 ```
 
@@ -130,10 +123,6 @@ with Bookshelf() as bs:
 The former catalogues an existing pointer.
 The latter attributes an external output to the current run.
 Book drafting, attachment, and publication remain separate editorial calls.
-Each tabular or timeseries entry can declare its own column descriptions through
-``draft.attach(..., data_dictionary=...)``.
-Omitting the argument preserves the entry's existing dictionary on re-attach,
-while an empty list clears it.
 
 Use `activity.register_many()` with `RegisterItem` values for a batch.
 An atomic batch over 1000 items raises before any upload begins.
@@ -172,36 +161,6 @@ An input the platform already holds is cited by its digest instead.
 The server computes the seal from the request,
 so replaying the same bundle again converges on the one edition
 and reports `converged` rather than minting a rival.
-
-## Storing a pull request preview
-
-`bookshelf preview upload BUNDLE...` stores the books a feedstock pull request would publish as one preview,
-so a reviewer can compare them with what is published before the pull request merges.
-The feedstock CI workflow runs it once per build, passing one bundle per candidate book.
-
-```bash
-bookshelf preview upload bundle-v1.0.0 bundle-v2.0.0 \
-  --repository "$GITHUB_REPOSITORY" --pr "$PR_NUMBER" --pr-url "$PR_URL" \
-  --head-sha "$HEAD_SHA" --main-sha "$MAIN_SHA" --tree "$TREE_SHA" \
-  --run-id "$GITHUB_RUN_ID" --json
-```
-
-- It creates the preview, uploads every book's bytes under the preview, attaches each book and seals it.
-- A bundle that fails validation is still a target, so the preview is failed with the reason and the command exits 7.
-- Any error once the preview exists fails it before the command exits, so the check run never waits for a timeout.
-- It prints the preview id, the proposal and preview links, the state and each book.
-  The platform owns the check run and the pull request comment.
-
-The command authenticates with the job's GitHub Actions OIDC token for the `bookshelf` audience.
-The usual credential chain is never consulted, so the job holds no Bookshelf credential.
-The workflow therefore needs the `id-token: write` permission,
-and without it the command exits 3 and names the permission.
-
-```yaml
-permissions:
-  contents: read
-  id-token: write
-```
 
 ## Uploading a file that cannot be checked in
 
@@ -246,8 +205,7 @@ When `auth=` is omitted, ambient credentials resolve in this order
 
 `auth=` also accepts a provider instance or a bare token string,
 and an explicit `auth=None` stays unauthenticated.
-`base_url` resolves as argument, then `$BOOKSHELF_URL`, then its alias `$BOOKSHELF_API_URL`,
-then the production URL.
+`base_url` resolves as argument, then `$BOOKSHELF_URL`, then the production URL.
 
 ### Client lifecycle in an embedded service
 

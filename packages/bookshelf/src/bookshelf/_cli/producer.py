@@ -77,10 +77,14 @@ def _load_recipe(path: Path) -> RecordRecipe:
     try:
         return load_record_recipe(path)
     except (OSError, yaml.YAMLError, BookshelfError) as exc:
+        unreadable = isinstance(exc, OSError) or isinstance(exc.__cause__, OSError)
+        remedy = (
+            "Run 'bookshelf record --recipe PATH' to point at a different one."
+            if unreadable
+            else "Fix the recipe and run the command again."
+        )
         raise CliError(
-            f"cannot read the recipe at {path}: {exc}. "
-            "Run 'bookshelf record --recipe PATH' to point at a different one.",
-            exit_code=EXIT_USAGE,
+            f"cannot read the recipe at {path}: {exc}. {remedy}", exit_code=EXIT_USAGE
         ) from exc
 
 

@@ -13,6 +13,7 @@ from uuid import UUID
 
 import pytest
 
+from bookshelf import UnsupportedConversionError
 from bookshelf._consume.books import Book
 from bookshelf._consume.resources import AsyncBookEntry, BookEntry, Resource
 from bookshelf._generated import models
@@ -234,3 +235,31 @@ def test_an_async_registered_resource_names_itself_once(cache: ContentCache) -> 
     assert printed.startswith("<Registered Async Resource (tabular)>")
     assert "Registered Registered" not in printed
     assert "name    (unnamed)" in printed
+
+
+class _NoSchemaClient(_ForbiddenClient):
+    def get_book_resource_schema(self, *_args: Any, **_kwargs: Any) -> None:
+        raise AssertionError("a non-timeseries entry asked the platform for its series")
+
+    async def get_book_resource_schema_async(self, *_args: Any, **_kwargs: Any) -> None:
+        raise AssertionError("a non-timeseries entry asked the platform for its series")
+
+
+def test_series_metadata_refuses_an_entry_that_is_not_a_timeseries(cache: ContentCache) -> None:
+    entry = BookEntry(_NoSchemaClient(), cache, BOOK_ID, _entry(models.ResourceType.tabular))  # type: ignore[arg-type]
+
+    with pytest.raises(UnsupportedConversionError, match="series_metadata"):
+        entry.series_metadata()
+
+
+async def test_async_series_metadata_refuses_an_entry_that_is_not_a_timeseries(
+    cache: ContentCache,
+) -> None:
+    entry = AsyncBookEntry(_NoSchemaClient(), cache, BOOK_ID, _entry(models.ResourceType.document))  # type: ignore[arg-type]
+
+    with pytest.raises(UnsupportedConversionError, match="series_metadata"):
+        await entry.series_metadata()
+
+
+def test_unsupported_conversion_error_belongs_to_the_root_package() -> None:
+    assert UnsupportedConversionError.__module__ == "bookshelf"

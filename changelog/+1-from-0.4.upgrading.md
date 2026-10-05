@@ -6,6 +6,7 @@ and [Migrating from 0.4](migrating.md) walks through the upgrade.
 - scmdata is no longer a core dependency.
   Install `bookshelf[scmrun]` to read `ScmRun` objects, and `bookshelf[publish]` to record notebooks.
 - `$BOOKSHELF_REMOTE` is replaced by `$BOOKSHELF_URL`, which names the platform API.
-- `$BOOKSHELF_CACHE_LOCATION` is replaced by `$BOOKSHELF_CACHE_DIR`, and the old name still works.
+- `$BOOKSHELF_CACHE_LOCATION` is replaced by `$BOOKSHELF_CACHE_DIR`.
+  The old name still works but warns, and bookshelf 2.0 removes it.
 - `BookShelf` and `LocalBook` still work and warn at every call.
   An unpinned `load()` can now resolve a newer edition than 0.4 did, so pin `edition=` where it matters.

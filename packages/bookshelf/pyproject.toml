@@ -41,7 +41,7 @@ bookshelf = "bookshelf._cli:main"
 
 [project.optional-dependencies]
 scmrun = ["scmdata>=0.18"]
-figures = ["matplotlib>=3.10"]
+figures = ["matplotlib>=3.10", "seaborn>=0.13"]
 publish = [
     "gitpython>=3.1",
     "nbconvert>=7.3",

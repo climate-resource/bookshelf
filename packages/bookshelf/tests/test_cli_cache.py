@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ from bookshelf._cli import app
 from bookshelf.cache import ContentCache
 
 runner = CliRunner()
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
 def _hash_for(content: bytes) -> str:
@@ -44,7 +46,8 @@ def test_info_reports_entries_size_and_cap(cache_dir: Path) -> None:
     result = runner.invoke(app, ["cache", "info", "--json"])
     assert result.exit_code == 0
     document = json.loads(result.stdout)
-    assert document["entries"] == 2
+    assert document["entry_count"] == 2
+    assert "entries" not in document
     assert document["total_size_bytes"] == 8
     assert document["max_size_bytes"] > 0
     assert document["oldest"] is not None
@@ -55,11 +58,28 @@ def test_prune_evicts_oldest_entries_down_to_the_cap(cache_dir: Path) -> None:
     cache = ContentCache()
     cache.put(_hash_for(b"aaaa"), b"aaaa")
     cache.put(_hash_for(b"bbbb"), b"bbbb")
-    result = runner.invoke(app, ["cache", "prune", "--max-bytes", "4", "--json"])
+    result = runner.invoke(app, ["cache", "prune", "--max-size-bytes", "4", "--json"])
     assert result.exit_code == 0
     document = json.loads(result.stdout)
     assert document["freed_size_bytes"] == 4
     assert document["total_size_bytes"] == 4
+    assert document["max_size_bytes"] == 4
+
+
+def test_prune_still_takes_the_old_max_bytes_spelling_without_advertising_it(
+    cache_dir: Path,
+) -> None:
+    cache = ContentCache()
+    cache.put(_hash_for(b"aaaa"), b"aaaa")
+    cache.put(_hash_for(b"bbbb"), b"bbbb")
+
+    result = runner.invoke(app, ["cache", "prune", "--max-bytes", "4", "--json"])
+    help_text = _ANSI.sub("", runner.invoke(app, ["cache", "prune", "--help"]).stdout)
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["freed_size_bytes"] == 4
+    assert "--max-size-bytes" in help_text
+    assert "--max-bytes" not in help_text
 
 
 def test_clear_requires_explicit_confirmation(cache_dir: Path) -> None:

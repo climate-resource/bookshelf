@@ -43,6 +43,9 @@ class UnsupportedConversionError(BookshelfError):
     """A converter does not apply to the resource type."""
 
 
+UnsupportedConversionError.__module__ = "bookshelf"
+
+
 def require_frame_support(resource_type: models.ResourceType, caller: str) -> None:
     """Reject resource types that have no dataframe form."""
     if resource_type not in _FRAME_TYPES:

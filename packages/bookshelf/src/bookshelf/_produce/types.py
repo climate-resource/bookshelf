@@ -110,7 +110,10 @@ class PartialRegistrationError(BookshelfError):
 
     @property
     def successful_outcomes(self) -> tuple[models.RegistrationOutcome, ...]:
-        """Return every outcome whose resource was committed."""
+        """Return every outcome whose resource was committed.
+
+        Provisional, because each outcome is a generated API model.
+        """
         return tuple(success.outcome for success in self.successful)
 
     @property

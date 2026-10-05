@@ -19,6 +19,7 @@ import bookshelf._records as records
 from bookshelf._consume.conversions import (
     explorers_for,
     readers_for,
+    require_timeseries_support,
     scmrun_class,
     shape_frame,
 )
@@ -501,6 +502,7 @@ class BookEntry(Resource):
 
     def series_metadata(self, *, limit: int = 100, offset: int = 0) -> SeriesMetadata:
         """Return a page of the timeseries' series, one record of dimension values per series."""
+        require_timeseries_support(self._kind(), "series_metadata()")
         response = self._client.get_book_resource_schema(
             self.book_id,
             self.name_in_book,
@@ -822,6 +824,7 @@ class AsyncBookEntry(AsyncResource):
 
     async def series_metadata(self, *, limit: int = 100, offset: int = 0) -> SeriesMetadata:
         """Return a page of the timeseries' series, one record of dimension values per series."""
+        require_timeseries_support(await self._kind(), "series_metadata()")
         response = await self._client.get_book_resource_schema_async(
             self.book_id,
             self.name_in_book,

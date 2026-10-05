@@ -200,6 +200,16 @@ def _parse_datetime(value: Any) -> datetime | None:
         return None
 
 
+def _parse_version(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.isdecimal():
+        return int(value)
+    return None
+
+
 def _iso(moment: datetime | None) -> str | None:
     return moment.isoformat() if moment else None
 
@@ -380,10 +390,8 @@ class FileCredentialStore(_DocumentStore):
             return _empty(), _FileState.UNREADABLE
         if not isinstance(data, dict):
             return _empty(), _FileState.UNREADABLE
-        version = data.get("version")
-        newer = (
-            isinstance(version, int) and not isinstance(version, bool) and version > STORE_VERSION
-        )
+        version = _parse_version(data.get("version"))
+        newer = version is not None and version > STORE_VERSION
         if not newer and version != STORE_VERSION:
             return _empty(), _FileState.UNREADABLE
         for section in ("records", "active"):
@@ -413,7 +421,7 @@ class FileCredentialStore(_DocumentStore):
                         f"{path} was written by a newer bookshelf (store version "
                         f"{before['version']}, this one writes {STORE_VERSION}), "
                         "so this version only reads it. "
-                        "Upgrade bookshelf to log in or out, or set BOOKSHELF_TOKEN instead"
+                        "Upgrade bookshelf to log in or out, or set BOOKSHELF_TOKEN instead."
                     )
                 if state is _FileState.UNREADABLE:
                     # Kept aside rather than overwritten, so nothing in it is lost.

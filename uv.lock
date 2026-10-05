@@ -177,6 +177,7 @@ dependencies = [
 [package.optional-dependencies]
 figures = [
     { name = "matplotlib" },
+    { name = "seaborn" },
 ]
 publish = [
     { name = "gitpython" },
@@ -221,6 +222,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.7" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "scmdata", marker = "extra == 'scmrun'", specifier = ">=0.18" },
+    { name = "seaborn", marker = "extra == 'figures'", specifier = ">=0.13" },
     { name = "typer", specifier = ">=0.26" },
 ]
 provides-extras = ["scmrun", "figures", "publish"]
