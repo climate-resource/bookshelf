@@ -40,7 +40,7 @@ def test_base_url_defaults_to_production() -> None:
 
 
 def test_bare_string_coerces_to_static_token() -> None:
-    assert isinstance(config.resolve_auth("bsat_x"), StaticToken)
+    assert isinstance(config.resolve_auth("static-token"), StaticToken)
 
 
 def test_provider_instance_passes_through() -> None:
@@ -57,7 +57,7 @@ def test_explicit_none_stays_unauthenticated(monkeypatch: pytest.MonkeyPatch) ->
 
 def test_client_constructor_coerces_and_resolves(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("BOOKSHELF_URL", "https://env.test")
-    client = BookshelfClient(auth="bsat_x")
+    client = BookshelfClient(auth="static-token")
     assert client.base_url == "https://env.test"
     assert isinstance(client.auth, StaticToken)
     assert client.credential is None

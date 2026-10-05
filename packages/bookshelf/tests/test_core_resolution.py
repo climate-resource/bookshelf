@@ -13,12 +13,11 @@ from bookshelf._core import credentials, oauth
 from bookshelf._core.auth import (
     ActionsOidcToken,
     AnonymousFallback,
-    BsatAssertion,
     ClientCredentials,
     RefreshTokenExchange,
     StaticToken,
 )
-from bookshelf._core.credentials import CredentialKind, MemoryCredentialStore, StoredCredentials
+from bookshelf._core.credentials import MemoryCredentialStore, StoredCredentials
 from bookshelf._core.errors import AuthConfigurationError, AuthenticationError
 from bookshelf._core.resolution import CredentialSource, resolve_credential
 
@@ -146,14 +145,6 @@ def test_stored_without_refresh_token_resolves_to_static() -> None:
     assert provider._token == "stored-tok"
 
 
-def test_a_stored_agent_resolves_to_its_assertion() -> None:
-    store = stored(kind=CredentialKind.AGENT, identity_assertion="ia", refresh_token=None)
-
-    credential = resolve_credential(API, environ={}, store=store)
-
-    assert isinstance(credential.token_provider(), BsatAssertion)
-
-
 def test_the_provider_is_built_once() -> None:
     credential = resolve_credential(API, environ={}, store=stored())
 
@@ -182,7 +173,7 @@ def token_endpoint(status: int, body: Mapping[str, object]) -> httpx.MockTranspo
 ROTATED = {"access_token": "new-tok", "refresh_token": "rt-2", "expires_in": 3600}
 
 
-def test_a_refresh_is_written_back_without_moving_the_default() -> None:
+def test_a_refresh_is_written_back_over_its_own_deployment() -> None:
     store = stored(expires_at=datetime.fromtimestamp(0, tz=UTC))
     store.save_login(StoredCredentials(access_token="prod-tok", api_url="https://prod.test"))
 
@@ -195,9 +186,9 @@ def test_a_refresh_is_written_back_without_moving_the_default() -> None:
     assert (rotated.access_token, rotated.refresh_token) == ("new-tok", "rt-2")
     assert rotated.subject == "reader@example.com"
     assert rotated.organization_id == "org_123"
-    default = store.load()
-    assert default is not None
-    assert default.api_url == "https://prod.test"
+    prod = store.load("https://prod.test")
+    assert prod is not None
+    assert prod.access_token == "prod-tok"
 
 
 def test_consecutive_refreshes_each_replace_the_last() -> None:
@@ -211,25 +202,6 @@ def test_consecutive_refreshes_each_replace_the_last() -> None:
         provider.access_token(client.send)
 
     assert [record.access_token for record in store.records()] == ["new-tok"]
-
-
-def test_an_agent_record_without_an_assertion_rotates_its_refresh_token() -> None:
-    store = stored(
-        kind=CredentialKind.AGENT,
-        identity_assertion=None,
-        expires_at=datetime.fromtimestamp(0, tz=UTC),
-    )
-
-    auth = resolve_credential(API, environ={}, store=store).auth()
-    with httpx.Client(transport=token_endpoint(200, ROTATED), auth=auth) as client:
-        client.get(f"{API}/v1/books")
-
-    rotated = store.load(API)
-    assert rotated is not None
-    assert rotated.kind is CredentialKind.AGENT
-    assert store.active_kinds() == {API: CredentialKind.AGENT}
-    assert rotated.refresh_token == "rt-2"
-    assert rotated.identity_assertion is None
 
 
 REFUSED = {"error_description": "Refresh token already exchanged"}
@@ -269,7 +241,6 @@ def test_a_strict_credential_raises_instead_of_degrading() -> None:
 @pytest.mark.parametrize(
     ("environ", "kind", "label"),
     [
-        ({"BOOKSHELF_TOKEN": "bsat_tok"}, "agent", "$BOOKSHELF_TOKEN"),
         ({"BOOKSHELF_TOKEN": "tok"}, "user", "$BOOKSHELF_TOKEN"),
         ({"BOOKSHELF_AUTH": "github-actions"}, "machine", "GitHub Actions"),
         (MACHINE, "machine", "$BOOKSHELF_CLIENT_ID"),
@@ -285,16 +256,14 @@ def test_machine_and_missing_credentials_describe_themselves(
     assert label in described.label
 
 
-def test_a_stored_agent_describes_its_claim() -> None:
-    store = stored(
-        kind=CredentialKind.AGENT, identity_assertion="ia", subject="agent:1", claimed=False
-    )
+def test_a_stored_login_describes_its_subject() -> None:
+    store = stored(subject="me@test.com", organization_id="org_1")
 
     described = resolve_credential(API, environ={}, store=store).describe()
 
-    assert described.kind == "agent"
-    assert described.subject == "agent:1"
-    assert described.claimed is False
+    assert described.kind == "user"
+    assert described.subject == "me@test.com"
+    assert described.organization_id == "org_1"
 
 
 def test_only_a_person_may_replace_a_credential() -> None:

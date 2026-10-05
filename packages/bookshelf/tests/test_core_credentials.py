@@ -13,7 +13,6 @@ from filelock import FileLock
 from bookshelf import AuthConfigurationError, BookshelfError
 from bookshelf._core import credentials
 from bookshelf._core.credentials import (
-    CredentialKind,
     CredentialStore,
     FileCredentialStore,
     MemoryCredentialStore,
@@ -44,7 +43,7 @@ def test_round_trip(store: CredentialStore) -> None:
     expires = datetime(2030, 1, 1, tzinfo=UTC)
     login(store, "tok", f"{API}/bookshelf", refresh_token="rt", expires_at=expires)
 
-    loaded = store.load()
+    loaded = store.load(f"{API}/bookshelf")
 
     assert loaded is not None
     assert loaded.access_token == "tok"
@@ -54,15 +53,14 @@ def test_round_trip(store: CredentialStore) -> None:
 
 
 def test_a_new_login_replaces_the_optional_secrets(store: CredentialStore) -> None:
-    login(store, "old-token", refresh_token="old-refresh", identity_assertion="old-assertion")
+    login(store, "old-token", refresh_token="old-refresh")
     login(store, "new-token")
 
-    loaded = store.load()
+    loaded = store.load(API)
 
     assert loaded is not None
     assert loaded.access_token == "new-token"
     assert loaded.refresh_token is None
-    assert loaded.identity_assertion is None
 
 
 def test_expiry_derived_from_jwt_exp_when_absent(store: CredentialStore) -> None:
@@ -70,74 +68,26 @@ def test_expiry_derived_from_jwt_exp_when_absent(store: CredentialStore) -> None
 
     login(store, jwt_with_exp(1893456000))
 
-    loaded = store.load()
+    loaded = store.load(API)
     assert loaded is not None
     assert loaded.expires_at == datetime.fromtimestamp(1893456000, tz=UTC)
 
 
-def test_records_coexist_per_deployment_and_kind(store: CredentialStore) -> None:
+def test_records_coexist_per_deployment(store: CredentialStore) -> None:
     login(store, "user-prod", refresh_token="rt", subject="me@test.com")
-    login(
-        store,
-        "agent-prod",
-        kind=CredentialKind.AGENT,
-        identity_assertion="ia-prod",
-        subject="agent:1",
-        claimed=False,
-    )
     login(store, "user-staging", STAGING, subject="me@test.com")
 
-    assert {(c.api_url, c.kind) for c in store.records()} == {
-        (API, CredentialKind.USER),
-        (API, CredentialKind.AGENT),
-        (STAGING, CredentialKind.USER),
-    }
-    # The last save per deployment is the active one.
-    assert store.active_kinds() == {API: CredentialKind.AGENT, STAGING: CredentialKind.USER}
+    assert {c.api_url for c in store.records()} == {API, STAGING}
     loaded = store.load(API)
     assert loaded is not None
-    assert loaded.access_token == "agent-prod"
-    # The default deployment follows the most recent login.
-    default = store.load()
-    assert default is not None
-    assert default.api_url == STAGING
+    assert loaded.access_token == "user-prod"
 
 
-def test_set_active_switches_without_reauthentication(store: CredentialStore) -> None:
-    login(store, "user-tok", subject="me@test.com")
-    login(store, "agent-tok", kind=CredentialKind.AGENT, identity_assertion="ia", subject="agent:1")
+def test_a_second_login_on_one_deployment_replaces_the_first(store: CredentialStore) -> None:
+    login(store, "first", subject="me@test.com")
+    login(store, "second", subject="other@test.com")
 
-    switched = store.set_active(API, CredentialKind.USER)
-
-    assert switched.access_token == "user-tok"
-    loaded = store.load(API)
-    assert loaded is not None
-    assert loaded.kind is CredentialKind.USER
-    with pytest.raises(KeyError):
-        store.set_active(STAGING, CredentialKind.USER)
-
-
-def test_assertion_and_its_separate_expiry_survive_a_round_trip(store: CredentialStore) -> None:
-    token_expires = datetime(2030, 1, 1, 12, 0, tzinfo=UTC)
-    assertion_expires = datetime(2030, 1, 31, 12, 0, tzinfo=UTC)
-    login(
-        store,
-        "bsat_tok",
-        kind=CredentialKind.AGENT,
-        expires_at=token_expires,
-        identity_assertion="ia_secret",
-        assertion_expires_at=assertion_expires,
-        subject="agent:1",
-        claimed=True,
-    )
-
-    loaded = store.load(API)
-
-    assert loaded is not None
-    assert loaded.identity_assertion == "ia_secret"
-    assert loaded.expires_at == token_expires
-    assert loaded.assertion_expires_at == assertion_expires
-    assert loaded.claimed is True
+    assert [c.access_token for c in store.records()] == ["second"]
 
 
 def test_clear_one_deployment_leaves_the_others(store: CredentialStore) -> None:
@@ -148,20 +98,18 @@ def test_clear_one_deployment_leaves_the_others(store: CredentialStore) -> None:
 
     assert store.load(STAGING) is None
     assert store.load(API) is not None
-    # The default deployment moved off the cleared one.
-    assert store.load() is not None
 
 
 def test_clear_everything(store: CredentialStore) -> None:
-    login(store, "a", refresh_token="rt", identity_assertion="ia")
+    login(store, "a", refresh_token="rt")
 
     store.clear()
 
-    assert store.load() is None
+    assert store.load(API) is None
     assert store.records() == []
 
 
-def test_rotation_replaces_the_secrets_and_keeps_the_default(store: CredentialStore) -> None:
+def test_rotation_replaces_the_secrets(store: CredentialStore) -> None:
     staging = login(store, "staging-tok", STAGING, refresh_token="rt-1", subject="me@test.com")
     login(store, "prod-tok", refresh_token="rt-prod")
 
@@ -174,19 +122,9 @@ def test_rotation_replaces_the_secrets_and_keeps_the_default(store: CredentialSt
     assert rotated.access_token == "staging-tok-2"
     assert rotated.refresh_token == "rt-2"
     assert rotated.subject == "me@test.com"
-    # Refreshing a staging client does not make staging the default deployment.
-    default = store.load()
-    assert default is not None
-    assert default.api_url == API
-
-
-def test_rotation_keeps_a_switched_identity_inactive(store: CredentialStore) -> None:
-    user = login(store, "user-tok", refresh_token="rt-1")
-    login(store, "agent-tok", kind=CredentialKind.AGENT, identity_assertion="ia")
-
-    store.rotate(user, user.with_token("user-tok-2", expires_at=None, refresh_token="rt-2"))
-
-    assert store.active_kinds() == {API: CredentialKind.AGENT}
+    prod = store.load(API)
+    assert prod is not None
+    assert prod.access_token == "prod-tok"
 
 
 def test_rotation_does_not_bring_back_a_logged_out_login(store: CredentialStore) -> None:
@@ -236,10 +174,50 @@ def test_second_save_keeps_the_first_record(path: Path) -> None:
     login(store, "b", STAGING)
 
     data = json.loads(path.read_text())
-    assert set(data["records"]) == {
-        credentials.record_key(API, CredentialKind.USER),
-        credentials.record_key(STAGING, CredentialKind.USER),
-    }
+    assert set(data["records"]) == {f"{API}|user", f"{STAGING}|user"}
+    assert data["active"] == {API: "user", STAGING: "user"}
+
+
+def _legacy_agent_store(path: Path) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "version": credentials.STORE_VERSION,
+                "records": {
+                    f"{API}|user": {"access_token": "user-tok", "api_url": API, "kind": "user"},
+                    f"{API}|agent": {
+                        "access_token": "bsat_tok",
+                        "api_url": API,
+                        "kind": "agent",
+                        "identity_assertion": "ia",
+                    },
+                },
+                "active": {API: "agent"},
+                "default_api_url": API,
+            }
+        )
+    )
+
+
+def test_a_legacy_agent_record_is_ignored_on_read(path: Path) -> None:
+    _legacy_agent_store(path)
+    store = FileCredentialStore(path)
+
+    loaded = store.load(API)
+
+    assert loaded is not None
+    assert loaded.access_token == "user-tok"
+    assert [c.access_token for c in store.records()] == ["user-tok"]
+
+
+def test_clearing_a_deployment_purges_its_legacy_agent_record(path: Path) -> None:
+    _legacy_agent_store(path)
+
+    FileCredentialStore(path).clear(API)
+
+    data = json.loads(path.read_text())
+    assert data["records"] == {}
+    assert data["active"] == {}
 
 
 def test_existing_file_permissions_are_tightened_before_write(
@@ -263,9 +241,9 @@ def test_existing_file_permissions_are_tightened_before_write(
 
 def test_missing_or_corrupt_file_reads_as_empty(path: Path) -> None:
     store = FileCredentialStore(path)
-    assert store.load() is None
+    assert store.load(API) is None
     path.write_text("{not json")
-    assert store.load() is None
+    assert store.load(API) is None
 
 
 def test_each_change_rereads_the_file(path: Path) -> None:
@@ -316,7 +294,7 @@ def test_a_login_sets_an_unreadable_file_aside_rather_than_overwriting_it(
     login(FileCredentialStore(path), "tok")
 
     assert path.with_name("credentials.json.unreadable").read_text() == content
-    loaded = FileCredentialStore(path).load()
+    loaded = FileCredentialStore(path).load(API)
     assert loaded is not None
     assert loaded.access_token == "tok"
 
@@ -382,7 +360,9 @@ def test_a_rotation_into_a_newer_store_warns_and_leaves_it_alone(path: Path) -> 
     assert record is not None
 
     with pytest.warns(UserWarning, match="not saved"):
-        replaced = store.rotate(record, record.with_token("fresh", expires_at=None))
+        replaced = store.rotate(
+            record, record.with_token("fresh", expires_at=None, refresh_token="rt")
+        )
 
     assert replaced is False
     assert path.read_text() == newer

@@ -127,12 +127,12 @@ def test_bearer_auth_reaches_the_api() -> None:
 
     class Bearer(httpx.Auth):
         def auth_flow(self, request: httpx.Request) -> Any:
-            request.headers["authorization"] = "Bearer bsat_test"
+            request.headers["authorization"] = "Bearer test-token"
             yield request
 
     with make_client(handler, auth=Bearer()) as client:
         client.list_books()
-    assert seen["authorization"] == "Bearer bsat_test"
+    assert seen["authorization"] == "Bearer test-token"
 
 
 def test_presigned_put_never_forwards_the_api_credential() -> None:
@@ -146,7 +146,7 @@ def test_presigned_put_never_forwards_the_api_credential() -> None:
 
     class Bearer(httpx.Auth):
         def auth_flow(self, request: httpx.Request) -> Any:
-            request.headers["authorization"] = "Bearer bsat_test"
+            request.headers["authorization"] = "Bearer test-token"
             yield request
 
     with make_client(handler, auth=Bearer()) as client:

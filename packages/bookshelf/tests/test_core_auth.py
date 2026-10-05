@@ -19,7 +19,6 @@ from bookshelf._core.auth import (
     REFRESH_LEEWAY,
     ActionsOidcToken,
     AnonymousFallback,
-    BsatAssertion,
     ClientCredentials,
     RefreshTokenExchange,
     StaticToken,
@@ -102,19 +101,19 @@ def test_decode_jwt_expiry_reads_exp_claim() -> None:
 
 def test_static_token_sets_bearer_header() -> None:
     issuer = TokenIssuer()
-    auth = StaticToken("bsat_fixed")
+    auth = StaticToken("fixed-token")
     with sync_client(issuer, auth) as client:
         client.get(API_URL)
-    assert issuer.api_tokens == ["bsat_fixed"]
+    assert issuer.api_tokens == ["fixed-token"]
 
 
 def test_static_token_does_not_replay_on_401() -> None:
     issuer = TokenIssuer()
-    issuer.rejected_tokens.add("bsat_fixed")
-    with sync_client(issuer, StaticToken("bsat_fixed")) as client:
+    issuer.rejected_tokens.add("fixed-token")
+    with sync_client(issuer, StaticToken("fixed-token")) as client:
         response = client.get(API_URL)
     assert response.status_code == 401
-    assert issuer.api_tokens == ["bsat_fixed"]
+    assert issuer.api_tokens == ["fixed-token"]
 
 
 def test_client_credentials_mints_then_caches() -> None:
@@ -237,24 +236,6 @@ def test_refresh_token_exchange_keeps_valid_access_token() -> None:
     assert issuer.api_tokens == ["still-good"]
 
 
-def test_bsat_assertion_sends_jwt_bearer_grant_and_rotates_assertion() -> None:
-    class BsatIssuer(TokenIssuer):
-        def _token_response(self, request: httpx.Request) -> httpx.Response:
-            response = super()._token_response(request)
-            payload = json.loads(response.content)
-            payload["identity_assertion"] = f"bsia-{self.minted}"
-            return httpx.Response(200, json=payload)
-
-    issuer = BsatIssuer(expires_in=int(REFRESH_LEEWAY) - 60)
-    auth = BsatAssertion("bsia-0", token_url=TOKEN_URL)
-    with sync_client(issuer, auth) as client:
-        client.get(API_URL)
-        client.get(API_URL)
-    grants = [form["grant_type"] for form in issuer.token_requests]
-    assert grants == ["urn:ietf:params:oauth:grant-type:jwt-bearer"] * 2
-    assert [form["assertion"] for form in issuer.token_requests] == ["bsia-0", "bsia-1"]
-
-
 def test_handed_in_token_of_unknown_expiry_is_refreshed_before_use() -> None:
     """A stored token with no known expiry may already be dead server-side."""
     issuer = TokenIssuer()
@@ -278,13 +259,6 @@ def test_minted_token_of_unknown_expiry_is_not_refreshed_every_request() -> None
         client.get(API_URL)
         client.get(API_URL)
     assert issuer.minted == 1
-
-
-def test_bsat_assertion_derives_token_url_from_base_url() -> None:
-    auth = BsatAssertion("bsia-0", base_url="https://bookshelf.test/")
-    assert auth._token_url == "https://bookshelf.test/oauth2/token"
-    with pytest.raises(ValueError, match="exactly one"):
-        BsatAssertion("bsia-0")
 
 
 def test_streaming_response_body_is_not_buffered() -> None:
@@ -357,7 +331,7 @@ def test_access_token_raises_when_the_exchange_is_rejected() -> None:
 def test_static_token_hands_over_its_token_without_an_exchange() -> None:
     issuer = TokenIssuer()
     with httpx.Client(transport=httpx.MockTransport(issuer)) as client:
-        assert StaticToken("bsat_fixed").access_token(client.send) == "bsat_fixed"
+        assert StaticToken("fixed-token").access_token(client.send) == "fixed-token"
     assert issuer.token_requests == []
 
 

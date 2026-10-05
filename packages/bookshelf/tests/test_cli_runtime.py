@@ -145,7 +145,7 @@ def test_an_error_without_a_problem_names_the_request(capsys: pytest.CaptureFixt
     assert "GET https://bookshelf.test/v1/books" in capsys.readouterr().err
 
 
-@pytest.mark.parametrize("command", [["search"], ["auth", "login", "--agent"]])
+@pytest.mark.parametrize("command", [["search"], ["auth", "login"]])
 @pytest.mark.parametrize("url", ["not-a-url", "ftp://x"])
 def test_a_malformed_api_url_is_a_usage_error(
     monkeypatch: pytest.MonkeyPatch, command: list[str], url: str

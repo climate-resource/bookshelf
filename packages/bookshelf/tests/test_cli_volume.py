@@ -246,15 +246,14 @@ def test_volume_delete_maps_the_admin_refusal_to_its_exit_code(
     assert "admin permission required" in _plain(result.stderr)
 
 
-def test_forbidden_remedy_for_a_human_points_at_an_admin_not_the_claim_ceremony(
+def test_forbidden_remedy_for_a_human_points_at_an_admin(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A signed-in human lacking a permission needs an admin, not the agent-claim hint."""
+    """A signed-in human lacking a permission needs an admin."""
     credentials.default_store().save_login(
         credentials.StoredCredentials(
             access_token="user-token",
             api_url=API_URL,
-            kind=credentials.CredentialKind.USER,
             subject="reader@example.com",
         )
     )
@@ -266,14 +265,13 @@ def test_forbidden_remedy_for_a_human_points_at_an_admin_not_the_claim_ceremony(
     stderr = _plain(result.stderr)
     assert result.exit_code == EXIT_FORBIDDEN
     assert "organisation admin" in stderr
-    assert "auth login --agent --claim" not in stderr
 
 
 def test_forbidden_remedy_for_an_env_token_names_it_rather_than_a_login(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A stored login never beats an env credential, so logging in again would not help."""
-    monkeypatch.setenv("BOOKSHELF_TOKEN", "bsat_env-token")
+    monkeypatch.setenv("BOOKSHELF_TOKEN", "env-token")
     refusal = payloads.problem(403, "Forbidden", "admin permission required")
     _patch_client(monkeypatch, 403, refusal)
 
@@ -283,48 +281,3 @@ def test_forbidden_remedy_for_an_env_token_names_it_rather_than_a_login(
     assert result.exit_code == EXIT_FORBIDDEN
     assert "grant the required permission to $BOOKSHELF_TOKEN" in stderr
     assert "auth login" not in stderr
-
-
-def test_forbidden_remedy_for_an_unclaimed_agent_offers_the_claim_ceremony(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    credentials.default_store().save_login(
-        credentials.StoredCredentials(
-            access_token="agent-token",
-            api_url=API_URL,
-            kind=credentials.CredentialKind.AGENT,
-            subject="agent:reg_123",
-            claimed=False,
-        )
-    )
-    refusal = payloads.problem(403, "Forbidden", "write permission required")
-    _patch_client(monkeypatch, 403, refusal)
-
-    result = runner.invoke(app, ["volume", "delete", "example", "--yes"])
-
-    stderr = _plain(result.stderr)
-    assert result.exit_code == EXIT_FORBIDDEN
-    assert "auth login --agent --claim" in stderr
-
-
-def test_forbidden_remedy_for_a_claimed_agent_names_the_permission_cap(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A claimed agent is capped to its claimer's permissions, so the claim hint is stale."""
-    credentials.default_store().save_login(
-        credentials.StoredCredentials(
-            access_token="agent-token",
-            api_url=API_URL,
-            kind=credentials.CredentialKind.AGENT,
-            subject="claimer@example.com",
-            claimed=True,
-        )
-    )
-    refusal = payloads.problem(403, "Forbidden", "admin permission required")
-    _patch_client(monkeypatch, 403, refusal)
-
-    result = runner.invoke(app, ["volume", "delete", "example", "--yes"])
-
-    stderr = _plain(result.stderr)
-    assert result.exit_code == EXIT_FORBIDDEN
-    assert "only the permissions its user had when claiming it" in stderr

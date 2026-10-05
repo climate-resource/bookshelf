@@ -8,7 +8,6 @@ import httpx
 from bookshelf._core.actions_oidc import ActionsTokenError
 from bookshelf._core.auth import (
     ActionsOidcToken,
-    BsatAssertion,
     ClientCredentials,
     RefreshTokenExchange,
     StaticToken,
@@ -49,7 +48,6 @@ __all__ = [
     "ActionsOidcToken",
     "ActionsTokenError",
     "AuthConfigurationError",
-    "BsatAssertion",
     "ClientCredentials",
     "RefreshTokenExchange",
     "StaticToken",

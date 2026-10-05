@@ -14,15 +14,13 @@ The bookshelf credentials may be accepted by other Climate Resource services for
 
 Pick the method that matches who is calling.
 
-| Method                  | Who it is for                                | How to start                                               |
-| ----------------------- | -------------------------------------------- | ---------------------------------------------------------- |
-| Anonymous               | anyone reading public books                  | nothing to do                                              |
-| User login, browser     | a person on a machine with a browser         | `bookshelf auth login`                                     |
-| User login, device code | a person on a headless machine or over SSH   | `bookshelf auth login --no-browser`                        |
-| Anonymous agent         | a program that only reads public books       | `bookshelf auth login --agent`                             |
-| Claimed agent           | a program acting for a person's organisation | `bookshelf auth login --agent --claim --email you@org.com` |
-| Bearer token            | a script handed a token by something else    | `$BOOKSHELF_TOKEN`, or `Bookshelf(auth="...")`             |
-| GitHub Actions          | a workflow reading its organisation's books  | `$BOOKSHELF_AUTH=github-actions`                           |
+| Method                  | Who it is for                               | How to start                                   |
+| ----------------------- | ------------------------------------------- | ---------------------------------------------- |
+| Anonymous               | anyone reading public books                 | nothing to do                                  |
+| User login, browser     | a person on a machine with a browser        | `bookshelf auth login`                         |
+| User login, device code | a person on a headless machine or over SSH  | `bookshelf auth login --no-browser`            |
+| Bearer token            | a script handed a token by something else   | `$BOOKSHELF_TOKEN`, or `Bookshelf(auth="...")` |
+| GitHub Actions          | a workflow reading its organisation's books | `$BOOKSHELF_AUTH=github-actions`               |
 
 ## Log in as a person
 
@@ -54,25 +52,6 @@ an SSH session or a terminal with no usable browser.
 The client renews the stored credential by itself, so a login lasts across sessions.
 If the issuer refuses to renew it, the client warns and falls back to anonymous access.
 Run `bookshelf auth login` again to replace it.
-
-## Register an agent identity
-
-An agent identity is for a program acting on its own rather than on behalf of a person at a keyboard.
-
-`bookshelf auth login --agent --claim --email you@org.com` registers the identity
-and then asks a named person to vouch for it.
-`--email` is the address that person signs in with.
-
-1. The CLI registers the identity and prints a code and a URL, then starts waiting.
-2. The named person opens the URL, signs in, and sees which agent is asking.
-3. They approve it, or they do not.
-4. On approval the CLI stores the identity, now bound to that person's organisation.
-
-The code expires after a few minutes, and the CLI says how long is left while it waits.
-
-A claimed identity reads that organisation's private books and may write.
-The claim ceremony registers a new identity rather than upgrading an existing one,
-so an anonymous agent that later needs private access runs the claim command and gets a second identity.
 
 ## Use a token directly
 
@@ -125,7 +104,7 @@ With `auth=` omitted, the client walks this chain and takes the first step that 
 1. `$BOOKSHELF_TOKEN`
 2. the job's GitHub Actions OIDC token, when `$BOOKSHELF_AUTH` is `github-actions`
 3. `$BOOKSHELF_CLIENT_ID` with `$BOOKSHELF_CLIENT_SECRET`
-4. the stored identity that is active for that deployment
+4. the stored login for that deployment
 5. unauthenticated
 
 Passing `auth=` skips the chain entirely.
@@ -135,23 +114,19 @@ Any credentials are scoped to a single bookshelf deployment.
 In Python, `Bookshelf().ensure_authenticated()` confirms the API accepts the credential,
 and attempts to prompt for authentication if you are not logged in.
 
-## Manage stored identities
+## Manage stored logins
 
-One machine can hold several identities, and one is active per deployment.
+One machine holds one login per deployment.
+Pick the deployment with `--api-url` or `$BOOKSHELF_URL`.
 
-- `bookshelf auth list` shows every stored identity, marking the active one per deployment.
-  `--json` emits one object per identity.
+- `bookshelf auth list` shows every stored login.
+  `--json` emits one object per login.
   `expired` says the access token has expired,
   and `needs_login` says nothing stored can renew it, so only a fresh login brings it back.
-- `bookshelf auth switch <identity>` makes a different stored identity active
-  without authenticating again.
-  Take the name from `auth list`.
-  When the same name exists on two deployments, name one with the root option:
-  `bookshelf --api-url URL auth switch <identity>`.
 - `bookshelf auth token` prints the current access token and nothing else,
   refreshing it first when one is due.
-- `bookshelf auth logout` revokes the credential and clears local state.
-  `--all` covers every deployment, and `--no-revoke` clears locally without telling the server.
+- `bookshelf auth logout` clears the stored login.
+  `--all` covers every deployment.
 
 ## Use a Bookshelf login against another service
 
@@ -197,8 +172,7 @@ Credentials live in `credentials.json`, in the user config directory that platfo
 and `bookshelf auth list --json` shows what the file holds without reading it yourself.
 The file is written `0600`.
 
-It holds every stored identity and which one is active for each deployment,
-so `auth switch` is a local change.
+It holds every stored login, one per deployment.
 
 The file format may change in any release, so do not read or write it yourself,
 instead use CLI helpers such as `bookshelf auth token` to access the contents.

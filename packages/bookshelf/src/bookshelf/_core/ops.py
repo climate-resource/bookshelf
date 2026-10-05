@@ -411,41 +411,6 @@ GET_CURRENT_USER = _op(
         response_models=(models.UserResponse,),
     )
 )
-REGISTER_AGENT_IDENTITY = _op(
-    OpSpec(
-        operation_id="registerAgentIdentity",
-        method="POST",
-        path_template="/agent/identity",
-        success_statuses=(200,),
-        error_statuses=(422,),
-        request_model=models.AgentIdentityRequest,
-        response_models=(
-            models.AnonymousRegistrationResponse,
-            models.ServiceAuthRegistrationResponse,
-        ),
-    )
-)
-AGENT_TOKEN_EXCHANGE = _op(
-    OpSpec(
-        operation_id="agentTokenExchange",
-        method="POST",
-        path_template="/oauth2/token",
-        success_statuses=(200,),
-        error_statuses=(400, 422),
-        request_model=models.BodyAgentTokenExchange,
-        response_models=(models.TokenResponse,),
-    )
-)
-AGENT_TOKEN_REVOKE = _op(
-    OpSpec(
-        operation_id="agentTokenRevoke",
-        method="POST",
-        path_template="/oauth2/revoke",
-        success_statuses=(200,),
-        error_statuses=(422,),
-        request_model=models.BodyAgentTokenRevoke,
-    )
-)
 LIST_RESOURCE_EVENTS = _op(
     OpSpec(
         operation_id="eventsListResourceEvents",
@@ -1240,90 +1205,6 @@ def build_get_current_user() -> ApiRequest:
 def parse_get_current_user(response: ApiResponse) -> models.UserResponse:
     _check(GET_CURRENT_USER, response)
     return models.UserResponse.model_validate_json(response.content)
-
-
-def build_register_agent_identity(request: models.AgentIdentityRequest) -> ApiRequest:
-    return ApiRequest(
-        method="POST",
-        path=REGISTER_AGENT_IDENTITY.path_template,
-        json_body=_json_body(request),
-    )
-
-
-@_decodes
-def parse_register_agent_identity(
-    response: ApiResponse,
-) -> models.AnonymousRegistrationResponse | models.ServiceAuthRegistrationResponse:
-    """Discriminate the two registration arms on ``registration_type``."""
-    _check(REGISTER_AGENT_IDENTITY, response)
-    payload = json.loads(response.content)
-    _restore_utc_fields(payload, ("assertion_expires", "claim_token_expires"))
-    if payload.get("registration_type") == "service_auth":
-        return models.ServiceAuthRegistrationResponse.model_validate(payload)
-    return models.AnonymousRegistrationResponse.model_validate(payload)
-
-
-def _oauth_protocol_error(op: OpSpec, response: ApiResponse) -> errors.OAuthProtocolError | None:
-    """Map an OAuth ``{"error": ...}`` body to its typed exception, or ``None``."""
-    try:
-        body = json.loads(response.content)
-    except ValueError:
-        return None
-    if not isinstance(body, dict) or not isinstance(body.get("error"), str):
-        return None
-    return errors.OAuthProtocolError(
-        str(body.get("error_description") or body["error"]),
-        error=body["error"],
-        status_code=response.status_code,
-        request_method=op.method,
-        request_url=op.path_template,
-    )
-
-
-def _form_body(model: BaseModel) -> dict[str, str]:
-    """Dump a request model as a URL-encoded form, dropping unset non-string fields."""
-    return {
-        name: value
-        for name, value in model.model_dump(mode="json").items()
-        if isinstance(value, str)
-    }
-
-
-def build_agent_token_exchange(request: models.BodyAgentTokenExchange) -> ApiRequest:
-    return ApiRequest(
-        method="POST",
-        path=AGENT_TOKEN_EXCHANGE.path_template,
-        form_body=_form_body(request),
-    )
-
-
-@_decodes
-def parse_agent_token_exchange(response: ApiResponse) -> models.TokenResponse:
-    """Parse a token grant, raising the typed OAuth error on protocol rejections.
-
-    ``authorization_pending`` and friends arrive as an OAuth error body rather
-    than problem+json, and claim-grant polling dispatches on the error code.
-    """
-    if response.status_code not in AGENT_TOKEN_EXCHANGE.success_statuses:
-        oauth_error = _oauth_protocol_error(AGENT_TOKEN_EXCHANGE, response)
-        if oauth_error is not None:
-            raise oauth_error
-    _check(AGENT_TOKEN_EXCHANGE, response)
-    payload = json.loads(response.content)
-    _restore_utc_fields(payload, ("assertion_expires",))
-    return models.TokenResponse.model_validate(payload)
-
-
-def build_agent_token_revoke(request: models.BodyAgentTokenRevoke) -> ApiRequest:
-    return ApiRequest(
-        method="POST",
-        path=AGENT_TOKEN_REVOKE.path_template,
-        form_body=_form_body(request),
-    )
-
-
-def parse_agent_token_revoke(response: ApiResponse) -> None:
-    _check(AGENT_TOKEN_REVOKE, response)
 
 
 def _preview_detail(op: OpSpec, response: ApiResponse) -> models.PreviewDetail:
