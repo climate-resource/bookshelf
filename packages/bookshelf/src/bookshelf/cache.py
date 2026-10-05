@@ -272,11 +272,10 @@ class ContentCache:
 
     def summary(self) -> CacheSummary:
         """Describe the cache: entry count, total bytes, age range and cap."""
-        entries = self._entries()
-        stats = [path.stat() for path in entries]
+        stats = [stat for _, stat in self._stats()]
         return CacheSummary(
             path=self.base_dir,
-            entries=len(entries),
+            entries=len(stats),
             total_bytes=sum(stat.st_size for stat in stats),
             max_bytes=self.max_bytes,
             oldest_mtime=min((stat.st_mtime for stat in stats), default=None),
@@ -290,13 +289,22 @@ class ContentCache:
         """
         return self._evict(self.max_bytes if max_bytes is None else max_bytes)
 
+    def _stats(self) -> list[tuple[Path, os.stat_result]]:
+        stats = []
+        for path in self._entries():
+            # Another thread may evict an entry between listing and stat.
+            with contextlib.suppress(FileNotFoundError):
+                stats.append((path, path.stat()))
+        return stats
+
     def _evict(self, cap: int, *, keep: Path | None = None) -> int:
         entries = sorted(
-            ((path, path.stat()) for path in self._entries() if path != keep),
+            ((path, stat) for path, stat in self._stats() if path != keep),
             key=lambda entry: entry[1].st_mtime,
         )
-        if keep is not None and keep.is_file():
-            cap -= keep.stat().st_size
+        if keep is not None:
+            with contextlib.suppress(FileNotFoundError):
+                cap -= keep.stat().st_size
         total = sum(stat.st_size for _, stat in entries)
         freed = 0
         for path, stat in entries:
@@ -310,9 +318,9 @@ class ContentCache:
     def clear(self) -> int:
         """Remove every entry and metadata record, returning the content bytes freed."""
         freed = 0
-        for path in self._entries():
-            freed += path.stat().st_size
-            path.unlink()
+        for path, stat in self._stats():
+            path.unlink(missing_ok=True)
+            freed += stat.st_size
         self._metadata.clear()
         return freed
 

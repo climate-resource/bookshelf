@@ -110,3 +110,19 @@ def test_an_entry_over_the_cap_survives_its_own_commit(tmp_path: Path) -> None:
 
     assert cache.get(_hash(large)) is not None
     assert cache.get(_hash(small)) is None
+
+
+def test_an_entry_removed_by_another_thread_is_stepped_over(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Threads sharing one cache may each list an entry the other then evicts."""
+    cache = ContentCache(tmp_path, max_bytes=0)
+    kept = b"still here"
+    cache.put(_hash(kept), kept)
+    listed = cache._entries()
+    vanished = tmp_path / ("b" * 64)
+    monkeypatch.setattr(cache, "_entries", lambda: [vanished, *listed])
+
+    assert cache.summary().entries == 1
+    assert cache.evict_lru() == len(kept)
+    assert cache.clear() == 0
