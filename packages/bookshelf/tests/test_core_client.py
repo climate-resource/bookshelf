@@ -1,4 +1,4 @@
-"""Wiring smokes for the unified client: both shells route through the same build/parse core."""
+"""Wiring smokes for the client: every operation routes through the build/parse core."""
 
 import json
 from typing import Any
@@ -20,19 +20,13 @@ ATTEMPTS = RetryPolicy().max_attempts
 @pytest.fixture(autouse=True)
 def no_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
     """Take the retry backoff out of the wall clock."""
-
-    async def no_async_sleep(_seconds: float) -> None:
-        return None
-
     monkeypatch.setattr(client_module.time, "sleep", lambda _seconds: None)
-    monkeypatch.setattr(client_module.asyncio, "sleep", no_async_sleep)
 
 
 def make_client(handler: Any, **kwargs: Any) -> BookshelfClient:
     return BookshelfClient(
         BASE_URL,
         transport=httpx.MockTransport(handler),
-        async_transport=httpx.MockTransport(handler),
         **kwargs,
     )
 
@@ -52,7 +46,7 @@ def api_handler(request: httpx.Request) -> httpx.Response:
     return httpx.Response(status, json=payload)
 
 
-def test_sync_shell_round_trips_registrations() -> None:
+def test_registrations_round_trip() -> None:
     with make_client(api_handler) as client:
         response = client.register_resources(models.RegisterResourcesRequest(items=[]))
     assert isinstance(response, models.RegisterResourcesResponse)
@@ -69,7 +63,7 @@ def _recording_handler(seen: list[tuple[str, str]], status: int, payload: Any) -
     return handler
 
 
-def test_volume_lifecycle_round_trips_on_both_shells() -> None:
+def test_volume_lifecycle_round_trips() -> None:
     seen: list[tuple[str, str]] = []
     handler = _recording_handler(seen, 201, payloads.VOLUME)
 
@@ -83,12 +77,12 @@ def test_volume_lifecycle_round_trips_on_both_shells() -> None:
     assert seen == [("POST", "/v1/volumes")]
 
 
-async def test_volume_lifecycle_round_trips_on_the_async_shell() -> None:
+def test_volume_update_round_trips() -> None:
     seen: list[tuple[str, str]] = []
     handler = _recording_handler(seen, 200, payloads.VOLUME)
 
-    async with make_client(handler) as client:
-        updated = await client.update_volume_async(
+    with make_client(handler) as client:
+        updated = client.update_volume(
             "example",
             models.VolumeUpdate(discovery=models.VolumeDiscoveryInput(description="units fixed")),
         )
@@ -96,23 +90,13 @@ async def test_volume_lifecycle_round_trips_on_the_async_shell() -> None:
     assert seen == [("PATCH", "/v1/volumes/example")]
 
 
-def test_deletions_return_nothing_on_both_shells() -> None:
+def test_deletions_return_nothing() -> None:
     seen: list[tuple[str, str]] = []
     handler = _recording_handler(seen, 204, None)
 
     with make_client(handler) as client:
         assert client.delete_volume("example") is None
         assert client.delete_book("b1") is None
-    assert seen == [("DELETE", "/v1/volumes/example"), ("DELETE", "/v1/books/b1")]
-
-
-async def test_async_deletions_return_nothing() -> None:
-    seen: list[tuple[str, str]] = []
-    handler = _recording_handler(seen, 204, None)
-
-    async with make_client(handler) as client:
-        assert await client.delete_volume_async("example") is None
-        assert await client.delete_book_async("b1") is None
     assert seen == [("DELETE", "/v1/volumes/example"), ("DELETE", "/v1/books/b1")]
 
 
@@ -126,11 +110,11 @@ def test_update_book_patches_the_draft() -> None:
     assert seen == [("PATCH", "/v1/books/b1")]
 
 
-def test_lazy_per_surface_transports() -> None:
+def test_the_transport_is_opened_lazily() -> None:
     client = make_client(api_handler)
-    assert client._sync is None and client._async is None
+    assert client._http is None
     client.list_books()
-    assert client._sync is not None and client._async is None
+    assert client._http is not None
     client.close()
 
 
@@ -212,16 +196,15 @@ def test_a_write_is_not_replayed_after_a_5xx() -> None:
     assert calls["count"] == 1
 
 
-async def test_a_write_is_not_replayed_after_a_5xx_async() -> None:
+def test_a_publish_is_not_replayed_after_a_5xx() -> None:
     calls = {"count": 0}
 
     def handler(request: httpx.Request) -> httpx.Response:
         calls["count"] += 1
         return httpx.Response(504, text="gateway timeout")
 
-    async with make_client(handler) as client:
-        with pytest.raises(ServerError):
-            await client.publish_book_async("b1")
+    with make_client(handler) as client, pytest.raises(ServerError):
+        client.publish_book("b1")
     assert calls["count"] == 1
 
 
@@ -279,16 +262,15 @@ def test_permanent_5xx_is_not_retried() -> None:
     assert calls["count"] == 1
 
 
-async def test_network_failure_retries_then_raises_transport_error() -> None:
+def test_network_failure_retries_then_raises_transport_error() -> None:
     calls = {"count": 0}
 
     def handler(request: httpx.Request) -> httpx.Response:
         calls["count"] += 1
         raise httpx.ConnectError("connection refused")
 
-    async with make_client(handler) as client:
-        with pytest.raises(TransportError):
-            await client.list_books_async()
+    with make_client(handler) as client, pytest.raises(TransportError):
+        client.list_books()
     assert calls["count"] == ATTEMPTS
 
 

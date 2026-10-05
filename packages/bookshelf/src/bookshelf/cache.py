@@ -1,6 +1,5 @@
 """Content addressed local cache for downloaded resources."""
 
-import asyncio
 import contextlib
 import errno
 import hashlib
@@ -9,13 +8,13 @@ import os
 import shutil
 import time
 import warnings
-from collections.abc import Awaitable, Callable, Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from filelock import AsyncFileLock, FileLock
+from filelock import FileLock
 from platformdirs import user_cache_dir
 
 from bookshelf._core.errors import BookshelfError
@@ -212,26 +211,6 @@ class ContentCache:
                 verify_path(temporary, content_hash)
             return self._committed(content_hash)
 
-    async def fetch_async(
-        self, content_hash: str, download: Callable[[Path], Awaitable[None]]
-    ) -> Path:
-        """Return the path of verified content, awaiting ``download`` only on a miss.
-
-        The async twin of `fetch`, hashing and waiting on the lock off the event loop.
-        """
-        hit = await asyncio.to_thread(self._verified, content_hash)
-        if hit is not None:
-            return hit
-        with _writable(self.base_dir):
-            async with AsyncFileLock(self._lock_path(content_hash)):
-                hit = await asyncio.to_thread(self._verified, content_hash)
-                if hit is not None:
-                    return hit
-                with self.stage(content_hash) as temporary:
-                    await download(temporary)
-                    await asyncio.to_thread(verify_path, temporary, content_hash)
-                return self._committed(content_hash)
-
     def put(self, content_hash: str, content: bytes) -> Path:
         """Atomically store content under its hash and enforce the size cap."""
         with _writable(self.base_dir), self.stage(content_hash) as temporary:
@@ -293,11 +272,10 @@ class ContentCache:
 
     def summary(self) -> CacheSummary:
         """Describe the cache: entry count, total bytes, age range and cap."""
-        entries = self._entries()
-        stats = [path.stat() for path in entries]
+        stats = [stat for _, stat in self._stats()]
         return CacheSummary(
             path=self.base_dir,
-            entries=len(entries),
+            entries=len(stats),
             total_bytes=sum(stat.st_size for stat in stats),
             max_bytes=self.max_bytes,
             oldest_mtime=min((stat.st_mtime for stat in stats), default=None),
@@ -311,28 +289,38 @@ class ContentCache:
         """
         return self._evict(self.max_bytes if max_bytes is None else max_bytes)
 
+    def _stats(self) -> list[tuple[Path, os.stat_result]]:
+        stats = []
+        for path in self._entries():
+            # Another thread may evict an entry between listing and stat.
+            with contextlib.suppress(FileNotFoundError):
+                stats.append((path, path.stat()))
+        return stats
+
     def _evict(self, cap: int, *, keep: Path | None = None) -> int:
         entries = sorted(
-            ((path, path.stat()) for path in self._entries() if path != keep),
+            ((path, stat) for path, stat in self._stats() if path != keep),
             key=lambda entry: entry[1].st_mtime,
         )
-        if keep is not None and keep.is_file():
-            cap -= keep.stat().st_size
+        if keep is not None:
+            with contextlib.suppress(FileNotFoundError):
+                cap -= keep.stat().st_size
         total = sum(stat.st_size for _, stat in entries)
         freed = 0
         for path, stat in entries:
             if total - freed <= cap:
                 break
-            path.unlink()
+            # A concurrent eviction may already have removed it.
+            path.unlink(missing_ok=True)
             freed += stat.st_size
         return freed
 
     def clear(self) -> int:
         """Remove every entry and metadata record, returning the content bytes freed."""
         freed = 0
-        for path in self._entries():
-            freed += path.stat().st_size
-            path.unlink()
+        for path, stat in self._stats():
+            path.unlink(missing_ok=True)
+            freed += stat.st_size
         self._metadata.clear()
         return freed
 

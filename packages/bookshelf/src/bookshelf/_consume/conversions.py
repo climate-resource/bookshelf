@@ -1,6 +1,5 @@
-"""Converter rules shared by the synchronous and asynchronous resource handles.
+"""Converter rules for the resource handles.
 
-These helpers hold the decisions that both transport surfaces make.
 The handles themselves only choose how to fetch the data.
 """
 

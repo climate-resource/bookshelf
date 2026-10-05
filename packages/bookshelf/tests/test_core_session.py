@@ -9,7 +9,7 @@ from typing import Any
 import httpx
 import pytest
 
-from bookshelf import AsyncBookshelf, AuthenticationRequiredError, Bookshelf, BookshelfError
+from bookshelf import AuthenticationRequiredError, Bookshelf, BookshelfError
 from bookshelf._core import credentials, session
 from bookshelf._core.auth import AnonymousFallback, StaticToken
 from bookshelf._core.credentials import StoredCredentials
@@ -337,21 +337,6 @@ def test_a_failure_other_than_rejection_is_raised(monkeypatch: pytest.MonkeyPatc
     assert raised.value.status_code == 403
     assert not isinstance(raised.value, AuthenticationRequiredError)
     assert calls == []
-
-
-async def test_the_async_client_logs_in_off_the_loop(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(session, "is_interactive", lambda: True)
-    monkeypatch.setattr(session, "login_user", _fake_login(calls := []))
-    recorded: list[httpx.Request] = []
-    transport = httpx.MockTransport(_api(recorded, accept="fresh"))
-
-    async with AsyncBookshelf(BASE_URL, async_transport=transport) as bs:
-        await bs.draft_book("primap-hist", version="1.0.0")
-        user = await bs.ensure_authenticated()
-
-    assert user.email == USER["email"]
-    assert calls == [BASE_URL]
-    assert recorded[-1].headers["Authorization"] == "Bearer fresh"
 
 
 @pytest.mark.parametrize("interactive", [True, False])

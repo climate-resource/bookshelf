@@ -15,7 +15,7 @@ import pytest
 
 from bookshelf import UnsupportedConversionError
 from bookshelf._consume.books import Book
-from bookshelf._consume.resources import AsyncBookEntry, BookEntry, Resource
+from bookshelf._consume.resources import BookEntry, Resource
 from bookshelf._generated import models
 from bookshelf._produce import resources as produce
 from bookshelf.cache import ContentCache
@@ -56,33 +56,16 @@ class _FakeClient:
         self.calls += 1
         return _Metadata()
 
-    async def get_resource_async(self, tracking_id: Any) -> _Metadata:
-        self.calls += 1
-        return _Metadata()
-
 
 @pytest.fixture
 def cache(tmp_path: Path) -> ContentCache:
     return ContentCache(base_dir=tmp_path)
 
 
-async def test_an_async_entry_repr_reports_the_type_it_has_fetched(cache: ContentCache) -> None:
-    """The regression: the handle knew the type and the repr still said "unknown"."""
-    client = _FakeClient()
-    entry = AsyncBookEntry(client, cache, BOOK_ID, _entry(None))  # type: ignore[arg-type]
-
-    assert "unknown" in entry._repr_html_(), "a typeless entry has nothing better to say yet"
-
-    await entry.resource_type()
-
-    assert "timeseries" in entry._repr_html_()
-    assert "unknown" not in entry._repr_html_()
-
-
-async def test_an_async_entry_repr_uses_the_type_the_api_supplied(cache: ContentCache) -> None:
+def test_an_entry_repr_uses_the_type_the_api_supplied(cache: ContentCache) -> None:
     """A typed entry never needs the metadata call."""
     client = _FakeClient()
-    entry = AsyncBookEntry(
+    entry = BookEntry(
         client,  # type: ignore[arg-type]
         cache,
         BOOK_ID,
@@ -93,7 +76,7 @@ async def test_an_async_entry_repr_uses_the_type_the_api_supplied(cache: Content
     assert client.calls == 0
 
 
-def test_a_sync_entry_repr_reports_the_type_it_has_fetched(cache: ContentCache) -> None:
+def test_an_entry_repr_reports_the_type_it_has_fetched(cache: ContentCache) -> None:
     client = _FakeClient()
     entry = BookEntry(client, cache, BOOK_ID, _entry(None))  # type: ignore[arg-type]
 
@@ -103,21 +86,6 @@ def test_a_sync_entry_repr_reports_the_type_it_has_fetched(cache: ContentCache) 
     entry.resource_type()
 
     assert "timeseries" in entry._repr_html_()
-
-
-async def test_both_flavours_render_the_same_rows_once_the_type_is_known(
-    cache: ContentCache,
-) -> None:
-    """The two reprs carry the same facts, and differ only in their title."""
-    sync_entry = BookEntry(_FakeClient(), cache, BOOK_ID, _entry(None))  # type: ignore[arg-type]
-    async_entry = AsyncBookEntry(_FakeClient(), cache, BOOK_ID, _entry(None))  # type: ignore[arg-type]
-    sync_entry.resource_type()
-    await async_entry.resource_type()
-
-    sync_html = sync_entry._repr_html_().replace("Bookshelf Book Entry", "TITLE")
-    async_html = async_entry._repr_html_().replace("Bookshelf Async Book Entry", "TITLE")
-
-    assert sync_html == async_html
 
 
 def _book(*entries: models.BookEntryItem) -> Book:
@@ -221,27 +189,8 @@ def test_a_registered_resource_names_itself_once(cache: ContentCache) -> None:
     assert "name    raw" in printed
 
 
-def test_an_async_registered_resource_names_itself_once(cache: ContentCache) -> None:
-    """The async twin declares its own title too."""
-    resource = produce.AsyncResource(
-        _FakeClient(),  # type: ignore[arg-type]
-        cache,
-        TRACKING_ID,
-        resource_type=models.ResourceType.tabular,
-    )
-
-    printed = repr(resource)
-
-    assert printed.startswith("<Registered Async Resource (tabular)>")
-    assert "Registered Registered" not in printed
-    assert "name    (unnamed)" in printed
-
-
 class _NoSchemaClient(_ForbiddenClient):
     def get_book_resource_schema(self, *_args: Any, **_kwargs: Any) -> None:
-        raise AssertionError("a non-timeseries entry asked the platform for its series")
-
-    async def get_book_resource_schema_async(self, *_args: Any, **_kwargs: Any) -> None:
         raise AssertionError("a non-timeseries entry asked the platform for its series")
 
 
@@ -250,15 +199,6 @@ def test_series_metadata_refuses_an_entry_that_is_not_a_timeseries(cache: Conten
 
     with pytest.raises(UnsupportedConversionError, match="series_metadata"):
         entry.series_metadata()
-
-
-async def test_async_series_metadata_refuses_an_entry_that_is_not_a_timeseries(
-    cache: ContentCache,
-) -> None:
-    entry = AsyncBookEntry(_NoSchemaClient(), cache, BOOK_ID, _entry(models.ResourceType.document))  # type: ignore[arg-type]
-
-    with pytest.raises(UnsupportedConversionError, match="series_metadata"):
-        await entry.series_metadata()
 
 
 def test_unsupported_conversion_error_belongs_to_the_root_package() -> None:

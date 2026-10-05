@@ -1,4 +1,4 @@
-"""Shared helpers for synchronous and asynchronous production."""
+"""Shared helpers for production."""
 
 from __future__ import annotations
 

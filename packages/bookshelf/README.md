@@ -1,7 +1,7 @@
 # Bookshelf Python SDK
 
 The `bookshelf` package is the official Python SDK for the Bookshelf data platform.
-It provides synchronous and asynchronous facades for consuming published data,
+It provides a facade for consuming published data,
 producing managed resources,
 and running record and replay publishing workflows.
 It also includes the `bookshelf` command line interface for authentication,
@@ -32,7 +32,7 @@ uv add "bookshelf[scmrun,publish]"
 
 ## Consuming published data
 
-The `bookshelf` package provides synchronous and asynchronous facades.
+The `bookshelf` package provides the `Bookshelf` facade.
 Book coordinates resolve the latest published edition unless `edition=` pins one.
 Indexing a `Book` returns a `BookEntry` with book scoped exploration helpers.
 
@@ -81,14 +81,14 @@ Use `bs.resource(tracking_id)` for an exact machine or provenance path.
 `download(destination)` copies the verified file to a path you own.
 `as_path()` returns the cached file itself, which the cache may evict later.
 
-The asynchronous facade has the same capabilities with awaited I/O:
+The SDK is synchronous.
+From async code, run each call in a worker thread with `asyncio.to_thread`:
 
 ```python
-from bookshelf import AsyncBookshelf
+import asyncio
 
-async with AsyncBookshelf() as bs:
-    book = await bs.book("rcmip-emissions", "v5.1.0", edition=2)
-    frame = await book["magicc"].as_df()
+book = await asyncio.to_thread(bs.book, "rcmip-emissions", "v5.1.0", edition=2)
+frame = await asyncio.to_thread(book["magicc"].as_df)
 ```
 
 ## Producing and curating data
@@ -146,7 +146,7 @@ A retry reuses the content addressed upload path and safely resumes the workflow
 
 `bookshelf record` runs a build file offline and writes a bundle,
 and `bookshelf publish` replays that bundle to the platform.
-`bookshelf.publisher.replay_bundle` and `replay_bundle_sync` do the same from Python.
+`bookshelf.publisher.replay_bundle` does the same from Python.
 
 A replay uploads the managed bytes,
 then sends the whole bundle to `POST /v1/bundles/replay` as one transactional request.
@@ -173,8 +173,8 @@ The command leaves the file hidden, so it is readable by the uploading organisat
 
 ## Credentials
 
-`Bookshelf` and `AsyncBookshelf` authenticate through the credential providers in `bookshelf.auth`.
-Each is an `httpx.Auth`, so one provider object serves both the sync and async surfaces:
+`Bookshelf` authenticates through the credential providers in `bookshelf.auth`.
+Each is an `httpx.Auth`, so one provider object can be shared between clients:
 
 - `StaticToken`: a fixed bearer token, no refresh.
 - `RefreshTokenExchange`: a WorkOS user access/refresh pair from `bookshelf auth login`.
@@ -189,7 +189,7 @@ Each is an `httpx.Auth`, so one provider object serves both the sync and async s
 
 Refresh mechanics are shared: proactive refresh five minutes before expiry,
 one refresh-and-replay after an unexpected 401 (a second 401 raises `AuthenticationError`),
-and single-flight refresh behind per-surface locks.
+and single-flight refresh behind one lock, so threads sharing a provider refresh once.
 There is no background refresh task.
 A token handed in with no known expiry is refreshed before first use,
 because it may already be dead server-side.
@@ -212,19 +212,20 @@ and an explicit `auth=None` stays unauthenticated.
 The client is long-lived by design: token state lives in the provider
 and each client pools connections.
 Construct one client at startup, inject it as a dependency, and close it at shutdown.
-In FastAPI that is a lifespan:
+In FastAPI that is a lifespan.
+A plain `def` endpoint runs in FastAPI's thread pool, so it can call the client directly:
 
 ```python
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 
-from bookshelf import AsyncBookshelf
+from bookshelf import Bookshelf
 from bookshelf.auth import ClientCredentials
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with AsyncBookshelf(
+    with Bookshelf(
         auth=ClientCredentials(client_id, client_secret, token_url=token_url),
     ) as bs:
         app.state.bookshelf = bs
@@ -233,14 +234,14 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 @app.get("/co2")
-async def co2(request: Request):
-    bs: AsyncBookshelf = request.app.state.bookshelf
-    book = await bs.book("rcmip-emissions", "v5.1.0", edition=2)
-    frame = await book["magicc"].as_long_df(filters={"variable": "Emissions|CO2"})
+def co2(request: Request):
+    bs: Bookshelf = request.app.state.bookshelf
+    book = bs.book("rcmip-emissions", "v5.1.0", edition=2)
+    frame = book["magicc"].as_long_df(filters={"variable": "Emissions|CO2"})
     return frame.to_dict(orient="records")
 ```
 
-Do **not** open a client per request (`async with AsyncBookshelf(...)` inside a handler):
+Do **not** open a client per request (`with Bookshelf(...)` inside a handler):
 that churns the connection pool and discards the cached token on every call.
 Context managers are optional.
 Notebooks can construct a client plainly and never close it.

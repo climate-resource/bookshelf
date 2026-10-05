@@ -24,11 +24,11 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from bookshelf._core.client import BookshelfClient
-from bookshelf._facade import AsyncBookshelf, Bookshelf
+from bookshelf._facade import Bookshelf
 from bookshelf._generated import models
 from bookshelf._produce.facade import discovery_input
 from bookshelf._produce.serialise import SVG_CONTENT_TYPE, content_type_for
-from bookshelf._produce.uploads import upload_bytes, upload_bytes_async
+from bookshelf._produce.uploads import upload_bytes
 from bookshelf.publisher.bundle import (
     Bundle,
     BundleActivity,
@@ -204,43 +204,11 @@ def send_bundle(client: BookshelfClient, bundle: Path | Bundle) -> models.Bundle
     return client.replay_bundle(_request(recorded, storage_paths, svg_paths))
 
 
-async def send_bundle_async(
-    client: BookshelfClient,
+def replay_bundle(
     bundle: Path | Bundle,
+    bs: Bookshelf,
 ) -> models.BundleReplayResponse:
-    """Asynchronous counterpart to :func:`send_bundle`."""
-    recorded = Bundle.read(bundle) if isinstance(bundle, Path) else bundle
-    recorded.check_discovery()
-    recorded.check_plans()
-    book = recorded.manifest.book
-    if book is not None and (update := book.volume_update) is not None:
-        await client.update_volume_async(book.volume, update)
-    storage_paths = {
-        resource.name: await upload_bytes_async(
-            client,
-            recorded.resource_bytes(resource),
-            hash_=resource.hash,
-            content_type=content_type_for(resource.type),
-        )
-        for resource in _managed(recorded)
-    }
-    svg_paths = {
-        resource.name: await upload_bytes_async(
-            client,
-            recorded.svg_bytes(resource),
-            hash_=svg_hash,
-            content_type=SVG_CONTENT_TYPE,
-        )
-        for resource, svg_hash in _companions(recorded)
-    }
-    return await client.replay_bundle_async(_request(recorded, storage_paths, svg_paths))
-
-
-async def replay_bundle(
-    bundle: Path | Bundle,
-    bs: AsyncBookshelf,
-) -> models.BundleReplayResponse:
-    """Replay a recorded bundle through an asynchronous Bookshelf client.
+    """Replay a recorded bundle through a Bookshelf client.
 
     Pass a :class:`pathlib.Path` for the usual publish workflow.
     The path must name a bundle directory containing its manifest and recorded resource bytes.
@@ -256,7 +224,7 @@ async def replay_bundle(
 
     Args:
         bundle: Bundle directory or an already loaded bundle.
-        bs: Open asynchronous client used for the upload and the replay.
+        bs: Open client used for the upload and the replay.
 
     Returns:
         What the replay resolved to, the resulting book among it.
@@ -264,20 +232,7 @@ async def replay_bundle(
     Raises:
         ValueError: The bundle contains an invalid resource representation.
     """
-    return await bs.replay_bundle(bundle)
-
-
-def replay_bundle_sync(
-    bundle: Path | Bundle,
-    bs: Bookshelf,
-) -> models.BundleReplayResponse:
-    """Replay a recorded bundle through a synchronous Bookshelf client.
-
-    This is the synchronous counterpart to :func:`replay_bundle`.
-    It accepts the same path or loaded bundle forms,
-    and it converges the same way.
-    """
     return bs.replay_bundle(bundle)
 
 
-__all__ = ["replay_bundle", "replay_bundle_sync"]
+__all__ = ["replay_bundle"]

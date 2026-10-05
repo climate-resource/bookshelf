@@ -22,7 +22,7 @@ from bookshelf.publisher.bundle import Bundle, BundleResource
 from bookshelf.publisher.recipe import load_record_recipe
 from bookshelf.publisher.record import run_record
 from bookshelf.publisher.recording import RecordingSink
-from bookshelf.publisher.replay import replay_bundle_sync
+from bookshelf.publisher.replay import replay_bundle
 from tests._replay import replay_client, replayed
 
 _RECIPE = """\
@@ -246,7 +246,7 @@ def test_replay_sends_every_recorded_discovery_field(tmp_path: Path) -> None:
 
     recorded: list[httpx.Request] = []
     with replay_client(recorded) as client:
-        replay_bundle_sync(bundle, client)
+        replay_bundle(bundle, client)
 
     sent = {resource["name"]: resource for resource in replayed(recorded)["resources"]}
     credited = sent["raw"]["discovery"]["authors"]

@@ -8,7 +8,6 @@ or a device code otherwise.
 Anywhere else it raises :class:`~bookshelf._core.errors.AuthenticationRequiredError`.
 """
 
-import asyncio
 import os
 import sys
 import webbrowser
@@ -187,24 +186,6 @@ def ensure_authenticated(
     return _login_and_adopt(client)
 
 
-async def ensure_authenticated_async(
-    client: BookshelfClient, *, interactive: bool | None = None
-) -> models.UserResponse:
-    """The asynchronous twin of :func:`ensure_authenticated`, with the login run off the loop."""
-    if client.verified_user is not None:
-        return client.verified_user
-    rejected: AuthenticationError | None = None
-    if client.auth is not None:
-        try:
-            with _quiet_spent_login(client):
-                client.verified_user = await client.get_current_user_async()
-            return client.verified_user
-        except AuthenticationError as exc:
-            rejected = exc
-    _require_login_allowed(client, rejected, interactive)
-    return await asyncio.to_thread(_login_and_adopt, client)
-
-
 def _chose_anonymous(client: BookshelfClient) -> bool:
     return client.auth is None and client.credential is None
 
@@ -215,17 +196,9 @@ def require_authentication(client: BookshelfClient) -> None:
         ensure_authenticated(client)
 
 
-async def require_authentication_async(client: BookshelfClient) -> None:
-    """The asynchronous twin of :func:`require_authentication`."""
-    if not _chose_anonymous(client):
-        await ensure_authenticated_async(client)
-
-
 __all__ = [
     "ensure_authenticated",
-    "ensure_authenticated_async",
     "is_interactive",
     "login_user",
     "require_authentication",
-    "require_authentication_async",
 ]

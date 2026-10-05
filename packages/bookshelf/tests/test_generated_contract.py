@@ -21,9 +21,7 @@ HEADER = (
 
 
 def test_root_and_private_imports_match() -> None:
-    assert {"Bookshelf", "AsyncBookshelf", "Book", "BookEntry", "Resource"} <= set(
-        bookshelf.__all__
-    )
+    assert {"Bookshelf", "Book", "BookEntry", "Resource"} <= set(bookshelf.__all__)
     assert models is private_models
     assert OPENAPI_VERSION == PRIVATE_OPENAPI_VERSION
 

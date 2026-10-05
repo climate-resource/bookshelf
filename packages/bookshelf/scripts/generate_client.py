@@ -130,9 +130,6 @@ def _render(operation: str, build: ast.FunctionDef, parse: ast.FunctionDef) -> s
     return (
         f"    def {operation}(self{signature}) -> {returns}:\n"
         f"        {keyword}ops.parse_{operation}(self._send({call}))\n"
-        "\n"
-        f"    async def {operation}_async(self{signature}) -> {returns}:\n"
-        f"        {keyword}ops.parse_{operation}(await self._send_async({call}))\n"
     )
 
 
@@ -152,7 +149,7 @@ def _defined_methods(text: str) -> set[str]:
         for parent in ast.walk(ast.parse(text))
         if isinstance(parent, ast.ClassDef)
         for node in parent.body
-        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+        if isinstance(node, ast.FunctionDef)
     }
 
 
@@ -216,7 +213,7 @@ def generate() -> None:
     CLIENT_PATH.write_text(generated)
     _run("ruff-check", ["ruff", "check", "--fix", str(CLIENT_PATH)])
     _run("ruff-format", ["ruff", "format", str(CLIENT_PATH)])
-    print(f"Generated {len(rendered)} operation method pairs in {CLIENT_PATH.name}")
+    print(f"Generated {len(rendered)} operation methods in {CLIENT_PATH.name}")
 
 
 def main() -> int:
