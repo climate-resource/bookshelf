@@ -58,7 +58,7 @@ resources:
   description: Regional totals derived from the upstream workbook.
   format: parquet
   generated: true
-  hash: sha256:76f2a9c81692ea9816ec55e4c78334fdf976d788b8cf7f47c6a7fa2d46e31876
+  hash: sha256:6f4299fc8ffa568bd8ce57a955469c8a19c036560badb844bdebcc70b599eaad
   kind: managed
   license: CC-BY-4.0
   metadata: {}
@@ -73,4 +73,4 @@ resources:
   visibility: public
 schema_version: '3.10'
 writer:
-  pyarrow: 23.0.0
+  pyarrow: 23.0.1

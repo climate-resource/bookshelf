@@ -45,7 +45,7 @@ resources:
   visibility: public
 - format: parquet
   generated: true
-  hash: sha256:e77e41ded09ad93dc961e04fd6d093d929dffa8147346f61fa14f25c7c7aa532
+  hash: sha256:e1b05c21dc35173932733c38feeab4faceafd035d2c7c161d7827cebb85e4b97
   kind: managed
   metadata: {}
   name: totals
@@ -58,4 +58,4 @@ resources:
   visibility: public
 schema_version: '3.10'
 writer:
-  pyarrow: 23.0.0
+  pyarrow: 23.0.1
