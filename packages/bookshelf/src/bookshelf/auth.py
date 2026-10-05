@@ -23,7 +23,7 @@ def default_auth(api_url: str | None = None, *, strict: bool = False) -> httpx.A
 
     Tokens refresh ahead of expiry and once after a 401.
     A stored login whose refresh fails degrades to unauthenticated requests with a warning,
-    unless ``strict`` asks for the :class:`~bookshelf.AuthenticationError` instead.
+    unless ``strict`` asks for the [`AuthenticationError`][bookshelf.AuthenticationError] instead.
     ``api_url`` picks which Bookshelf deployment's stored login to use.
     """
     return resolve_credential(resolve_base_url(api_url, source="api_url")).auth(strict=strict)
@@ -34,7 +34,7 @@ def access_token(api_url: str | None = None, *, timeout: float = 30.0) -> str | 
 
     Returns ``None`` when no credential is configured.
     ``timeout`` bounds the token exchange, in seconds.
-    Raises :class:`~bookshelf.AuthenticationError` when the credential cannot be refreshed.
+    Raises [`AuthenticationError`][bookshelf.AuthenticationError] when the credential cannot be refreshed.
     A token rotated by the refresh is written back to the credential store.
     """
     provider = resolve_credential(resolve_base_url(api_url, source="api_url")).token_provider()

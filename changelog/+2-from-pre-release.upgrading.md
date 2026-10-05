@@ -22,6 +22,10 @@ The ones most likely to need action are:
 - `bookshelf.facade` is now the private `bookshelf._facade`,
   so import `Bookshelf` and the handles from `bookshelf`.
 - `bookshelf.models` is no longer in `__all__`, and the generated models are private.
+- The asynchronous surface is removed, so `AsyncBookshelf` and the other `Async` handles are gone.
+  Call `Bookshelf` through `asyncio.to_thread` from async code.
+- Agent identities are removed, along with `bookshelf auth switch` and the `--agent`, `--claim` and `--email` login flags.
+  A stored agent login is ignored.
 - `bookshelf.STAGING_API_URL` is removed. Pass the staging URL as `base_url` or set `$BOOKSHELF_URL`.
 - `bookshelf record --book` names the version to build, in place of `--version`.
   The old flag still works but is hidden.

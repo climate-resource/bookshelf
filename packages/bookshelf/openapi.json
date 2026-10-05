@@ -3,7 +3,7 @@
   "info": {
     "title": "Bookshelf API",
     "description": "API for Climate Resource's dataset management system",
-    "version": "v1+g451d8427"
+    "version": "v1+g658f91f3"
   },
   "paths": {
     "/livez": {
@@ -908,11 +908,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Return only latest edition per version",
+              "description": "Return only the latest edition per version, ranked among the books the caller can read and the other filters keep. Invalidated books are excluded, and drafts too unless ``status=draft``.",
               "default": false,
               "title": "Latest Only"
             },
-            "description": "Return only latest edition per version"
+            "description": "Return only the latest edition per version, ranked among the books the caller can read and the other filters keep. Invalidated books are excluded, and drafts too unless ``status=draft``."
           },
           {
             "name": "producer_version",
@@ -2017,7 +2017,7 @@
           "explorer"
         ],
         "summary": "Create Chart",
-        "description": "Create a new explorer chart.\n\nRequires authentication.\nA config with a `spec` key is a ChartSpec wrapper, anything else is the legacy config.\nEvery wrapper source must name a resource the caller can see,\nplaced under the source's volume, version, edition and resource name.\nA public or unlisted chart can only use public data, so otherwise it is a 422.",
+        "description": "Create a new explorer chart.\n\nRequires authentication, and an agent must have been claimed.\nA config with a `spec` key is a ChartSpec wrapper, anything else is the legacy config.\nEvery wrapper source must name a resource the caller can see,\nplaced under the source's volume, version, edition and resource name.\nA public or unlisted chart can only use public data, so otherwise it is a 422.",
         "operationId": "explorerCreateChart",
         "security": [
           {
@@ -2047,6 +2047,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
@@ -2173,7 +2176,7 @@
           "explorer"
         ],
         "summary": "Create Chart Draft",
-        "description": "Store a chart or figure bundle for preview and return a link to it.\n\nRequires authentication.\nNothing is saved as a chart.\nThe draft is readable by anyone with the link for 7 days.\nSources are not checked,\nso a source the viewer cannot read and that has no inline rows fails to draw\nrather than failing the post.",
+        "description": "Store a chart or figure bundle for preview and return a link to it.\n\nRequires authentication, and an agent must have been claimed.\nNothing is saved as a chart.\nThe draft is readable by anyone with the link for 7 days.\nSources are not checked,\nso a source the viewer cannot read and that has no inline rows fails to draw\nrather than failing the post.",
         "operationId": "explorerCreateChartDraft",
         "requestBody": {
           "content": {
@@ -2206,6 +2209,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
@@ -2450,6 +2456,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -2941,6 +2950,9 @@
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
         }
       }
@@ -3047,6 +3059,9 @@
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
         }
       }
@@ -3135,6 +3150,9 @@
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
         }
       }
@@ -3586,6 +3604,9 @@
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
         }
       }
@@ -4247,6 +4268,9 @@
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
         }
       }
@@ -4469,6 +4493,9 @@
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
         }
       }
@@ -4821,10 +4848,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Maximum number of rows to return.",
+              "description": "Maximum number of rows to return, at most 100000.",
               "title": "Limit"
             },
-            "description": "Maximum number of rows to return."
+            "description": "Maximum number of rows to return, at most 100000."
           },
           {
             "name": "offset",
@@ -4857,10 +4884,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Keep the N series with the largest latest value.",
+              "description": "Keep the N series with the largest latest value, at most 100000.",
               "title": "$Top N"
             },
-            "description": "Keep the N series with the largest latest value."
+            "description": "Keep the N series with the largest latest value, at most 100000."
           },
           {
             "name": "$year",
@@ -5105,10 +5132,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Keep the N series with the largest latest value.",
+              "description": "Keep the N series with the largest latest value, at most 100000.",
               "title": "$Top N"
             },
-            "description": "Keep the N series with the largest latest value."
+            "description": "Keep the N series with the largest latest value, at most 100000."
           },
           {
             "name": "$year",
@@ -6406,6 +6433,9 @@
           "409": {
             "$ref": "#/components/responses/Conflict"
           },
+          "410": {
+            "$ref": "#/components/responses/Gone"
+          },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
           }
@@ -6633,6 +6663,9 @@
           "409": {
             "$ref": "#/components/responses/Conflict"
           },
+          "410": {
+            "$ref": "#/components/responses/Gone"
+          },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
           }
@@ -6826,6 +6859,9 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/Gone"
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
@@ -9026,11 +9062,7 @@
       "BookDraftRequest": {
         "properties": {
           "version": {
-            "type": "string",
-            "maxLength": 50,
-            "minLength": 1,
-            "title": "Version",
-            "description": "Semantic version slug."
+            "$ref": "#/components/schemas/WrittenBookVersion"
           },
           "visibility": {
             "$ref": "#/components/schemas/Visibility",
@@ -10381,7 +10413,8 @@
         "enum": [
           "string",
           "number",
-          "date"
+          "date",
+          "geometry"
         ]
       },
       "ColumnMetadata": {
@@ -13134,6 +13167,19 @@
             ],
             "title": "Failure Reason"
           },
+          "expired_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expired At",
+            "description": "When the sweep deleted the preview's files, if it has."
+          },
           "proposal_url": {
             "type": "string",
             "title": "Proposal Url"
@@ -13417,11 +13463,7 @@
             "description": "Volume name."
           },
           "version": {
-            "type": "string",
-            "maxLength": 50,
-            "minLength": 1,
-            "title": "Version",
-            "description": "Book version."
+            "$ref": "#/components/schemas/WrittenBookVersion"
           }
         },
         "type": "object",
@@ -14588,11 +14630,7 @@
             "description": "Name of the parent series (volume)."
           },
           "version": {
-            "type": "string",
-            "maxLength": 50,
-            "minLength": 1,
-            "title": "Version",
-            "description": "Semantic version slug."
+            "$ref": "#/components/schemas/WrittenBookVersion"
           },
           "visibility": {
             "$ref": "#/components/schemas/Visibility",
@@ -17477,6 +17515,12 @@
         "title": "WalkResponse",
         "description": "Response for upstream/downstream walks."
       },
+      "WrittenBookVersion": {
+        "type": "string",
+        "maxLength": 50,
+        "minLength": 1,
+        "description": "Book version. A trailing `_e` followed by digits is reserved for the edition."
+      },
       "Problem": {
         "description": "RFC 7807 Problem Details, the body of every error response.\n\nSee: https://datatracker.ietf.org/doc/html/rfc7807",
         "example": {
@@ -17550,6 +17594,7 @@
     "securitySchemes": {
       "HTTPBearer": {
         "type": "http",
+        "description": "Access token",
         "scheme": "bearer"
       }
     },
@@ -17605,7 +17650,7 @@
         }
       },
       "Gone": {
-        "description": "Book Tombstoned",
+        "description": "Gone: the book was tombstoned or the preview has expired",
         "content": {
           "application/problem+json": {
             "schema": {

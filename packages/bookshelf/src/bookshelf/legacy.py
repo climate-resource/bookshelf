@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     import pandas as pd
     from scmdata import ScmRun
 
-_REMOVAL = "bookshelf 2.0"
+_REMOVAL = "bookshelf 1.1"
 _SHAPE_SUFFIXES = ("_wide", "_long")
 
 

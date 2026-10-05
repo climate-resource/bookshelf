@@ -79,7 +79,7 @@ class TokenProvider(httpx.Auth):
 
 
 class StaticToken(TokenProvider):
-    """A fixed bearer token with no refresh behaviour."""
+    """A fixed bearer token, sent exactly as given and never refreshed."""
 
     def __init__(self, token: str) -> None:
         self._token = token
@@ -278,7 +278,7 @@ class RefreshTokenExchange(_RefreshingAuth):
 class ClientCredentials(_RefreshingAuth):
     """An OAuth2 ``client_credentials`` machine credential.
 
-    A refresh is a plain re-POST of the credential pair, there is nothing to persist.
+    The pair is exchanged at ``token_url`` for an access token, and exchanged again once it expires.
     """
 
     def __init__(self, client_id: str, client_secret: str, *, token_url: str) -> None:
