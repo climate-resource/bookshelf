@@ -1,6 +1,6 @@
 [project]
 name = "bookshelf"
-version = "1.0.0rc3"
+version = "1.0.0"
 description = "Python SDK for the Bookshelf data platform"
 readme = "README.md"
 license = "MIT"
