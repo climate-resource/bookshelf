@@ -23,7 +23,7 @@ from bookshelf.publisher import recording as recording_module
 from bookshelf.publisher.bundle import Bundle
 from bookshelf.publisher.recipe import DiscoveryFields, PersonSpec, VolumeSection, _ResourceFields
 from bookshelf.publisher.record import run_record
-from bookshelf.publisher.replay import replay_bundle_sync
+from bookshelf.publisher.replay import replay_bundle
 from tests import _core_payloads as payloads
 from tests._replay import BASE_URL, replay_response
 
@@ -200,7 +200,7 @@ def sent(tmp_path_factory: pytest.TempPathFactory) -> _Sent:
         return httpx.Response(200, json=payloads.VOLUME)
 
     with Bookshelf(BASE_URL, auth=None, transport=httpx.MockTransport(handler)) as client:
-        replay_bundle_sync(Bundle.read(root / "bundle"), client)
+        replay_bundle(Bundle.read(root / "bundle"), client)
 
     return {
         pair

@@ -30,107 +30,6 @@
         "__init__": "(self, *args, **kwargs)"
       }
     },
-    "AsyncBook": {
-      "attributes": {
-        "book_id": "UUID"
-      },
-      "kind": "class",
-      "members": {
-        "__getitem__": "(self, name_in_book: str) -> AsyncBookEntry",
-        "__iter__": "(self) -> Iterator[str]",
-        "edition": "property -> int",
-        "entry_names": "property -> tuple[str, ...]",
-        "metadata": "property -> dict[str, Any]",
-        "published_at": "property -> datetime | None",
-        "status": "property -> str",
-        "version": "property -> str",
-        "visibility": "property -> Visibility",
-        "volume": "property -> str"
-      }
-    },
-    "AsyncBookEntry": {
-      "attributes": {
-        "book_id": "UUID",
-        "name_in_book": "str",
-        "tracking_id": "UUID"
-      },
-      "kind": "class",
-      "members": {
-        "as_arrow": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None) -> Table",
-        "as_df": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None, int_years: bool = False) -> DataFrame",
-        "as_long_df": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, legacy_columns: bool = False, dropna: bool = False) -> DataFrame",
-        "as_path": "async (self) -> Path",
-        "as_polars": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None) -> DataFrame",
-        "as_resource": "(self) -> AsyncResource",
-        "as_scmrun": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False) -> ScmRun",
-        "content_hash": "async (self) -> str",
-        "describe": "async (self) -> ResourceInfo",
-        "download": "async (self, destination: str | Path) -> Path",
-        "facets": "async (self, *, max_values: int = 500, filters: Filters | None = None) -> Facets",
-        "fetch": "async (self) -> bytes",
-        "preview": "async (self, *, limit: int = 100, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, order: Order | None = None, top_n: int | None = None, drop_constant: bool = False) -> DataPreview",
-        "resource_type": "async (self) -> ResourceType",
-        "series_metadata": "async (self, *, limit: int = 100, offset: int = 0) -> SeriesMetadata",
-        "visibility": "property -> Visibility"
-      }
-    },
-    "AsyncBookshelf": {
-      "attributes": {},
-      "kind": "class",
-      "members": {
-        "__aenter__": "async (self) -> Self",
-        "__aexit__": "async (self, *exc_info: object) -> None",
-        "__init__": "(self, base_url: str | None = None, *, auth: AuthInput = <from environment>, timeout: float = 30.0, book_ttl: float | None = None, cache: ContentCache | None = None, async_transport: AsyncBaseTransport | None = None) -> None",
-        "aclose": "async (self) -> None",
-        "book": "async (self, volume: str, version: str, *, edition: int | None = None, refresh: bool = False) -> AsyncBook",
-        "correct_book": "async (self, book_id: str | UUID, *, reason: str | None = None, description: str | None = None, authors: Sequence[Mapping[str, Any]] | None = None, discovery: Mapping[str, Any] | None = None, metadata: Mapping[str, Any] | None = None) -> BookCorrection",
-        "ensure_authenticated": "async (self, *, interactive: bool | None = None) -> Identity",
-        "resource": "async (self, tracking_id: str | UUID) -> AsyncResource",
-        "resource_by_hash": "async (self, content_hash: str) -> AsyncResource",
-        "search_volumes": "async (self, q: str | None = None, *, topic: Sequence[str] | None = None, keyword: Sequence[str] | None = None, region: Sequence[str] | None = None, publisher: str | None = None, license: str | None = None, coverage_year: int | None = None, resource_type: str | None = None, deprecated: bool | None = None, limit: int | None = None, offset: int | None = None) -> VolumeSearchResults",
-        "volume": "async (self, name: str) -> AsyncVolume"
-      }
-    },
-    "AsyncResource": {
-      "attributes": {
-        "tracking_id": "UUID"
-      },
-      "kind": "class",
-      "members": {
-        "as_arrow": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None) -> Table",
-        "as_df": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None, int_years: bool = False) -> DataFrame",
-        "as_long_df": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, legacy_columns: bool = False, dropna: bool = False) -> DataFrame",
-        "as_path": "async (self) -> Path",
-        "as_polars": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False, order: Order | None = None) -> DataFrame",
-        "as_scmrun": "async (self, *, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, server_side: bool = False) -> ScmRun",
-        "content_hash": "async (self) -> str",
-        "describe": "async (self) -> ResourceInfo",
-        "download": "async (self, destination: str | Path) -> Path",
-        "fetch": "async (self) -> bytes",
-        "preview": "async (self, *, limit: int = 100, filters: Filters | None = None, year_min: int | None = None, year_max: int | None = None, order: Order | None = None, top_n: int | None = None, drop_constant: bool = False) -> DataPreview",
-        "resource_type": "async (self) -> ResourceType"
-      }
-    },
-    "AsyncVolume": {
-      "attributes": {
-        "name": "str"
-      },
-      "kind": "class",
-      "members": {
-        "__contains__": "(self, version: str) -> bool",
-        "__iter__": "(self) -> Iterator[str]",
-        "__len__": "(self) -> int",
-        "book": "async (self, version: str | None = None, *, edition: int | None = None, refresh: bool = False) -> AsyncBook",
-        "description": "property -> str | None",
-        "discovery": "property -> dict[str, Any]",
-        "editions": "(self, version: str) -> tuple[int, ...]",
-        "latest": "property -> str | None",
-        "license": "property -> str | None",
-        "metadata": "property -> dict[str, Any]",
-        "title": "property -> str | None",
-        "versions": "property -> tuple[str, ...]"
-      }
-    },
     "AuthConfigurationError": {
       "attributes": {},
       "bases": [
@@ -606,6 +505,17 @@
       "kind": "value",
       "type": "str"
     },
+    "PartialRegistrationError": {
+      "attributes": {},
+      "bases": [
+        "BookshelfError",
+        "Exception"
+      ],
+      "kind": "class",
+      "members": {
+        "failed_indices": "property -> tuple[int, ...]"
+      }
+    },
     "Problem": {
       "attributes": {
         "detail": "str",
@@ -952,13 +862,6 @@
     "APIError",
     "ActionsTokenError",
     "Activity",
-    "AsyncActivity",
-    "AsyncBook",
-    "AsyncBookEntry",
-    "AsyncBookshelf",
-    "AsyncDraftBook",
-    "AsyncResource",
-    "AsyncVolume",
     "AuthConfigurationError",
     "AuthenticationError",
     "AuthenticationRequiredError",
@@ -1026,7 +929,6 @@
       "members": {
         "__init__": "(self, audience: str = 'bookshelf-read') -> None",
         "access_token": "(self, send: Callable[[Request], Response]) -> str",
-        "async_auth_flow": "(self, request: Request) -> AsyncGenerator[Request, Response]",
         "sync_auth_flow": "(self, request: Request) -> Generator[Request, Response, None]"
       }
     },
@@ -1059,7 +961,6 @@
       "members": {
         "__init__": "(self, client_id: str, client_secret: str, *, token_url: str) -> None",
         "access_token": "(self, send: Callable[[Request], Response]) -> str",
-        "async_auth_flow": "(self, request: Request) -> AsyncGenerator[Request, Response]",
         "sync_auth_flow": "(self, request: Request) -> Generator[Request, Response, None]"
       }
     },
@@ -1069,7 +970,6 @@
       "members": {
         "__init__": "(self, access_token: str | None, refresh_token: str, *, token_url: str, client_id: str, expires_at: float | None = None, on_rotate: Callable[[str, str, float | None], None] | None = None) -> None",
         "access_token": "(self, send: Callable[[Request], Response]) -> str",
-        "async_auth_flow": "(self, request: Request) -> AsyncGenerator[Request, Response]",
         "sync_auth_flow": "(self, request: Request) -> Generator[Request, Response, None]"
       }
     },

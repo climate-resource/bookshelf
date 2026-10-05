@@ -5,15 +5,14 @@ A bundle recorded through ``book.write`` must be the bundle the layered form rec
 because anything else would make the convenient path and the explicit path diverge in what they publish.
 """
 
-import inspect
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import Mock
 from uuid import UUID, uuid4
 
 import pytest
 
 from bookshelf._core.client import BookshelfClient
-from bookshelf._produce.books import AsyncDraftBook, DraftBook
+from bookshelf._produce.books import DraftBook
 from bookshelf.cache import ContentCache
 from bookshelf.publisher.bundle import Bundle, BundleManifest
 from bookshelf.publisher.recording import WRITE_ACTIVITY_KIND, RecordingSink
@@ -170,22 +169,6 @@ def test_book_add_registers_nothing(tmp_path: Path) -> None:
     assert len(bundle.manifest.resources) == before
 
 
-def test_the_async_twin_takes_the_same_arguments() -> None:
-    """Case 8: the two surfaces are one API, so ``write`` and ``add`` must take the same shape.
-
-    ``test_sync_async_parity`` now carries the draft books, which asserts this across every
-    member. This case names the two the sugar added, so their loss is reported here too.
-    """
-    for name in ("write", "add"):
-        sync = inspect.signature(getattr(DraftBook, name))
-        twin = inspect.signature(getattr(AsyncDraftBook, name))
-
-        assert list(sync.parameters) == list(twin.parameters), f"{name} signatures diverged"
-        assert [p.default for p in sync.parameters.values()] == [
-            p.default for p in twin.parameters.values()
-        ], f"{name} defaults diverged"
-
-
 def test_book_write_defaults_to_the_generic_table_type(tmp_path: Path) -> None:
     """A frame written without a type is catalogued as a table, never as a timeseries."""
     pd = pytest.importorskip("pandas")
@@ -245,19 +228,4 @@ def test_a_live_figure_registers_with_its_plotted_values_as_an_input() -> None:
     registered = activity.register.call_args_list
     assert [call.kwargs["name"] for call in registered] == ["fig-data", "fig"]
     assert registered[0].kwargs["used"] == ["raw"]
-    assert registered[1].kwargs["used"] == ["raw", values]
-
-
-async def test_a_live_async_figure_registers_with_its_plotted_values_as_an_input() -> None:
-    activity = Mock()
-    values, figure = Mock(tracking_id=uuid4()), Mock(tracking_id=uuid4())
-    activity.register = AsyncMock(side_effect=[values, figure])
-    client = Mock(spec=BookshelfClient)
-    client.attach_entry_async = AsyncMock()
-    book = AsyncDraftBook(client, Mock(book_id=uuid4()), activity=lambda: activity)
-
-    await book.write("fig", b"png", type="figure", data=b"values", used=["raw"])
-
-    registered = activity.register.call_args_list
-    assert [call.kwargs["name"] for call in registered] == ["fig-data", "fig"]
     assert registered[1].kwargs["used"] == ["raw", values]

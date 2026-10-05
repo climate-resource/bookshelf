@@ -394,3 +394,28 @@ def test_an_expired_newer_store_token_degrades_to_anonymous(tmp_path: Path) -> N
 
     assert response.status_code == 200
     assert seen == [None]
+
+
+@pytest.mark.usefixtures("no_workos_client_id")
+def test_a_newer_store_never_suggests_logging_in_or_out(tmp_path: Path) -> None:
+    """This version cannot write the store, so a login or logout would only fail."""
+    path = tmp_path / "credentials.json"
+    _store_file(path, credentials.STORE_VERSION + 1, "2000-01-01T00:00:00+00:00")
+    credential = resolve_credential(
+        NEWER_API, environ={}, store=credentials.FileCredentialStore(path)
+    )
+    auth = credential.auth()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={})
+
+    with (
+        httpx.Client(transport=httpx.MockTransport(handler), auth=auth) as client,
+        pytest.warns(UserWarning) as caught,
+    ):
+        client.get(f"{NEWER_API}/v1/books")
+
+    said = " ".join([credential.describe().remedy, *(str(w.message) for w in caught)])
+    assert "auth login" not in said
+    assert "auth logout" not in said
+    assert "Upgrade bookshelf" in said

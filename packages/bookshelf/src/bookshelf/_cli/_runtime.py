@@ -18,7 +18,12 @@ import typer
 
 from bookshelf._core import errors
 from bookshelf._core.config import resolve_base_url
-from bookshelf._core.resolution import LOGIN_REMEDY, CredentialSource, resolve_credential
+from bookshelf._core.resolution import (
+    LOGIN_REMEDY,
+    NEWER_STORE_REMEDY,
+    CredentialSource,
+    resolve_credential,
+)
 from bookshelf._produce.provenance import _CodeRefError
 
 EXIT_OK = 0
@@ -220,7 +225,20 @@ def iso(moment: datetime | None) -> str | None:
     return moment.astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
+# An undeclared 4xx, such as a proxy's JSON 403, still says what kind of refusal it was.
+_EXIT_BY_CLIENT_STATUS = {
+    400: EXIT_USAGE,
+    401: EXIT_AUTH_REQUIRED,
+    403: EXIT_FORBIDDEN,
+    404: EXIT_NOT_FOUND,
+    409: EXIT_CONFLICT,
+    422: EXIT_USAGE,
+}
+
+
 def _exit_code_for(exc: errors.BookshelfError) -> int:
+    if isinstance(exc, errors.UnexpectedResponseError) and 400 <= exc.status_code < 500:
+        return _EXIT_BY_CLIENT_STATUS.get(exc.status_code, EXIT_UNEXPECTED)
     if isinstance(exc, errors.AuthenticationError | errors.AuthenticationRequiredError):
         return EXIT_AUTH_REQUIRED
     if isinstance(exc, errors.ForbiddenError):
@@ -253,10 +271,17 @@ def _forbidden_remedy() -> str:
     described = resolve_credential(base_url()).describe()
     if described.source not in (CredentialSource.STORED_LOGIN, CredentialSource.NONE):
         return f"Ask an organisation admin to grant the required permission to {described.label}."
+    if described.remedy == NEWER_STORE_REMEDY:
+        return f"Ask an organisation admin to grant the required permission. {NEWER_STORE_REMEDY}"
     return (
         "Ask an organisation admin to grant the required permission, "
         "then run 'bookshelf auth login' again to refresh it."
     )
+
+
+def with_remedy(detail: str, remedy: str) -> str:
+    """Append a remedy to an error detail, unless the detail already ends with it."""
+    return detail if detail.endswith(remedy) else f"{detail} {remedy}"
 
 
 def _remedy_for(exit_code: int) -> str | None:
@@ -297,7 +322,7 @@ def command_errors() -> Generator[None]:
             detail = str(exc)
         note(f"Error: {detail}")
         remedy = _remedy_for(exit_code)
-        if remedy is not None:
+        if remedy is not None and not detail.endswith(remedy):
             note(remedy)
         raise typer.Exit(code=exit_code) from exc
 
@@ -327,4 +352,5 @@ __all__ = [
     "iso",
     "note",
     "set_api_url",
+    "with_remedy",
 ]

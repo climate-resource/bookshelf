@@ -1,10 +1,9 @@
 """Behavioural tests for the credential providers.
 
 Every provider is exercised through real httpx clients over MockTransport,
-so the sans-io flow, the refresh yields, and the locking are all covered on both surfaces.
+so the sans-io flow, the refresh yields, and the locking are all covered.
 """
 
-import asyncio
 import json
 import time
 import warnings
@@ -89,19 +88,9 @@ class TokenIssuer:
             return httpx.Response(401, json={"detail": "expired"})
         return httpx.Response(200, json={"ok": True})
 
-    async def async_call(self, request: httpx.Request) -> httpx.Response:
-        if str(request.url) == TOKEN_URL and self._token_delay:
-            await asyncio.sleep(self._token_delay)
-            return self._token_response(request)
-        return self(request)
-
 
 def sync_client(issuer: TokenIssuer, auth: httpx.Auth) -> httpx.Client:
     return httpx.Client(transport=httpx.MockTransport(issuer), auth=auth)
-
-
-def async_client(issuer: TokenIssuer, auth: httpx.Auth) -> httpx.AsyncClient:
-    return httpx.AsyncClient(transport=httpx.MockTransport(issuer.async_call), auth=auth)
 
 
 def test_decode_jwt_expiry_reads_exp_claim() -> None:
@@ -110,18 +99,11 @@ def test_decode_jwt_expiry_reads_exp_claim() -> None:
     assert decode_jwt_expiry("a.!!!.c") is None
 
 
-def test_static_token_sets_bearer_header_on_both_surfaces() -> None:
+def test_static_token_sets_bearer_header() -> None:
     issuer = TokenIssuer()
     auth = StaticToken("fixed-token")
     with sync_client(issuer, auth) as client:
         client.get(API_URL)
-    assert issuer.api_tokens == ["fixed-token"]
-
-
-async def test_static_token_async_surface() -> None:
-    issuer = TokenIssuer()
-    async with async_client(issuer, StaticToken("fixed-token")) as client:
-        await client.get(API_URL)
     assert issuer.api_tokens == ["fixed-token"]
 
 
@@ -179,16 +161,6 @@ def test_second_401_raises_authentication_error() -> None:
             client.get(API_URL)
 
 
-async def test_second_401_raises_authentication_error_async() -> None:
-    issuer = TokenIssuer()
-    auth = ClientCredentials("cid", "secret", token_url=TOKEN_URL)
-    async with async_client(issuer, auth) as client:
-        await client.get(API_URL)
-        issuer.rejected_tokens.update({"tok-1", "tok-2"})
-        with pytest.raises(AuthenticationError):
-            await client.get(API_URL)
-
-
 def test_refresh_failure_raises_authentication_error() -> None:
     issuer = TokenIssuer(token_status=400)
     auth = ClientCredentials("cid", "secret", token_url=TOKEN_URL)
@@ -214,30 +186,6 @@ def test_single_flight_refresh_across_threads() -> None:
         responses = list(pool.map(lambda _: client.get(API_URL), range(5)))
     assert all(r.status_code == 200 for r in responses)
     assert issuer.minted == 1
-
-
-async def test_single_flight_refresh_across_coroutines() -> None:
-    issuer = TokenIssuer(token_delay=0.05)
-    auth = ClientCredentials("cid", "secret", token_url=TOKEN_URL)
-    async with async_client(issuer, auth) as client:
-        responses = await asyncio.gather(*(client.get(API_URL) for _ in range(5)))
-    assert all(r.status_code == 200 for r in responses)
-    assert issuer.minted == 1
-
-
-def test_one_provider_serves_both_surfaces() -> None:
-    issuer = TokenIssuer()
-    auth = ClientCredentials("cid", "secret", token_url=TOKEN_URL)
-
-    async def use_async() -> None:
-        async with async_client(issuer, auth) as client:
-            await client.get(API_URL)
-
-    with sync_client(issuer, auth) as client:
-        client.get(API_URL)
-    asyncio.run(use_async())
-    assert issuer.minted == 1
-    assert issuer.api_tokens == ["tok-1", "tok-1"]
 
 
 def test_refresh_token_exchange_sends_refresh_grant() -> None:
@@ -331,8 +279,7 @@ def test_locks_are_not_held_across_api_calls() -> None:
     auth = ClientCredentials("cid", "secret", token_url=TOKEN_URL)
     with sync_client(issuer, auth) as client:
         client.get(API_URL)
-    assert not auth._sync_lock.locked()
-    assert not auth._async_lock.locked()
+    assert not auth._lock.locked()
 
 
 def test_access_token_exchanges_when_one_is_due_and_persists_the_rotation() -> None:
@@ -468,28 +415,6 @@ def test_anonymous_fallback_raises_once_the_request_has_been_sent() -> None:
             client.get(API_URL)
 
 
-async def test_anonymous_fallback_degrades_on_the_async_surface() -> None:
-    issuer = TokenIssuer(token_status=400)
-    auth = fallback(ClientCredentials("cid", "secret", token_url=TOKEN_URL))
-    async with async_client(issuer, auth) as client:
-        with pytest.warns(UserWarning, match="Falling back."):
-            response = await client.get(API_URL)
-        await client.get(API_URL)
-    assert response.status_code == 200
-    assert issuer.api_tokens == ["", ""]
-    assert len(issuer.token_requests) == 1
-
-
-async def test_anonymous_fallback_raises_after_an_async_request_has_been_sent() -> None:
-    issuer = TokenIssuer()
-    auth = fallback(ClientCredentials("cid", "secret", token_url=TOKEN_URL))
-    async with async_client(issuer, auth) as client:
-        await client.get(API_URL)
-        issuer.rejected_tokens.update({"tok-1", "tok-2"})
-        with pytest.raises(AuthenticationError):
-            await client.get(API_URL)
-
-
 ACTIONS_REQUEST_URL = "https://actions.test/token?api-version=2.0"
 
 
@@ -552,16 +477,6 @@ def test_a_second_refusal_raises() -> None:
         pytest.raises(AuthenticationError),
     ):
         client.get(API_URL)
-
-
-@pytest.mark.usefixtures("actions_env")
-async def test_actions_token_on_the_async_surface() -> None:
-    runtime = ActionsRuntime(rejections=1)
-    auth = ActionsOidcToken(READ_AUDIENCE)
-    async with httpx.AsyncClient(transport=httpx.MockTransport(runtime), auth=auth) as client:
-        response = await client.get(API_URL)
-    assert response.status_code == 200
-    assert runtime.api_tokens == ["oidc-1", "oidc-2"]
 
 
 def test_outside_a_job_the_missing_runtime_variables_are_named(

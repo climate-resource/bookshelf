@@ -1,6 +1,5 @@
 """Concurrent fetches of one hash download it once, whether they race in threads, tasks or processes."""
 
-import asyncio
 import errno
 import hashlib
 import multiprocessing
@@ -77,22 +76,6 @@ def test_racing_processes_download_once(tmp_path: Path) -> None:
     assert log.read_text() == "x"
 
 
-async def test_racing_tasks_download_once(tmp_path: Path) -> None:
-    cache = ContentCache(tmp_path / "cache")
-    downloads = 0
-
-    async def download(destination: Path) -> None:
-        nonlocal downloads
-        downloads += 1
-        await asyncio.sleep(0.2)
-        destination.write_bytes(CONTENT)
-
-    paths = await asyncio.gather(*(cache.fetch_async(CONTENT_HASH, download) for _ in range(4)))
-
-    assert len(set(paths)) == 1
-    assert downloads == 1
-
-
 def test_a_mismatched_download_is_not_stored(tmp_path: Path) -> None:
     cache = ContentCache(tmp_path)
 
@@ -111,19 +94,6 @@ def test_a_cache_removed_mid_session_is_recreated(tmp_path: Path) -> None:
     shutil.rmtree(base)
 
     fetched = cache.fetch(CONTENT_HASH, lambda path: path.write_bytes(CONTENT))
-
-    assert fetched.read_bytes() == CONTENT
-
-
-async def test_a_cache_removed_mid_session_is_recreated_async(tmp_path: Path) -> None:
-    base = tmp_path / "cache"
-    cache = ContentCache(base)
-    shutil.rmtree(base)
-
-    async def download(path: Path) -> None:
-        path.write_bytes(CONTENT)
-
-    fetched = await cache.fetch_async(CONTENT_HASH, download)
 
     assert fetched.read_bytes() == CONTENT
 
@@ -158,16 +128,6 @@ def test_a_read_only_cache_raises_a_cache_directory_error(read_only: Path) -> No
 
     with pytest.raises(CacheDirectoryError, match=f"cache directory {read_only}"):
         cache.fetch(CONTENT_HASH, lambda path: path.write_bytes(CONTENT))
-
-
-async def test_a_read_only_cache_raises_a_cache_directory_error_async(read_only: Path) -> None:
-    cache = ContentCache(read_only)
-
-    async def download(path: Path) -> None:
-        path.write_bytes(CONTENT)
-
-    with pytest.raises(CacheDirectoryError, match="cache directory"):
-        await cache.fetch_async(CONTENT_HASH, download)
 
 
 def test_a_cache_made_read_only_after_use_raises_a_cache_directory_error(tmp_path: Path) -> None:

@@ -15,7 +15,7 @@ from bookshelf._produce.types import AuthorInput, HasTrackingId, UsedInput
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
 
 if TYPE_CHECKING:
-    from bookshelf._produce.activities import Activity, AsyncActivity
+    from bookshelf._produce.activities import Activity
 
 
 DEFAULT_WRITE_TYPE = "tabular"
@@ -70,8 +70,8 @@ def _check_figure_data(type: str | models.ResourceType, data: object | None) -> 
         )
 
 
-class _DraftBookBase(Describable):
-    """The attachment record and self-description both draft flavours share."""
+class DraftBook(Describable):
+    """Mutable draft-book handle."""
 
     _title = "Bookshelf Draft Book"
     metadata: models.BookDetail
@@ -97,10 +97,6 @@ class _DraftBookBase(Describable):
                 "Attached": self._attached,
             },
         )
-
-
-class DraftBook(_DraftBookBase):
-    """Mutable synchronous draft-book handle."""
 
     def __init__(
         self,
@@ -249,131 +245,4 @@ class DraftBook(_DraftBookBase):
         return self
 
 
-class AsyncDraftBook(_DraftBookBase):
-    """Mutable asynchronous draft-book handle."""
-
-    _title = "Bookshelf Async Draft Book"
-
-    def __init__(
-        self,
-        client: BookshelfClient,
-        detail: models.BookDetail,
-        *,
-        activity: Callable[[], AsyncActivity] | None = None,
-    ) -> None:
-        self._client = client
-        self.metadata = detail
-        self._activity = activity
-        self._attached: list[str] = []
-
-    def _writing_activity(self) -> AsyncActivity:
-        if self._activity is None:
-            raise RuntimeError(
-                "book.write needs the activity its sink opens, and this book was drafted without one. "
-                "Register through bs.activity(...) and attach with book.add."
-            )
-        return self._activity()
-
-    async def write(
-        self,
-        name: str,
-        obj: object,
-        *,
-        type: str | models.ResourceType = DEFAULT_WRITE_TYPE,
-        used: Sequence[UsedInput] = (),
-        data: object | None = None,
-        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
-        visibility: VisibilityInput = INHERIT,
-        tags: Sequence[str] = (),
-        description: str | None = None,
-        authors: Sequence[AuthorInput] | None = None,
-        doi: str | None = None,
-        citation: str | None = None,
-        license: str | None = None,
-        license_url: str | None = None,
-        caption: str | None = None,
-        alt_text: str | None = None,
-        metadata: Mapping[str, Any] | None = None,
-        format: str | None = None,
-    ) -> Any:  # noqa: ANN401
-        """Register one output and attach it under ``name`` in a single call.
-
-        The asynchronous twin of :meth:`DraftBook.write`, with the same bundle result.
-        """
-        _check_figure_data(type, data)
-        activity = self._writing_activity()
-        helpers.check_figure_facts(
-            type,
-            helpers.visibility(visibility, activity.default_visibility),
-            name=name,
-            caption=caption,
-            alt_text=alt_text,
-        )
-        if data is not None:
-            sidecar = await self.write(
-                _sidecar_name(name), data, type="tabular", used=used, visibility=visibility
-            )
-            used = [*used, sidecar]
-        resource = await activity.register(
-            obj,
-            type=type,
-            name=name,
-            used=used,
-            visibility=visibility,
-            tags=tags,
-            description=description,
-            authors=authors,
-            doi=doi,
-            citation=citation,
-            license=license,
-            license_url=license_url,
-            caption=caption,
-            alt_text=alt_text,
-            metadata=metadata,
-            format=format,
-        )
-        await self.attach(resource, name_in_book=name, data_dictionary=data_dictionary)
-        return resource
-
-    async def add(self, *resources: HasTrackingId) -> Self:
-        """Attach already registered resources, each under the name it registered as."""
-        for resource in resources:
-            await self.attach(resource, name_in_book=_written_name(resource))
-        return self
-
-    @property
-    def book_id(self) -> UUID:
-        return self.metadata.book_id
-
-    @property
-    def status(self) -> str:
-        return self.metadata.status
-
-    async def attach(
-        self,
-        resource: HasTrackingId | str | UUID,
-        *,
-        name_in_book: str,
-        data_dictionary: Sequence[models.DataDictionaryEntry] | None = None,
-    ) -> models.BookEntryAttachResponse:
-        """Attach a resource under a book-local name and optional entry dictionary.
-
-        Omitting ``data_dictionary`` preserves the dictionary on an existing entry.
-        Pass an empty sequence to clear it.
-        """
-        request = _attach_request(
-            resource,
-            name_in_book=name_in_book,
-            data_dictionary=data_dictionary,
-        )
-        response = await self._client.attach_entry_async(str(self.book_id), request)
-        self._record_attached(name_in_book)
-        return response
-
-    async def publish(self) -> Self:
-        """Publish the assembled draft and update this handle in place."""
-        self.metadata = await self._client.publish_book_async(str(self.book_id))
-        return self
-
-
-__all__ = ["DEFAULT_WRITE_TYPE", "AsyncDraftBook", "DraftBook"]
+__all__ = ["DEFAULT_WRITE_TYPE", "DraftBook"]

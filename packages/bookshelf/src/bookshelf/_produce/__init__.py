@@ -1,7 +1,7 @@
 """Producer-side facade implementation."""
 
-from bookshelf._produce.activities import Activity, AsyncActivity
-from bookshelf._produce.books import AsyncDraftBook, DraftBook
+from bookshelf._produce.activities import Activity
+from bookshelf._produce.books import DraftBook
 from bookshelf._produce.types import (
     PartialRegistrationError,
     RegisterItem,
@@ -12,8 +12,6 @@ from bookshelf._produce.types import (
 
 __all__ = [
     "Activity",
-    "AsyncActivity",
-    "AsyncDraftBook",
     "DraftBook",
     "PartialRegistrationError",
     "RegisterItem",

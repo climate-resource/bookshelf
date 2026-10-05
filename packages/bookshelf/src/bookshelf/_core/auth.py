@@ -1,8 +1,7 @@
 """Credential providers for the Bookshelf SDK.
 
 Every provider is an ``httpx.Auth`` whose flow logic is sans-io:
-a token refresh is expressed as a yielded request,
-so one provider object serves both the sync and async client surfaces.
+a token refresh is expressed as a yielded request.
 Token state lives in the provider,
 so multiple clients can share one provider and refresh once between them.
 
@@ -12,7 +11,7 @@ Refresh mechanics shared by the exchanging providers:
   checked at request time inside the flow
 - on a 401 despite that, refresh once and replay once, a second 401 raises
   :class:`~bookshelf._core.errors.AuthenticationError`
-- single-flight refresh behind per-surface locks, because parallel refreshes
+- single-flight refresh behind one lock, because parallel refreshes
   with a single-use rotating refresh token break the rotation chain
 - no background refresh task
 
@@ -21,14 +20,13 @@ so a request carrying a consumed stream body cannot be replayed.
 Every operation on this client sends bytes or JSON, and presigned uploads skip auth entirely.
 """
 
-import asyncio
 import base64
 import binascii
 import json
 import threading
 import time
 import warnings
-from collections.abc import AsyncGenerator, Callable, Generator, Iterator
+from collections.abc import Callable, Generator, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 
@@ -119,8 +117,7 @@ class _RefreshingAuth(TokenProvider):
         # It is refreshed before first use.
         # A token this provider minted is not.
         self._minted = False
-        self._sync_lock = threading.Lock()
-        self._async_lock = asyncio.Lock()
+        self._lock = threading.Lock()
 
     def _refresh_request(self) -> httpx.Request:
         raise NotImplementedError
@@ -170,7 +167,7 @@ class _RefreshingAuth(TokenProvider):
 
     def access_token(self, send: Callable[[httpx.Request], httpx.Response], /) -> str:
         if self._needs_refresh():
-            with self._sync_lock:
+            with self._lock:
                 if self._needs_refresh():
                     token_response = send(self._refresh_request())
                     token_response.read()
@@ -214,7 +211,7 @@ class _RefreshingAuth(TokenProvider):
             # The lock is held across the refresh yield,
             # so concurrent callers wait for one exchange
             # instead of racing their own.
-            with self._sync_lock:
+            with self._lock:
                 if self._needs_refresh():
                     token_response = yield self._refresh_request()
                     token_response.read()
@@ -223,34 +220,11 @@ class _RefreshingAuth(TokenProvider):
         response = yield self._authorized(request)
         if response.status_code != 401:
             return
-        with self._sync_lock:
+        with self._lock:
             # Another caller may already have replaced the rejected token.
             if self._access_token == sent_token:
                 token_response = yield self._refresh_request()
                 token_response.read()
-                self._apply_token_response(token_response)
-        response = yield self._authorized(request)
-        if response.status_code == 401:
-            self._raise_still_unauthorized(request, response)
-
-    async def async_auth_flow(
-        self, request: httpx.Request
-    ) -> AsyncGenerator[httpx.Request, httpx.Response]:
-        if self._needs_refresh():
-            async with self._async_lock:
-                if self._needs_refresh():
-                    token_response = yield self._refresh_request()
-                    await token_response.aread()
-                    self._apply_token_response(token_response)
-        sent_token = self._access_token
-        response = yield self._authorized(request)
-        if response.status_code != 401:
-            return
-        async with self._async_lock:
-            # Another caller may already have replaced the rejected token.
-            if self._access_token == sent_token:
-                token_response = yield self._refresh_request()
-                await token_response.aread()
                 self._apply_token_response(token_response)
         response = yield self._authorized(request)
         if response.status_code == 401:
@@ -403,28 +377,6 @@ class AnonymousFallback(httpx.Auth):
                 response = yield outgoing
                 outgoing = flow.send(response)
         except StopIteration:
-            return
-        except AuthenticationError as exc:
-            if sent:
-                raise
-            self._degrade(exc)
-        yield request
-
-    async def async_auth_flow(
-        self, request: httpx.Request
-    ) -> AsyncGenerator[httpx.Request, httpx.Response]:
-        if self._degraded:
-            yield request
-            return
-        flow = self.inner.async_auth_flow(request)
-        sent = False
-        try:
-            outgoing = await anext(flow)
-            while True:
-                sent = sent or outgoing is request
-                response = yield outgoing
-                outgoing = await flow.asend(response)
-        except StopAsyncIteration:
             return
         except AuthenticationError as exc:
             if sent:

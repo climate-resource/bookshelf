@@ -1,7 +1,7 @@
 # Bookshelf
 
 `bookshelf` is the official Python SDK for the Bookshelf data platform.
-It supports synchronous and asynchronous data access,
+It supports data access,
 managed resource publishing, record and replay workflows, and command line authentication and discovery.
 
 [![PyPI](https://img.shields.io/pypi/v/bookshelf.svg)](https://pypi.org/project/bookshelf/)

@@ -23,10 +23,7 @@ UPDATE = os.environ.get("UPDATE_SURFACE_GOLDEN") == "1"
 PROVISIONAL = frozenset(
     {
         "Activity",
-        "AsyncActivity",
-        "AsyncDraftBook",
         "DraftBook",
-        "PartialRegistrationError",
         "RegisterItem",
         "RegistrationFailure",
         "RegistrationSuccess",
@@ -38,11 +35,8 @@ PROVISIONAL = frozenset(
 CLIENT_METHODS = (
     "__init__",
     "close",
-    "aclose",
     "__enter__",
     "__exit__",
-    "__aenter__",
-    "__aexit__",
     "ensure_authenticated",
     "search_volumes",
     "volume",
@@ -55,16 +49,16 @@ CACHE_MEMBERS = ("__init__", "get", "summary", "evict_lru", "clear")
 # The SDK builds these handles, so their constructors are not part of the promise.
 HANDLES = frozenset(
     {
-        "AsyncBook",
-        "AsyncBookEntry",
-        "AsyncResource",
-        "AsyncVolume",
         "Book",
         "BookEntry",
         "Resource",
         "Volume",
     }
 )
+# Promised classes whose members hand back producer types or generated models, which are provisional.
+PROVISIONAL_MEMBERS = {
+    "PartialRegistrationError": frozenset({"__init__", "successful_outcomes"}),
+}
 DUNDERS = ("__getitem__", "__iter__", "__len__", "__contains__")
 
 
@@ -137,7 +131,7 @@ def _public_names(cls: type) -> list[str]:
     }
     if cls.__name__ not in HANDLES:
         names.add("__init__")
-    return sorted(names)
+    return sorted(names - PROVISIONAL_MEMBERS.get(cls.__name__, frozenset()))
 
 
 def _attributes(cls: type) -> dict[str, str]:
@@ -153,7 +147,7 @@ def _attributes(cls: type) -> dict[str, str]:
 def _describe_class(name: str, cls: type) -> dict[str, Any]:
     if issubclass(cls, enum.Enum):
         return {"kind": "enum", "members": {member.name: member.value for member in cls}}
-    if name in ("Bookshelf", "AsyncBookshelf"):
+    if name == "Bookshelf":
         members = CLIENT_METHODS
     elif name == "ContentCache":
         members = CACHE_MEMBERS
@@ -231,3 +225,6 @@ def test_the_snapshot_covers_constructors_error_members_and_attributes() -> None
     assert root["Book"]["attributes"]["book_id"] == "UUID"
     assert root["BookEntry"]["attributes"]["name_in_book"] == "str"
     assert "__init__" not in root["Book"]["members"]
+    assert root["PartialRegistrationError"]["members"] == {
+        "failed_indices": "property -> tuple[int, ...]"
+    }

@@ -41,7 +41,7 @@ bookshelf = "bookshelf._cli:main"
 
 [project.optional-dependencies]
 scmrun = ["scmdata>=0.18"]
-figures = ["matplotlib>=3.10"]
+figures = ["matplotlib>=3.10", "seaborn>=0.13"]
 publish = [
     "gitpython>=3.1",
     "nbconvert>=7.3",
@@ -60,8 +60,6 @@ only-include = ["src/bookshelf", "openapi.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
 markers = ["integration: needs a live Bookshelf deployment, selected by BOOKSHELF_URL"]
 
 [tool.ruff]
@@ -122,7 +120,6 @@ dev = [
 ]
 test = [
     "pytest>=8",
-    "pytest-asyncio>=0.23",
     "pytest-cov>=6",
     "pyyaml>=6.0.2",
     "types-PyYAML>=6.0",

@@ -50,7 +50,7 @@ def cache_info(
         summary = ContentCache().summary()
         document = {
             "path": str(summary.path),
-            "entries": summary.entries,
+            "entry_count": summary.entries,
             "total_size_bytes": summary.total_bytes,
             "max_size_bytes": summary.max_bytes,
             "oldest": _iso_mtime(summary.oldest_mtime),
@@ -62,11 +62,14 @@ def cache_info(
 @cache_app.command("prune")
 def cache_prune(
     max_bytes: int = typer.Option(
-        DEFAULT_MAX_BYTES, "--max-bytes", min=0, help="Cap to prune the cache down to."
+        DEFAULT_MAX_BYTES, "--max-size-bytes", min=0, help="Cap to prune the cache down to."
     ),
+    legacy_max_bytes: int | None = typer.Option(None, "--max-bytes", min=0, hidden=True),
     json_output: bool = typer.Option(False, "--json", help="Emit the result as JSON."),
 ) -> None:
     """Evict oldest entries until the cache fits the cap."""
+    if legacy_max_bytes is not None:
+        max_bytes = legacy_max_bytes
     with _usable_cache():
         cache = ContentCache()
         freed = cache.evict_lru(max_bytes=max_bytes)

@@ -1,6 +1,5 @@
-"""Converter rules shared by the synchronous and asynchronous resource handles.
+"""Converter rules for the resource handles.
 
-These helpers hold the decisions that both transport surfaces make.
 The handles themselves only choose how to fetch the data.
 """
 
@@ -41,6 +40,9 @@ _NOTHING_BUT_BYTES = (_BYTE_READERS, ())
 
 class UnsupportedConversionError(BookshelfError):
     """A converter does not apply to the resource type."""
+
+
+UnsupportedConversionError.__module__ = "bookshelf"
 
 
 def require_frame_support(resource_type: models.ResourceType, caller: str) -> None:

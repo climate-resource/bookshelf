@@ -516,3 +516,85 @@ def test_token_from_an_expired_newer_store_is_a_credential_error(
     assert result.stdout == ""
     assert "newer bookshelf" in " ".join(result.stderr.split())
     assert path.read_text() == newer
+
+
+def _write_newer_store(*, expires_at: str | None = None, refresh_token: str | None = None) -> str:
+    record: dict[str, str] = {"access_token": "theirs", "api_url": API_URL, "kind": "user"}
+    if expires_at is not None:
+        record["expires_at"] = expires_at
+    if refresh_token is not None:
+        record["refresh_token"] = refresh_token
+    newer = json.dumps(
+        {
+            "version": credentials.STORE_VERSION + 1,
+            "records": {f"{API_URL}|user": record},
+            "active": {API_URL: "user"},
+        }
+    )
+    credentials.credentials_path().write_text(newer)
+    return newer
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [[], ["--no-browser"]],
+)
+def test_login_against_a_newer_store_exits_before_any_network_call(
+    monkeypatch: pytest.MonkeyPatch, arguments: list[str]
+) -> None:
+    from bookshelf._cli import auth as auth_cli
+
+    def no_network(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("login reached the network")
+
+    monkeypatch.setattr(auth_cli.session, "login_user", no_network)
+    monkeypatch.setattr(auth_cli, "BookshelfClient", no_network)
+    monkeypatch.setenv("BOOKSHELF_WORKOS_CLIENT_ID", "client")
+    newer = _write_newer_store()
+
+    result = runner.invoke(app, ["auth", "login", *arguments])
+
+    stderr = " ".join(_ANSI.sub("", result.stderr).split())
+    assert result.exit_code == 2, result.output
+    assert "newer bookshelf" in stderr
+    assert "auth login" not in stderr
+    assert credentials.credentials_path().read_text() == newer
+
+
+@pytest.mark.parametrize("arguments", [[], ["--no-browser"]])
+def test_login_without_a_workos_client_id_is_a_usage_error(
+    monkeypatch: pytest.MonkeyPatch, arguments: list[str]
+) -> None:
+    import webbrowser
+
+    monkeypatch.setattr(webbrowser, "open", lambda *_args, **_kwargs: False)
+
+    result = runner.invoke(app, ["auth", "login", *arguments])
+
+    assert result.exit_code == 2, result.output
+    assert "BOOKSHELF_WORKOS_CLIENT_ID" in _ANSI.sub("", result.stderr)
+
+
+def test_token_from_an_expired_newer_store_suggests_only_what_works(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BOOKSHELF_WORKOS_CLIENT_ID", "client")
+    _write_newer_store(expires_at="2000-01-01T00:00:00+00:00", refresh_token="single-use")
+
+    result = runner.invoke(app, ["auth", "token"])
+
+    stderr = " ".join(_ANSI.sub("", result.stderr).split())
+    assert result.exit_code == 3
+    assert "BOOKSHELF_TOKEN Run" not in stderr
+    assert "BOOKSHELF_TOKEN." in stderr
+    assert "auth login" not in stderr
+    assert "auth logout" not in stderr
+
+
+def test_list_marks_an_expired_token_in_a_newer_store_as_needing_login() -> None:
+    _write_newer_store(expires_at="2000-01-01T00:00:00+00:00", refresh_token="single-use")
+
+    result = runner.invoke(app, ["auth", "list", "--json"])
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["needs_login"] is True

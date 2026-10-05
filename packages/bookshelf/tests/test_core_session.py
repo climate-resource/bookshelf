@@ -1,6 +1,7 @@
 """Confirming a client's credential, and logging in when a person can."""
 
 import contextvars
+import json
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -8,7 +9,7 @@ from typing import Any
 import httpx
 import pytest
 
-from bookshelf import AsyncBookshelf, AuthenticationRequiredError, Bookshelf, BookshelfError
+from bookshelf import AuthenticationRequiredError, Bookshelf, BookshelfError
 from bookshelf._core import credentials, session
 from bookshelf._core.auth import AnonymousFallback, StaticToken
 from bookshelf._core.credentials import StoredCredentials
@@ -338,16 +339,21 @@ def test_a_failure_other_than_rejection_is_raised(monkeypatch: pytest.MonkeyPatc
     assert calls == []
 
 
-async def test_the_async_client_logs_in_off_the_loop(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(session, "is_interactive", lambda: True)
+@pytest.mark.parametrize("interactive", [True, False])
+def test_a_newer_store_is_never_offered_a_login(
+    monkeypatch: pytest.MonkeyPatch, interactive: bool
+) -> None:
+    """The login could not be saved, so it would only fail after the person signed in."""
     monkeypatch.setattr(session, "login_user", _fake_login(calls := []))
-    recorded: list[httpx.Request] = []
-    transport = httpx.MockTransport(_api(recorded, accept="fresh"))
+    credentials.credentials_path().write_text(
+        json.dumps({"version": credentials.STORE_VERSION + 1, "records": {}, "active": {}})
+    )
 
-    async with AsyncBookshelf(BASE_URL, async_transport=transport) as bs:
-        await bs.draft_book("primap-hist", version="1.0.0")
-        user = await bs.ensure_authenticated()
+    with (
+        Bookshelf(BASE_URL, transport=httpx.MockTransport(_api([], accept=None))) as bs,
+        pytest.raises(AuthenticationRequiredError, match="newer bookshelf") as excinfo,
+    ):
+        bs.ensure_authenticated(interactive=interactive)
 
-    assert user.email == USER["email"]
-    assert calls == [BASE_URL]
-    assert recorded[-1].headers["Authorization"] == "Bearer fresh"
+    assert "auth login" not in str(excinfo.value)
+    assert calls == []

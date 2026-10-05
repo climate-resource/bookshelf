@@ -1,4 +1,4 @@
-"""The producer surface the public facades bind to, reached through the facade itself."""
+"""The producer surface the public facade binds to, reached through the facade itself."""
 
 import hashlib
 import inspect
@@ -11,9 +11,9 @@ import httpx
 import pytest
 
 from bookshelf._core.errors import BookshelfError
-from bookshelf._facade import AsyncBookshelf, Bookshelf
+from bookshelf._facade import Bookshelf
 from bookshelf._generated import models
-from bookshelf._produce.facade import AsyncLiveSink, LiveSink
+from bookshelf._produce.facade import LiveSink
 from bookshelf._produce.types import RegisterItem
 from bookshelf.publisher.bundle import Bundle
 from bookshelf.publisher.recording import RecordingActivity, RecordingBookshelf, RecordingSink
@@ -49,12 +49,6 @@ def _body(request: httpx.Request) -> dict[str, Any]:
 
 def _sync(recorded: list[httpx.Request], status: int, payload: Any) -> Bookshelf:
     return Bookshelf(BASE_URL, auth=None, transport=_transport(recorded, status, payload))
-
-
-def _async(recorded: list[httpx.Request], status: int, payload: Any) -> AsyncBookshelf:
-    return AsyncBookshelf(
-        BASE_URL, auth=None, async_transport=_transport(recorded, status, payload)
-    )
 
 
 def test_draft_book_wraps_the_optional_strings_the_api_takes_as_models() -> None:
@@ -202,23 +196,6 @@ def test_register_file_uploads_then_catalogues_the_bytes(tmp_path: Path) -> None
     assert "external_uri" not in item or item["external_uri"] is None
 
 
-async def test_register_file_has_an_async_twin(tmp_path: Path) -> None:
-    data = tmp_path / "raw.bin"
-    data.write_bytes(b"opaque")
-    recorded: list[httpx.Request] = []
-
-    async with AsyncBookshelf(
-        BASE_URL, auth=None, async_transport=_upload_then_register(recorded)
-    ) as client:
-        resource = await client.register_file(type="binary", path=data)
-
-    assert resource.tracking_id == UUID(TRACKING_ID)
-    assert [request.url.path for request in recorded] == [
-        "/v1/resources/uploads",
-        "/v1/resources/registrations",
-    ]
-
-
 def test_a_fact_nobody_stated_stays_off_the_wire() -> None:
     """The platform takes authors as a list or not at all, so an unstated one is omitted, never null."""
     recorded: list[httpx.Request] = []
@@ -238,27 +215,6 @@ def test_register_external_raises_when_the_batch_comes_back_empty() -> None:
         pytest.raises(BookshelfError, match="no registration outcome"),
     ):
         client.register_external(type="tabular", uri="https://example.invalid/data.csv")
-
-
-async def test_the_async_producer_surface_matches_the_sync_one() -> None:
-    drafted: list[httpx.Request] = []
-    async with _async(drafted, 201, payloads.BOOK_DETAIL) as client:
-        draft = await client.draft_book(
-            "primap-hist",
-            version="1.0.0",
-            license="CC-BY-4.0",
-        )
-    assert draft.metadata.series_name == "primap-hist"
-    assert _body(drafted[0])["discovery"]["license"] == "CC-BY-4.0"
-
-    registered: list[httpx.Request] = []
-    async with _async(registered, 200, REGISTERED_ONE) as client:
-        resource = await client.register_external(
-            type="tabular",
-            uri="https://example.invalid/data.csv",
-        )
-    assert resource.tracking_id == UUID(TRACKING_ID)
-    assert _body(registered[0])["items"][0]["external_uri"] == "https://example.invalid/data.csv"
 
 
 def test_opening_an_activity_reaches_no_api() -> None:
@@ -296,11 +252,10 @@ def test_a_recording_facade_routes_every_producer_call_to_its_bundle(tmp_path: P
         assert isinstance(recording.activity(), RecordingActivity)
 
 
-@pytest.mark.parametrize("facade", [Bookshelf, AsyncBookshelf])
-def test_every_producer_call_is_a_documented_method(facade: type) -> None:
+def test_every_producer_call_is_a_documented_method() -> None:
     """``help()`` and the API reference only see methods, so the calls must not be instance attributes."""
     for name in ("activity", "register_external", "register_file", "draft_book"):
-        method = vars(facade)[name]
+        method = vars(Bookshelf)[name]
         assert inspect.isfunction(method)
         assert (method.__doc__ or "").strip()
 
@@ -315,19 +270,6 @@ def test_a_refused_public_figure_uploads_nothing() -> None:
         pytest.raises(ValueError, match="public figure with no alt text"),
     ):
         activity.register(b"png", type="figure", name="fig", visibility="public")
-
-    assert recorded == []
-
-
-async def test_a_refused_public_figure_uploads_nothing_asynchronously() -> None:
-    recorded: list[httpx.Request] = []
-
-    async with (
-        _async(recorded, 200, REGISTERED_ONE) as client,
-        client.activity(kind="build", code_ref="test", config={}) as activity,
-    ):
-        with pytest.raises(ValueError, match="public figure with no alt text"):
-            await activity.register(b"png", type="figure", name="fig", visibility="public")
 
     assert recorded == []
 
@@ -351,17 +293,12 @@ def test_a_refused_figure_late_in_a_batch_uploads_nothing_before_it() -> None:
     assert recorded == []
 
 
-@pytest.mark.parametrize(
-    ("facade", "sink"), [(Bookshelf, LiveSink), (AsyncBookshelf, AsyncLiveSink)]
-)
 @pytest.mark.parametrize("name", ["activity", "register_external", "register_file", "draft_book"])
-def test_every_producer_method_forwards_the_sink_parameters(
-    facade: type, sink: type, name: str
-) -> None:
+def test_every_producer_method_forwards_the_sink_parameters(name: str) -> None:
     """The facade restates each sink signature, so a keyword added to one must reach the other."""
 
     def shape(method: Any) -> list[tuple[str, Any, Any]]:
         parameters = inspect.signature(method).parameters.values()
         return [(p.name, p.kind, p.default) for p in parameters]
 
-    assert shape(getattr(facade, name)) == shape(getattr(sink, name))
+    assert shape(getattr(Bookshelf, name)) == shape(getattr(LiveSink, name))

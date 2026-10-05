@@ -23,12 +23,14 @@ from bookshelf._cli._runtime import (
     field,
     iso,
     note,
+    with_remedy,
 )
 from bookshelf._core import credentials, errors, oauth, session
 from bookshelf._core.auth import TokenProvider, decode_jwt_expiry
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.credentials import StoredCredentials, default_store
 from bookshelf._core.resolution import (
+    NEWER_STORE_REMEDY,
     CredentialSource,
     ResolvedCredential,
     resolve_credential,
@@ -47,10 +49,21 @@ def auth_login(
     """Log in through WorkOS."""
     base = base_url()
     with command_errors():
+        if default_store().read_only():
+            raise CliError(
+                f"{credentials.credentials_path()} was written by a newer bookshelf, "
+                f"so this version cannot store a login in it. {NEWER_STORE_REMEDY}",
+                exit_code=EXIT_USAGE,
+            )
         _login_user(base, no_browser=no_browser, json_output=json_output)
 
 
 def _login_user(base: str, *, no_browser: bool, json_output: bool) -> None:
+    try:
+        oauth.require_workos_client_id(base)
+    except oauth.OAuthError as exc:
+        raise CliError(str(exc), exit_code=EXIT_USAGE) from exc
+
     def show_code(flow: oauth.DeviceFlowInfo) -> None:
         note(field("Your code:", flow.user_code))
         note(field("Visit", flow.verification_uri_complete))
@@ -116,7 +129,7 @@ def auth_token(
             # A stored login that cannot be refreshed is spent as far as this command goes,
             # so it exits as a credential problem rather than a usage one.
             if credential.stored is not None:
-                raise CliError(f"{exc} {remedy}", exit_code=EXIT_AUTH_REQUIRED) from exc
+                raise CliError(with_remedy(str(exc), remedy), exit_code=EXIT_AUTH_REQUIRED) from exc
             raise CliError(str(exc), exit_code=EXIT_USAGE) from exc
 
 
@@ -134,7 +147,9 @@ def _current_token(provider: TokenProvider, *, remedy: str) -> str:
         raise CliError(f"token endpoint unreachable: {exc}", exit_code=EXIT_NETWORK) from exc
     except errors.AuthenticationError as exc:
         raise CliError(
-            f"the credential could not be exchanged for a fresh token: {exc.detail} {remedy}",
+            with_remedy(
+                f"the credential could not be exchanged for a fresh token: {exc.detail}", remedy
+            ),
             exit_code=EXIT_AUTH_REQUIRED,
         ) from exc
 
@@ -257,24 +272,30 @@ def auth_list(
     with command_errors():
         store = default_store()
         records = store.records()
+        # This version never refreshes a token from a newer store, so expiry is the end of it.
+        refreshable = not store.read_only()
         now = datetime.now(UTC)
         if not records:
-            note("No stored logins. Run 'bookshelf auth login' to add one.")
+            note(
+                "No stored logins. Run 'bookshelf auth login' to add one."
+                if refreshable
+                else f"No stored logins this version can read. {NEWER_STORE_REMEDY}"
+            )
             return
         emit_payloads(
-            (_list_entry(record, now=now) for record in records),
+            (_list_entry(record, now=now, refreshable=refreshable) for record in records),
             json_output=json_output,
         )
 
 
-def _list_entry(record: StoredCredentials, *, now: datetime) -> dict[str, Any]:
+def _list_entry(record: StoredCredentials, *, now: datetime, refreshable: bool) -> dict[str, Any]:
     expired = record.expires_at is not None and record.expires_at <= now
     return {
         "id": record.subject,
         "api_url": record.api_url,
         "expired": expired,
-        # Nothing stored can renew it, so only a fresh login brings it back.
-        "needs_login": expired and record.refresh_token is None,
+        # Nothing this version can use renews it, so only a fresh login brings it back.
+        "needs_login": expired and (not refreshable or record.refresh_token is None),
         "expires_at": iso(record.expires_at),
     }
 

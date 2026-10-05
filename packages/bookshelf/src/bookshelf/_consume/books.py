@@ -1,4 +1,4 @@
-"""Published Book handles shared by synchronous and asynchronous consumers."""
+"""Published Book handles."""
 
 from collections.abc import Iterator
 from datetime import datetime
@@ -6,7 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from bookshelf._consume.presentation import Describable, Sections
-from bookshelf._consume.resources import AsyncBookEntry, BookEntry, describe_type
+from bookshelf._consume.resources import BookEntry, describe_type
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.errors import EntryNotFoundError
 from bookshelf._core.names import book_coordinate
@@ -15,7 +15,9 @@ from bookshelf._records import Visibility, visibility
 from bookshelf.cache import ContentCache
 
 
-class _BookBase(Describable):
+class Book(Describable):
+    """A resolved published Book indexed by Entry name."""
+
     _title = "Bookshelf Book"
     book_id: UUID
 
@@ -105,10 +107,6 @@ class _BookBase(Describable):
                 status_code=404,
             ) from None
 
-
-class Book(_BookBase):
-    """A resolved published Book indexed by Entry name."""
-
     def __getitem__(self, name_in_book: str) -> BookEntry:
         """Look up one entry by name, raising EntryNotFoundError for a name the book does not index."""
         return BookEntry(
@@ -119,19 +117,4 @@ class Book(_BookBase):
         )
 
 
-class AsyncBook(_BookBase):
-    """An asynchronously resolved published Book indexed by Entry name."""
-
-    _title = "Bookshelf Async Book"
-
-    def __getitem__(self, name_in_book: str) -> AsyncBookEntry:
-        """Look up one entry by name, raising EntryNotFoundError for a name the book does not index."""
-        return AsyncBookEntry(
-            self._client,
-            self._cache,
-            self.book_id,
-            self._entry(name_in_book),
-        )
-
-
-__all__ = ["AsyncBook", "Book"]
+__all__ = ["Book"]

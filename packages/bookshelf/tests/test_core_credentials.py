@@ -325,6 +325,25 @@ def test_a_newer_store_survives_a_login_from_this_version(path: Path) -> None:
     assert not path.with_name("credentials.json.unreadable").exists()
 
 
+def test_a_newer_version_written_as_a_string_is_still_a_newer_store(path: Path) -> None:
+    newer = json.dumps(
+        {
+            "version": str(credentials.STORE_VERSION + 1),
+            "records": {f"{API}|user": {"access_token": "theirs", "api_url": API, "kind": "user"}},
+            "active": {API: "user"},
+        }
+    )
+    path.write_text(newer)
+    store = FileCredentialStore(path)
+
+    with pytest.raises(AuthConfigurationError, match="newer bookshelf"):
+        login(store, "mine")
+
+    assert store.read_only()
+    assert path.read_text() == newer
+    assert not path.with_name("credentials.json.unreadable").exists()
+
+
 def test_a_newer_store_is_read_for_the_keys_this_version_knows(path: Path) -> None:
     _newer_store(path)
 

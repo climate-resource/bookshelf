@@ -1,15 +1,12 @@
 """Unified client for the Bookshelf SDK.
 
 Every method is a logic-free shell over the I/O-free ``build_*``/``parse_*`` pair for its operation.
-This keeps the sync and async implementations in sync.
-Each surface owns a real httpx transport, created lazily on first use, and the client is long-lived by design.
+The httpx transport is created lazily on first use, and the client is long-lived by design.
 The client is designed to be reused across multiple operations so the transport is kept open while in scope.
 """
 
-import asyncio
 import threading
 import time
-import warnings
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Self
@@ -51,7 +48,7 @@ def _transport_error(request: httpx.Request, exc: httpx.TransportError) -> Trans
 
 
 class BookshelfClient:
-    """Long-lived unified client over both httpx surfaces.
+    """Long-lived client over one httpx transport.
 
     ``auth`` accepts any :class:`httpx.Auth` (including the credential providers),
     a bare token string, or ``None`` for explicit unauthenticated access.
@@ -67,9 +64,8 @@ class BookshelfClient:
         *,
         auth: AuthInput = UNSET,
         timeout: float | None = 30.0,
-        # The transports are the test seam: production always leaves them None.
+        # The transport is the test seam: production always leaves it None.
         transport: httpx.BaseTransport | None = None,
-        async_transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self._base_url = resolve_base_url(base_url)
         self._credential: ResolvedCredential | None = None
@@ -83,12 +79,7 @@ class BookshelfClient:
         self._timeout = timeout
         self._retry = RetryPolicy()
         self._transport = transport
-        self._async_transport = async_transport
-        self._sync: httpx.Client | None = None
-        self._async: httpx.AsyncClient | None = None
-        # One lock guards both lazy transports.
-        # AsyncClient construction is synchronous code.
-        # The async surface can therefore share it.
+        self._http: httpx.Client | None = None
         self._init_lock = threading.Lock()
 
     @property
@@ -107,7 +98,7 @@ class BookshelfClient:
         return self._auth
 
     def adopt_credential(self, credential: ResolvedCredential) -> None:
-        """Replace the credential on both surfaces, including transports already opened."""
+        """Replace the credential, including on a transport already opened."""
         # Strict, because a person just logged in and a refused refresh is theirs to see.
         auth = credential.auth(strict=True)
         if auth is None:
@@ -115,9 +106,8 @@ class BookshelfClient:
         self._credential = credential
         self._auth = auth
         self.verified_user = None
-        for opened in (self._sync, self._async):
-            if opened is not None:
-                opened.auth = auth
+        if self._http is not None:
+            self._http.auth = auth
 
     def _httpx_timeout(self) -> httpx.Timeout:
         if self._timeout is None:
@@ -125,11 +115,11 @@ class BookshelfClient:
         return httpx.Timeout(self._timeout, connect=min(self._timeout, _CONNECT_TIMEOUT))
 
     @property
-    def _sync_client(self) -> httpx.Client:
-        if self._sync is None:
+    def _http_client(self) -> httpx.Client:
+        if self._http is None:
             with self._init_lock:
-                if self._sync is None:
-                    self._sync = httpx.Client(
+                if self._http is None:
+                    self._http = httpx.Client(
                         base_url=self._base_url,
                         auth=self._auth,
                         timeout=self._httpx_timeout(),
@@ -138,63 +128,18 @@ class BookshelfClient:
                         # A bulk read is answered with a redirect.
                         follow_redirects=True,
                     )
-        return self._sync
-
-    @property
-    def _async_client(self) -> httpx.AsyncClient:
-        if self._async is None:
-            with self._init_lock:
-                if self._async is None:
-                    self._async = httpx.AsyncClient(
-                        base_url=self._base_url,
-                        auth=self._auth,
-                        timeout=self._httpx_timeout(),
-                        headers={"user-agent": _USER_AGENT},
-                        transport=self._async_transport,
-                        follow_redirects=True,
-                    )
-        return self._async
+        return self._http
 
     def close(self) -> None:
-        if self._sync is not None:
-            self._sync.close()
-            self._sync = None
-        if self._async is not None:
-            warnings.warn(
-                "close() does not close the async transport. "
-                "Call aclose() when any _async method was used.",
-                stacklevel=2,
-            )
-
-    async def aclose(self) -> None:
-        if self._async is not None:
-            await self._async.aclose()
-            self._async = None
-        self.close()
+        if self._http is not None:
+            self._http.close()
+            self._http = None
 
     def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc_info: object) -> None:
         self.close()
-
-    async def __aenter__(self) -> Self:
-        return self
-
-    async def __aexit__(self, *exc_info: object) -> None:
-        await self.aclose()
-
-    def _httpx_request(
-        self, client: httpx.Client | httpx.AsyncClient, req: ApiRequest
-    ) -> httpx.Request:
-        return client.build_request(
-            req.method,
-            req.target,
-            params=req.params or None,
-            headers=req.headers or None,
-            json=req.json_body,
-            content=req.content,
-        )
 
     @staticmethod
     def _api_response(response: httpx.Response) -> ApiResponse:
@@ -232,9 +177,16 @@ class BookshelfClient:
         )
 
     def _send(self, req: ApiRequest) -> ApiResponse:
-        client = self._sync_client
+        client = self._http_client
         # Every body is bytes in memory, so one request object serves each attempt.
-        request = self._httpx_request(client, req)
+        request = client.build_request(
+            req.method,
+            req.target,
+            params=req.params or None,
+            headers=req.headers or None,
+            json=req.json_body,
+            content=req.content,
+        )
         # A presigned PUT targets object storage: never forward the API credential.
         auth = None if req.unauthenticated else httpx.USE_CLIENT_DEFAULT
         attempt = 0
@@ -252,36 +204,15 @@ class BookshelfClient:
                     return self._api_response(response)
             time.sleep(delay)
 
-    async def _send_async(self, req: ApiRequest) -> ApiResponse:
-        client = self._async_client
-        # Every body is bytes in memory, so one request object serves each attempt.
-        request = self._httpx_request(client, req)
-        # A presigned PUT targets object storage: never forward the API credential.
-        auth = None if req.unauthenticated else httpx.USE_CLIENT_DEFAULT
-        attempt = 0
-        while True:
-            attempt += 1
-            try:
-                response = await client.send(request, auth=auth)
-            except httpx.TransportError as exc:
-                delay = self._transport_retry_delay(req, attempt, exc)
-                if delay is None:
-                    raise _transport_error(request, exc) from exc
-            else:
-                delay = self._response_retry_delay(req, attempt, response)
-                if delay is None:
-                    return self._api_response(response)
-            await asyncio.sleep(delay)
-
     def stream_url_to_path(self, url: str, destination: Path) -> None:
         """Stream an API issued content URL to a local path without API credentials."""
         req = ops.build_get_url(url)
-        request = self._sync_client.build_request(req.method, url)
+        request = self._http_client.build_request(req.method, url)
         attempt = 0
         try:
             while True:
                 attempt += 1
-                response = self._sync_client.send(request, auth=None, stream=True)
+                response = self._http_client.send(request, auth=None, stream=True)
                 try:
                     if response.is_success:
                         with destination.open("wb") as stream:
@@ -300,33 +231,6 @@ class BookshelfClient:
         except httpx.TransportError as exc:
             raise _transport_error(request, exc) from exc
 
-    async def stream_url_to_path_async(self, url: str, destination: Path) -> None:
-        """Stream an API issued content URL to a local path without API credentials."""
-        req = ops.build_get_url(url)
-        request = self._async_client.build_request(req.method, url)
-        attempt = 0
-        try:
-            while True:
-                attempt += 1
-                response = await self._async_client.send(request, auth=None, stream=True)
-                try:
-                    if response.is_success:
-                        with destination.open("wb") as stream:
-                            async for chunk in response.aiter_bytes():
-                                stream.write(chunk)
-                        return
-                    await response.aread()
-                    delay = self._response_retry_delay(req, attempt, response)
-                    if delay is None:
-                        raise error_from_response(
-                            self._api_response(response), declared=False, request_method="GET"
-                        )
-                finally:
-                    await response.aclose()
-                await asyncio.sleep(delay)
-        except httpx.TransportError as exc:
-            raise _transport_error(request, exc) from exc
-
     # --- BEGIN GENERATED OPERATIONS ---
     # Generated by packages/bookshelf/scripts/generate_client.py
     # from the build_*/parse_* pairs in bookshelf/_core/ops.py.
@@ -338,13 +242,6 @@ class BookshelfClient:
     ) -> models.BookEntryAttachResponse:
         return ops.parse_attach_entry(self._send(ops.build_attach_entry(book_id, request)))
 
-    async def attach_entry_async(
-        self, book_id: str, request: models.BookEntryAttach
-    ) -> models.BookEntryAttachResponse:
-        return ops.parse_attach_entry(
-            await self._send_async(ops.build_attach_entry(book_id, request))
-        )
-
     def attach_preview_book(
         self, preview_id: UUID, volume: str, version: str, request: models.PreviewBookUpload
     ) -> models.PreviewDetail:
@@ -352,24 +249,8 @@ class BookshelfClient:
             self._send(ops.build_attach_preview_book(preview_id, volume, version, request))
         )
 
-    async def attach_preview_book_async(
-        self, preview_id: UUID, volume: str, version: str, request: models.PreviewBookUpload
-    ) -> models.PreviewDetail:
-        return ops.parse_attach_preview_book(
-            await self._send_async(
-                ops.build_attach_preview_book(preview_id, volume, version, request)
-            )
-        )
-
     def complete_ingest_upload(self, request: models.IngestUploadCompleteRequest) -> None:
         ops.parse_complete_ingest_upload(self._send(ops.build_complete_ingest_upload(request)))
-
-    async def complete_ingest_upload_async(
-        self, request: models.IngestUploadCompleteRequest
-    ) -> None:
-        ops.parse_complete_ingest_upload(
-            await self._send_async(ops.build_complete_ingest_upload(request))
-        )
 
     def complete_preview_upload(
         self, preview_id: UUID, request: models.PreviewUploadCompleteRequest
@@ -378,24 +259,10 @@ class BookshelfClient:
             self._send(ops.build_complete_preview_upload(preview_id, request))
         )
 
-    async def complete_preview_upload_async(
-        self, preview_id: UUID, request: models.PreviewUploadCompleteRequest
-    ) -> None:
-        ops.parse_complete_preview_upload(
-            await self._send_async(ops.build_complete_preview_upload(preview_id, request))
-        )
-
     def correct_book(
         self, book_id: str, request: models.BookCorrection
     ) -> models.BookCorrectionResponse:
         return ops.parse_correct_book(self._send(ops.build_correct_book(book_id, request)))
-
-    async def correct_book_async(
-        self, book_id: str, request: models.BookCorrection
-    ) -> models.BookCorrectionResponse:
-        return ops.parse_correct_book(
-            await self._send_async(ops.build_correct_book(book_id, request))
-        )
 
     def create_preview(
         self, repository: str, pr_number: int, request: models.PreviewCreate
@@ -404,54 +271,25 @@ class BookshelfClient:
             self._send(ops.build_create_preview(repository, pr_number, request))
         )
 
-    async def create_preview_async(
-        self, repository: str, pr_number: int, request: models.PreviewCreate
-    ) -> models.PreviewDetail:
-        return ops.parse_create_preview(
-            await self._send_async(ops.build_create_preview(repository, pr_number, request))
-        )
-
     def create_volume(self, request: models.VolumeCreate) -> models.VolumeResponse:
         return ops.parse_create_volume(self._send(ops.build_create_volume(request)))
-
-    async def create_volume_async(self, request: models.VolumeCreate) -> models.VolumeResponse:
-        return ops.parse_create_volume(await self._send_async(ops.build_create_volume(request)))
 
     def delete_book(self, book_id: str) -> None:
         ops.parse_delete_book(self._send(ops.build_delete_book(book_id)))
 
-    async def delete_book_async(self, book_id: str) -> None:
-        ops.parse_delete_book(await self._send_async(ops.build_delete_book(book_id)))
-
     def delete_volume(self, volume_name: str) -> None:
         ops.parse_delete_volume(self._send(ops.build_delete_volume(volume_name)))
 
-    async def delete_volume_async(self, volume_name: str) -> None:
-        ops.parse_delete_volume(await self._send_async(ops.build_delete_volume(volume_name)))
-
     def draft_book(self, request: models.BookDraftRequest) -> models.BookDetail:
         return ops.parse_draft_book(self._send(ops.build_draft_book(request)))
-
-    async def draft_book_async(self, request: models.BookDraftRequest) -> models.BookDetail:
-        return ops.parse_draft_book(await self._send_async(ops.build_draft_book(request)))
 
     def fail_preview(
         self, preview_id: UUID, request: models.PreviewFailRequest
     ) -> models.PreviewDetail:
         return ops.parse_fail_preview(self._send(ops.build_fail_preview(preview_id, request)))
 
-    async def fail_preview_async(
-        self, preview_id: UUID, request: models.PreviewFailRequest
-    ) -> models.PreviewDetail:
-        return ops.parse_fail_preview(
-            await self._send_async(ops.build_fail_preview(preview_id, request))
-        )
-
     def get_book(self, book_id: str) -> models.BookResponse:
         return ops.parse_get_book(self._send(ops.build_get_book(book_id)))
-
-    async def get_book_async(self, book_id: str) -> models.BookResponse:
-        return ops.parse_get_book(await self._send_async(ops.build_get_book(book_id)))
 
     def get_book_resource_facets(
         self,
@@ -463,22 +301,6 @@ class BookshelfClient:
     ) -> models.FacetsResponse:
         return ops.parse_get_book_resource_facets(
             self._send(
-                ops.build_get_book_resource_facets(
-                    book_id, resource_name, max_values=max_values, filters=filters
-                )
-            )
-        )
-
-    async def get_book_resource_facets_async(
-        self,
-        book_id: str | UUID,
-        resource_name: str,
-        *,
-        max_values: int | None = None,
-        filters: Mapping[str, str | list[str]] | None = None,
-    ) -> models.FacetsResponse:
-        return ops.parse_get_book_resource_facets(
-            await self._send_async(
                 ops.build_get_book_resource_facets(
                     book_id, resource_name, max_values=max_values, filters=filters
                 )
@@ -501,22 +323,6 @@ class BookshelfClient:
             )
         )
 
-    async def get_book_resource_preview_async(
-        self,
-        book_id: str | UUID,
-        resource_name: str,
-        *,
-        limit: int | None = None,
-        offset: int | None = None,
-    ) -> models.PreviewResponse:
-        return ops.parse_get_book_resource_preview(
-            await self._send_async(
-                ops.build_get_book_resource_preview(
-                    book_id, resource_name, limit=limit, offset=offset
-                )
-            )
-        )
-
     def get_book_resource_schema(
         self,
         book_id: str | UUID,
@@ -527,22 +333,6 @@ class BookshelfClient:
     ) -> models.TimeseriesMetadataResponse:
         return ops.parse_get_book_resource_schema(
             self._send(
-                ops.build_get_book_resource_schema(
-                    book_id, resource_name, limit=limit, offset=offset
-                )
-            )
-        )
-
-    async def get_book_resource_schema_async(
-        self,
-        book_id: str | UUID,
-        resource_name: str,
-        *,
-        limit: int | None = None,
-        offset: int | None = None,
-    ) -> models.TimeseriesMetadataResponse:
-        return ops.parse_get_book_resource_schema(
-            await self._send_async(
                 ops.build_get_book_resource_schema(
                     book_id, resource_name, limit=limit, offset=offset
                 )
@@ -576,58 +366,16 @@ class BookshelfClient:
             )
         )
 
-    async def get_book_resource_timeseries_async(
-        self,
-        book_id: str | UUID,
-        resource_name: str,
-        *,
-        drop: Sequence[str] | None = None,
-        limit: int | None = None,
-        top_n: int | None = None,
-        year_min: int | None = None,
-        year_max: int | None = None,
-        filters: Mapping[str, str | list[str]] | None = None,
-    ) -> models.TimeseriesResponse:
-        return ops.parse_get_book_resource_timeseries(
-            await self._send_async(
-                ops.build_get_book_resource_timeseries(
-                    book_id,
-                    resource_name,
-                    drop=drop,
-                    limit=limit,
-                    top_n=top_n,
-                    year_min=year_min,
-                    year_max=year_max,
-                    filters=filters,
-                )
-            )
-        )
-
     def get_catalogue_facets(self) -> models.VolumeFacets:
         return ops.parse_get_catalogue_facets(self._send(ops.build_get_catalogue_facets()))
 
-    async def get_catalogue_facets_async(self) -> models.VolumeFacets:
-        return ops.parse_get_catalogue_facets(
-            await self._send_async(ops.build_get_catalogue_facets())
-        )
-
     def get_current_user(self) -> models.UserResponse:
         return ops.parse_get_current_user(self._send(ops.build_get_current_user()))
-
-    async def get_current_user_async(self) -> models.UserResponse:
-        return ops.parse_get_current_user(await self._send_async(ops.build_get_current_user()))
 
     def get_resource(
         self, tracking_id: str | UUID, *, as_of: str | None = None
     ) -> models.ResourceRead:
         return ops.parse_get_resource(self._send(ops.build_get_resource(tracking_id, as_of=as_of)))
-
-    async def get_resource_async(
-        self, tracking_id: str | UUID, *, as_of: str | None = None
-    ) -> models.ResourceRead:
-        return ops.parse_get_resource(
-            await self._send_async(ops.build_get_resource(tracking_id, as_of=as_of))
-        )
 
     def get_resource_download(
         self, tracking_id: str | UUID, *, expires_in: int | None = None
@@ -636,39 +384,17 @@ class BookshelfClient:
             self._send(ops.build_get_resource_download(tracking_id, expires_in=expires_in))
         )
 
-    async def get_resource_download_async(
-        self, tracking_id: str | UUID, *, expires_in: int | None = None
-    ) -> models.DownloadResponse:
-        return ops.parse_get_resource_download(
-            await self._send_async(
-                ops.build_get_resource_download(tracking_id, expires_in=expires_in)
-            )
-        )
-
     def get_url(self, url: str) -> bytes:
         return ops.parse_get_url(self._send(ops.build_get_url(url)))
 
-    async def get_url_async(self, url: str) -> bytes:
-        return ops.parse_get_url(await self._send_async(ops.build_get_url(url)))
-
     def get_volume(self, volume_name: str) -> models.VolumeDetailResponse:
         return ops.parse_get_volume(self._send(ops.build_get_volume(volume_name)))
-
-    async def get_volume_async(self, volume_name: str) -> models.VolumeDetailResponse:
-        return ops.parse_get_volume(await self._send_async(ops.build_get_volume(volume_name)))
 
     def initiate_ingest_upload(
         self, request: models.IngestUploadInitiateRequest
     ) -> models.UploadInitiateResponse | models.UploadAlreadyExistsResponse:
         return ops.parse_initiate_ingest_upload(
             self._send(ops.build_initiate_ingest_upload(request))
-        )
-
-    async def initiate_ingest_upload_async(
-        self, request: models.IngestUploadInitiateRequest
-    ) -> models.UploadInitiateResponse | models.UploadAlreadyExistsResponse:
-        return ops.parse_initiate_ingest_upload(
-            await self._send_async(ops.build_initiate_ingest_upload(request))
         )
 
     def initiate_preview_upload(
@@ -678,13 +404,6 @@ class BookshelfClient:
             self._send(ops.build_initiate_preview_upload(preview_id, request))
         )
 
-    async def initiate_preview_upload_async(
-        self, preview_id: UUID, request: models.PreviewUploadInitiateRequest
-    ) -> models.UploadInitiateResponse | models.UploadAlreadyExistsResponse:
-        return ops.parse_initiate_preview_upload(
-            await self._send_async(ops.build_initiate_preview_upload(preview_id, request))
-        )
-
     def invalidate_resource(
         self, tracking_id: str | UUID, request: models.InvalidateRequest
     ) -> models.InvalidateResponse:
@@ -692,25 +411,11 @@ class BookshelfClient:
             self._send(ops.build_invalidate_resource(tracking_id, request))
         )
 
-    async def invalidate_resource_async(
-        self, tracking_id: str | UUID, request: models.InvalidateRequest
-    ) -> models.InvalidateResponse:
-        return ops.parse_invalidate_resource(
-            await self._send_async(ops.build_invalidate_resource(tracking_id, request))
-        )
-
     def list_book_entries(
         self, book_id: str, *, limit: int | None = None, cursor: str | None = None
     ) -> models.BookEntriesResponse:
         return ops.parse_list_book_entries(
             self._send(ops.build_list_book_entries(book_id, limit=limit, cursor=cursor))
-        )
-
-    async def list_book_entries_async(
-        self, book_id: str, *, limit: int | None = None, cursor: str | None = None
-    ) -> models.BookEntriesResponse:
-        return ops.parse_list_book_entries(
-            await self._send_async(ops.build_list_book_entries(book_id, limit=limit, cursor=cursor))
         )
 
     def list_books(
@@ -727,33 +432,6 @@ class BookshelfClient:
     ) -> models.BookListResponse:
         return ops.parse_list_books(
             self._send(
-                ops.build_list_books(
-                    volume=volume,
-                    version=version,
-                    status=status,
-                    latest_only=latest_only,
-                    producer_version=producer_version,
-                    config_hash=config_hash,
-                    limit=limit,
-                    offset=offset,
-                )
-            )
-        )
-
-    async def list_books_async(
-        self,
-        *,
-        volume: str | None = None,
-        version: str | None = None,
-        status: str | None = None,
-        latest_only: bool | None = None,
-        producer_version: str | None = None,
-        config_hash: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-    ) -> models.BookListResponse:
-        return ops.parse_list_books(
-            await self._send_async(
                 ops.build_list_books(
                     volume=volume,
                     version=version,
@@ -784,23 +462,6 @@ class BookshelfClient:
             )
         )
 
-    async def list_resource_events_async(
-        self,
-        tracking_id: str | UUID,
-        *,
-        since: str | None = None,
-        until: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-    ) -> models.RegistrationEventsResponse:
-        return ops.parse_list_resource_events(
-            await self._send_async(
-                ops.build_list_resource_events(
-                    tracking_id, since=since, until=until, limit=limit, cursor=cursor
-                )
-            )
-        )
-
     def list_resources(
         self,
         *,
@@ -818,39 +479,6 @@ class BookshelfClient:
     ) -> models.ResourceListResponse:
         return ops.parse_list_resources(
             self._send(
-                ops.build_list_resources(
-                    volume=volume,
-                    name=name,
-                    hash=hash,
-                    type=type,
-                    tags=tags,
-                    owner_org_id=owner_org_id,
-                    latest=latest,
-                    dedupe=dedupe,
-                    in_book=in_book,
-                    limit=limit,
-                    cursor=cursor,
-                )
-            )
-        )
-
-    async def list_resources_async(
-        self,
-        *,
-        volume: str | None = None,
-        name: str | None = None,
-        hash: str | None = None,
-        type: str | None = None,
-        tags: Sequence[str] | None = None,
-        owner_org_id: str | None = None,
-        latest: bool | None = None,
-        dedupe: bool | None = None,
-        in_book: bool | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-    ) -> models.ResourceListResponse:
-        return ops.parse_list_resources(
-            await self._send_async(
                 ops.build_list_resources(
                     volume=volume,
                     name=name,
@@ -900,57 +528,14 @@ class BookshelfClient:
             )
         )
 
-    async def list_volumes_async(
-        self,
-        *,
-        q: str | None = None,
-        topic: Sequence[str] | None = None,
-        keyword: Sequence[str] | None = None,
-        region: Sequence[str] | None = None,
-        publisher: str | None = None,
-        license: str | None = None,
-        coverage_year: int | None = None,
-        resource_type: str | None = None,
-        deprecated: bool | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-    ) -> models.VolumeListResponse:
-        return ops.parse_list_volumes(
-            await self._send_async(
-                ops.build_list_volumes(
-                    q=q,
-                    topic=topic,
-                    keyword=keyword,
-                    region=region,
-                    publisher=publisher,
-                    license=license,
-                    coverage_year=coverage_year,
-                    resource_type=resource_type,
-                    deprecated=deprecated,
-                    limit=limit,
-                    offset=offset,
-                )
-            )
-        )
-
     def publish_book(self, book_id: str) -> models.BookDetail:
         return ops.parse_publish_book(self._send(ops.build_publish_book(book_id)))
-
-    async def publish_book_async(self, book_id: str) -> models.BookDetail:
-        return ops.parse_publish_book(await self._send_async(ops.build_publish_book(book_id)))
 
     def put_presigned(
         self, url: str, content: bytes, *, content_type: str | None = None
     ) -> str | None:
         return ops.parse_put_presigned(
             self._send(ops.build_put_presigned(url, content, content_type=content_type))
-        )
-
-    async def put_presigned_async(
-        self, url: str, content: bytes, *, content_type: str | None = None
-    ) -> str | None:
-        return ops.parse_put_presigned(
-            await self._send_async(ops.build_put_presigned(url, content, content_type=content_type))
         )
 
     def query_resource_data(
@@ -980,77 +565,21 @@ class BookshelfClient:
             )
         )
 
-    async def query_resource_data_async(
-        self,
-        tracking_id: str | UUID,
-        *,
-        format: DataFormat = "parquet",
-        select: str | None = None,
-        order: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-        filters: Mapping[str, str] | None = None,
-        if_none_match: str | None = None,
-    ) -> DataPayload | NotModified:
-        return ops.parse_query_resource_data(
-            await self._send_async(
-                ops.build_query_resource_data(
-                    tracking_id,
-                    format=format,
-                    select=select,
-                    order=order,
-                    limit=limit,
-                    offset=offset,
-                    filters=filters,
-                    if_none_match=if_none_match,
-                )
-            )
-        )
-
     def register_resources(
         self, request: models.RegisterResourcesRequest
     ) -> models.RegisterResourcesResponse:
         return ops.parse_register_resources(self._send(ops.build_register_resources(request)))
 
-    async def register_resources_async(
-        self, request: models.RegisterResourcesRequest
-    ) -> models.RegisterResourcesResponse:
-        return ops.parse_register_resources(
-            await self._send_async(ops.build_register_resources(request))
-        )
-
     def replay_bundle(self, request: models.BundleReplayRequest) -> models.BundleReplayResponse:
         return ops.parse_replay_bundle(self._send(ops.build_replay_bundle(request)))
-
-    async def replay_bundle_async(
-        self, request: models.BundleReplayRequest
-    ) -> models.BundleReplayResponse:
-        return ops.parse_replay_bundle(await self._send_async(ops.build_replay_bundle(request)))
 
     def seal_preview(self, preview_id: UUID) -> models.PreviewDetail:
         return ops.parse_seal_preview(self._send(ops.build_seal_preview(preview_id)))
 
-    async def seal_preview_async(self, preview_id: UUID) -> models.PreviewDetail:
-        return ops.parse_seal_preview(await self._send_async(ops.build_seal_preview(preview_id)))
-
     def update_book(self, book_id: str, request: models.BookUpdate) -> models.BookResponse:
         return ops.parse_update_book(self._send(ops.build_update_book(book_id, request)))
-
-    async def update_book_async(
-        self, book_id: str, request: models.BookUpdate
-    ) -> models.BookResponse:
-        return ops.parse_update_book(
-            await self._send_async(ops.build_update_book(book_id, request))
-        )
 
     def update_volume(
         self, volume_name: str, request: models.VolumeUpdate
     ) -> models.VolumeResponse:
         return ops.parse_update_volume(self._send(ops.build_update_volume(volume_name, request)))
-
-    async def update_volume_async(
-        self, volume_name: str, request: models.VolumeUpdate
-    ) -> models.VolumeResponse:
-        return ops.parse_update_volume(
-            await self._send_async(ops.build_update_volume(volume_name, request))
-        )

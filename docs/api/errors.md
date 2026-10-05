@@ -1,7 +1,13 @@
 # Errors
 
 Every error the SDK raises for a failed operation subclasses `BookshelfError`.
-Each class below is importable from `bookshelf`.
+Each class below is importable from `bookshelf`,
+and is part of the [semver promise](index.md#what-semver-covers),
+so catching it keeps working across minor releases.
+That covers `PartialRegistrationError` and the publisher errors too,
+even though the producer API and `bookshelf.publisher` that raise them are provisional.
+An attribute that returns a generated model or a producer type is provisional,
+such as `PartialRegistrationError.successful_outcomes`.
 
 Misusing the API raises Python's own `TypeError` or `ValueError` instead,
 for example passing an argument a resource type does not accept.

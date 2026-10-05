@@ -1,12 +1,11 @@
-"""Facade tests for catalogue discovery, on both surfaces."""
+"""Facade tests for catalogue discovery."""
 
 from typing import Any
 from urllib.parse import parse_qs
 
 import httpx
-import pytest
 
-from bookshelf._facade import AsyncBookshelf, Bookshelf
+from bookshelf._facade import Bookshelf
 from tests import _core_payloads as payloads
 
 BASE_URL = "https://bookshelf.test"
@@ -37,10 +36,6 @@ def _sync(recorded: list[httpx.Request], pages: list[Any]) -> Bookshelf:
     return Bookshelf(BASE_URL, auth=None, transport=_transport(recorded, pages))
 
 
-def _async(recorded: list[httpx.Request], pages: list[Any]) -> AsyncBookshelf:
-    return AsyncBookshelf(BASE_URL, auth=None, async_transport=_transport(recorded, pages))
-
-
 def _query(request: httpx.Request) -> dict[str, list[str]]:
     return parse_qs(request.url.query.decode())
 
@@ -69,14 +64,3 @@ def test_search_volumes_with_no_arguments_lists_the_catalogue() -> None:
 
     assert [volume.name for volume in found.items] == ["a", "b"]
     assert _query(recorded[0]) == {}
-
-
-@pytest.mark.asyncio
-async def test_async_search_volumes_matches_the_sync_surface() -> None:
-    recorded: list[httpx.Request] = []
-
-    async with _async(recorded, [_volume_list(["ceds"])]) as client:
-        found = await client.search_volumes("emissions")
-
-    assert [volume.name for volume in found.items] == ["ceds"]
-    assert _query(recorded[0])["q"] == ["emissions"]

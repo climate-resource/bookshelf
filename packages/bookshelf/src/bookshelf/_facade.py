@@ -1,4 +1,4 @@
-"""Thin public facades for consuming and producing Bookshelf data."""
+"""Thin public facade for consuming and producing Bookshelf data."""
 
 from __future__ import annotations
 
@@ -10,9 +10,9 @@ from uuid import UUID
 
 import httpx
 
-from bookshelf._consume.books import AsyncBook, Book
+from bookshelf._consume.books import Book
 from bookshelf._consume.conversions import UnsupportedConversionError
-from bookshelf._consume.lookup import resolve_book, resolve_book_async
+from bookshelf._consume.lookup import resolve_book
 from bookshelf._consume.memo import (
     book_ttl as _book_ttl,
 )
@@ -20,18 +20,16 @@ from bookshelf._consume.memo import (
     default_book_ttl,
 )
 from bookshelf._consume.reading import DataPreview, ResourceInfo
-from bookshelf._consume.resources import AsyncBookEntry, AsyncResource, BookEntry, Resource
-from bookshelf._consume.volumes import AsyncVolume, Volume
+from bookshelf._consume.resources import BookEntry, Resource
+from bookshelf._consume.volumes import Volume
 from bookshelf._core.client import BookshelfClient
 from bookshelf._core.config import UNSET, AuthInput
 from bookshelf._core.errors import BookshelfError, ConflictError, NotFoundError
 from bookshelf._core.integrity import HashMismatchError
-from bookshelf._core.session import ensure_authenticated, ensure_authenticated_async
+from bookshelf._core.session import ensure_authenticated
 from bookshelf._generated import models
 from bookshelf._produce import (
     Activity,
-    AsyncActivity,
-    AsyncDraftBook,
     DraftBook,
     PartialRegistrationError,
     RegisterItem,
@@ -40,14 +38,11 @@ from bookshelf._produce import (
     Used,
 )
 from bookshelf._produce.facade import (
-    AsyncLiveSink,
-    AsyncProduceSink,
     LiveSink,
     ProcessingInput,
     ProduceSink,
 )
 from bookshelf._produce.facade import people as _people
-from bookshelf._produce.resources import AsyncResource as AsyncProducedResource
 from bookshelf._produce.resources import Resource as ProducedResource
 from bookshelf._produce.types import AuthorInput
 from bookshelf._produce.visibility import INHERIT, VisibilityInput
@@ -208,7 +203,7 @@ def _one_resource(content_hash: str, items: Sequence[models.ResourceRead]) -> mo
 
 
 class Bookshelf:
-    """Synchronous facade for consuming, cataloguing, and curating resources.
+    """Facade for consuming, cataloguing, and curating resources.
 
     Use it as a context manager, or call ``close()``, so the connection is released.
     """
@@ -255,7 +250,7 @@ class Bookshelf:
         self.close()
 
     def close(self) -> None:
-        """Close the sync transport if it was opened."""
+        """Close the transport if it was opened."""
         self._client.close()
 
     def activity(
@@ -651,447 +646,8 @@ class Bookshelf:
         )
 
 
-class AsyncBookshelf:
-    """Asynchronous facade for consuming, cataloguing, and curating resources.
-
-    Use it as an async context manager, or await ``aclose()``, so the connection is released.
-    """
-
-    def __init__(
-        self,
-        base_url: str | None = None,
-        *,
-        auth: AuthInput = UNSET,
-        timeout: float = 30.0,
-        book_ttl: float | None = None,
-        cache: ContentCache | None = None,
-        # The transport is the test seam: production always leaves it None.
-        async_transport: httpx.AsyncBaseTransport | None = None,
-    ) -> None:
-        """Configure the client.
-
-        Args:
-            base_url: API deployment to talk to.
-                Left out, ``$BOOKSHELF_URL`` or the default deployment.
-            auth: A bearer token, an ``httpx.Auth``, or None for anonymous access.
-                Left out, credentials come from the environment or a stored login.
-            timeout: Seconds to wait for each request.
-            book_ttl: Seconds a remembered pinned edition is trusted before it is checked again.
-                Left out, ``$BOOKSHELF_CACHE_BOOK_TTL`` or one hour.
-            cache: Where downloads and remembered records are kept.
-                Left out, ``$BOOKSHELF_CACHE_DIR`` or the platform cache directory.
-        """
-        self._client = BookshelfClient(
-            base_url,
-            auth=auth,
-            timeout=timeout,
-            async_transport=async_transport,
-        )
-        self._cache = ContentCache() if cache is None else cache
-        self._book_ttl = default_book_ttl() if book_ttl is None else _book_ttl(book_ttl)
-        self._sink: AsyncProduceSink = AsyncLiveSink(self._client, self._cache)
-
-    async def __aenter__(self) -> Self:
-        return self
-
-    async def __aexit__(self, *exc_info: object) -> None:
-        await self.aclose()
-
-    async def aclose(self) -> None:
-        """Close both transport surfaces if either was opened."""
-        await self._client.aclose()
-
-    def activity(
-        self,
-        *,
-        code_ref: str | None = None,
-        config: Mapping[str, Any] | None = None,
-        kind: str = "run",
-        runner: str | None = None,
-        activity_id: UUID | None = None,
-        config_hash: str | None = None,
-    ) -> AsyncActivity:
-        """Open an ambient asynchronous producer activity."""
-        return self._sink.activity(
-            code_ref=code_ref,
-            config=config,
-            kind=kind,
-            runner=runner,
-            activity_id=activity_id,
-            config_hash=config_hash,
-        )
-
-    async def register_external(
-        self,
-        *,
-        type: str | ResourceType,
-        uri: str,
-        hash: str | None = None,
-        name: str | None = None,
-        visibility: VisibilityInput = INHERIT,
-        tags: Sequence[str] = (),
-        description: str | None = None,
-        authors: Sequence[AuthorInput] | None = None,
-        doi: str | None = None,
-        citation: str | None = None,
-        license: str | None = None,
-        license_url: str | None = None,
-        metadata: Mapping[str, Any] | None = None,
-        tracking_id: UUID | None = None,
-    ) -> AsyncProducedResource:
-        """Catalogue an external pointer without attributing it to an activity."""
-        return await self._sink.register_external(
-            type=type,
-            uri=uri,
-            hash=hash,
-            name=name,
-            visibility=visibility,
-            tags=tags,
-            description=description,
-            authors=authors,
-            doi=doi,
-            citation=citation,
-            license=license,
-            license_url=license_url,
-            metadata=metadata,
-            tracking_id=tracking_id,
-        )
-
-    async def register_file(
-        self,
-        *,
-        type: str | ResourceType,
-        path: Path,
-        hash: str | None = None,
-        name: str | None = None,
-        visibility: VisibilityInput = INHERIT,
-        tags: Sequence[str] = (),
-        description: str | None = None,
-        authors: Sequence[AuthorInput] | None = None,
-        doi: str | None = None,
-        citation: str | None = None,
-        license: str | None = None,
-        license_url: str | None = None,
-        metadata: Mapping[str, Any] | None = None,
-        tracking_id: UUID | None = None,
-    ) -> AsyncProducedResource:
-        """Upload a file and catalogue it as an input, attributing it to no activity."""
-        return await self._sink.register_file(
-            type=type,
-            path=path,
-            hash=hash,
-            name=name,
-            visibility=visibility,
-            tags=tags,
-            description=description,
-            authors=authors,
-            doi=doi,
-            citation=citation,
-            license=license,
-            license_url=license_url,
-            metadata=metadata,
-            tracking_id=tracking_id,
-        )
-
-    async def draft_book(
-        self,
-        volume: str,
-        *,
-        version: str,
-        description: str | None = None,
-        license: str | None = None,
-        visibility: VisibilityInput = INHERIT,
-        metadata: Mapping[str, Any] | None = None,
-        bundle_hash: str | None = None,
-        discovery: Mapping[str, Any] | None = None,
-        authors: Sequence[Mapping[str, Any]] | None = None,
-        processing: ProcessingInput | None = None,
-    ) -> AsyncDraftBook:
-        """Create an asynchronous mutable draft book handle.
-
-        The credential is confirmed first, logging in when a stored login is missing.
-        """
-        return await self._sink.draft_book(
-            volume,
-            version=version,
-            description=description,
-            license=license,
-            visibility=visibility,
-            metadata=metadata,
-            bundle_hash=bundle_hash,
-            discovery=discovery,
-            authors=authors,
-            processing=processing,
-        )
-
-    async def ensure_authenticated(self, *, interactive: bool | None = None) -> Identity:
-        """Confirm the API accepts this client's credential, logging in first when it can.
-
-        The asynchronous twin of
-        [`Bookshelf.ensure_authenticated`][bookshelf.Bookshelf.ensure_authenticated].
-        """
-        return _identity(await ensure_authenticated_async(self._client, interactive=interactive))
-
-    async def resource(self, tracking_id: str | UUID) -> AsyncResource:
-        """Resolve an exact tracking id into a lean async Resource."""
-        metadata = await self._client.get_resource_async(tracking_id)
-        return AsyncResource(self._client, self._cache, tracking_id, metadata=metadata)
-
-    async def resource_by_hash(self, content_hash: str) -> AsyncResource:
-        """Resolve a content digest into the one resource your organisation holds for it."""
-        content_hash = _canonical_digest(content_hash)
-        response = await self._client.list_resources_async(hash=content_hash, dedupe=True, limit=2)
-        metadata = _one_resource(content_hash, response.items)
-        return AsyncResource(self._client, self._cache, metadata.tracking_id, metadata=metadata)
-
-    async def search_volumes(
-        self,
-        q: str | None = None,
-        *,
-        topic: Sequence[str] | None = None,
-        keyword: Sequence[str] | None = None,
-        region: Sequence[str] | None = None,
-        publisher: str | None = None,
-        license: str | None = None,
-        coverage_year: int | None = None,
-        resource_type: str | None = None,
-        deprecated: bool | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
-    ) -> VolumeSearchResults:
-        """Find volumes by free text over name, title and summary, plus discovery filters.
-
-        Every filter combines with AND, and omitting all of them lists the catalogue.
-        The results carry pagination, so a caller wanting everything reads
-        ``has_more`` and pages with ``offset``.
-        """
-        response = await self._client.list_volumes_async(
-            q=q,
-            topic=topic,
-            keyword=keyword,
-            region=region,
-            publisher=publisher,
-            license=license,
-            coverage_year=coverage_year,
-            resource_type=resource_type,
-            deprecated=deprecated,
-            limit=limit,
-            offset=offset,
-        )
-        return _search_results(response)
-
-    async def volume(self, name: str) -> AsyncVolume:
-        """Resolve a volume, carrying the versions and editions it has published."""
-        return AsyncVolume(
-            self._client,
-            self._cache,
-            await self._client.get_volume_async(name),
-            book_ttl=self._book_ttl,
-        )
-
-    async def create_volume(
-        self,
-        name: str,
-        *,
-        license: str,
-        description: str | None = None,
-        metadata: Mapping[str, Any] | None = None,
-        authors: Sequence[Mapping[str, Any]] | None = None,
-        maintainers: Sequence[Mapping[str, Any]] | None = None,
-        discovery: models.VolumeDiscoveryInput | None = None,
-    ) -> models.VolumeResponse:
-        """Create the volume a first publish needs, which drafting a book will not do for you.
-
-        Creation needs WRITE and deletion needs ADMIN,
-        so a caller can create a volume it cannot delete.
-        """
-        return await self._client.create_volume_async(
-            _volume_create(
-                name,
-                license=license,
-                description=description,
-                metadata=metadata,
-                authors=authors,
-                maintainers=maintainers,
-                discovery=discovery,
-            )
-        )
-
-    async def get_or_create_volume(
-        self,
-        name: str,
-        *,
-        license: str,
-        description: str | None = None,
-        metadata: Mapping[str, Any] | None = None,
-        authors: Sequence[Mapping[str, Any]] | None = None,
-        maintainers: Sequence[Mapping[str, Any]] | None = None,
-        discovery: models.VolumeDiscoveryInput | None = None,
-    ) -> tuple[AsyncVolume, bool]:
-        """Resolve a volume, creating it first when it does not exist, and say whether this call created it.
-
-        The creation fields apply only to a new volume, and an existing one is returned unchanged.
-        A 409 from a concurrent creator counts as already present,
-        unless the volume it names is one this caller cannot read.
-        """
-        try:
-            return await self.volume(name), False
-        except NotFoundError:
-            pass
-        try:
-            await self.create_volume(
-                name,
-                license=license,
-                description=description,
-                metadata=metadata,
-                authors=authors,
-                maintainers=maintainers,
-                discovery=discovery,
-            )
-        except ConflictError as conflict:
-            try:
-                return await self.volume(name), False
-            except NotFoundError:
-                raise conflict from None
-        return await self.volume(name), True
-
-    async def update_volume(
-        self,
-        name: str,
-        *,
-        description: str | None = None,
-        metadata: Mapping[str, Any] | None = None,
-        authors: Sequence[Mapping[str, Any]] | None = None,
-        maintainers: Sequence[Mapping[str, Any]] | None = None,
-        discovery: models.VolumeDiscoveryInput | None = None,
-    ) -> models.VolumeResponse:
-        """Update a volume's metadata, replacing each field named and leaving the rest alone.
-
-        The licence is fixed at creation and cannot be changed here.
-        A field can be changed but not cleared, because an omitted one stays off the wire.
-        """
-        return await self._client.update_volume_async(
-            name,
-            _volume_update(
-                description=description,
-                metadata=metadata,
-                authors=authors,
-                maintainers=maintainers,
-                discovery=discovery,
-            ),
-        )
-
-    async def delete_volume(self, name: str) -> None:
-        """Delete a volume and every book in it.
-
-        This needs ADMIN, which is a higher bar than the WRITE that creation needs,
-        so the credential that created a volume may not be able to remove it.
-        """
-        await self._client.delete_volume_async(name)
-
-    async def replay_bundle(self, bundle: Path | Bundle) -> models.BundleReplayResponse:
-        """Upload a recorded bundle's managed bytes and replay it in one transactional request.
-
-        Args:
-            bundle: Bundle directory or an already loaded bundle.
-
-        Returns:
-            What the replay resolved to, the resulting book among it.
-        """
-        # Imported here because the publisher package imports this module.
-        from bookshelf.publisher.replay import send_bundle_async
-
-        return await send_bundle_async(self._client, bundle)
-
-    async def discard_draft(self, book_id: str | UUID) -> None:
-        """Delete a draft book, so a failed publish leaves no edition behind.
-
-        Only a draft can be discarded.
-        A published book is protected by the API and arrives back as an error.
-        """
-        await self._client.delete_book_async(str(book_id))
-
-    async def update_draft(
-        self,
-        book_id: str | UUID,
-        *,
-        metadata: Mapping[str, Any] | None = None,
-    ) -> models.BookResponse:
-        """Update a draft book's metadata, replacing what is named.
-
-        Only a draft can be updated, so this is a fix before publishing rather than after.
-        Its discovery profile is baked on at creation and is not revisable here.
-        """
-        return await self._client.update_book_async(
-            str(book_id),
-            _book_update(
-                metadata=metadata,
-            ),
-        )
-
-    async def correct_book(
-        self,
-        book_id: str | UUID,
-        *,
-        reason: str | None = None,
-        description: str | None = None,
-        authors: Sequence[Mapping[str, Any]] | None = None,
-        discovery: Mapping[str, Any] | None = None,
-        metadata: Mapping[str, Any] | None = None,
-    ) -> BookCorrection:
-        """Correct a published book's discovery profile or metadata without minting an edition.
-
-        Discovery fields are patched, so only those named change.
-        ``description`` and ``authors`` win over the same fields in ``discovery``.
-        Metadata is replaced whole, so pass ``metadata={}`` to clear it.
-        A correction that changes something is recorded as an event on the book, with its ``reason``.
-        One that changes nothing records no event, so check ``corrected`` when the audit matters.
-        A draft is a ``ConflictError``, so use ``update_draft`` there.
-        Content, licence or visibility changes are a ``RequestValidationError``,
-        because they need a new edition.
-        """
-        request = _book_correction(
-            reason=reason,
-            description=description,
-            authors=authors,
-            discovery=discovery,
-            metadata=metadata,
-        )
-        response = await self._client.correct_book_async(str(book_id), request)
-        return _book_correction_record(response)
-
-    async def book(
-        self,
-        volume: str,
-        version: str,
-        *,
-        edition: int | None = None,
-        refresh: bool = False,
-    ) -> AsyncBook:
-        """Resolve a published async Book, defaulting to the latest edition.
-
-        The asynchronous twin of [`Bookshelf.book`][bookshelf.Bookshelf.book], with the same memoisation.
-        """
-        return await resolve_book_async(
-            self._client,
-            self._cache,
-            volume,
-            version,
-            edition,
-            book_ttl=self._book_ttl,
-            refresh=refresh,
-        )
-
-
 __all__ = [
     "Activity",
-    "AsyncActivity",
-    "AsyncBook",
-    "AsyncBookEntry",
-    "AsyncBookshelf",
-    "AsyncDraftBook",
-    "AsyncResource",
-    "AsyncVolume",
     "Book",
     "BookEntry",
     "Bookshelf",

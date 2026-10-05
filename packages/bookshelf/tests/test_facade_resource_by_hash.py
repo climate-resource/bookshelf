@@ -7,7 +7,7 @@ import httpx
 import pytest
 
 from bookshelf._core.errors import BookshelfError, NotFoundError
-from bookshelf._facade import AsyncBookshelf, Bookshelf
+from bookshelf._facade import Bookshelf
 from tests import _core_payloads as payloads
 
 BASE_URL = "https://bookshelf.test"
@@ -60,18 +60,6 @@ def test_resource_by_hash_refuses_an_ambiguous_answer() -> None:
         client.resource_by_hash(DIGEST)
 
 
-async def test_resource_by_hash_has_an_async_twin() -> None:
-    recorded: list[httpx.Request] = []
-
-    async with AsyncBookshelf(
-        BASE_URL, auth=None, async_transport=_transport(recorded, [payloads.RESOURCE_READ])
-    ) as client:
-        resource = await client.resource_by_hash(DIGEST)
-
-    assert str(resource.tracking_id) == payloads.RESOURCE_READ["tracking_id"]
-    assert parse_qs(recorded[0].url.query.decode())["dedupe"] == ["true"]
-
-
 @pytest.mark.parametrize(
     "content_hash", ["sha256:abc", "md5:" + "0" * 32, "0" * 64, "sha256:" + "g" * 64, ""]
 )
@@ -87,19 +75,7 @@ def test_resource_by_hash_refuses_a_malformed_digest_before_asking(content_hash:
     assert recorded == []
 
 
-async def test_the_async_resource_by_hash_refuses_a_malformed_digest() -> None:
-    recorded: list[httpx.Request] = []
-
-    async with AsyncBookshelf(
-        BASE_URL, auth=None, async_transport=_transport(recorded, [])
-    ) as client:
-        with pytest.raises(ValueError, match="sha256"):
-            await client.resource_by_hash("md5:" + "0" * 32)
-
-    assert recorded == []
-
-
-async def test_resource_by_hash_asks_for_upper_case_hex_in_lower_case() -> None:
+def test_resource_by_hash_asks_for_upper_case_hex_in_lower_case() -> None:
     """The platform stores digests in lower case, so an upper case one would never match."""
     digest = "sha256:" + "ab" * 32
     recorded: list[httpx.Request] = []
@@ -108,10 +84,7 @@ async def test_resource_by_hash_asks_for_upper_case_hex_in_lower_case() -> None:
         BASE_URL, auth=None, transport=_transport(recorded, [payloads.RESOURCE_READ])
     ) as client:
         client.resource_by_hash("sha256:" + "AB" * 32)
-    async with AsyncBookshelf(
-        BASE_URL, auth=None, async_transport=_transport(recorded, [payloads.RESOURCE_READ])
-    ) as async_client:
-        await async_client.resource_by_hash("sha256:" + "Ab" * 32)
+        client.resource_by_hash("sha256:" + "Ab" * 32)
 
     assert [parse_qs(request.url.query.decode())["hash"] for request in recorded] == [
         [digest],

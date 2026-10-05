@@ -1,4 +1,4 @@
-"""Facade tests for the volume lifecycle and draft cleanup, on both surfaces."""
+"""Facade tests for the volume lifecycle and draft cleanup."""
 
 import json
 from typing import Any
@@ -8,7 +8,7 @@ import httpx
 import pytest
 
 from bookshelf._core.errors import ConflictError, ForbiddenError, RequestValidationError
-from bookshelf._facade import AsyncBookshelf, Bookshelf
+from bookshelf._facade import Bookshelf
 from tests import _core_payloads as payloads
 
 BASE_URL = "https://bookshelf.test"
@@ -34,12 +34,6 @@ def _body(request: httpx.Request) -> dict[str, Any]:
 
 def _sync(recorded: list[httpx.Request], status: int, payload: Any = None) -> Bookshelf:
     return Bookshelf(BASE_URL, auth=None, transport=_transport(recorded, (status, payload)))
-
-
-def _async(recorded: list[httpx.Request], status: int, payload: Any = None) -> AsyncBookshelf:
-    return AsyncBookshelf(
-        BASE_URL, auth=None, async_transport=_transport(recorded, (status, payload))
-    )
 
 
 def test_create_volume_sends_the_named_fields_only() -> None:
@@ -184,39 +178,6 @@ def test_correct_book_refuses_an_unknown_discovery_field() -> None:
         client.correct_book("b1", discovery={"titel": "Emissions"})
 
 
-async def test_async_facade_matches_the_sync_one() -> None:
-    created: list[httpx.Request] = []
-    async with _async(created, 201, payloads.VOLUME) as client:
-        volume = await client.create_volume("example", license="MIT")
-    assert volume.name == "example"
-    assert _body(created[0]) == {"name": "example", "discovery": {"license": "MIT"}}
-
-    updated: list[httpx.Request] = []
-    async with _async(updated, 200, payloads.VOLUME) as client:
-        await client.update_volume("example", description="Now with units")
-    assert _body(updated[0]) == {"discovery": {"description": "Now with units"}}
-
-    deleted: list[httpx.Request] = []
-    async with _async(deleted, 204) as client:
-        assert await client.delete_volume("example") is None
-        assert await client.discard_draft("b1") is None
-    assert [(request.method, request.url.path) for request in deleted] == [
-        ("DELETE", "/v1/volumes/example"),
-        ("DELETE", "/v1/books/b1"),
-    ]
-
-    patched: list[httpx.Request] = []
-    async with _async(patched, 200, payloads.BOOK_RESPONSE) as client:
-        await client.update_draft("b1", metadata={"note": "fixed"})
-    assert _body(patched[0]) == {"metadata": {"note": "fixed"}}
-
-    corrections: list[httpx.Request] = []
-    async with _async(corrections, 200, payloads.BOOK_CORRECTED) as client:
-        corrected = await client.correct_book("b1", metadata={"maturity": "approved"})
-    assert corrected.metadata == {"maturity": "approved"}
-    assert (corrections[0].method, corrections[0].url.path) == ("POST", "/v1/books/b1/corrections")
-
-
 NOT_FOUND = (404, payloads.problem(404, "Not Found", "volume not found"))
 CONFLICT = (409, payloads.problem(409, "Conflict", "volume already exists"))
 FORBIDDEN = (403, payloads.problem(403, "Forbidden", "no WRITE on this organisation"))
@@ -244,20 +205,6 @@ def test_get_or_create_volume_reports_whether_it_created(
     assert len(recorded) == len(replies)
 
 
-@pytest.mark.parametrize(("replies", "created"), GET_OR_CREATE_CASES)
-async def test_async_get_or_create_volume_matches_the_sync_one(
-    replies: list[tuple[int, Any]], created: bool
-) -> None:
-    recorded: list[httpx.Request] = []
-    transport = _transport(recorded, *replies)
-    async with AsyncBookshelf(BASE_URL, auth=None, async_transport=transport) as client:
-        volume, was_created = await client.get_or_create_volume("example", license="MIT")
-
-    assert volume.name == "example"
-    assert was_created is created
-    assert len(recorded) == len(replies)
-
-
 GET_OR_CREATE_FAILURES = [
     pytest.param([NOT_FOUND, FORBIDDEN], ForbiddenError, id="forbidden"),
     pytest.param([NOT_FOUND, CONFLICT, NOT_FOUND], ConflictError, id="hidden"),
@@ -273,13 +220,3 @@ def test_get_or_create_volume_raises_what_it_cannot_resolve(
         pytest.raises(error),
     ):
         client.get_or_create_volume("example", license="MIT")
-
-
-@pytest.mark.parametrize(("replies", "error"), GET_OR_CREATE_FAILURES)
-async def test_async_get_or_create_volume_raises_what_it_cannot_resolve(
-    replies: list[tuple[int, Any]], error: type[Exception]
-) -> None:
-    transport = _transport([], *replies)
-    async with AsyncBookshelf(BASE_URL, auth=None, async_transport=transport) as client:
-        with pytest.raises(error):
-            await client.get_or_create_volume("example", license="MIT")
