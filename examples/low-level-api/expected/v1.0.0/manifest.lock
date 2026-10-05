@@ -29,7 +29,7 @@ book:
 resources:
 - format: parquet
   generated: true
-  hash: sha256:754ac3d00f117b264693e79616579e56e99e67eed35d537884cb0acf727d07bc
+  hash: sha256:3b5664b30eb54da8c539bf7bb69817cbd512f343de6434c3472a1f6d9c240629
   kind: managed
   metadata: {}
   name: annual-means
@@ -41,7 +41,7 @@ resources:
   visibility: public
 - format: parquet
   generated: true
-  hash: sha256:324197fa7655d8824a189442bfe87856f29ad1863641e98ca31f63b7fb67625e
+  hash: sha256:24289184118cc2bc3a2fcbba0792433211ab8638eebe5b4767db66ed2b67df75
   kind: managed
   metadata: {}
   name: anomalies
@@ -54,4 +54,4 @@ resources:
   visibility: public
 schema_version: '3.10'
 writer:
-  pyarrow: 23.0.0
+  pyarrow: 23.0.1

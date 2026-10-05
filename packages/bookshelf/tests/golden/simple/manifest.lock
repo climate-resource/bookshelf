@@ -37,7 +37,7 @@ resources:
   visibility: public
 - format: parquet
   generated: true
-  hash: sha256:ea6c596787f6a204b23bfa40d53aeb0385c09dea0d92c788b559cd4ef11267cf
+  hash: sha256:7ebf82e55f3184c7feccd769290f485b970875bc8c18f06ffc0973fca9332b77
   kind: managed
   metadata: {}
   name: emissions
@@ -50,7 +50,7 @@ resources:
   visibility: public
 - format: parquet
   generated: true
-  hash: sha256:76f2a9c81692ea9816ec55e4c78334fdf976d788b8cf7f47c6a7fa2d46e31876
+  hash: sha256:6f4299fc8ffa568bd8ce57a955469c8a19c036560badb844bdebcc70b599eaad
   kind: managed
   metadata: {}
   name: summary
@@ -64,4 +64,4 @@ resources:
   visibility: public
 schema_version: '3.10'
 writer:
-  pyarrow: 23.0.0
+  pyarrow: 23.0.1
