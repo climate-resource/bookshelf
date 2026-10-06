@@ -16,6 +16,7 @@ from bookshelf import (
     SelectionError,
     UnsupportedConversionError,
 )
+from bookshelf._consume.reading import resource_info
 from bookshelf._consume.selection import Selection
 from bookshelf._generated import models
 from bookshelf.cache import ContentCache
@@ -384,6 +385,48 @@ def test_describe_names_the_reads_the_type_answers(tmp_path: Path) -> None:
     assert str(info.tracking_id) == TRACKING_ID
     assert "as_scmrun()" in info.readers
     assert "preview()" in info.readers
+
+
+def _described(**located: Any) -> Any:
+    return resource_info(
+        models.ResourceRead(
+            tracking_id=TRACKING_ID,
+            type=models.ResourceType.tabular,
+            hash="sha256:" + "0" * 64,
+            visibility=models.Visibility.public,
+            owner_org_id="org_1",
+            dedupe=False,
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
+            **located,
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    ("uri", "link"),
+    [
+        ("https://example.org/data.csv", "https://example.org/data.csv"),
+        ("rdm://records/abc@v1", "https://rdm.example.org/records/abc"),
+        ("rdm://records/abc", None),
+    ],
+)
+def test_describe_names_a_pointer_target(uri: str, link: str | None) -> None:
+    info = _described(locations=[uri], location_url=uri, link_url=link)
+
+    assert info.external_uri == uri
+    assert info.link_url == link
+
+
+def test_describe_hides_the_storage_key_of_managed_bytes() -> None:
+    info = _described(locations=["ingest/org_1/abc"], location_url="ingest/org_1/abc")
+
+    assert info.external_uri is None
+    assert info.link_url is None
+
+
+def test_describe_has_no_target_without_a_location() -> None:
+    assert _described().external_uri is None
 
 
 def test_drop_constant_needs_a_timeseries(tmp_path: Path) -> None:
