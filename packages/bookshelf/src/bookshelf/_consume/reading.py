@@ -64,6 +64,10 @@ class ResourceInfo:
     """The facts the resource states about itself, as JSON-compatible values."""
     created_at: datetime
     updated_at: datetime
+    external_uri: str | None = None
+    """The target of an external pointer, or ``None`` for bytes the platform stores."""
+    link_url: str | None = None
+    """An https link to an external pointer, or ``None`` when it has no resolver."""
 
 
 def resource_info(record: models.ResourceRead) -> ResourceInfo:
@@ -78,7 +82,14 @@ def resource_info(record: models.ResourceRead) -> ResourceInfo:
         discovery=records.json_fields(record.discovery),
         created_at=record.created_at,
         updated_at=record.updated_at,
+        external_uri=_external_uri(record.locations or []),
+        link_url=record.link_url,
     )
+
+
+def _external_uri(locations: list[str]) -> str | None:
+    # A managed location is an opaque storage key, and only a pointer target carries a scheme.
+    return next((location for location in locations if "://" in location), None)
 
 
 def check_frame_read(
