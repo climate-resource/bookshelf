@@ -12,7 +12,6 @@ Import every name from the top-level package, for example `from bookshelf import
 | [Errors](errors.md)       | The exceptions a caller can catch                               |
 | [Cache](cache.md)         | The local content cache that downloads read through             |
 | [Auth](auth.md)           | A Bookshelf credential for other Climate Resource services      |
-| [Legacy (0.4)](legacy.md) | The deprecated 0.4 consumer API                                 |
 
 ## What semver covers
 
@@ -76,7 +75,5 @@ That includes:
   `create_volume`, `get_or_create_volume`, `update_volume`, `delete_volume`, `update_draft`, `discard_draft`
   and `replay_bundle`, some of which still return generated models.
 - The rest of `bookshelf.auth`, such as `ActionsOidcToken`, `RefreshTokenExchange` and `TokenProvider`.
-- The deprecated 0.4 API: `bookshelf.legacy`, and the `BookShelf` and `LocalBook` names it serves from the root.
-  It is removed in bookshelf 1.1, once the feedstocks have migrated.
 - `bookshelf.publisher`, which drives recording, replaying and publishing bundles, and its submodules.
   Its errors are the exception, because they are promised from the root package.
