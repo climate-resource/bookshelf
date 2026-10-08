@@ -21,6 +21,14 @@ of rst and use slightly different categories.
 
 <!-- towncrier release notes start -->
 
+## bookshelf v1.1.1 (2026-10-08)
+
+### Bug Fixes
+
+- Pointer names may now hold `/` between segments, so pointers such as `rdm://slice/<volume>/<version>/<entry>` record and validate.
+  A segment may not be empty, `.` or `..`. ([#316](https://github.com/climate-resource/bookshelf/pull/316))
+
+
 ## bookshelf v1.1.0 (2026-10-08)
 
 ### Features
