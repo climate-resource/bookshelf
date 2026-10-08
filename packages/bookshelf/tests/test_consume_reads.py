@@ -20,7 +20,7 @@ from bookshelf._consume.reading import resource_info
 from bookshelf._consume.selection import Selection
 from bookshelf._generated import models
 from bookshelf.cache import ContentCache
-from tests.test_legacy import BASE_URL, TRACKING_ID, WIDE, _parquet, _platform
+from tests._platform import BASE_URL, TRACKING_ID, WIDE, _parquet, _platform
 
 DATA_PATH = f"/v1/resources/{TRACKING_ID}/data"
 _UNESCAPED_COMMA = re.compile(r"(?<!\\),")

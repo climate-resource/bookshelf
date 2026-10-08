@@ -10,13 +10,14 @@ described in [Publishing a book](how-to-guides/publish_a_book.py).
 
 ## Upgrade in two steps
 
-1. Upgrade the package and keep your code as it is.
+1. Upgrade to bookshelf 1.0 and keep your code as it is.
    The 0.4 `BookShelf` and `LocalBook` still work in 1.0 and warn at every call.
-2. Move each warning call site to the new API, using the [mapping](#api-mapping) below.
+2. Move each warning call site to the new API, using the [mapping](#api-mapping) below,
+   then upgrade to the latest release.
 
 The first step gets you onto the platform quickly.
-The second step has to be done before bookshelf 1.1, which removes the old classes
-once the feedstocks have migrated.
+Bookshelf 1.1 removed the old classes, so the first step only works on 1.0.
+Code that already uses the new API can skip it and install the latest release.
 
 ## Step 1: upgrade
 
@@ -24,7 +25,7 @@ Bookshelf 1.0 needs Python 3.12 or newer.
 scmdata is no longer a core dependency, so install the `scmrun` extra if you read `ScmRun` objects:
 
 ```bash
-uv add "bookshelf[scmrun]>=1.0"
+uv add "bookshelf[scmrun]>=1.0,<1.1"
 ```
 
 Code that imports from the top-level `bookshelf` package runs unchanged:
@@ -67,6 +68,7 @@ The compatibility layer differs from 0.4 in a few places:
 - `bookshelf.constants`, `bookshelf.utils` and `bookshelf.dataset_structure` are gone with no replacement.
   Helpers such as `print_dataset_structure` have to be copied into your own code.
 - Importing any of these removed submodules raises an `ImportError` that links to this page.
+  From 1.1, `bookshelf.legacy`, `bookshelf.BookShelf` and `bookshelf.LocalBook` fail the same way.
 
 ## Step 2: move to the new API
 

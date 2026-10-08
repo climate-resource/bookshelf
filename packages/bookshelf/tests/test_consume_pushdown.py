@@ -16,7 +16,7 @@ from bookshelf._consume.selection import Selection
 from bookshelf._core.errors import SelectionError
 from bookshelf._core.frames import ParquetScan, read_frame
 from bookshelf._generated import models
-from tests.test_legacy import WIDE
+from tests._platform import WIDE
 
 TIMESERIES = models.ResourceType.timeseries
 TABULAR = models.ResourceType.tabular
