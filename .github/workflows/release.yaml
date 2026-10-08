@@ -27,8 +27,7 @@ jobs:
           uv build --package bookshelf -o dist
       - name: Generate Release Notes
         run: |
-          echo "" >> ".github/release_template.md"
-          echo "## Changelog" >> ".github/release_template.md"
+          echo "## Changelog" > ".github/release_template.md"
           echo "" >> ".github/release_template.md"
           uv run python scripts/changelog-to-release-template.py >> ".github/release_template.md"
           echo "" >> ".github/release_template.md"
