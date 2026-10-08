@@ -14,6 +14,7 @@ from bookshelf.publisher.bundle import (
     BundleBook,
     InvalidBundleError,
     companion_filename,
+    external_uri_problem,
     resource_filename,
     synthesise_pointer_hash,
 )
@@ -485,3 +486,28 @@ def test_a_hand_edited_pin_is_refused(make_bundle: BundleFactory) -> None:
 
     with pytest.raises(InvalidBundleError, match="already pins"):
         Bundle.read_validated(written.root)
+
+
+@pytest.mark.parametrize(
+    "uri",
+    ["rdm://slice/abc", "rdm://slice/cra-spei12/v1.3/spei12.ssp245", "rdm://dataset/spei12@2026.1"],
+)
+def test_a_pointer_name_may_hold_path_segments(uri: str) -> None:
+    assert external_uri_problem(uri) is None
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "rdm://slice/",
+        "rdm://slice/..",
+        "rdm://slice/a/../b",
+        "rdm://slice/a/./b",
+        "rdm://slice/a//b",
+        "rdm://slice/a/b/",
+        "rdm://slice//a",
+        "rdm://slice/a/b@v1/c",
+    ],
+)
+def test_a_pointer_name_with_an_empty_or_dot_segment_is_refused(uri: str) -> None:
+    assert external_uri_problem(uri) is not None

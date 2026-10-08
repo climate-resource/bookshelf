@@ -490,7 +490,8 @@ def _describe(exc: PydanticValidationError) -> str:
 # pointer whose scheme the platform could never open.
 _OPENABLE_SCHEMES = frozenset({"http", "https", "file", "s3"})
 _POINTER_URI = re.compile(
-    r"^(?P<scheme>[a-z][a-z0-9]*)://[a-z]+/(?P<name>[A-Za-z0-9._~-]+)(?:@[A-Za-z0-9._~-]+)?$"
+    r"^(?P<scheme>[a-z][a-z0-9]*)://[a-z]+/"
+    r"(?P<name>[A-Za-z0-9._~-]+(?:/[A-Za-z0-9._~-]+)*)(?:@[A-Za-z0-9._~-]+)?$"
 )
 
 
@@ -509,7 +510,7 @@ def external_uri_problem(uri: str) -> str | None:
         if (
             pointer is None
             or pointer["scheme"] in _OPENABLE_SCHEMES
-            or pointer["name"] in {".", ".."}
+            or any(segment in {".", ".."} for segment in pointer["name"].split("/"))
         ):
             return "is neither an https URL nor a '<scheme>://<form>/<name>[@<pin>]' pointer"
         return None
