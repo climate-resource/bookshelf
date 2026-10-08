@@ -21,6 +21,19 @@ of rst and use slightly different categories.
 
 <!-- towncrier release notes start -->
 
+## bookshelf v1.1.0 (2026-10-08)
+
+### Features
+
+- Added `ResourceInfo.external_uri` and `ResourceInfo.link_url`,
+  so `describe()` now gives an external pointer's target and an https link to it.
+  Both are `None` for resources the platform stores. ([#314](https://github.com/climate-resource/bookshelf/pull/314))
+
+### Trivial/Internal Changes
+
+- [#313](https://github.com/climate-resource/bookshelf/pull/313)
+
+
 ## bookshelf v1.0.0 (2026-10-05)
 
 ### Upgrading
