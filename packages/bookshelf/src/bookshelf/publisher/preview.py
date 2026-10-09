@@ -88,12 +88,17 @@ def _manifest(candidate: _Candidate, storage_paths: Mapping[str, str]) -> dict[s
 
     ``activity`` and ``resources`` are the replay projections,
     so a book published from a preview keeps the provenance a replay would give it.
+    ``volume_discovery`` is the volume patch replay would send, present only when the recipe states facts.
     ``storage_paths`` maps a resource name to where its bytes sit under the preview.
     """
     framing = candidate.framing
     manifest: dict[str, Any] = _book(framing).model_dump(mode="json", exclude_unset=True)
     if framing.processing is not None:
         manifest["processing"] = [list(pair) for pair in framing.processing]
+    if framing.volume_discovery:
+        manifest["volume_discovery"] = models.VolumeDiscoveryInput.model_validate(
+            framing.volume_discovery
+        ).model_dump(mode="json", exclude_unset=True)
     recorded = candidate.bundle.manifest
     if recorded.activity is not None:
         manifest["activity"] = _activity(recorded.activity).model_dump(

@@ -329,3 +329,31 @@ def test_a_pointer_entry_travels_as_its_address_without_bytes(
     assert "external_uri" not in totals
     uploads = deployment.sent("/uploads")
     assert [upload["hash"] for upload in uploads] == [totals["hash"]]
+
+
+def test_the_recipe_volume_facts_travel_with_the_manifest(make_bundle: BundleFactory) -> None:
+    framing = _framing("v1.0.0")
+    framing.volume_discovery = {"description": "Example volume.", "update_cadence": "annual"}
+    bundle = make_bundle(book=framing)
+    deployment = PreviewDeployment()
+
+    with _client(deployment) as client:
+        outcome = upload_preview([bundle.root], client, IDENTITY)
+
+    assert outcome.refused == {}
+    assert _attached_manifest(deployment)["volume_discovery"] == {
+        "description": "Example volume.",
+        "update_cadence": "annual",
+    }
+
+
+def test_a_recipe_without_volume_facts_sends_no_volume_discovery(
+    make_bundle: BundleFactory,
+) -> None:
+    bundle = make_bundle(book=_framing("v1.0.0"))
+    deployment = PreviewDeployment()
+
+    with _client(deployment) as client:
+        upload_preview([bundle.root], client, IDENTITY)
+
+    assert "volume_discovery" not in _attached_manifest(deployment)
