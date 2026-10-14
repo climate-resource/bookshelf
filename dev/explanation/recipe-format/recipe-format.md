@@ -245,9 +245,12 @@ Nothing is fetched from upstream and nothing new is catalogued.
 The reference resolves to the existing resource,
 so `build.use("primap")` hands back the tracking id the platform already assigned.
 
-A recorded build cannot cite it in `used=`.
-A replay resolves an input it does not carry by digest, against the publishing organisation alone,
-and a referenced book may belong to another one.
+A recorded build cites it in `used=` by coordinate.
+`used=[primap]` records `bookshelf://<volume>/<version>_e<edition>/<entry>` under `used_entries`,
+pinned to the edition the build read even where the recipe left it off.
+The platform resolves it under the publisher's read access,
+so the cited book may belong to another organisation.
+A recipe should still pin the edition, so a rebuild reads and cites the same bytes.
 
 A recorded build can place a resource its own organisation holds in the book instead,
 under a name of its own choosing.
