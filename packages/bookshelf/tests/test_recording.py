@@ -292,6 +292,26 @@ def test_the_plotted_values_are_not_cited_by_later_resources(tmp_path: Path) -> 
     assert recorded["notebook"] == ["raw"]
 
 
+def test_the_processing_document_cites_every_input_the_activity_cited(tmp_path: Path) -> None:
+    """The notebook explains the whole build, so it cites digests and book entries as well as names."""
+    bundle = Bundle(tmp_path / "bundle")
+    sink = _sink(bundle, tmp_path / "cache")
+    digest = "sha256:" + "c" * 64
+    coordinate = "bookshelf://primap-hist/v2.7_e002/by_country"
+    upload = SimpleNamespace(tracking_id=uuid4(), citable_hash=digest)
+    published = SimpleNamespace(tracking_id=uuid4(), citable_hash=None, citable_entry=coordinate)
+    activity = sink.writing_activity()
+    raw = activity.register(b"raw", type="tabular", name="raw")
+    activity.register(b"derived", type="tabular", name="derived", used=[raw, upload, published])
+
+    sink.record_document(b"notebook", name="notebook", metadata={})
+
+    notebook = bundle.manifest.resources[-1]
+    assert notebook.used == ["raw"]
+    assert notebook.used_digests == [digest]
+    assert notebook.used_entries == [coordinate]
+
+
 def test_plotted_values_for_anything_but_a_figure_record_nothing(tmp_path: Path) -> None:
     bundle = Bundle(tmp_path / "bundle")
     book = _book(_sink(bundle, tmp_path / "cache"))
