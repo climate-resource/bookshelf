@@ -3,7 +3,7 @@
   "info": {
     "title": "Bookshelf API",
     "description": "API for Climate Resource's dataset management system",
-    "version": "v1+g658f91f3"
+    "version": "v1+g317b4418"
   },
   "paths": {
     "/livez": {
@@ -120,255 +120,6 @@
             "HTTPBearer": []
           }
         ]
-      }
-    },
-    "/agent/identity": {
-      "post": {
-        "tags": [
-          "agent-auth"
-        ],
-        "summary": "Register Identity",
-        "description": "Register an agent (anonymous or service_auth).",
-        "operationId": "registerAgentIdentity",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AgentIdentityRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/AnonymousRegistrationResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ServiceAuthRegistrationResponse"
-                    }
-                  ],
-                  "title": "Response Registeragentidentity",
-                  "discriminator": {
-                    "propertyName": "registration_type",
-                    "mapping": {
-                      "anonymous": "#/components/schemas/AnonymousRegistrationResponse",
-                      "service_auth": "#/components/schemas/ServiceAuthRegistrationResponse"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "422": {
-            "$ref": "#/components/responses/UnprocessableEntity"
-          }
-        }
-      }
-    },
-    "/agent/identity/claim": {
-      "post": {
-        "tags": [
-          "agent-auth"
-        ],
-        "summary": "Start Claim",
-        "description": "Start the device-code ceremony for an anonymous registration.",
-        "operationId": "startAgentClaim",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ClaimStartRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ClaimStartResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "$ref": "#/components/responses/UnprocessableEntity"
-          }
-        }
-      }
-    },
-    "/agent/identity/claim/preview": {
-      "post": {
-        "tags": [
-          "agent-auth"
-        ],
-        "summary": "Preview Claim",
-        "description": "Report what completing this claim would grant, for the signed-in user.",
-        "operationId": "previewAgentClaim",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ClaimPreviewRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ClaimPreviewResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "422": {
-            "$ref": "#/components/responses/UnprocessableEntity"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/agent/identity/claim/verify": {
-      "post": {
-        "tags": [
-          "agent-auth"
-        ],
-        "summary": "Verify Claim",
-        "description": "Complete the ceremony from the service-owned claim page (signed-in user).",
-        "operationId": "verifyAgentClaim",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ClaimVerifyRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ClaimVerifyResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "422": {
-            "$ref": "#/components/responses/UnprocessableEntity"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/oauth2/token": {
-      "post": {
-        "tags": [
-          "agent-auth"
-        ],
-        "summary": "Token",
-        "description": "Exchange an assertion (jwt-bearer) or poll the claim grant for a token.\n\n``resource`` is the optional RFC 8707 resource indicator. It is accepted for\nprotocol compatibility but not yet used.",
-        "operationId": "agentTokenExchange",
-        "requestBody": {
-          "content": {
-            "application/x-www-form-urlencoded": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_agentTokenExchange"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TokenResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "OAuth error (e.g. authorization_pending, invalid_request, unsupported_grant_type, expired_token).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OAuthError"
-                }
-              }
-            }
-          },
-          "422": {
-            "$ref": "#/components/responses/UnprocessableEntity"
-          }
-        }
-      }
-    },
-    "/oauth2/revoke": {
-      "post": {
-        "tags": [
-          "agent-auth"
-        ],
-        "summary": "Revoke",
-        "description": "Revoke an access token (RFC 7009, idempotent).",
-        "operationId": "agentTokenRevoke",
-        "requestBody": {
-          "content": {
-            "application/x-www-form-urlencoded": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_agentTokenRevoke"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "$ref": "#/components/responses/UnprocessableEntity"
-          }
-        }
       }
     },
     "/v1/volumes": {
@@ -2017,7 +1768,7 @@
           "explorer"
         ],
         "summary": "Create Chart",
-        "description": "Create a new explorer chart.\n\nRequires authentication, and an agent must have been claimed.\nA config with a `spec` key is a ChartSpec wrapper, anything else is the legacy config.\nEvery wrapper source must name a resource the caller can see,\nplaced under the source's volume, version, edition and resource name.\nA public or unlisted chart can only use public data, so otherwise it is a 422.",
+        "description": "Create a new explorer chart.\n\nRequires authentication.\nA config with a `spec` key is a ChartSpec wrapper, anything else is the legacy config.\nEvery wrapper source must name a resource the caller can see,\nplaced under the source's volume, version, edition and resource name.\nA public or unlisted chart can only use public data, so otherwise it is a 422.",
         "operationId": "explorerCreateChart",
         "security": [
           {
@@ -2176,7 +1927,7 @@
           "explorer"
         ],
         "summary": "Create Chart Draft",
-        "description": "Store a chart or figure bundle for preview and return a link to it.\n\nRequires authentication, and an agent must have been claimed.\nNothing is saved as a chart.\nThe draft is readable by anyone with the link for 7 days.\nSources are not checked,\nso a source the viewer cannot read and that has no inline rows fails to draw\nrather than failing the post.",
+        "description": "Store a chart or figure bundle for preview and return a link to it.\n\nRequires authentication.\nNothing is saved as a chart.\nThe draft is readable by anyone with the link for 7 days.\nSources are not checked,\nso a source the viewer cannot read and that has no inline rows fails to draw\nrather than failing the post.",
         "operationId": "explorerCreateChartDraft",
         "requestBody": {
           "content": {
@@ -4404,11 +4155,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "When true, return only the most-recent resource per (volume, name) pair. Resources not attached to a book are excluded, because they have no volume.",
+              "description": "When true, return only the resource in the latest release per (volume, name) pair. Resources placed only in drafts or invalidated books are excluded, and so are resources not attached to a book, because they have no volume.",
               "default": false,
               "title": "Latest"
             },
-            "description": "When true, return only the most-recent resource per (volume, name) pair. Resources not attached to a book are excluded, because they have no volume."
+            "description": "When true, return only the resource in the latest release per (volume, name) pair. Resources placed only in drafts or invalidated books are excluded, and so are resources not attached to a book, because they have no volume."
           },
           {
             "name": "dedupe",
@@ -8024,126 +7775,6 @@
         "title": "AdminRendersPage",
         "description": "A newest-first page of renders."
       },
-      "AgentIdentityRequest": {
-        "properties": {
-          "type": {
-            "$ref": "#/components/schemas/AgentRegistrationType",
-            "description": "Registration entrypoint: anonymous (pre-claim assertion now) or service_auth (email hint, assertion withheld until claimed)."
-          },
-          "login_hint": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Login Hint",
-            "description": "User email the agent acts for. Required for service_auth."
-          },
-          "agent_platform": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Agent Platform",
-            "description": "Optional agent platform identifier for audit correlation."
-          },
-          "agent_context_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Agent Context Id",
-            "description": "Optional agent context identifier for audit correlation."
-          }
-        },
-        "type": "object",
-        "required": [
-          "type"
-        ],
-        "title": "AgentIdentityRequest",
-        "description": "Body of ``POST /agent/identity``. Dispatches on ``type``."
-      },
-      "AgentRegistrationType": {
-        "type": "string",
-        "enum": [
-          "anonymous",
-          "service_auth"
-        ]
-      },
-      "AnonymousRegistrationResponse": {
-        "properties": {
-          "registration_id": {
-            "type": "string",
-            "title": "Registration Id"
-          },
-          "registration_type": {
-            "type": "string",
-            "const": "anonymous",
-            "title": "Registration Type"
-          },
-          "identity_assertion": {
-            "type": "string",
-            "title": "Identity Assertion"
-          },
-          "assertion_expires": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Assertion Expires"
-          },
-          "pre_claim_scopes": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Pre Claim Scopes"
-          },
-          "claim_url": {
-            "type": "string",
-            "title": "Claim Url"
-          },
-          "claim_token": {
-            "type": "string",
-            "title": "Claim Token"
-          },
-          "claim_token_expires": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Claim Token Expires"
-          },
-          "post_claim_scopes": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Post Claim Scopes"
-          }
-        },
-        "type": "object",
-        "required": [
-          "registration_id",
-          "registration_type",
-          "identity_assertion",
-          "assertion_expires",
-          "pre_claim_scopes",
-          "claim_url",
-          "claim_token",
-          "claim_token_expires",
-          "post_claim_scopes"
-        ],
-        "title": "AnonymousRegistrationResponse",
-        "description": "Response for an anonymous registration (carries a pre-claim assertion)."
-      },
       "Author": {
         "properties": {
           "name": {
@@ -8199,76 +7830,6 @@
         ],
         "title": "Author",
         "description": "Schema for an author/contributor."
-      },
-      "Body_agentTokenExchange": {
-        "properties": {
-          "grant_type": {
-            "type": "string",
-            "title": "Grant Type"
-          },
-          "assertion": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Assertion"
-          },
-          "claim_token": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Claim Token"
-          },
-          "resource": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Resource"
-          }
-        },
-        "type": "object",
-        "required": [
-          "grant_type"
-        ],
-        "title": "Body_agentTokenExchange"
-      },
-      "Body_agentTokenRevoke": {
-        "properties": {
-          "token": {
-            "type": "string",
-            "title": "Token"
-          },
-          "token_type_hint": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Token Type Hint"
-          }
-        },
-        "type": "object",
-        "required": [
-          "token"
-        ],
-        "title": "Body_agentTokenRevoke"
       },
       "BookBaseline": {
         "properties": {
@@ -10201,212 +9762,6 @@
         "type": "object",
         "title": "ChartYearWindow",
         "description": "Inclusive year window applied to a source's read."
-      },
-      "ClaimBlock": {
-        "properties": {
-          "user_code": {
-            "type": "string",
-            "title": "User Code",
-            "description": "6-digit code the user types on the claim page."
-          },
-          "expires_in": {
-            "type": "integer",
-            "title": "Expires In",
-            "description": "Seconds until the ceremony expires."
-          },
-          "verification_uri": {
-            "type": "string",
-            "title": "Verification Uri",
-            "description": "URL the user opens to complete the claim."
-          },
-          "interval": {
-            "type": "integer",
-            "title": "Interval",
-            "description": "Minimum seconds between agent polls."
-          }
-        },
-        "type": "object",
-        "required": [
-          "user_code",
-          "expires_in",
-          "verification_uri",
-          "interval"
-        ],
-        "title": "ClaimBlock",
-        "description": "RFC 8628-shaped device-code ceremony block."
-      },
-      "ClaimGrant": {
-        "properties": {
-          "scope": {
-            "type": "string",
-            "title": "Scope",
-            "description": "The scope string the access token will carry."
-          },
-          "summary": {
-            "type": "string",
-            "title": "Summary",
-            "description": "What the scope lets the agent do, in plain words."
-          },
-          "sensitive": {
-            "type": "boolean",
-            "title": "Sensitive",
-            "description": "True for grants that go beyond reading and writing existing data, so the claim page can call them out rather than list them alongside the rest."
-          }
-        },
-        "type": "object",
-        "required": [
-          "scope",
-          "summary",
-          "sensitive"
-        ],
-        "title": "ClaimGrant",
-        "description": "One scope the claim would grant, described for the human approving it."
-      },
-      "ClaimPreviewRequest": {
-        "properties": {
-          "claim_attempt_token": {
-            "type": "string",
-            "title": "Claim Attempt Token",
-            "description": "Attempt token from the verification URL."
-          }
-        },
-        "type": "object",
-        "required": [
-          "claim_attempt_token"
-        ],
-        "title": "ClaimPreviewRequest",
-        "description": "Body of ``POST /agent/identity/claim/preview``."
-      },
-      "ClaimPreviewResponse": {
-        "properties": {
-          "registration_id": {
-            "type": "string",
-            "title": "Registration Id"
-          },
-          "agent_platform": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Agent Platform",
-            "description": "Platform the agent declared at registration, if any."
-          },
-          "grants": {
-            "items": {
-              "$ref": "#/components/schemas/ClaimGrant"
-            },
-            "type": "array",
-            "title": "Grants",
-            "description": "Scopes the registration will carry once claimed."
-          }
-        },
-        "type": "object",
-        "required": [
-          "registration_id",
-          "grants"
-        ],
-        "title": "ClaimPreviewResponse",
-        "description": "What a claim would grant, shown before the user types the code."
-      },
-      "ClaimStartRequest": {
-        "properties": {
-          "claim_token": {
-            "type": "string",
-            "title": "Claim Token",
-            "description": "The registration's claim token."
-          },
-          "email": {
-            "type": "string",
-            "minLength": 3,
-            "title": "Email",
-            "description": "Email the registration binds to."
-          }
-        },
-        "type": "object",
-        "required": [
-          "claim_token",
-          "email"
-        ],
-        "title": "ClaimStartRequest",
-        "description": "Body of ``POST /agent/identity/claim`` (anonymous only)."
-      },
-      "ClaimStartResponse": {
-        "properties": {
-          "registration_id": {
-            "type": "string",
-            "title": "Registration Id"
-          },
-          "claim_attempt_id": {
-            "type": "string",
-            "title": "Claim Attempt Id"
-          },
-          "status": {
-            "type": "string",
-            "title": "Status"
-          },
-          "expires_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Expires At"
-          },
-          "claim_attempt": {
-            "$ref": "#/components/schemas/ClaimBlock"
-          }
-        },
-        "type": "object",
-        "required": [
-          "registration_id",
-          "claim_attempt_id",
-          "status",
-          "expires_at",
-          "claim_attempt"
-        ],
-        "title": "ClaimStartResponse",
-        "description": "Response when starting a claim ceremony for an anonymous registration."
-      },
-      "ClaimVerifyRequest": {
-        "properties": {
-          "claim_attempt_token": {
-            "type": "string",
-            "title": "Claim Attempt Token",
-            "description": "Attempt token from the verification URL."
-          },
-          "user_code": {
-            "type": "string",
-            "title": "User Code",
-            "description": "The code the signed-in user typed."
-          }
-        },
-        "type": "object",
-        "required": [
-          "claim_attempt_token",
-          "user_code"
-        ],
-        "title": "ClaimVerifyRequest",
-        "description": "Body the service-owned claim page POSTs to complete the ceremony."
-      },
-      "ClaimVerifyResponse": {
-        "properties": {
-          "registration_id": {
-            "type": "string",
-            "title": "Registration Id"
-          },
-          "status": {
-            "type": "string",
-            "title": "Status"
-          }
-        },
-        "type": "object",
-        "required": [
-          "registration_id",
-          "status"
-        ],
-        "title": "ClaimVerifyResponse",
-        "description": "Result of completing the claim ceremony."
       },
       "ColumnDataType": {
         "type": "string",
@@ -12829,27 +12184,6 @@
         "title": "MetadataDiff",
         "description": "Discovery and descriptive fields, which a consumer reads but does not compute on."
       },
-      "OAuthError": {
-        "properties": {
-          "error": {
-            "type": "string",
-            "title": "Error",
-            "description": "OAuth error code."
-          },
-          "error_description": {
-            "type": "string",
-            "title": "Error Description",
-            "description": "Human-readable error detail."
-          }
-        },
-        "type": "object",
-        "required": [
-          "error",
-          "error_description"
-        ],
-        "title": "OAuthError",
-        "description": "OAuth-style error body returned by the agent-auth endpoints.\n\nDistinct from the RFC 7807 problem responses used elsewhere. Mirrors the\n``AgentAuthError`` shape (e.g. ``authorization_pending``, ``invalid_request``,\n``unsupported_grant_type``)."
-      },
       "PendingInstallation": {
         "properties": {
           "installation_id": {
@@ -13031,6 +12365,14 @@
             },
             "type": "array",
             "title": "Books"
+          },
+          "volumes": {
+            "items": {
+              "$ref": "#/components/schemas/VolumeComparison"
+            },
+            "type": "array",
+            "title": "Volumes",
+            "description": "One entry per readable volume whose facts either side states."
           }
         },
         "type": "object",
@@ -13229,6 +12571,39 @@
         ],
         "title": "PreviewFailRequest",
         "description": "Mark a preview failed because the producing run could not finish it."
+      },
+      "PreviewMergeOutcome": {
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "new-edition",
+              "unchanged",
+              "stale-baseline"
+            ],
+            "title": "Outcome",
+            "description": "``new-edition`` mints the next edition. ``unchanged`` mints nothing, because an edition already carries the same seal, and corrects that edition's descriptive facts in place. ``stale-baseline`` means an edition was published after the pin, so merging refuses."
+          },
+          "edition": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edition",
+            "description": "The edition merging mints or converges on, ``null`` for a stale baseline."
+          }
+        },
+        "type": "object",
+        "required": [
+          "outcome"
+        ],
+        "title": "PreviewMergeOutcome",
+        "description": "What merging the pull request would do to one book, judged against the catalogue now."
       },
       "PreviewPublishRequest": {
         "properties": {
@@ -13501,6 +12876,17 @@
             ],
             "title": "Baseline",
             "description": "The published edition to compare against, or 'absent' for a new version."
+          },
+          "on_merge": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PreviewMergeOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What merging would do to this book. ``null`` until the preview seals, or when publication would refuse the book."
           }
         },
         "type": "object",
@@ -14859,12 +14245,15 @@
                 },
                 {
                   "$ref": "#/components/schemas/ReplayUsedByHash"
+                },
+                {
+                  "$ref": "#/components/schemas/ReplayUsedByEntry"
                 }
               ]
             },
             "type": "array",
             "title": "Used",
-            "description": "The resources this one was derived from. A string names a resource EARLIER in this request's ``resources`` list, so inputs are always registered before whatever consumes them. A ``{content_hash}`` object cites an input the org already holds and this request does not carry, such as an uploaded file that sits in no book."
+            "description": "The resources this one was derived from. A string names a resource EARLIER in this request's ``resources`` list, so inputs are always registered before whatever consumes them. A ``{content_hash}`` object cites an input the org already holds and this request does not carry, such as an uploaded file that sits in no book. A ``{volume, version, edition, name_in_book}`` object cites an entry of a published book the caller can read, in any organisation."
           }
         },
         "additionalProperties": false,
@@ -14925,6 +14314,41 @@
           "aliased",
           "skipped"
         ]
+      },
+      "ReplayUsedByEntry": {
+        "properties": {
+          "volume": {
+            "type": "string",
+            "title": "Volume",
+            "description": "Name of the volume holding the cited book."
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "description": "Version of the cited book."
+          },
+          "edition": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Edition",
+            "description": "Edition of the cited book."
+          },
+          "name_in_book": {
+            "type": "string",
+            "title": "Name In Book",
+            "description": "Name of the cited entry within that book."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "volume",
+          "version",
+          "edition",
+          "name_in_book"
+        ],
+        "title": "ReplayUsedByEntry",
+        "description": "One lineage input this request does not carry, named by the book entry the build read.\n\nA book built on another book reads its input as ``/{volume}/{version}_e{edition}/{name_in_book}``,\nand that book may belong to another organisation, where neither a name nor a digest resolves.\nThe edition is required so the edge points at the bytes the build read rather than the newest edition."
       },
       "ReplayUsedByHash": {
         "properties": {
@@ -15836,54 +15260,6 @@
         "title": "SchemaDiff",
         "description": "Columns gained, lost or retyped."
       },
-      "ServiceAuthRegistrationResponse": {
-        "properties": {
-          "registration_id": {
-            "type": "string",
-            "title": "Registration Id"
-          },
-          "registration_type": {
-            "type": "string",
-            "const": "service_auth",
-            "title": "Registration Type"
-          },
-          "claim_url": {
-            "type": "string",
-            "title": "Claim Url"
-          },
-          "claim_token": {
-            "type": "string",
-            "title": "Claim Token"
-          },
-          "claim_token_expires": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Claim Token Expires"
-          },
-          "post_claim_scopes": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Post Claim Scopes"
-          },
-          "claim": {
-            "$ref": "#/components/schemas/ClaimBlock"
-          }
-        },
-        "type": "object",
-        "required": [
-          "registration_id",
-          "registration_type",
-          "claim_url",
-          "claim_token",
-          "claim_token_expires",
-          "post_claim_scopes",
-          "claim"
-        ],
-        "title": "ServiceAuthRegistrationResponse",
-        "description": "Response for a service_auth registration (no assertion until claimed)."
-      },
       "ShareLinkCreate": {
         "properties": {
           "volume_name": {
@@ -16206,59 +15582,6 @@
         ],
         "title": "TimeseriesResponse",
         "description": "Wide-format timeseries response (matches NDC API pattern)."
-      },
-      "TokenResponse": {
-        "properties": {
-          "access_token": {
-            "type": "string",
-            "title": "Access Token"
-          },
-          "token_type": {
-            "type": "string",
-            "const": "Bearer",
-            "title": "Token Type"
-          },
-          "expires_in": {
-            "type": "integer",
-            "title": "Expires In"
-          },
-          "scope": {
-            "type": "string",
-            "title": "Scope"
-          },
-          "identity_assertion": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Identity Assertion"
-          },
-          "assertion_expires": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Assertion Expires"
-          }
-        },
-        "type": "object",
-        "required": [
-          "access_token",
-          "token_type",
-          "expires_in",
-          "scope"
-        ],
-        "title": "TokenResponse",
-        "description": "OAuth token response from ``POST /oauth2/token``."
       },
       "TopN": {
         "type": "integer",
@@ -16635,17 +15958,24 @@
             "type": "string",
             "title": "Version"
           },
+          "precedence_rank": {
+            "type": "integer",
+            "title": "Precedence Rank",
+            "description": "0 for the newest version by SemVer precedence. Versions of equal precedence, such as v1.0 and v1.0.0, share a rank."
+          },
           "editions": {
             "items": {
               "$ref": "#/components/schemas/EditionInfo"
             },
             "type": "array",
-            "title": "Editions"
+            "title": "Editions",
+            "description": "Editions, newest first"
           }
         },
         "type": "object",
         "required": [
           "version",
+          "precedence_rank",
           "editions"
         ],
         "title": "VersionInfo",
@@ -16660,6 +15990,34 @@
         ],
         "title": "Visibility",
         "description": "Three-tier visibility applied to resources and books.\n\nDefault is ``hidden`` so producers must opt in to wider exposure.\n\nOrder (narrowest to widest): ``hidden`` < ``org`` < ``public``."
+      },
+      "VolumeComparison": {
+        "properties": {
+          "volume": {
+            "type": "string",
+            "title": "Volume"
+          },
+          "changed": {
+            "items": {
+              "$ref": "#/components/schemas/FieldChange"
+            },
+            "type": "array",
+            "title": "Changed"
+          },
+          "unchanged_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Unchanged Count",
+            "description": "Stated facts that did not differ.",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "volume"
+        ],
+        "title": "VolumeComparison",
+        "description": "The volume facts a preview's books state, against what the volume would otherwise say.\n\nOnly the facts either side states are compared,\nbecause merging patches the volume and a fact left out keeps its value."
       },
       "VolumeCreate": {
         "properties": {
@@ -16712,6 +16070,30 @@
             "$ref": "#/components/schemas/DiscoveryProfile",
             "description": "Discovery metadata, composed from the latest published book"
           },
+          "latest_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Version",
+            "description": "Version of the latest release"
+          },
+          "latest_edition": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Edition",
+            "description": "Edition of the latest release"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -16758,7 +16140,8 @@
               "$ref": "#/components/schemas/VersionInfo"
             },
             "type": "array",
-            "title": "Versions"
+            "title": "Versions",
+            "description": "Versions, newest first by SemVer precedence"
           },
           "stats": {
             "$ref": "#/components/schemas/VolumeStats"
@@ -17048,7 +16431,7 @@
               }
             ],
             "title": "Latest Version",
-            "description": "Most recent version string"
+            "description": "Version of the latest release"
           },
           "latest_edition": {
             "anyOf": [
@@ -17060,7 +16443,7 @@
               }
             ],
             "title": "Latest Edition",
-            "description": "Highest edition for latest_version"
+            "description": "Edition of the latest release"
           },
           "resource_types": {
             "items": {
@@ -17106,7 +16489,7 @@
           "updated_at"
         ],
         "title": "VolumeListItem",
-        "description": "Volume response for list endpoints with aggregated fields.\n\nAPI.md specifies that list endpoint returns additional computed fields:\n- latest_version: Most recent version string\n- latest_edition: Highest edition number for latest_version\n- resource_types: Array of unique resource types across all books\n- formats: Array of unique file formats across all books"
+        "description": "Volume response for list endpoints with aggregated fields.\n\nAPI.md specifies that list endpoint returns additional computed fields:\n- latest_version, latest_edition: the latest release\n- resource_types: Array of unique resource types across all books\n- formats: Array of unique file formats across all books"
       },
       "VolumeListResponse": {
         "properties": {
@@ -17171,6 +16554,30 @@
           "discovery": {
             "$ref": "#/components/schemas/DiscoveryProfile",
             "description": "Discovery metadata, composed from the latest published book"
+          },
+          "latest_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Version",
+            "description": "Version of the latest release"
+          },
+          "latest_edition": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Edition",
+            "description": "Edition of the latest release"
           },
           "created_at": {
             "type": "string",

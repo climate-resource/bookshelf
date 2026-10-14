@@ -81,7 +81,13 @@ def test_upload_prints_the_sealed_preview_as_json(
         "preview_url": f"{BASE_URL}/previews/{PREVIEW_ID}",
         "state": "sealed",
         "books": [
-            {"volume": "example", "version": "v1.0.0", "uploaded": True, "baseline": "absent"}
+            {
+                "volume": "example",
+                "version": "v1.0.0",
+                "uploaded": True,
+                "baseline": "absent",
+                "on_merge": None,
+            }
         ],
     }
     api_requests = [r for r in deployment.requests if r.url.host != "s3.example"]
