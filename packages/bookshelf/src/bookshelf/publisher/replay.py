@@ -12,6 +12,8 @@ Every resource travels under its bundle-local name,
 and so does every input the bundle carries.
 An input the platform already holds travels under its digest,
 which the server resolves against what the publishing organisation holds.
+An entry of a published book travels under its pinned coordinate,
+which the server resolves under the publisher's read access, in any organisation.
 The server owns the name to tracking id mapping,
 so nothing is carried between calls
 and the manifest order is the contract:
@@ -37,6 +39,7 @@ from bookshelf.publisher.bundle import (
     BundleResource,
     stated,
 )
+from bookshelf.publisher.reference import BookshelfReference
 
 
 def _entry(entry: BundleBookEntry) -> models.ReplayEntry:
@@ -92,6 +95,17 @@ def _book(book: BundleBook) -> models.ReplayBook:
     )
 
 
+def _used_entry(coordinate: str) -> models.ReplayUsedByEntry:
+    """Project one cited book entry, which the manifest has already checked is pinned."""
+    reference = BookshelfReference.parse(coordinate)
+    return models.ReplayUsedByEntry(
+        volume=reference.volume,
+        version=reference.version,
+        edition=reference.edition,
+        name_in_book=reference.name_in_book,
+    )
+
+
 def _resource(
     resource: BundleResource,
     storage_path: str | None,
@@ -101,6 +115,7 @@ def _resource(
 
     An input the platform already holds travels under its digest instead,
     because this request carries no resource for it to name.
+    An entry of a published book travels under its pinned coordinate, after the digests.
     ``svg_path`` is the key the figure's svg companion was uploaded under,
     and a record without one sends no ``svg``.
     """
@@ -119,6 +134,7 @@ def _resource(
         used=[
             *resource.used,
             *(models.ReplayUsedByHash(content_hash=digest) for digest in resource.used_digests),
+            *(_used_entry(coordinate) for coordinate in resource.used_entries),
         ],
         **stated(
             format=resource.format,

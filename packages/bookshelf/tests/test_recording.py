@@ -133,6 +133,26 @@ def test_an_input_carrying_a_citable_digest_is_recorded_as_one(tmp_path: Path) -
     assert recorded.used_digests == [digest]
 
 
+def test_an_input_carrying_a_citable_entry_is_recorded_as_one(tmp_path: Path) -> None:
+    """A published book entry may sit in another organisation, so the bundle cites its coordinate."""
+    bundle = Bundle(tmp_path / "bundle")
+    coordinate = "bookshelf://primap-hist/v2.7_e002/by_country"
+    published = SimpleNamespace(
+        tracking_id=uuid.UUID("0193f0f3-0000-7000-8000-0000000000fd"),
+        citable_hash=None,
+        citable_entry=coordinate,
+    )
+
+    with _activity(bundle, tmp_path / "cache") as activity:
+        activity.register(b"first", type="tabular", name="first", used=[published, published])
+        activity.register(b"second", type="tabular", name="second", used=[published])
+
+    recorded = bundle.manifest.resources[1]
+    assert recorded.used == []
+    assert recorded.used_digests == []
+    assert recorded.used_entries == [coordinate]
+
+
 def test_drafting_a_book_reseeds_the_sinks_default_tier(tmp_path: Path) -> None:
     """The book's declared tier is what the resources registered after it record as."""
     sink = _sink(Bundle(tmp_path / "bundle"), tmp_path / "cache")
