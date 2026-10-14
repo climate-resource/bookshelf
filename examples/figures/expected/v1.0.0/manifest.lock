@@ -43,6 +43,7 @@ resources:
   type: tabular
   used: []
   used_digests: []
+  used_entries: []
   visibility: public
 - format: parquet
   generated: true
@@ -56,6 +57,7 @@ resources:
   used:
   - raw
   used_digests: []
+  used_entries: []
   visibility: public
 - alt_text: A bar chart with one bar per region. The World bar is tallest, followed by R5ASIA at under half its height, then R5OECD, and R5LAM is the shortest.
   caption: Total CO2 emissions by region over 2020 and 2021.
@@ -72,7 +74,8 @@ resources:
   - raw
   - by_region_figure-data
   used_digests: []
+  used_entries: []
   visibility: public
-schema_version: '3.10'
+schema_version: '3.11'
 writer:
   pyarrow: 23.0.1
