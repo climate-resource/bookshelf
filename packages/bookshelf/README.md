@@ -157,7 +157,8 @@ and rolls all of it back on a failure anywhere.
 Every resource travels under its bundle-local name.
 A resource that a book entry names takes that name inside the book,
 and `used=` lineage cites the name of a resource recorded earlier in the same bundle.
-An input the platform already holds is cited by its digest instead.
+An input the platform already holds is cited by its digest instead,
+and an entry of a published book by its coordinate, pinned to the edition the build read.
 The server computes the seal from the request,
 so replaying the same bundle again converges on the one edition
 and reports `converged` rather than minting a rival.

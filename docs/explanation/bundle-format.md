@@ -13,7 +13,7 @@ This page specifies what is written to disk.
 It is written so that an implementation in another language can produce and read bundles
 without reading the Python that implements this one.
 
-The format in force is manifest schema version **3.10**.
+The format in force is manifest schema version **3.11**.
 
 ## Bundle directory
 
@@ -106,6 +106,7 @@ Every entry in `resources` has these fields.
 | `generated`    | optional     | boolean                     | `false`   | whether an activity produced this resource                                   |
 | `used`         | optional     | list of names               | `[]`      | what this resource was derived from                                          |
 | `used_digests` | optional     | list of digests             | `[]`      | inputs it was derived from that the bundle does not carry                    |
+| `used_entries` | optional     | list of coordinates         | `[]`      | published book entries it was derived from                                   |
 | `svg_hash`     | figure only  | string                      | absent    | the `sha256:<hex>` of the svg companion at `resources/<hex>.svg`             |
 | `role`         | optional     | `plan`                      | absent    | `plan` when this is the plan the activity followed                           |
 
@@ -204,6 +205,21 @@ so the bundle records nothing for it and it has no name for `used` to carry.
 Each digest is canonical `sha256:<hex>`.
 This resource must exist and be accessible by the publisher.
 
+`used_entries` cites the entries of published books an output was derived from, by coordinate:
+
+```yaml
+used_entries:
+  - bookshelf://primap-hist/v2.7_e002/by_country
+```
+
+This is how a book built on another book cites what it read.
+Each coordinate is `bookshelf://<volume>/<version>_e<edition>/<entry>`,
+with the edition and the entry stated,
+so it names the bytes the build read rather than whatever edition is newest at replay.
+The platform resolves each coordinate under the publisher's read access,
+and records the edge even when the cited book belongs to another organisation.
+A reader older than 3.11 drops the field and replays the output with no lineage to those entries.
+
 Inputs accumulate within a run.
 A resource records the inputs known at the moment it was registered,
 so a later output can cite more than an earlier one and never rewrites what the earlier one recorded.
@@ -216,7 +232,8 @@ so a later output can cite more than an earlier one and never rewrites what the 
   role: plan
 ```
 
-A plan is neither `generated` nor derived from anything, so it records no `used` or `used_digests`.
+A plan is neither `generated` nor derived from anything,
+so it records no `used`, `used_digests` or `used_entries`.
 It needs an `activity`, and outputs never name it in `used`.
 The platform links it instead to every generated resource of the activity,
 with a `used` edge carrying `role: plan`, which is PROV-O `prov:hadPlan`.
@@ -509,7 +526,7 @@ resources:
   used:
   - upstream-emissions
   visibility: public
-schema_version: '3.10'
+schema_version: '3.11'
 writer:
   pyarrow: 23.0.0
 ```
