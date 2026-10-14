@@ -21,6 +21,14 @@ of rst and use slightly different categories.
 
 <!-- towncrier release notes start -->
 
+## bookshelf v1.1.2 (2026-10-14)
+
+### Improvements
+
+- `bookshelf preview upload` now sends the volume facts the recipe states with each book,
+  so the platform can show and apply them when the preview is published. ([#317](https://github.com/climate-resource/bookshelf/pull/317))
+
+
 ## bookshelf v1.1.1 (2026-10-08)
 
 ### Bug Fixes
