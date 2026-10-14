@@ -65,6 +65,7 @@ class _Entry:
 @dataclass
 class _Book:
     entries: dict[str, _Entry]
+    edition: int = 3
 
     @property
     def entry_names(self) -> tuple[str, ...]:

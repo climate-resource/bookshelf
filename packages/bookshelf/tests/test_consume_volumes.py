@@ -88,9 +88,13 @@ def volume(cache: ContentCache) -> Volume:
         _FakeClient(),  # type: ignore[arg-type]
         cache,
         _detail(
-            models.VersionInfo(version="v2.6", editions=[_edition(n) for n in (1, 2, 3, 4, 5)]),
-            models.VersionInfo(version="v2.4", editions=[_edition(1), _edition(2)]),
-            models.VersionInfo(version="v2.5", editions=[_edition(1)]),
+            models.VersionInfo(
+                version="v2.6", precedence_rank=0, editions=[_edition(n) for n in (1, 2, 3, 4, 5)]
+            ),
+            models.VersionInfo(
+                version="v2.4", precedence_rank=2, editions=[_edition(1), _edition(2)]
+            ),
+            models.VersionInfo(version="v2.5", precedence_rank=1, editions=[_edition(1)]),
         ),
         book_ttl=TTL,
     )
@@ -113,6 +117,7 @@ def test_editions_reports_only_the_published_ones(cache: ContentCache) -> None:
         _detail(
             models.VersionInfo(
                 version="v2.6",
+                precedence_rank=0,
                 editions=[_edition(1), _edition(2, status="draft"), _edition(3)],
             )
         ),
@@ -144,7 +149,7 @@ def test_a_volume_repr_unwraps_the_discovery_root_models(cache: ContentCache) ->
         _FakeClient(),  # type: ignore[arg-type]
         cache,
         _detail(
-            models.VersionInfo(version="v2.6", editions=[_edition(1)]),
+            models.VersionInfo(version="v2.6", precedence_rank=0, editions=[_edition(1)]),
             description="National greenhouse gas emissions.",
         ),
         book_ttl=TTL,
@@ -194,8 +199,10 @@ def test_a_version_with_only_drafts_is_not_a_version_you_can_read(cache: Content
         _FakeClient(),  # type: ignore[arg-type]
         cache,
         _detail(
-            models.VersionInfo(version="v2.6", editions=[_edition(1)]),
-            models.VersionInfo(version="v2.7", editions=[_edition(1, status="draft")]),
+            models.VersionInfo(version="v2.6", precedence_rank=1, editions=[_edition(1)]),
+            models.VersionInfo(
+                version="v2.7", precedence_rank=0, editions=[_edition(1, status="draft")]
+            ),
         ),
         book_ttl=TTL,
     )
@@ -205,7 +212,7 @@ def test_a_version_with_only_drafts_is_not_a_version_you_can_read(cache: Content
 
 
 def test_the_repr_advertises_indexing_by_version(cache: ContentCache) -> None:
-    detail = _detail(models.VersionInfo(version="v2.6", editions=[_edition(1)]))
+    detail = _detail(models.VersionInfo(version="v2.6", precedence_rank=0, editions=[_edition(1)]))
     hint = repr(Volume(_FakeClient(), cache, detail, book_ttl=TTL))  # type: ignore[arg-type]
 
     assert 'volume["v2.6"]' in hint

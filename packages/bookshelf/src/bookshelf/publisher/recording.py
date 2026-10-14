@@ -135,22 +135,34 @@ class _UsedInputs:
     A resource the bundle carries is cited by its bundle-local name.
     An input the platform already holds is cited by the bytes it holds,
     because the bundle records nothing for it and so has no name for it.
+    An entry of a published book is cited by its pinned coordinate,
+    because that book may belong to another organisation, where a digest does not resolve.
     """
 
     names: tuple[str, ...] = ()
     digests: tuple[str, ...] = ()
+    entries: tuple[str, ...] = ()
 
     def extended(self, values: Sequence[UsedInput], names: Mapping[UUID, str]) -> _UsedInputs:
         """Return these inputs with whatever ``values`` adds, keeping first-seen order."""
         merged_names = list(self.names)
         merged_digests = list(self.digests)
+        merged_entries = list(self.entries)
         for value in values:
             reference = _used_reference(value, names)
-            target = merged_names if isinstance(reference, str) else merged_digests
-            settled = reference if isinstance(reference, str) else reference.content_hash
+            if isinstance(reference, str):
+                target, settled = merged_names, reference
+            elif isinstance(reference, _UsedDigest):
+                target, settled = merged_digests, reference.content_hash
+            else:
+                target, settled = merged_entries, reference.coordinate
             if settled not in target:
                 target.append(settled)
-        return _UsedInputs(names=tuple(merged_names), digests=tuple(merged_digests))
+        return _UsedInputs(
+            names=tuple(merged_names),
+            digests=tuple(merged_digests),
+            entries=tuple(merged_entries),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,6 +170,13 @@ class _UsedDigest:
     """One lineage input cited by the bytes it holds."""
 
     content_hash: str
+
+
+@dataclass(frozen=True, slots=True)
+class _UsedEntry:
+    """One lineage input cited by the pinned coordinate of the book entry it is."""
+
+    coordinate: str
 
 
 class RecordingActivity(Activity):
@@ -279,6 +298,7 @@ class RecordingActivity(Activity):
             generated=not plan,
             used=[] if plan else list(self._used.names),
             used_digests=[] if plan else list(self._used.digests),
+            used_entries=[] if plan else list(self._used.entries),
             svg=svg,
             role=role,
         )
@@ -358,6 +378,7 @@ class RecordingActivity(Activity):
                     generated=True,
                     used=list(merged_used.names),
                     used_digests=list(merged_used.digests),
+                    used_entries=list(merged_used.entries),
                 )
 
             created: list[Path] = []
@@ -914,6 +935,7 @@ class RecordingSink:
             generated=True,
             used=list(used.names),
             used_digests=list(used.digests),
+            used_entries=list(used.entries),
         )
         self._names[resource_id] = name
         return RecordedResource(
@@ -986,13 +1008,15 @@ def _recorded_name(name: str | None) -> str:
         raise RecordingError(f"resource {exc}") from exc
 
 
-def _used_reference(value: UsedInput, names: Mapping[UUID, str]) -> str | _UsedDigest:
+def _used_reference(value: UsedInput, names: Mapping[UUID, str]) -> str | _UsedDigest | _UsedEntry:
     """Resolve one recorded lineage input to the coordinate replay cites it by.
 
     A resource the bundle carries travels under its bundle-local name.
     An input the organisation already holds travels under its digest,
     which is what a recipe declares an uploaded file by,
     and replay resolves that against what the organisation holds.
+    An entry of a published book travels under its pinned coordinate,
+    which replay resolves under the publisher's read access, in any organisation.
     """
     reference = helpers.used_ref(value)
     if isinstance(reference, models.UsedRefByResourceName):
@@ -1003,18 +1027,14 @@ def _used_reference(value: UsedInput, names: Mapping[UUID, str]) -> str | _UsedD
     citable = getattr(value, "citable_hash", None)
     if isinstance(citable, str):
         return _UsedDigest(content_hash=citable)
-    coordinate = getattr(value, "reference", None)
+    coordinate = getattr(value, "citable_entry", None)
     if isinstance(coordinate, str):
-        raise RecordingError(
-            f"used= cites {coordinate}, which the recipe names by book coordinate. "
-            "A coordinate input cannot be cited, because that book may belong to another "
-            "organisation and replay resolves inputs within yours. "
-            "Declare the input by digest instead, as bookshelf://sha256/<hex>, to cite it."
-        )
+        return _UsedEntry(coordinate=coordinate)
     raise RecordingError(
         f"used= cites resource {reference.tracking_id}, which this bundle does not record. "
         "A recorded resource cites the inputs the same bundle carries, "
-        "or a resource the recipe names by digest, which travels under that digest. "
+        "or a resource the recipe names by digest or by book coordinate, "
+        "which travels under that reference. "
         "Pass what build.use() returned rather than a bare tracking id."
     )
 
@@ -1108,6 +1128,7 @@ def _record_pointer(
         generated=generated,
         used=list(used.names),
         used_digests=list(used.digests),
+        used_entries=list(used.entries),
         tracking_id=tracking_id,
     )
     return settled.handle(
@@ -1165,6 +1186,7 @@ def _recorded_activity_used(
     """
     names: list[str] = []
     digests: list[str] = []
+    entries: list[str] = []
     for resource in bundle.manifest.resources:
         if not resource.generated:
             continue
@@ -1176,7 +1198,10 @@ def _recorded_activity_used(
         for digest in resource.used_digests:
             if digest not in digests:
                 digests.append(digest)
-    return _UsedInputs(names=tuple(names), digests=tuple(digests))
+        for entry in resource.used_entries:
+            if entry not in entries:
+                entries.append(entry)
+    return _UsedInputs(names=tuple(names), digests=tuple(digests), entries=tuple(entries))
 
 
 __all__ = [

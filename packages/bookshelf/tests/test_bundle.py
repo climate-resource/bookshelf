@@ -107,6 +107,52 @@ def test_lineage_citing_a_non_canonical_digest_is_refused(make_bundle: BundleFac
         )
 
 
+def test_lineage_citing_a_pinned_book_entry_validates(make_bundle: BundleFactory) -> None:
+    """A book entry another build published is cited by coordinate, so it names no resource here."""
+    bundle = make_bundle()
+    coordinate = "bookshelf://primap-hist/v2.7_e002/by_country"
+
+    record = bundle.add_resource(
+        data=b"derived",
+        hash_=sha256_hex(b"derived"),
+        type_="tabular",
+        name="cited",
+        generated=True,
+        used_entries=[coordinate],
+    )
+
+    bundle.write()
+
+    assert record.used_entries == [coordinate]
+    assert Bundle.read(bundle.root).manifest.resources[-1].used_entries == [coordinate]
+
+
+@pytest.mark.parametrize(
+    ("coordinate", "match"),
+    [
+        ("bookshelf://primap-hist/v2.7/by_country", "does not pin one entry"),
+        ("bookshelf://primap-hist/v2.7_e002", "does not pin one entry"),
+        ("bookshelf://sha256/" + "a" * 64, "by digest"),
+        ("primap-hist/v2.7_e002/by_country", "starts with"),
+    ],
+)
+def test_lineage_citing_an_unpinned_book_entry_is_refused(
+    make_bundle: BundleFactory, coordinate: str, match: str
+) -> None:
+    """Replay cites the bytes the build read, so a coordinate that could name others is refused."""
+    bundle = make_bundle()
+
+    with pytest.raises(ValueError, match=match):
+        bundle.add_resource(
+            data=b"derived",
+            hash_=sha256_hex(b"derived"),
+            type_="tabular",
+            name="cited",
+            generated=True,
+            used_entries=[coordinate],
+        )
+
+
 def test_lineage_recorded_after_its_consumer_is_invalid(make_bundle: BundleFactory) -> None:
     """An input registered after what consumes it does not exist yet when the server reads it."""
     bundle = make_bundle(entries=2)

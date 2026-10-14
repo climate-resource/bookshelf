@@ -72,7 +72,10 @@ def _volume(versions: list[tuple[str, int]]) -> dict[str, Any]:
     return dict(
         payloads.VOLUME,
         name="primap-hist",
-        versions=[{"version": version, "editions": found} for version, found in editions.items()],
+        versions=[
+            {"version": version, "precedence_rank": rank, "editions": editions[version]}
+            for rank, version in enumerate(sorted(editions, reverse=True))
+        ],
         stats={
             "total_versions": len(editions),
             "total_editions": len(versions),

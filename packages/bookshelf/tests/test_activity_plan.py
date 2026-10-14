@@ -138,6 +138,8 @@ def _edit_plan(bundle: Bundle, edit: str) -> None:
         card.used = ["forcing"]
     elif edit == "used_digests":
         card.used_digests = ["sha256:" + "0" * 64]
+    elif edit == "used_entries":
+        card.used_entries = ["bookshelf://primap-hist/v2.7_e002/by_country"]
     else:
         bundle.manifest.activity = None
     bundle.write()
@@ -147,6 +149,7 @@ _EDITS = [
     ("generated", "uses nothing"),
     ("used", "uses nothing"),
     ("used_digests", "uses nothing"),
+    ("used_entries", "uses nothing"),
     ("no activity", "no activity"),
 ]
 

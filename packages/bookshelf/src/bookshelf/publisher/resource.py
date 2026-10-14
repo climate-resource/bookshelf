@@ -131,6 +131,11 @@ class PublishedBook(Protocol):
     """One published book, indexed by entry name."""
 
     @property
+    def edition(self) -> int:
+        """The edition the lookup resolved, which a reference may have left to the platform."""
+        ...
+
+    @property
     def entry_names(self) -> tuple[str, ...]:
         """The names this book indexes."""
         ...
@@ -185,6 +190,13 @@ class ResolvedResource:
     and an input the platform holds by the bytes it holds, which replay resolves in-organisation.
     A resource reached through a book coordinate may belong to another organisation,
     so only a digest reference, which resolved in-organisation to begin with, carries one.
+    """
+    citable_entry: str | None = None
+    """The pinned coordinate a recorded bundle may cite this input by, set for a book coordinate reference alone.
+
+    It names the edition the lookup resolved, even where the recipe left the edition off,
+    so replay cites the bytes this build read.
+    The platform resolves it under the publisher's read access, in any organisation.
     """
     reference: str | None = None
     """The ``bookshelf://`` reference the resource was resolved through, spelled out to one entry.
@@ -316,11 +328,19 @@ def _referenced(
                 uri=f"{reference.uri}/{entry_name}",
                 declared=declared,
                 entry=book[entry_name],
+                citable_entry=_pinned(f"{reference.uri}/{entry_name}", book.edition),
             )
             for entry_name in book.entry_names
         }
     uri, entry = _book_entry(who, reference=reference, book=book)
-    return _held(name, uri=uri, declared=declared, entry=entry)
+    return _held(
+        name, uri=uri, declared=declared, entry=entry, citable_entry=_pinned(uri, book.edition)
+    )
+
+
+def _pinned(uri: str, edition: int) -> str:
+    """Spell a reference to one entry out with the edition the lookup resolved."""
+    return replace(BookshelfReference.parse(uri), edition=edition).uri
 
 
 def _published_book(
@@ -428,6 +448,7 @@ def _held(
     declared: models.ResourceType | None,
     entry: PublishedEntry,
     citable: bool = False,
+    citable_entry: str | None = None,
 ) -> ResolvedResource:
     """Wrap a platform-held resource, checking a stated type rather than trusting it."""
     registered = entry.resource_type()
@@ -444,6 +465,7 @@ def _held(
         pointer=entry,
         tracking_id=entry.tracking_id,
         citable_hash=entry.content_hash() if citable else None,
+        citable_entry=citable_entry,
         reference=uri,
     )
 

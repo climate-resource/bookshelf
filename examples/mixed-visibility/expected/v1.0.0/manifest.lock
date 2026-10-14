@@ -44,6 +44,7 @@ resources:
   type: tabular
   used: []
   used_digests: []
+  used_entries: []
   visibility: public
 - format: parquet
   generated: true
@@ -57,6 +58,7 @@ resources:
   used:
   - raw
   used_digests: []
+  used_entries: []
   visibility: public
 - format: parquet
   generated: true
@@ -70,6 +72,7 @@ resources:
   used:
   - raw
   used_digests: []
+  used_entries: []
   visibility: public
 - format: parquet
   generated: true
@@ -83,7 +86,8 @@ resources:
   used:
   - raw
   used_digests: []
+  used_entries: []
   visibility: hidden
-schema_version: '3.10'
+schema_version: '3.11'
 writer:
   pyarrow: 23.0.1

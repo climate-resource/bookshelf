@@ -122,6 +122,26 @@ def test_a_used_digest_travels_after_the_names_alongside_it(tmp_path: Path) -> N
     assert resources[1]["used"] == ["raw", {"content_hash": upload}]
 
 
+def test_a_used_entry_travels_by_coordinate_after_the_names_and_digests(tmp_path: Path) -> None:
+    """A cited book entry reaches the same field, as the coordinate the platform resolves."""
+    upload = "sha256:" + "b" * 64
+    bundle = _derived_bundle(tmp_path / "bundle")
+    bundle.manifest.resources[1].used_digests = [upload]
+    bundle.manifest.resources[1].used_entries = ["bookshelf://primap-hist/v2.7_e002/by_country"]
+    bundle.write()
+    recorded: list[httpx.Request] = []
+
+    with replay_client(recorded) as client:
+        replay_bundle(bundle, client)
+
+    resources = replayed(recorded)["resources"]
+    assert resources[1]["used"] == [
+        "raw",
+        {"content_hash": upload},
+        {"volume": "primap-hist", "version": "v2.7", "edition": 2, "name_in_book": "by_country"},
+    ]
+
+
 def test_a_resource_consuming_one_the_bundle_records_later_is_refused(tmp_path: Path) -> None:
     """Ordering is the contract, so a forward reference fails here rather than as a 422."""
     bundle = Bundle(tmp_path / "bundle")

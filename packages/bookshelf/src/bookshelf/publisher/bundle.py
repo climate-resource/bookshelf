@@ -63,8 +63,9 @@ from bookshelf._generated import models
 from bookshelf._produce import helpers
 from bookshelf._produce.provenance import canonical_config_hash, derive_activity_id
 from bookshelf._produce.types import Role
+from bookshelf.publisher.reference import BookshelfReference, InvalidReferenceError
 
-BUNDLE_SCHEMA_VERSION = "3.10"
+BUNDLE_SCHEMA_VERSION = "3.11"
 
 # A newer minor loads because the models ignore unknown fields, and any other major is refused:
 # v2 keys resources by tracking id and v3 by name, which no rule maps without inventing names.
@@ -186,8 +187,9 @@ class BundleResource(BaseModel):
       For an activity output,
       ``generated`` marks the output,
       ``used`` names the resources recorded earlier that it was derived from,
-      and ``used_digests`` cites the inputs the platform already holds
-      and this bundle records nothing for.
+      ``used_digests`` cites the inputs the platform already holds
+      and this bundle records nothing for,
+      and ``used_entries`` cites the published book entries it read, by pinned coordinate.
       ``role="plan"`` marks the plan the activity followed, such as a method card,
       which is neither generated nor derived from anything.
     - ``"pointer"``:
@@ -234,6 +236,7 @@ class BundleResource(BaseModel):
     generated: bool = False
     used: list[ResourceName] = Field(default_factory=list)
     used_digests: list[str] = Field(default_factory=list)
+    used_entries: list[str] = Field(default_factory=list)
     role: Role | None = None
     svg_hash: str | None = None  # canonical ``sha256:<hex>`` of the svg companion, figure only
     tracking_id: UUID | None = None
@@ -244,6 +247,22 @@ class BundleResource(BaseModel):
         """Refuse a digest replay would refuse, at the point it is recorded."""
         for digest in value:
             _sha256_hex(digest)
+        return value
+
+    @field_validator("used_entries")
+    @classmethod
+    def _entries_are_pinned(cls, value: list[str]) -> list[str]:
+        """Refuse a coordinate that could name other bytes tomorrow, at the point it is recorded."""
+        for uri in value:
+            try:
+                reference = BookshelfReference.parse(uri)
+            except InvalidReferenceError as exc:
+                raise ValueError(str(exc)) from exc
+            if reference.edition is None or reference.name_in_book is None:
+                raise ValueError(
+                    f"{uri!r} does not pin one entry. "
+                    "Write bookshelf://<volume>/<version>_e<edition>/<entry>"
+                )
         return value
 
     @field_validator("svg_hash")
@@ -821,6 +840,7 @@ class Bundle:
         generated: bool = False,
         used: list[str] | None = None,
         used_digests: list[str] | None = None,
+        used_entries: list[str] | None = None,
         svg: bytes | None = None,
         role: Role | None = None,
         tracking_id: UUID | None = None,
@@ -838,6 +858,7 @@ class Bundle:
         each of which must already be recorded.
         ``used_digests`` cites the inputs the platform already holds,
         which this bundle records nothing for and so has no name for.
+        ``used_entries`` cites the published book entries it read, each by its pinned coordinate.
         ``role="plan"`` records the activity's plan instead, which is neither generated nor uses anything.
         All default to the no-lineage case,
         so a plain managed registration retains its earlier shape.
@@ -876,6 +897,7 @@ class Bundle:
             generated=generated,
             used=used,
             used_digests=used_digests,
+            used_entries=used_entries,
             svg_hash=svg_hash,
             role=role,
             tracking_id=tracking_id,
@@ -894,6 +916,7 @@ class Bundle:
         generated: bool = False,
         used: list[str] | None = None,
         used_digests: list[str] | None = None,
+        used_entries: list[str] | None = None,
         tracking_id: UUID | None = None,
     ) -> BundleResource:
         """Append a ``kind="pointer"`` manifest record: write **no** bytes.
@@ -926,6 +949,7 @@ class Bundle:
             generated=generated,
             used=used,
             used_digests=used_digests,
+            used_entries=used_entries,
             tracking_id=tracking_id,
         )
 
@@ -942,6 +966,7 @@ class Bundle:
         generated: bool,
         used: list[str] | None,
         used_digests: list[str] | None,
+        used_entries: list[str] | None,
         format_: str | None = None,
         size: int | None = None,
         external_uri: str | None = None,
@@ -956,7 +981,7 @@ class Bundle:
         The name and the ordering rules the replay contract states are asserted here,
         so a bundle that could not be replayed is refused as it is recorded.
         """
-        if role == "plan" and (generated or used or used_digests):
+        if role == "plan" and (generated or used or used_digests or used_entries):
             raise RecordingError(f"plan {name!r} is not generated by the activity and uses nothing")
         recorded = {resource.name for resource in self.manifest.resources}
         if name in recorded:
@@ -991,6 +1016,7 @@ class Bundle:
             generated=generated,
             used=list(used or []),
             used_digests=list(used_digests or []),
+            used_entries=list(used_entries or []),
             svg_hash=svg_hash,
             role=role,
             tracking_id=tracking_id,
@@ -1275,7 +1301,12 @@ class Bundle:
                 continue
             if self.manifest.activity is None:
                 raise InvalidBundleError(f"plan {resource.name!r} has no activity to belong to")
-            if resource.generated or resource.used or resource.used_digests:
+            if (
+                resource.generated
+                or resource.used
+                or resource.used_digests
+                or resource.used_entries
+            ):
                 raise InvalidBundleError(
                     f"plan {resource.name!r} is not generated by the activity and uses nothing"
                 )

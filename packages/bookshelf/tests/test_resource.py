@@ -166,6 +166,7 @@ class _PublishedBook:
     """A published book, plus a record of the coordinate it was looked up by."""
 
     entries: dict[str, _PublishedEntry]
+    edition: int = 2
     looked_up: list[tuple[str, str, int | None]] = field(default_factory=list)
 
     @property
@@ -291,22 +292,51 @@ def test_a_digest_input_is_cited_once_however_often_it_is_passed(
     assert recorded.used_digests == [f"sha256:{_SHA256}"]
 
 
-def test_a_book_reference_cannot_be_cited_as_lineage(
+def test_a_book_reference_is_cited_by_its_coordinate(
     tmp_path: Path, published: _PublishedBook
 ) -> None:
-    """A referenced book may belong to another organisation, which a digest could not resolve to."""
-    with _recording(_write_recipe(tmp_path, _REFERENCE_VERSION), tmp_path / "bundle"):
+    """A referenced book may belong to another organisation, so the output cites the entry it read."""
+    bundle_path = tmp_path / "bundle"
+    with _recording(_write_recipe(tmp_path, _REFERENCE_VERSION), bundle_path):
         build = setup()
         raw = build.use("raw")
-        with pytest.raises(ValueError) as excinfo:
-            build.book.write("by_country", b"payload", type="document", used=[raw])
+        build.book.write("by_country", b"payload", type="document", used=[raw])
+        recorded = _written_resource(build.bs, bundle_path, "by_country")
 
-    message = str(excinfo.value)
-    assert isinstance(excinfo.value, BookshelfError)
-    assert "bookshelf://primap-hist/v2.7_e002/by_country" in message
-    assert "book coordinate" in message
-    assert "bookshelf://sha256/" in message
-    assert "build.use()" not in message
+    assert recorded.used == []
+    assert recorded.used_digests == []
+    assert recorded.used_entries == ["bookshelf://primap-hist/v2.7_e002/by_country"]
+
+
+def test_a_book_reference_is_cited_once_however_often_it_is_passed(
+    tmp_path: Path, published: _PublishedBook
+) -> None:
+    """Inputs accumulate within a run, so the same entry cited twice is one edge."""
+    bundle_path = tmp_path / "bundle"
+    with _recording(_write_recipe(tmp_path, _REFERENCE_VERSION), bundle_path):
+        build = setup()
+        raw = build.use("raw")
+        build.book.write("first", b"first", type="document", used=[raw, raw])
+        build.book.write("second", b"second", type="document", used=[raw])
+        recorded = _written_resource(build.bs, bundle_path, "second")
+
+    assert recorded.used_entries == ["bookshelf://primap-hist/v2.7_e002/by_country"]
+
+
+def test_a_reference_that_leaves_the_edition_off_is_cited_at_the_edition_it_read(
+    tmp_path: Path, published: _PublishedBook
+) -> None:
+    """The platform answers with the newest edition, and the citation pins the one the build read."""
+    published.edition = 3
+    body = "resources:\n  raw:\n    uri: bookshelf://primap-hist/v2.7/by_country\n"
+
+    with _recording(_write_recipe(tmp_path, body), tmp_path / "bundle"):
+        build = setup()
+        raw = build.use("raw")
+
+    assert published.looked_up == [("primap-hist", "v2.7", None)]
+    assert raw.citable_entry == "bookshelf://primap-hist/v2.7_e003/by_country"
+    assert raw.reference == "bookshelf://primap-hist/v2.7/by_country"
 
 
 def test_a_uri_resource_fetches_once_and_reads_back(tmp_path: Path, server: _Server) -> None:
@@ -594,14 +624,6 @@ def test_a_bookshelf_resource_resolves_to_the_published_resource(
     assert published.looked_up == [("primap-hist", "v2.7", 2)]
 
 
-@pytest.mark.xfail(
-    raises=ValueError,
-    strict=True,
-    reason="A replay cites its inputs by name against its own resources, "
-    "so a published input has no coordinate to travel under and is refused at record time. "
-    "A feedstock built on another book needs this, so the capability loss is a regression "
-    "rather than the contract we want.",
-)
 def test_a_bookshelf_resource_is_cited_as_lineage_without_being_registered(
     tmp_path: Path, published: _PublishedBook
 ) -> None:
@@ -613,7 +635,9 @@ def test_a_bookshelf_resource_is_cited_as_lineage_without_being_registered(
             activity.register(b"data", type="tabular", name="derived", used=[raw])
         recorded = {resource.name: resource for resource in build.bs.bundle.manifest.resources}
 
-    assert recorded["derived"].used == ["raw"]
+    assert set(recorded) == {"derived"}
+    assert recorded["derived"].used == []
+    assert recorded["derived"].used_entries == ["bookshelf://primap-hist/v2.7_e002/by_country"]
 
 
 def test_a_bookshelf_reference_without_an_entry_resolves_a_single_entry_book(
@@ -664,9 +688,30 @@ def test_whole_book_resolves_entries_by_name(
             assert entry.pointer is published.entries[name]
             assert entry.path.read_bytes() == _PAYLOAD
             assert entry.hash == f"sha256:{_SHA256}"
+            assert entry.reference == f"bookshelf://primap-hist/v2.7_e002/{name}"
+            assert entry.citable_entry == f"bookshelf://primap-hist/v2.7_e002/{name}"
         assert build.use("raw") is entries
         assert build.bs.bundle.manifest.resources == []
     assert published.looked_up == [("primap-hist", "v2.7", 2)]
+
+
+def test_a_whole_book_entry_is_cited_at_the_edition_it_read(
+    tmp_path: Path, published: _PublishedBook
+) -> None:
+    """Each entry of a whole book carries its own coordinate, pinned like a single entry."""
+    published.edition = 3
+    body = "resources:\n  raw:\n    uri: bookshelf://primap-hist/v2.7\n    whole_book: true\n"
+    bundle_path = tmp_path / "bundle"
+
+    with _recording(_write_recipe(tmp_path, body), bundle_path):
+        build = setup()
+        entries = build.use("raw")
+        assert isinstance(entries, dict)
+        build.book.write("derived", b"derived", type="document", used=[entries["by_country"]])
+        recorded = _written_resource(build.bs, bundle_path, "derived")
+
+    assert entries["by_country"].reference == "bookshelf://primap-hist/v2.7/by_country"
+    assert recorded.used_entries == ["bookshelf://primap-hist/v2.7_e003/by_country"]
 
 
 def test_whole_book_checks_each_entry_type(tmp_path: Path, published: _PublishedBook) -> None:
