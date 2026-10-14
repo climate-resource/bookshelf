@@ -30,6 +30,5 @@ See https://oprypin.github.io/mkdocs-literate-nav/
     * [Errors](api/errors.md)
     * [Cache](api/cache.md)
     * [Auth](api/auth.md)
-    * [Legacy (0.4)](api/legacy.md)
 * [Development](development.md)
 * [Changelog](changelog.md)

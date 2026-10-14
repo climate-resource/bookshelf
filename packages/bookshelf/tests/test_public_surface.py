@@ -15,7 +15,6 @@ from typing import Any
 
 import bookshelf
 import bookshelf.auth
-import bookshelf.legacy
 
 GOLDEN = Path(__file__).parent / "golden" / "public_surface.json"
 UPDATE = os.environ.get("UPDATE_SURFACE_GOLDEN") == "1"
@@ -185,7 +184,6 @@ def surface() -> dict[str, Any]:
         "bookshelf.__all__": sorted(bookshelf.__all__),
         "bookshelf": _module(bookshelf, promised),
         "bookshelf.auth": _module(bookshelf.auth, list(bookshelf.auth.__all__)),
-        "bookshelf.legacy": _module(bookshelf.legacy, list(bookshelf.legacy.__all__)),
     }
 
 

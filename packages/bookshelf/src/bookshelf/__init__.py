@@ -73,16 +73,16 @@ from bookshelf.publisher import (
 
 __version__ = importlib.metadata.version("bookshelf")
 
-_LEGACY_NAMES = frozenset({"BookShelf", "LocalBook"})
+_REMOVED_NAMES = frozenset({"BookShelf", "LocalBook"})
 
 
 def __getattr__(name: str) -> object:
-    """Serve the 0.4 ``BookShelf`` and ``LocalBook`` with a warning instead of an AttributeError."""
-    if name in _LEGACY_NAMES:
-        from bookshelf import legacy
-
-        legacy._deprecated(f"bookshelf.{name}", "bookshelf.Bookshelf")
-        return getattr(legacy, name)
+    """Point a removed 0.4 name at the migration guide instead of a bare AttributeError."""
+    if name in _REMOVED_NAMES:
+        raise AttributeError(
+            f"bookshelf.{name} was removed in bookshelf 1.1, use bookshelf.Bookshelf instead. "
+            "See https://climate-resource.github.io/bookshelf/latest/migrating/"
+        )
     raise AttributeError(f"module 'bookshelf' has no attribute {name!r}")
 
 

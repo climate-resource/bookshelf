@@ -1,4 +1,4 @@
-"""Round trip: what bookshelf 0.4.3 read from S3 is what the shim reads from the platform.
+"""Round trip: what bookshelf 0.4.3 read from S3 is what bookshelf reads from the platform.
 
 This needs a live deployment, so it runs only when ``BOOKSHELF_URL`` points at one:
 
@@ -41,7 +41,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from bookshelf import legacy
+from bookshelf import Bookshelf, Resource
+from bookshelf.cache import ContentCache
 
 INPUTS = Path(__file__).parent / "inputs" / "legacy"
 SUBSET = {"country": "New Zealand", "scenario": "Historical|Country Reported"}
@@ -76,17 +77,16 @@ pytestmark = [
 
 
 @pytest.fixture(scope="module")
-def book(tmp_path_factory: pytest.TempPathFactory) -> legacy.LocalBook:
-    with pytest.warns(DeprecationWarning):
-        return legacy.BookShelf(tmp_path_factory.mktemp("cache")).load("primap-hist", "v2.6", 5)
+def resource(tmp_path_factory: pytest.TempPathFactory) -> Resource:
+    shelf = Bookshelf(cache=ContentCache(tmp_path_factory.mktemp("cache")))
+    return shelf.book("primap-hist", "v2.6", edition=5)["by_country"].as_resource()
 
 
-def test_timeseries_matches_the_legacy_read(book: legacy.LocalBook) -> None:
+def test_timeseries_matches_the_0_4_read(resource: Resource) -> None:
     pytest.importorskip("scmdata")
     expected = pd.read_parquet(INPUTS / "by_country_wide.parquet")
 
-    with pytest.warns(DeprecationWarning):
-        run = book.timeseries("by_country").filter(**SUBSET)
+    run = resource.as_scmrun().filter(**SUBSET)
 
     wide = run.timeseries()
     wide.columns = [str(time.year) for time in wide.columns]
@@ -96,11 +96,11 @@ def test_timeseries_matches_the_legacy_read(book: legacy.LocalBook) -> None:
     )
 
 
-def test_long_format_matches_the_legacy_writer(book: legacy.LocalBook) -> None:
+def test_legacy_columns_matches_the_0_4_writer(resource: Resource) -> None:
     expected = pd.read_parquet(INPUTS / "by_country_long.parquet")
 
-    with pytest.warns(DeprecationWarning):
-        long = book.get_long_format_data("by_country")
+    with pytest.warns(DeprecationWarning, match="legacy_columns"):
+        long = resource.as_long_df(legacy_columns=True)
 
     actual = long[(long[list(SUBSET)] == pd.Series(SUBSET)).all(axis="columns")]
     assert list(actual.columns) == list(expected.columns)
