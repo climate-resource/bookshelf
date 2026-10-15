@@ -17,7 +17,6 @@ book:
   - name: by_region_figure-data
   - name: by_region_figure
   license: CC-BY-4.0
-  metadata: {}
   processing:
   - - https://example.invalid/examples@0000000000000000000000000000000000000000
     - sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
@@ -76,6 +75,6 @@ resources:
   used_digests: []
   used_entries: []
   visibility: public
-schema_version: '3.11'
+schema_version: '3.12'
 writer:
   pyarrow: 23.0.1

@@ -116,7 +116,7 @@ def _draft_request(
     because the request carries no top-level fields for them.
 
     ``processing`` is the fingerprint of the runs that generated the book's members.
-    It is only baked when stated, so an omission never reaches the wire as a null.
+    It and ``metadata`` are only baked when stated, so an omission keeps the edition's value.
     """
     baked: dict[str, Any] = {}
     baked_discovery = discovery_input(
@@ -126,11 +126,12 @@ def _draft_request(
         baked["discovery"] = baked_discovery
     if processing is not None:
         baked["processing"] = processing_items(processing)
+    if metadata is not None:
+        baked["metadata"] = dict(metadata)
     return models.BookDraftRequest(
         series_name=volume,
         version=version,
         visibility=visibility,
-        metadata=dict(metadata or {}),
         bundle_hash=_as_model(models.BookDraftRequestBundleHash, bundle_hash),
         **baked,
     )

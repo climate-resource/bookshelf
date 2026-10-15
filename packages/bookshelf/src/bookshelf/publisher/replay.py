@@ -81,16 +81,16 @@ def _book(book: BundleBook) -> models.ReplayBook:
         volume=book.volume,
         version=book.version,
         visibility=models.Visibility(book.visibility),
-        metadata=dict(book.metadata),
         entries=[_entry(entry) for entry in book.entries],
         published=book.published,
         **stated(
+            metadata=book.metadata,
             discovery=discovery_input(
                 book.discovery,
                 description=book.description,
                 license=book.license,
                 authors=book.authors,
-            )
+            ),
         ),
     )
 

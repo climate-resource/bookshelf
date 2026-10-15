@@ -377,7 +377,10 @@ def test_a_manifest_recording_dedupe_still_loads(tmp_path: Path) -> None:
     assert "dedupe" not in resource.model_dump()
 
 
-@pytest.mark.parametrize(("read", "written"), [("3.9", BUNDLE_SCHEMA_VERSION), ("3.11", "3.11")])
+@pytest.mark.parametrize(
+    ("read", "written"),
+    [("3.9", BUNDLE_SCHEMA_VERSION), (BUNDLE_SCHEMA_VERSION, BUNDLE_SCHEMA_VERSION)],
+)
 def test_writing_an_older_manifest_stamps_the_current_version(
     tmp_path: Path, read: str, written: str
 ) -> None:

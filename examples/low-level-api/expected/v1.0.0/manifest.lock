@@ -18,7 +18,6 @@ book:
   - name: annual-means
   - name: anomalies
   license: CC-BY-4.0
-  metadata: {}
   processing:
   - - https://example.invalid/examples@0000000000000000000000000000000000000000
     - sha256:a40670ce9d3b3f108b8e1a5b722f3fe7d7a5c45291f8bff5b57eb9433d06f352
@@ -54,6 +53,6 @@ resources:
   used_digests: []
   used_entries: []
   visibility: public
-schema_version: '3.11'
+schema_version: '3.12'
 writer:
   pyarrow: 23.0.1

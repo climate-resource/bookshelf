@@ -13,7 +13,7 @@ This page specifies what is written to disk.
 It is written so that an implementation in another language can produce and read bundles
 without reading the Python that implements this one.
 
-The format in force is manifest schema version **3.11**.
+The format in force is manifest schema version **3.12**.
 
 ## Bundle directory
 
@@ -283,7 +283,7 @@ This field is specific to the Bookshelf and is optional.
 | `authors`          | optional | `[]`     | who made this version's data, sent on the replay                                  |
 | `discovery`        | optional | absent   | the editorial metadata baked onto this book, keyed by the recipe's field names    |
 | `description`      | optional | absent   | free prose                                                                        |
-| `metadata`         | optional | `{}`     | free-form metadata                                                                |
+| `metadata`         | optional | absent   | free-form metadata                                                                |
 | `entries`          | optional | `[]`     | the book's membership                                                             |
 | `published`        | optional | `false`  | whether the book should be published, or left a draft                             |
 | `processing`       | required |          | the `[code_ref, config_hash]` pairs of the runs that generated the book's members |
@@ -298,6 +298,11 @@ Neither enters the seal the server computes.
 `volume_discovery` is keyed as the platform's volume discovery profile keys it.
 Replay sends it as a patch to the volume before the book, and only when it states something.
 A fact it leaves out keeps the value the volume already holds.
+
+`metadata` is sent only when the build states it.
+Absent keeps the metadata a converging edition already holds, and `{}` sets it to empty.
+A reader treats `metadata: {}` in a manifest older than 3.12 as absent,
+because those writers recorded `{}` whether or not the build stated any.
 It is not part of the seal, so a replay that converges on an existing edition still applies it.
 The facts are those of the recipe when the bundle was recorded,
 so replaying an old bundle puts its older facts back on the volume.
@@ -495,7 +500,6 @@ book:
       type: string
     name: emissions-co2
   license: CC-BY-4.0
-  metadata: {}
   processing:
   - - https://github.com/example/feedstock@1f0c9a2
     - sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
@@ -526,7 +530,7 @@ resources:
   used:
   - upstream-emissions
   visibility: public
-schema_version: '3.11'
+schema_version: '3.12'
 writer:
   pyarrow: 23.0.0
 ```

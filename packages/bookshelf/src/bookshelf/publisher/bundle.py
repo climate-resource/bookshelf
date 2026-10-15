@@ -65,7 +65,7 @@ from bookshelf._produce.provenance import canonical_config_hash, derive_activity
 from bookshelf._produce.types import Role
 from bookshelf.publisher.reference import BookshelfReference, InvalidReferenceError
 
-BUNDLE_SCHEMA_VERSION = "3.11"
+BUNDLE_SCHEMA_VERSION = "3.12"
 
 # A newer minor loads because the models ignore unknown fields, and any other major is refused:
 # v2 keys resources by tracking id and v3 by name, which no rule maps without inventing names.
@@ -387,7 +387,8 @@ class BundleBook(BaseModel):
     authors: list[dict[str, Any]] = Field(default_factory=list)
     discovery: dict[str, Any] | None = None
     description: str | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] | None = None
+    """The book's metadata blob, ``None`` when the build stated none so replay keeps the edition's."""
     entries: list[BundleBookEntry] = Field(default_factory=list)
     processing: list[tuple[str, str]] | None = None
     """The ``(code_ref, config_hash)`` pairs of the runs that generated this book's members.
@@ -495,6 +496,10 @@ def _prepare_manifest(raw: dict[str, Any]) -> None:
             f"bundle schema_version {version!r} keys its resources by tracking id, "
             f"and this client addresses them by name (schema {BUNDLE_SCHEMA_VERSION})"
         )
+    book = raw.get("book")
+    if _older_than(version, (3, 12)) and isinstance(book, dict) and book.get("metadata") == {}:
+        # A minor older than 3.12 wrote ``{}`` for metadata the build never stated.
+        del book["metadata"]
 
 
 def _describe(exc: PydanticValidationError) -> str:
@@ -577,10 +582,7 @@ def _unknown_keys(raw: dict[str, Any]) -> list[str]:
     entries = book.get("entries") if isinstance(book, dict) else None
     for index, entry in enumerate(entries if isinstance(entries, list) else ()):
         found += _stray(entry, BundleBookEntry, f"book.entries[{index}].")
-    try:
-        older = _version_key(str(raw.get("schema_version", BUNDLE_SCHEMA_VERSION))) < (3, 10)
-    except ValueError:
-        older = False
+    older = _older_than(str(raw.get("schema_version", BUNDLE_SCHEMA_VERSION)), (3, 10))
     retired = _RETIRED_RESOURCE_KEYS if older else frozenset()
     resources = raw.get("resources")
     for index, resource in enumerate(resources if isinstance(resources, list) else ()):
@@ -617,6 +619,14 @@ def _byte_filename(resource: BundleResource) -> str:
 def _version_key(version: str) -> tuple[int, ...]:
     """Order ``<major>.<minor>`` numerically, so 3.10 sorts after 3.9."""
     return tuple(int(part) for part in version.split("."))
+
+
+def _older_than(version: str, minor: tuple[int, int]) -> bool:
+    """Whether ``version`` is a valid version below ``minor``."""
+    try:
+        return _version_key(version) < minor
+    except ValueError:
+        return False
 
 
 def resource_filename(hash_: str, type_: str) -> str:
