@@ -15,7 +15,6 @@ book:
   - name: emissions
   - name: summary
   license: CC-BY-4.0
-  metadata: {}
   processing:
   - - https://example.invalid/golden@0000000000000000000000000000000000000000
     - sha256:b3d658fe2ee5b086a71cca2fb2d3b838d5bc74bad6a7521bc567b9f70453f5cf
@@ -65,6 +64,6 @@ resources:
   used_digests: []
   used_entries: []
   visibility: public
-schema_version: '3.11'
+schema_version: '3.12'
 writer:
   pyarrow: 23.0.1

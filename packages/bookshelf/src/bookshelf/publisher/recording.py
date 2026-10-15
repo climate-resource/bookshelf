@@ -769,7 +769,7 @@ class RecordingSink:
                 authors=credited,
                 discovery=dict(discovery) if discovery else None,
                 description=description,
-                metadata=dict(metadata or {}),
+                metadata=None if metadata is None else dict(metadata),
                 processing=None if processing is None else [tuple(pair) for pair in processing],
             )
         )
