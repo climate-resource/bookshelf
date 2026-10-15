@@ -21,6 +21,24 @@ of rst and use slightly different categories.
 
 <!-- towncrier release notes start -->
 
+## bookshelf v1.1.3 (2026-10-15)
+
+### Features
+
+- `used=` now records an input the recipe names by book coordinate,
+  `bookshelf://<volume>/<version>_e<edition>/<entry>`.
+  The manifest cites it under a new `used_entries` field, pinned to the edition the build read,
+  and the platform records the lineage even when that book belongs to another organisation.
+  Bundles are recorded at schema 3.11. ([#319](https://github.com/climate-resource/bookshelf/pull/319))
+
+### Bug Fixes
+
+- Stopped the live draft, replay and preview publication sending `metadata: {}` for a book whose build stated none.
+  A converging republish therefore keeps metadata added through `correct_book()`
+  once the platform treats `{}` as an explicit empty value.
+  Bundles are recorded at schema 3.12, and a reader treats `metadata: {}` in an older manifest as unstated. ([#320](https://github.com/climate-resource/bookshelf/pull/320))
+
+
 ## bookshelf v1.1.2 (2026-10-14)
 
 ### Improvements
