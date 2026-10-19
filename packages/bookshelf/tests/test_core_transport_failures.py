@@ -17,7 +17,7 @@ from bookshelf._core.errors import (
     ServerError,
     TransportError,
 )
-from bookshelf._core.retry import UPLOAD_PART_RETRY, RetryPolicy
+from bookshelf._core.retry import DOWNLOAD_RETRY, UPLOAD_PART_RETRY, RetryPolicy
 from bookshelf._generated import models
 from tests import _core_payloads as payloads
 
@@ -481,3 +481,122 @@ def test_a_replayed_api_call_is_logged(
     [retry] = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
     assert f"GET {BASE_URL}/v1/books: attempt 1 of {ATTEMPTS} failed" in retry
     assert "HTTP 503" in retry
+
+
+BODY = b"0123456789" * 10
+
+
+class _StallingStream(httpx.SyncByteStream):
+    """Yield ``body`` and then stall, as a CDN read that goes quiet part way does."""
+
+    def __init__(self, request: httpx.Request, body: bytes) -> None:
+        self._request = request
+        self._body = body
+
+    def __iter__(self) -> Any:
+        yield self._body
+        raise httpx.ReadTimeout("timed out", request=self._request)
+
+
+def ranged(request: httpx.Request, *, stall_after: int | None = None) -> httpx.Response:
+    """Serve ``BODY`` from the requested offset, stalling after ``stall_after`` bytes when set."""
+    offset = (
+        int(request.headers["range"].removeprefix("bytes=").removesuffix("-"))
+        if "range" in request.headers
+        else 0
+    )
+    body = BODY[offset:]
+    headers = {"content-range": f"bytes {offset}-{len(BODY) - 1}/{len(BODY)}"} if offset else {}
+    status = 206 if offset else 200
+    if stall_after is None:
+        return httpx.Response(status, headers=headers, content=body)
+    return httpx.Response(
+        status, headers=headers, stream=_StallingStream(request, body[:stall_after])
+    )
+
+
+def test_a_stalled_download_resumes_from_the_bytes_it_holds(
+    sleeps: list[float], tmp_path: Any, caplog: pytest.LogCaptureFixture
+) -> None:
+    ranges: list[str | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        ranges.append(request.headers.get("range"))
+        return ranged(request, stall_after=40 if len(ranges) < 3 else None)
+
+    destination = tmp_path / "out"
+    with make_client(handler) as client:
+        client.stream_url_to_path("https://cdn.test/object", destination)
+
+    assert destination.read_bytes() == BODY
+    assert ranges == [None, "bytes=40-", "bytes=80-"]
+    assert len(sleeps) == 2
+    assert "at 0.0 MiB" in caplog.text
+
+
+def test_a_download_whose_server_ignores_the_range_starts_again(
+    sleeps: list[float], tmp_path: Any
+) -> None:
+    calls, handler = counting(
+        lambda request, n: (
+            httpx.Response(200, stream=_StallingStream(request, BODY[:40]))
+            if n == 1
+            else httpx.Response(200, content=BODY)
+        )
+    )
+
+    destination = tmp_path / "out"
+    with make_client(handler) as client:
+        client.stream_url_to_path("https://cdn.test/object", destination)
+
+    assert calls["count"] == 2
+    assert destination.read_bytes() == BODY
+
+
+def test_a_download_that_never_moves_gives_up_after_its_budget(
+    sleeps: list[float], tmp_path: Any
+) -> None:
+    calls, handler = counting(
+        lambda request, _n: httpx.Response(200, stream=_StallingStream(request, b""))
+    )
+
+    with make_client(handler) as client, pytest.raises(TransportError, match="after 6 attempts"):
+        client.stream_url_to_path("https://cdn.test/object", tmp_path / "out")
+
+    assert calls["count"] == DOWNLOAD_RETRY.max_attempts
+
+
+def test_progress_resets_the_download_budget(sleeps: list[float], tmp_path: Any) -> None:
+    calls, handler = counting(
+        lambda request, n: ranged(request, stall_after=1 if n <= 50 else None)
+    )
+
+    destination = tmp_path / "out"
+    with make_client(handler) as client:
+        client.stream_url_to_path("https://cdn.test/object", destination)
+
+    assert calls["count"] == 51
+    assert destination.read_bytes() == BODY
+
+
+def test_a_resumed_range_from_the_wrong_offset_is_fetched_whole_again(
+    sleeps: list[float], tmp_path: Any
+) -> None:
+    ranges: list[str | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        ranges.append(request.headers.get("range"))
+        if len(ranges) == 1:
+            return httpx.Response(200, stream=_StallingStream(request, BODY[:40]))
+        if len(ranges) == 2:
+            return httpx.Response(
+                206, headers={"content-range": "bytes 0-9/100"}, content=BODY[:10]
+            )
+        return httpx.Response(200, content=BODY)
+
+    destination = tmp_path / "out"
+    with make_client(handler) as client:
+        client.stream_url_to_path("https://cdn.test/object", destination)
+
+    assert ranges == [None, "bytes=40-", None]
+    assert destination.read_bytes() == BODY

@@ -121,3 +121,6 @@ class RetryPolicy:
 
 # A part upload replays only its own bytes, and a long-haul link to the bucket can stall for minutes.
 UPLOAD_PART_RETRY = RetryPolicy(max_attempts=6, backoff_cap=30.0)
+
+# A download resumes from the bytes it already holds, and a CDN read of a large file can stall part way.
+DOWNLOAD_RETRY = RetryPolicy(max_attempts=6, backoff_cap=30.0)
