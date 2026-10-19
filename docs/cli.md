@@ -344,7 +344,7 @@ $ bookshelf cache prune [OPTIONS]
 
 Options:
 
-- `--max-size-bytes <int range>`: Cap to prune the cache down to.  \[default: 5368709120; x>=0]
+- `--max-size-bytes <int range>`: Cap to prune the cache down to. Defaults to the configured cap.  \[x>=0]
 - `--json`: Emit the result as JSON.
 
 ### `bookshelf cache clear`

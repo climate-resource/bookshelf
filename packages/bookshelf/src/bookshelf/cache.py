@@ -5,6 +5,7 @@ import errno
 import hashlib
 import json
 import os
+import re
 import shutil
 import time
 import warnings
@@ -21,6 +22,19 @@ from bookshelf._core.errors import BookshelfError
 from bookshelf._core.integrity import HashMismatchError, verify_path
 
 DEFAULT_MAX_BYTES = 5 * 1024**3
+
+_SIZE_UNITS = {
+    "": 1,
+    "b": 1,
+    "kb": 1000,
+    "mb": 1000**2,
+    "gb": 1000**3,
+    "tb": 1000**4,
+    "kib": 1024,
+    "mib": 1024**2,
+    "gib": 1024**3,
+    "tib": 1024**4,
+}
 
 _DIGEST_LENGTH = hashlib.sha256().digest_size * 2
 _HEX_DIGITS = frozenset("0123456789abcdef")
@@ -103,6 +117,33 @@ def default_cache_dir() -> Path:
     return Path(user_cache_dir("bookshelf", "climateresource")) / "content"
 
 
+def _parse_size(value: str) -> int:
+    """Read a size such as ``20GiB``, ``500MB`` or a bare number of bytes."""
+    match = re.fullmatch(r"\s*(\d+(?:\.\d+)?)\s*([A-Za-z]*)\s*", value)
+    unit = _SIZE_UNITS.get(match[2].lower()) if match else None
+    if match is None or unit is None:
+        raise ValueError(f"{value!r} is not a size such as 20GiB, 500MB or a number of bytes")
+    return int(float(match[1]) * unit)
+
+
+def _default_max_bytes() -> int:
+    """Return the size the cache is kept under.
+
+    ``$BOOKSHELF_CACHE_MAX_SIZE`` overrides the 5 GiB default.
+    """
+    override = os.environ.get("BOOKSHELF_CACHE_MAX_SIZE")
+    if not override:
+        return DEFAULT_MAX_BYTES
+    try:
+        return _parse_size(override)
+    except ValueError:
+        warnings.warn(
+            f"ignoring BOOKSHELF_CACHE_MAX_SIZE={override!r}, it is not a size such as 20GiB",
+            stacklevel=2,
+        )
+        return DEFAULT_MAX_BYTES
+
+
 @dataclass(frozen=True, slots=True)
 class CacheSummary:
     """A point-in-time description of the cache contents."""
@@ -176,9 +217,16 @@ class ContentCache:
     base_dir: Path
     max_bytes: int
 
-    def __init__(self, base_dir: Path | None = None, *, max_bytes: int = DEFAULT_MAX_BYTES) -> None:
+    def __init__(self, base_dir: Path | None = None, *, max_bytes: int | None = None) -> None:
+        """Open the cache, creating its directory.
+
+        Args:
+            base_dir: Where the cache lives. Left out, ``$BOOKSHELF_CACHE_DIR`` or the platform default.
+            max_bytes: The size the oldest entries are evicted down to.
+                Left out, ``$BOOKSHELF_CACHE_MAX_SIZE`` or 5 GiB.
+        """
         self.base_dir = Path(base_dir) if base_dir is not None else default_cache_dir()
-        self.max_bytes = max_bytes
+        self.max_bytes = _default_max_bytes() if max_bytes is None else max_bytes
         _ensure_directory(self.base_dir)
         self._metadata = MetadataCache(self.base_dir / "metadata")
 

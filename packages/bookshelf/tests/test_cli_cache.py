@@ -66,6 +66,20 @@ def test_prune_evicts_oldest_entries_down_to_the_cap(cache_dir: Path) -> None:
     assert document["max_size_bytes"] == 4
 
 
+def test_prune_defaults_to_the_configured_cap(
+    cache_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cache = ContentCache()
+    cache.put(_hash_for(b"aaaa"), b"aaaa")
+    cache.put(_hash_for(b"bbbb"), b"bbbb")
+    monkeypatch.setenv("BOOKSHELF_CACHE_MAX_SIZE", "4")
+    result = runner.invoke(app, ["cache", "prune", "--json"])
+    assert result.exit_code == 0
+    document = json.loads(result.stdout)
+    assert document["total_size_bytes"] == 4
+    assert document["max_size_bytes"] == 4
+
+
 def test_prune_still_takes_the_old_max_bytes_spelling_without_advertising_it(
     cache_dir: Path,
 ) -> None:
