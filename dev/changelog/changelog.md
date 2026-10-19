@@ -21,6 +21,18 @@ of rst and use slightly different categories.
 
 <!-- towncrier release notes start -->
 
+## bookshelf v1.1.5 (2026-10-19)
+
+### Features
+
+- Added `BOOKSHELF_CACHE_MAX_SIZE`, which sets the content cache size cap, such as `20GiB`, in place of the fixed 5 GiB.
+  `bookshelf cache prune` now prunes to that cap when `--max-size-bytes` is left out. ([#322](https://github.com/climate-resource/bookshelf/pull/322))
+
+### Bug Fixes
+
+- A download that fails part way now resumes from the bytes it already holds with a range request, retrying up to six times without progress, and logs a warning on the `bookshelf` logger for every retry. ([#323](https://github.com/climate-resource/bookshelf/pull/323))
+
+
 ## bookshelf v1.1.4 (2026-10-19)
 
 ### Bug Fixes
