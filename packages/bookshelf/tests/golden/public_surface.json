@@ -230,7 +230,7 @@
       },
       "kind": "class",
       "members": {
-        "__init__": "(self, base_dir: Path | None = None, *, max_bytes: int = 5368709120) -> None",
+        "__init__": "(self, base_dir: Path | None = None, *, max_bytes: int | None = None) -> None",
         "clear": "(self) -> int",
         "evict_lru": "(self, max_bytes: int | None = None) -> int",
         "get": "(self, content_hash: str) -> Path | None",

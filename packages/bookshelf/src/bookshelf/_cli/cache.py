@@ -16,7 +16,7 @@ from bookshelf._cli._runtime import (
     emit_payload,
     iso,
 )
-from bookshelf.cache import DEFAULT_MAX_BYTES, ContentCache, default_cache_dir
+from bookshelf.cache import ContentCache, default_cache_dir
 
 cache_app = command_group("Manage the local content cache.")
 
@@ -61,8 +61,11 @@ def cache_info(
 
 @cache_app.command("prune")
 def cache_prune(
-    max_bytes: int = typer.Option(
-        DEFAULT_MAX_BYTES, "--max-size-bytes", min=0, help="Cap to prune the cache down to."
+    max_bytes: int | None = typer.Option(
+        None,
+        "--max-size-bytes",
+        min=0,
+        help="Cap to prune the cache down to. Defaults to the configured cap.",
     ),
     legacy_max_bytes: int | None = typer.Option(None, "--max-bytes", min=0, hidden=True),
     json_output: bool = typer.Option(False, "--json", help="Emit the result as JSON."),
@@ -71,14 +74,14 @@ def cache_prune(
     if legacy_max_bytes is not None:
         max_bytes = legacy_max_bytes
     with _usable_cache():
-        cache = ContentCache()
-        freed = cache.evict_lru(max_bytes=max_bytes)
+        cache = ContentCache(max_bytes=max_bytes)
+        freed = cache.evict_lru()
         summary = cache.summary()
         emit_payload(
             {
                 "freed_size_bytes": freed,
                 "total_size_bytes": summary.total_bytes,
-                "max_size_bytes": max_bytes,
+                "max_size_bytes": summary.max_bytes,
             },
             json_output=json_output,
         )
