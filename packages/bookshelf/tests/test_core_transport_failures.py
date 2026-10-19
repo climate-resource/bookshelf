@@ -17,7 +17,7 @@ from bookshelf._core.errors import (
     ServerError,
     TransportError,
 )
-from bookshelf._core.retry import RetryPolicy
+from bookshelf._core.retry import UPLOAD_PART_RETRY, RetryPolicy
 from bookshelf._generated import models
 from tests import _core_payloads as payloads
 
@@ -443,3 +443,41 @@ def test_a_base_url_with_a_query_fragment_or_userinfo_is_refused(url: str) -> No
 def test_a_base_url_ending_in_the_api_version_is_refused_with_a_hint(url: str) -> None:
     with pytest.raises(ConfigurationError, match="without the trailing /v1"):
         BookshelfClient(url, auth=None)
+
+
+def test_a_stalled_part_upload_gets_the_longer_budget_and_says_why(
+    sleeps: list[float], caplog: pytest.LogCaptureFixture
+) -> None:
+    def respond(request: httpx.Request, _n: int) -> httpx.Response:
+        raise httpx.WriteTimeout("The write operation timed out", request=request)
+
+    calls, handler = counting(respond)
+
+    with make_client(handler) as client, pytest.raises(TransportError) as excinfo:
+        client.put_presigned("https://s3.test/part1?sig=secret", b"x" * 2 * 1024**2)
+
+    attempts = UPLOAD_PART_RETRY.max_attempts
+    assert calls["count"] == attempts > ATTEMPTS
+    message = str(excinfo.value)
+    assert "https://s3.test/part1 (2.0 MiB body)" in message
+    assert f"after {attempts} attempts" in message
+    assert "accepted no bytes for 30s" in message
+    assert "secret" not in message
+    retries = [r for r in caplog.records if r.levelname == "WARNING"]
+    assert len(retries) == attempts - 1
+    assert f"attempt 1 of {attempts}" in retries[0].getMessage()
+
+
+def test_a_replayed_api_call_is_logged(
+    sleeps: list[float], caplog: pytest.LogCaptureFixture
+) -> None:
+    calls, handler = counting(
+        lambda _request, n: html(503) if n == 1 else httpx.Response(200, json=payloads.BOOK_LIST)
+    )
+
+    with make_client(handler) as client:
+        client.list_books()
+
+    [retry] = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert f"GET {BASE_URL}/v1/books: attempt 1 of {ATTEMPTS} failed" in retry
+    assert "HTTP 503" in retry
