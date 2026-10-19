@@ -117,3 +117,7 @@ class RetryPolicy:
         if not retryable or attempt >= self.max_attempts:
             return None
         return self.delay(attempt)
+
+
+# A part upload replays only its own bytes, and a long-haul link to the bucket can stall for minutes.
+UPLOAD_PART_RETRY = RetryPolicy(max_attempts=6, backoff_cap=30.0)

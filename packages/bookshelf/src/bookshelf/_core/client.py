@@ -5,6 +5,7 @@ The httpx transport is created lazily on first use, and the client is long-lived
 The client is designed to be reused across multiple operations so the transport is kept open while in scope.
 """
 
+import logging
 import threading
 import time
 from collections.abc import Mapping, Sequence
@@ -30,6 +31,8 @@ from bookshelf._generated import models
 
 _USER_AGENT = "bookshelf-python"
 
+logger = logging.getLogger(__name__)
+
 # A host that is down or blackholed fails here first, so this caps how long it takes to say so.
 _CONNECT_TIMEOUT = 10.0
 
@@ -39,12 +42,26 @@ def _public_url(url: httpx.URL) -> str:
     return str(url.copy_with(query=None, fragment=None))
 
 
-def _transport_error(request: httpx.Request, exc: httpx.TransportError) -> TransportError:
-    reason = str(exc) or type(exc).__name__
-    read_timeout = request.extensions.get("timeout", {}).get("read")
-    if isinstance(exc, httpx.ReadTimeout) and read_timeout is not None:
-        reason = f"no response within {read_timeout:g}s"
-    return TransportError(f"{request.method} {_public_url(request.url)} failed: {reason}")
+def _failure_reason(request: httpx.Request, exc: httpx.TransportError) -> str:
+    timeouts = request.extensions.get("timeout", {})
+    if isinstance(exc, httpx.ReadTimeout) and timeouts.get("read") is not None:
+        return f"no response within {timeouts['read']:g}s"
+    if isinstance(exc, httpx.WriteTimeout) and timeouts.get("write") is not None:
+        return f"the receiver accepted no bytes for {timeouts['write']:g}s"
+    return str(exc) or type(exc).__name__
+
+
+def _describe(request: httpx.Request) -> str:
+    target = f"{request.method} {_public_url(request.url)}"
+    size = len(request.content)
+    return f"{target} ({size / 1024**2:.1f} MiB body)" if size else target
+
+
+def _transport_error(
+    request: httpx.Request, exc: httpx.TransportError, *, attempts: int = 1
+) -> TransportError:
+    tries = f" after {attempts} attempts" if attempts > 1 else ""
+    return TransportError(f"{_describe(request)} failed{tries}: {_failure_reason(request, exc)}")
 
 
 class BookshelfClient:
@@ -151,10 +168,13 @@ class BookshelfClient:
             method=response.request.method,
         )
 
+    def _policy(self, req: ApiRequest) -> RetryPolicy:
+        return req.retry or self._retry
+
     def _response_retry_delay(
         self, req: ApiRequest, attempt: int, response: httpx.Response
     ) -> float | None:
-        return self._retry.retry_after_response(
+        return self._policy(req).retry_after_response(
             req.method,
             attempt,
             response.status_code,
@@ -169,7 +189,7 @@ class BookshelfClient:
             # The attempt already waited out the whole timeout, so a replay only multiplies the wait.
             return None
         # A refused connection proves no bytes reached the server, unlike a read or write timeout.
-        return self._retry.retry_after_transport_error(
+        return self._policy(req).retry_after_transport_error(
             req.method,
             attempt,
             pre_send=isinstance(exc, httpx.ConnectError),
@@ -189,19 +209,32 @@ class BookshelfClient:
         )
         # A presigned PUT targets object storage: never forward the API credential.
         auth = None if req.unauthenticated else httpx.USE_CLIENT_DEFAULT
+        max_attempts = self._policy(req).max_attempts
         attempt = 0
         while True:
             attempt += 1
+            started = time.monotonic()
             try:
                 response = client.send(request, auth=auth)
             except httpx.TransportError as exc:
                 delay = self._transport_retry_delay(req, attempt, exc)
                 if delay is None:
-                    raise _transport_error(request, exc) from exc
+                    raise _transport_error(request, exc, attempts=attempt) from exc
+                outcome = _failure_reason(request, exc)
             else:
                 delay = self._response_retry_delay(req, attempt, response)
                 if delay is None:
                     return self._api_response(response)
+                outcome = f"HTTP {response.status_code}"
+            logger.warning(
+                "%s: attempt %d of %d failed after %.1fs (%s), retrying in %.1fs",
+                _describe(request),
+                attempt,
+                max_attempts,
+                time.monotonic() - started,
+                outcome,
+                delay,
+            )
             time.sleep(delay)
 
     def stream_url_to_path(self, url: str, destination: Path) -> None:

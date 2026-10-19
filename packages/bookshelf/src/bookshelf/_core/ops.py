@@ -19,6 +19,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from bookshelf._core import errors
+from bookshelf._core.retry import UPLOAD_PART_RETRY
 from bookshelf._core.types import (
     ACCEPT_BY_FORMAT,
     FORMAT_BY_MEDIA_TYPE,
@@ -627,6 +628,7 @@ def build_put_presigned(url: str, content: bytes, *, content_type: str | None = 
         absolute_url=url,
         headers=headers,
         content=content,
+        retry=UPLOAD_PART_RETRY,
     )
 
 

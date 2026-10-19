@@ -8,6 +8,8 @@ as an :class:`ApiResponse` for the matching ``parse_*`` function.
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from bookshelf._core.retry import RetryPolicy
+
 DataFormat = Literal["json", "csv", "parquet"]
 
 ACCEPT_BY_FORMAT: dict[DataFormat, str] = {
@@ -38,6 +40,8 @@ class ApiRequest:
     absolute_url: str | None = None
     expensive: bool = False
     """The server may do heavy work for this request, so it is never replayed after a failure there."""
+    retry: RetryPolicy | None = None
+    """Replaces the client's retry policy for this request."""
 
     @property
     def target(self) -> str:
