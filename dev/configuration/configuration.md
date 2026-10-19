@@ -46,14 +46,16 @@ See [where credentials are stored](authentication.md#where-credentials-are-store
 Downloaded resources are cached by content hash, so a repeated read costs no download.
 The converters, `fetch()`, `download()` and `as_path()` all read through the same cache.
 An external pointer is selected by the platform, because it has no cached file.
-Cached content never expires, and the oldest entries are removed once the cache passes 5 GiB.
+Cached content never expires, and the oldest entries are removed once the cache passes its size cap.
 
 | Variable                   | Effect                                                                                              |
 | -------------------------- | --------------------------------------------------------------------------------------------------- |
 | `BOOKSHELF_CACHE_DIR`      | Moves the local content cache. `BOOKSHELF_CACHE_LOCATION` is a deprecated alias, removed in 2.0.    |
 | `BOOKSHELF_CACHE_BOOK_TTL` | Seconds a remembered pinned edition is trusted before it is checked again. The default is one hour. |
+| `BOOKSHELF_CACHE_MAX_SIZE` | The size cap, such as `20GiB`, `500MB` or a number of bytes. The default is 5 GiB.                  |
 
-`book_ttl=` on `Bookshelf` overrides `BOOKSHELF_CACHE_BOOK_TTL` for one client.
+`book_ttl=` on `Bookshelf` overrides `BOOKSHELF_CACHE_BOOK_TTL` for one client,
+and `max_bytes=` on `ContentCache` overrides `BOOKSHELF_CACHE_MAX_SIZE`.
 The check also refreshes the edition's metadata and visibility, so `book_ttl=0` always reads them live.
 `book(..., refresh=True)` skips the remembered edition and fetches it and its entries afresh.
 `bookshelf cache` inspects and clears the cache.
