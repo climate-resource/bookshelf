@@ -258,10 +258,8 @@ class BookshelfClient:
         req = ops.build_get_url(url)
         written = 0
         attempt = 0
-        attempts = 0
         while True:
             attempt += 1
-            attempts += 1
             headers = {"range": f"bytes={written}-"} if written else None
             request = self._http_client.build_request(req.method, url, headers=headers)
             started, before = time.monotonic(), written
@@ -289,7 +287,7 @@ class BookshelfClient:
                 finally:
                     response.close()
             except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
-                raise _transport_error(request, exc, attempts=attempts) from exc
+                raise _transport_error(request, exc, attempts=attempt) from exc
             except httpx.TransportError as exc:
                 if written > before:
                     attempt = 1
@@ -297,12 +295,12 @@ class BookshelfClient:
                     req.method, attempt, pre_send=False
                 )
                 if delay is None:
-                    raise _transport_error(request, exc, attempts=attempts) from exc
+                    raise _transport_error(request, exc, attempts=attempt) from exc
                 outcome = f"{_failure_reason(request, exc)} at {written / 1024**2:.1f} MiB"
             logger.warning(
                 "%s: attempt %d failed after %.1fs (%s), retrying in %.1fs",
                 _describe(request),
-                attempts,
+                attempt,
                 time.monotonic() - started,
                 outcome,
                 delay,
