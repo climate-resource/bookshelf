@@ -21,6 +21,15 @@ of rst and use slightly different categories.
 
 <!-- towncrier release notes start -->
 
+## bookshelf v1.1.4 (2026-10-19)
+
+### Bug Fixes
+
+- Uploads now retry a stalled part up to six times with longer waits, and log a warning on the `bookshelf` logger for every retry.
+
+  When an upload still fails, the error now names the body size, the number of attempts and whether the connection stopped accepting bytes. ([#321](https://github.com/climate-resource/bookshelf/pull/321))
+
+
 ## bookshelf v1.1.3 (2026-10-15)
 
 ### Features
